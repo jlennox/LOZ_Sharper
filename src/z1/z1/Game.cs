@@ -2,11 +2,12 @@
 
 namespace z1;
 
-internal enum Direction { None = 0, Right = 1, Left = 2, Down = 4, Up = 8, Mask = 0x0F }
+internal enum Direction { None = 0, Right = 1, Left = 2, Down = 4, Up = 8, Mask = 0x0F, FullMask = 0xFF }
 
 internal sealed class Game
 {
     const float AspectRatio = 16 / 9;
+    const int MaxProjectiles = 11;
 
     public static readonly SKColor[][] Palettes = z1.Palettes.GetPalettes();
 
@@ -17,6 +18,13 @@ internal sealed class Game
 
     private SKSurface? _surface;
     public readonly List<Actor> _actors = new();
+    public readonly List<Projectile> _projectiles = new();
+
+    // Use rect?
+    public int MarginTop => 0x5D;
+    public int MarginBottom => 0xCD;
+    public int MarginLeft => 0x20;
+    public int MarginRight => 0xD0;
 
     public SKSurface Surface => _surface ?? throw new InvalidOperationException("Surface not set");
 
@@ -24,6 +32,22 @@ internal sealed class Game
     {
         ChaseTarget = Link;
         _actors.Add(Link);
+    }
+
+    // TODO:
+    public Actor GetObserverPlayer => Link;
+
+    public Direction GetXDirToPlayer(int x)
+    {
+        var playerPos = GetObserverPlayer.Position;
+        return playerPos.X < x ? Direction.Left : Direction.Right;
+    }
+
+
+    public Direction GetYDirToPlayer(int y)
+    {
+        var playerPos = GetObserverPlayer.Position;
+        return playerPos.Y < y ? Direction.Up : Direction.Down;
     }
 
     public void SetKeys(Keys keys) => KeyCode = keys;
@@ -36,6 +60,13 @@ internal sealed class Game
         Link.Move(this);
         foreach (var actor in _actors) actor.Tick(this);
         foreach (var actor in _actors) actor.Draw(this, _surface!.Canvas);
+    }
+
+    public bool AddProjectile(Projectile projectile)
+    {
+        if (_projectiles.Count >= MaxProjectiles) return false;
+        _projectiles.Add(projectile);
+        return true;
     }
 
     public void UpdateScreenSize(SKSurface surface, SKImageInfo info)

@@ -60,7 +60,7 @@ internal class Link : Actor
     public void DoMove(Direction dir, int amount)
     {
         Dir = dir;
-        Position += new SizeF(dir switch
+        Position += new Size(dir switch
         {
             Direction.Left => -amount,
             Direction.Right => amount,

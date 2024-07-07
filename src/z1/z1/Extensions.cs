@@ -20,7 +20,6 @@ internal unsafe static class Extensions
         return mirroredBitmap;
     }
 
-
     public static SKBitmap Flip(this SKBitmap bitmap)
     {
         var mirroredBitmap = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -107,12 +106,11 @@ internal unsafe static class Extensions
     {
         var locked = bitmap.Lock();
         var pixels = locked.Pixels;
-        for (int i = 0; i < locked.Length; i++)
+        for (var px = pixels; px < locked.End; ++px)
         {
-            var pixel = &locked.Pixels[i];
-            if (*pixel == mask)
+            if (*px == mask)
             {
-                *pixel = SKColors.Transparent;
+                *px = SKColors.Transparent;
             }
         }
 
@@ -128,4 +126,37 @@ internal unsafe static class Extensions
             data.SaveTo(outputStream);
         }
     }
+
+    public static bool IsHorizontal(this Direction direction, Direction? mask = null)
+    {
+        return (direction & Direction.FullMask) is Direction.Left or Direction.Right;
+    }
+
+    public static bool IsVertical(this Direction direction, Direction mask = Direction.FullMask)
+    {
+        return (direction & Direction.FullMask) is Direction.Up or Direction.Down;
+    }
+
+    public static bool IsGrowing(this Direction direction) => direction is Direction.Right or Direction.Down;
+    public static int GetOrdinal(this Direction direction)
+    {
+        // [sic] ORIGINAL: the original game goes in the opposite order.
+        var dir = (int)direction;
+        for (int i = 0; i < 4; i++)
+        {
+            if ((dir & 1) != 0)
+                return i;
+            dir = dir >> 1;
+        }
+
+        return 0;
+    }
+
+    public static Direction GetOrdDirection(this int ord)
+    {
+        // [sic] ORIGINAL: the original game goes in the opposite order.
+        return (Direction)(1 << ord);
+    }
+
+    public static byte GetByte(this Random random) => (byte)random.Next(256);
 }

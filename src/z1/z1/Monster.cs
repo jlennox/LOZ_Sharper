@@ -2,11 +2,11 @@
 
 namespace z1;
 
-internal abstract class ShootingType
+internal abstract class Projectile
 {
 }
 
-internal sealed class FlyingRockShootingType : ShootingType
+internal sealed class FlyingRockProjectile : Projectile
 {
 }
 
@@ -18,54 +18,408 @@ internal abstract class Monster : Actor
     protected abstract MonsterSprites MonsterSprites { get; }
     protected abstract int AnimationTime { get; }
     protected abstract int Speed { get; }
-    protected abstract ShootingType? ShotType { get; }
+    protected abstract bool HasProjectile { get; }
+    protected abstract bool IsBlue { get; }
 
-    protected static SKBitmap SpriteFromIndex(int y, int index) => Sprites.FromSheet(Sprites.BadguysOverworld, 8 + index * 17, y);
+    protected int CurrentSpeed;
+    protected int ShootTimer = 0;
+    protected bool WantToShoot = false;
+    protected int InvincibilityTimer = 0;
+
+    protected bool IsStunned => false;
+
+    protected static SKBitmap SpriteFromIndex(int index, int y) => Sprites.FromSheet(Sprites.BadguysOverworld, 8 + index * 17, y);
+
+    public Monster()
+    {
+        CurrentSpeed = Speed;
+    }
+
+    protected void TryShooting()
+    {
+        if (!HasProjectile) return;
+
+        if (IsBlue || ShootTimer != 0 || Random.Shared.Next(0xFF) >= 0xF8)
+        {
+            if (InvincibilityTimer > 0)
+            {
+                ShootTimer = 0;
+            }
+            else
+            {
+                if (ShootTimer > 0)
+                {
+                    ShootTimer--;
+                }
+                else if (WantToShoot)
+                {
+                    ShootTimer = 0x30;
+                }
+            }
+        }
+
+        if (ShootTimer == 0)
+        {
+            CurrentSpeed = Speed;
+            return;
+        }
+
+        if (ShootTimer != 0x10 || IsStunned)
+        {
+            CurrentSpeed = 0;
+            return;
+        }
+
+        if (WantToShoot && Game.AddProjectile(CreateProjectile()))
+        {
+            CurrentSpeed = 0;
+            WantToShoot = false;
+        }
+        else
+        {
+            CurrentSpeed = Speed;
+        }
+    }
+
+    protected Direction ShoveDirection = Direction.None;
+    protected Direction Facing = Direction.None;
+    protected byte ShoveDistance = 0;
+    protected byte TileOffset = 0;
+    protected byte Moving;
+    protected byte Fraction;
+
+    protected void Move(int speed)
+    {
+        if (ShoveDirection != Direction.None)
+        {
+            Shove();
+            return;
+        }
+
+        var dir = Direction.None;
+
+        if (IsStunned)
+            return;
+
+        if (Moving != 0)
+        {
+            int dirOrd = ((Direction)Moving).GetOrdinal();
+            dir = dirOrd.GetOrdDirection();
+        }
+
+        dir = dir & Direction.Mask;
+
+        // Original: [$E] := 0
+        // Maybe it's only done to set up the call to FindUnblockedDir in CheckTileCollision?
+
+        dir = CheckWorldMargin(dir);
+        // TODO: dir = CheckTileCollision(dir);
+
+        MoveDir(speed, dir);
+    }
+
+    protected void MoveDir(int speed, Direction dir)
+    {
+        int align = 0x10;
+
+        if (IsPlayer)
+            align = 8;
+
+        MoveWhole(speed, dir, align);
+    }
+
+    void MoveWhole(int speed, Direction dir, int align)
+    {
+        if (dir == Direction.None)
+            return;
+
+        MoveFourth(speed, dir, align);
+        MoveFourth(speed, dir, align);
+        MoveFourth(speed, dir, align);
+        MoveFourth(speed, dir, align);
+    }
+
+    void MoveFourth(int speed, Direction dir, int align)
+    {
+        int frac = Fraction;
+
+        if (dir == Direction.Down || dir == Direction.Right)
+        {
+            frac += speed;
+        }
+        else
+        {
+            frac -= speed;
+        }
+
+        int carry = frac >> 8;
+        Fraction = (byte)(frac & 0xFF);
+
+        if ((TileOffset != align) && (TileOffset != -align))
+        {
+            TileOffset += (byte)carry;
+            Position += dir.IsHorizontal() ? new Size(carry, 0) : new Size(0, carry);
+        }
+    }
+
+    protected void Shove()
+    {
+        if ((ShoveDirection & (Direction)0x80) == 0)
+        {
+            if (ShoveDistance != 0)
+            {
+                MoveShoveWhole();
+            }
+            else
+            {
+                ShoveDirection = 0;
+                ShoveDistance = 0;
+            }
+        }
+        else
+        {
+            ShoveDirection ^= (Direction)0x80;
+
+            var shoveHoriz = ShoveDirection.IsHorizontal(Direction.Mask);
+            var facingHoriz = Facing.IsHorizontal();
+
+            if ((shoveHoriz != facingHoriz) && (TileOffset != 0) && !IsPlayer)
+            {
+                ShoveDirection = 0;
+                ShoveDistance = 0;
+            }
+        }
+    }
+
+    protected void MoveShoveWhole()
+    {
+        var cleanDir = ShoveDirection & Direction.Mask;
+
+        for (int i = 0; i < 4; i++)
+        {
+            if (TileOffset == 0)
+            {
+                Position = new Point(Position.X & 0xF8, (Position.Y & 0xF8) | 5);
+
+                // TODO:
+                // if (World::CollidesWithTileMoving(objX, objY, cleanDir, IsPlayer))
+                // {
+                //     shoveDir = 0;
+                //     shoveDistance = 0;
+                //     return;
+                // }
+            }
+
+            if (CheckWorldMargin(cleanDir) == Direction.None || StopAtPersonWallUW(cleanDir) == Direction.None)
+            {
+                ShoveDirection = 0;
+                ShoveDistance = 0;
+                return;
+            }
+
+            var distance = cleanDir.IsGrowing() ? 1 : -1;
+
+            ShoveDistance--;
+            TileOffset += (byte)distance;
+
+            if ((TileOffset & 0xF) == 0)
+            {
+                TileOffset &= 0xF;
+            }
+            else if (IsPlayer && (TileOffset & 7) == 0)
+            {
+                TileOffset &= 7;
+            }
+
+            Position += cleanDir.IsHorizontal() ? new Size(distance, 0) : new Size(0, distance);
+        }
+    }
+
+    protected Direction CheckWorldMarginH(int x, Direction dir, bool adjust)
+    {
+        Direction curDir = Direction.Left;
+
+        if (adjust)
+            x += 0xB;
+
+        if (x > Game.MarginLeft)
+        {
+            if (adjust)
+                x -= 0x17;
+
+            curDir = Direction.Right;
+
+            if (x < Game.MarginRight)
+                return dir;
+        }
+
+        if ((dir & curDir) != 0)
+            return Direction.None;
+
+        return dir;
+    }
+
+    protected Direction CheckWorldMarginV(int y, Direction dir, bool adjust)
+    {
+        var curDir = Direction.Up;
+
+        if (adjust)
+            y += 0xF;
+
+        if (y > Game.MarginTop)
+        {
+            if (adjust)
+                y -= 0x21;
+
+            curDir = Direction.Down;
+
+            if (y < Game.MarginBottom)
+                return dir;
+        }
+
+        if ((dir & curDir) != 0)
+            return Direction.None;
+
+        return dir;
+    }
+
+    Direction CheckWorldMargin(Direction dir)
+    {
+        // TODO:
+        // int slot = World::GetCurrentObjectSlot();
+        // bool adjust = (slot > BufferSlot) || (GetType() == Obj_Ladder);
+        //
+        // // ORIGINAL: This isn't needed, because the player is first (slot=0).
+        // if (slot >= PlayerSlot)
+        //     adjust = false;
+
+        var adjust = false;
+        dir = CheckWorldMarginH(Position.X, dir, adjust);
+        return CheckWorldMarginV(Position.Y, dir, adjust);
+    }
+
+
+    Direction StopAtPersonWall(Direction dir)
+    {
+        if (Position.Y < 0x8E && (dir & Direction.Up) != 0)
+        {
+            return Direction.None;
+        }
+
+        return dir;
+    }
+
+    Direction StopAtPersonWallUW(Direction dir)
+    {
+        // ($6E46) if first object is grumble or person, block movement up above $8E.
+
+        // TODO:
+        // Object* firstObj = World::GetObject(MonsterSlot1);
+        //
+        // if (firstObj != nullptr)
+        // {
+        //     ObjType type = firstObj->GetType();
+        //     if (type == Obj_Grumble
+        //         || (type >= Obj_Person1 && type < Obj_Person_End))
+        //     {
+        //         return StopAtPersonWall(dir);
+        //     }
+        // }
+
+        return dir;
+    }
+
+    protected virtual Projectile CreateProjectile() => throw new NotImplementedException();
 }
 
-internal readonly struct MonsterSprites
+internal abstract class WandererMonster : Monster
 {
-    public readonly Palette PaletteA;
-    public readonly Palette PaletteB;
-    public readonly SKBitmap[] Left;
-    public readonly SKBitmap[] Right;
-    public readonly SKBitmap[] Up;
-    public readonly SKBitmap[] Down;
+    protected byte TurnTimer;
+    protected byte TurnRate;
 
-    private MonsterSprites(Palette paletteA, Palette paletteB)
+    public override void Tick(Game game)
     {
-        PaletteA = paletteA;
-        PaletteB = paletteB;
+        // animator.Advance();
+        Move();
+        TryShooting();
+        // TODO: CheckCollisions();
     }
 
-    public MonsterSprites(Palette paletteA, Palette paletteB, SKBitmap[] left, SKBitmap[] down) : this(paletteA, paletteB)
+    protected void Move()
     {
-        Left = left;
-        Right = left.Mirror();
-        Up = down.Flip();
-        Down = down;
+        Move(CurrentSpeed);
+        TargetPlayer();
     }
 
-    public MonsterSprites(Palette paletteA, Palette paletteB, SKBitmap[] left, SKBitmap[] down, SKBitmap[] up) : this(paletteA, paletteB)
+    void TargetPlayer()
     {
-        Left = left;
-        Right = left.Mirror();
-        Up = up;
-        Down = down;
+        if (TurnTimer > 0)
+            TurnTimer--;
+
+        if (ShoveDirection != 0)
+            return;
+
+        if (CurrentSpeed == 0 || (TileOffset & 0xF) != 0)
+        {
+            Moving = (byte)Facing;
+            return;
+        }
+
+        TileOffset &= 0xF;
+
+        int r = Random.Shared.Next(255);
+
+        // ORIGINAL: If (r > turnRate) or (player.state = $FF), then ...
+        //           But, I don't see how the player can get in that state.
+
+        if (r > TurnRate)
+        {
+            TurnIfTime();
+        }
+        else
+        {
+            var playerPos = Game.GetObserverPlayer.Position;
+
+            if (Math.Abs(Position.X - playerPos.X) < 9)
+                TurnY();
+            else if (Math.Abs(Position.Y - playerPos.Y) < 9)
+                TurnX();
+            else
+                TurnIfTime();
+        }
+
+        Moving = (byte)Facing;
     }
 
-    public MonsterSprites(Palette paletteA, Palette paletteB, SKBitmap[] left, SKBitmap[] right, SKBitmap[] down, SKBitmap[] up) : this(paletteA, paletteB)
+    void TurnIfTime()
     {
-        Left = left;
-        Right = right;
-        Up = up;
-        Down = down;
+        WantToShoot = false;
+
+        if (TurnTimer != 0)
+            return;
+
+        if (Facing.IsVertical())
+            TurnX();
+        else
+            TurnY();
     }
 
-    // public SKBitmap AsPaletteB(SKBitmap bitmap) => bitmap.ChangePalette(PaletteA, PaletteB);
+    void TurnX()
+    {
+        Facing = Game.GetXDirToPlayer(Position.X);
+        TurnTimer = Random.Shared.GetByte();
+        WantToShoot = true;
+    }
+
+    void TurnY()
+    {
+        Facing = Game.GetYDirToPlayer(Position.X);
+        TurnTimer = Random.Shared.GetByte();
+        WantToShoot = true;
+    }
 }
 
-internal sealed class Octorok : Monster
+internal sealed class Octorok : WandererMonster
 {
     private static class Images
     {
@@ -84,152 +438,22 @@ internal sealed class Octorok : Monster
     protected override MonsterSprites  MonsterSprites => new(Palette.Red, Palette.Blue, Images.Left, Images.Down);
     protected override int AnimationTime => 12;
     protected override int Speed => StandardSpeed;
-    protected override ShootingType? ShotType => new FlyingRockShootingType();
+    protected override bool HasProjectile => true;
 
-    public bool IsBlue { get; }
+    protected override bool IsBlue => false;
 
-    private int TurnTimer = 0;
-    private int ShoveDir = 0;
-    private Direction InputDir = 0;
-    private int InvClock = 0;
-    private int StunTimer = 0;
-    private int GridOffset = 0;
-    private int QSpeedFrac = 0;
-    private int State = 0;
-    private const int TurnRate = 0x41;
-
-    public Octorok(bool isBlue = false)
+    public Octorok()
     {
         var image = Images.Left[0];
         Size = new SizeF(image.Width, image.Height);
-        IsBlue = isBlue;
     }
 
-    public override void Tick(Game game)
+    protected override Projectile CreateProjectile()
     {
-        var turnRate = IsBlue ? 0xA0 : 0x70;
-
-        Wanderer_TargetPlayer(game);
-
-        var speed = 0x20 * (IsBlue ? 2 : 1);
-    }
-
-    private void Wanderer_TargetPlayer(Game game)
-    {
-        // If turn timer != 0, then decrement it.
-        if (TurnTimer != 0) TurnTimer--;
-
-        Walker_Move();
-
-        if (ShoveDir == 0)
-        {
-            // If speed = 0, or the object is between squares;
-            // then go set input direction to facing direction.
-            if (QSpeedFrac == 0 || (GridOffset & 0x0F) != 0)
-            {
-                // TODO SetInputDir();
-            }
-
-            // Set truncated grid offset.
-            GridOffset &= 0xF0;
-
-            // If turn rate < a random value, or Link's state = 0xFF;
-            // then go turn if turn timer has expired.
-            // TODO if (TurnRate < Random1 || State == 0xFF)
-            // TODO {
-            // TODO     TurnIfTime();
-            // TODO }
-
-            // Get the absolute horizontal distance between
-            // the monster and the chase target.
-            int distance = (int)Math.Abs(game.ChaseTarget.Position.X - Position.X);
-
-            // If distance >= 9, then go check the vertical distance.
-            if (distance >= 9)
-            {
-                // TODO CheckVerticalDistance();
-            }
-        }
-    }
-
-    private void Walker_Move()
-    {
-        if (ShoveDir != 0)
-        {
-            Obj_Shove();
-            return;
-        }
-
-        // Choose object direction or input direction for movement as appropriate.
-        if (GridOffset != 0)
-        {
-            if (InputDir == 0)
-            {
-                Dir = 0;
-            }
-            else
-            {
-                Dir = Dir;
-            }
-        }
-        else
-        {
-            if (InvClock != 0 || StunTimer != 0)
-            {
-                return;
-            }
-
-            if (InputDir == 0)
-            {
-                Dir = 0;
-            }
-            else
-            {
-                Dir = GetOppositeDir(InputDir);
-            }
-        }
-
-        // Mask off everything but directions.
-        Dir &= Direction.Mask;
-
-        // If object is Link and using or catching an item then reset movement direction.
-        // if (Type == ObjType.Type07 && (State & 0xF0) == 0x10 || (State & 0xF0) == 0x20)
-        // {
-        //     Dir = 0;
-        // }
+        return new FlyingRockProjectile();
     }
 
     private static Direction GetOppositeDir(Direction dir) => (Direction)(((int)dir + 2) & 0x03);
-
-    public void Obj_Shove()
-    {
-        // If this is not the first call to this routine for this instance of shoving (high bit is clear),
-        // then go handle it separately.
-        if ((ShoveDir & 0x80) == 0)
-        {
-            // MoveIfNotDone();
-            return;
-        }
-
-        // Clear the high bit, so we don't repeat this initialization.
-        ShoveDir &= 0x7F;
-
-        // If the object faces horizontally, go check which axis shove direction is on.
-        if ((int)Dir < 0x03)
-        {
-            // FacingHorizontally();
-            return;
-        }
-
-        // The object faces vertically.
-        // If the shove direction is vertical, return. We're OK to shove.
-        if ((ShoveDir & 0x03) == 0)
-        {
-            return;
-        }
-
-        // Exit();
-    }
 
     public override void Draw(Game game, SKCanvas canvas)
     {
