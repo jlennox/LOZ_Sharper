@@ -21,6 +21,5 @@ internal class Assets
     }
 
     public string GetPath(params string[] path) => Path.Combine(_base, Path.Combine(path));
-    public SKBitmap GetSKImage(params string[] path) => SKBitmap.Decode(GetPath(path));
     public SKBitmap GetSKBitmap(params string[] path) => SKBitmap.Decode(GetPath(path));
 }

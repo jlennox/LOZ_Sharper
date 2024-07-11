@@ -1,5 +1,4 @@
-﻿using System.Reflection.Metadata.Ecma335;
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace z1;
 
@@ -7,7 +6,7 @@ internal unsafe static class Extensions
 {
     public static SKBitmap Mirror(this SKBitmap bitmap)
     {
-        var mirroredBitmap = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        var mirroredBitmap = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
 
         using (var canvas = new SKCanvas(mirroredBitmap))
         {
@@ -22,7 +21,7 @@ internal unsafe static class Extensions
 
     public static SKBitmap Flip(this SKBitmap bitmap)
     {
-        var mirroredBitmap = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        var mirroredBitmap = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
 
         using (var canvas = new SKCanvas(mirroredBitmap))
         {
@@ -96,7 +95,7 @@ internal unsafe static class Extensions
 
     public static unsafe SKBitmap Extract(this SKBitmap bitmap, int x, int y, int width, int height)
     {
-        var dest = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+        var dest = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
         using var canvas = new SKCanvas(dest);
         canvas.DrawBitmap(bitmap, new SKRect(x, y, x + width, y + height), new SKRect(0, 0, width, height));
         return dest.Mask(Sprites.TransparentMask);
@@ -127,17 +126,26 @@ internal unsafe static class Extensions
         }
     }
 
-    public static bool IsHorizontal(this Direction direction, Direction? mask = null)
+    public static void SavePng(this SKCanvas canvas, string path, int quality = 100)
     {
-        return (direction & Direction.FullMask) is Direction.Left or Direction.Right;
+        canvas.GetDeviceClipBounds(out var rect);
+        using var bitmap = new SKBitmap(rect.Width, rect.Height);
+        bitmap.SavePng(path, quality);
+    }
+
+    public static bool IsHorizontal(this Direction direction, Direction mask = Direction.FullMask)
+    {
+        return (direction & mask) is Direction.Left or Direction.Right;
     }
 
     public static bool IsVertical(this Direction direction, Direction mask = Direction.FullMask)
     {
-        return (direction & Direction.FullMask) is Direction.Up or Direction.Down;
+        return (direction & mask) is Direction.Up or Direction.Down;
     }
 
+    // Does X/Y increase in this direction?
     public static bool IsGrowing(this Direction direction) => direction is Direction.Right or Direction.Down;
+
     public static int GetOrdinal(this Direction direction)
     {
         // [sic] ORIGINAL: the original game goes in the opposite order.
@@ -146,10 +154,21 @@ internal unsafe static class Extensions
         {
             if ((dir & 1) != 0)
                 return i;
-            dir = dir >> 1;
+            dir >>= 1;
         }
 
         return 0;
+    }
+
+    public static Direction GetOppositeDirection(this Direction direction)
+    {
+        return direction switch {
+            Direction.Left => Direction.Right,
+            Direction.Right => Direction.Left,
+            Direction.Up => Direction.Down,
+            Direction.Down => Direction.Up,
+            _ => Direction.None
+        };
     }
 
     public static Direction GetOrdDirection(this int ord)

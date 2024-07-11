@@ -1,5 +1,5 @@
-using SkiaSharp;
 using SkiaSharp.Views.Desktop;
+using z1.Actors;
 using Timer = System.Windows.Forms.Timer;
 
 namespace z1;
@@ -13,22 +13,27 @@ public partial class Form1 : Form
     public Form1()
     {
         InitializeComponent();
-        _skControl = new SKControl();
-        _skControl.Dock = DockStyle.Fill;
+
+        _skControl = new() { Dock = DockStyle.Fill };
         _skControl.PaintSurface += OnPaintSurface;
         Controls.Add(_skControl);
 
-        _timer.Interval = 16; // Approximately 60fps
+        _timer.Interval = 16;
         _timer.Tick += Timer_Tick;
         _timer.Start();
 
         KeyPreview = true;
         KeyUp += Form1_KeyUp;
-        KeyDown += new KeyEventHandler(Form1_KeyDown);
-        _skControl.KeyUp += new KeyEventHandler(Form1_KeyUp);
-        _skControl.KeyDown += new KeyEventHandler(Form1_KeyDown);
+        KeyDown += Form1_KeyDown;
+        _skControl.KeyUp += Form1_KeyUp;
+        _skControl.KeyDown += Form1_KeyDown;
 
-        _game._actors.Add(new Octorok());
+        for (var i = 0; i < 5; ++i)
+        {
+            var x = Random.Shared.Next(0, 50);
+            var y = Random.Shared.Next(0, 50);
+            _game._actors.Add(new OctorokActor(_game, ActorColor.Red, false, x, y));
+        }
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -57,7 +62,7 @@ public partial class Form1 : Form
         _skControl.Invalidate();
     }
 
-    private void OnPaintSurface(object sender, SKPaintSurfaceEventArgs e)
+    private void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
         _game.UpdateScreenSize(e.Surface, e.Info);
         _game.UpdateActors();

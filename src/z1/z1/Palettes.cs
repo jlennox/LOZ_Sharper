@@ -4,11 +4,27 @@ namespace z1;
 
 internal enum Palette
 {
-    Red = 6, Blue = 2
+    Red = 6, Blue = 5, Player = 4, Brown = 7, Other = 7,
+    BlueForeground = 9999,
+    LevelForeground = 9999,
+    WhiteBgPalette = 0,
+    RedBgPalette = 1,
+    BlueFgPalette = 5,
+    RedFgPalette = 6,
+    LevelFgPalette = 7,
+
+    Mask = 0x7,
+
+    FlashAttr = 0x80,
 }
 
 internal static class Palettes
 {
+    public const int PaletteCount = 8;
+    public const int PaletteLength = 4;
+    public const int ForegroundPalCount = 4;
+    public const int BackgroundPalCount = 4;
+
     public static SKColor[][] Colors = GetPalettes();
 
     public static SKColor[] GetPalette(Palette palette) => Colors[(int)palette];
