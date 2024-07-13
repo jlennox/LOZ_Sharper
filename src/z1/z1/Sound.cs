@@ -75,4 +75,5 @@ internal sealed class Sound
     public void Pause() { }
     public void Unpause() { }
     public void StopAll() { }
+    public void Update() { }
 }

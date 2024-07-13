@@ -2,7 +2,7 @@
 
 internal partial class World
 {
-    static byte[] levelGroups = new byte[] { 0, 0, 1, 1, 0, 1, 0, 1, 2 };
+    private static byte[] levelGroups = new byte[] { 0, 0, 1, 1, 0, 1, 0, 1, 2 };
 
     private readonly record struct EquipValue(byte Value, ItemSlot Slot);
 
@@ -81,7 +81,7 @@ internal partial class World
         new Point(112,  64),
     };
 
-    record struct DoorStateFaces(byte Closed, byte Open);
+    private record struct DoorStateFaces(byte Closed, byte Open);
 
     private static readonly DoorStateFaces[] doorFaces = new[]
     {
@@ -176,7 +176,7 @@ internal partial class World
         NoneTileAction,
     };
 
-    private Action?[] sModeFuncs => new[]
+    private Action?[] sModeFuncs => new Action?[]
     {
         null,
         UpdateGameMenu,
@@ -202,7 +202,7 @@ internal partial class World
         UpdatePlayCave,
     };
 
-    private Action?[] sDrawFuncs => new[]
+    private Action?[] sDrawFuncs => new Action?[]
     {
         null,
         DrawGameMenu,
@@ -228,7 +228,7 @@ internal partial class World
         DrawPlayCave,
     };
 
-    private Action[] sPlayCellarFuncs => new[]
+    private Action[] sPlayCellarFuncs => new Action[]
     {
         UpdatePlayCellar_Start,
         UpdatePlayCellar_FadeOut,
@@ -237,7 +237,7 @@ internal partial class World
         UpdatePlayCellar_Walk,
     };
 
-    private Action[] sPlayCaveFuncs => new[]
+    private Action[] sPlayCaveFuncs => new Action[]
     {
         UpdatePlayCave_Start,
         UpdatePlayCave_Wait,
@@ -245,7 +245,7 @@ internal partial class World
         UpdatePlayCave_Walk,
     };
 
-    private Action[] sEndLevelFuncs => new[]
+    private Action[] sEndLevelFuncs => new Action[]
     {
         UpdateEndLevel_Start,
         UpdateEndLevel_Wait,
@@ -256,7 +256,7 @@ internal partial class World
         UpdateEndLevel_Wait,
     };
 
-    private Action[] sWinGameFuncs => new[]
+    private Action[] sWinGameFuncs => new Action[]
     {
         UpdateWinGame_Start,
         UpdateWinGame_Text1,
@@ -270,7 +270,7 @@ internal partial class World
         UpdateWinGame_Credits,
     };
 
-    private Action[] sScrollFuncs => new[]
+    private Action[] sScrollFuncs => new Action[]
     {
         UpdateScroll_Start,
         UpdateScroll_AnimatingColors,
@@ -279,7 +279,7 @@ internal partial class World
         UpdateScroll_Scroll,
     };
 
-    private Action[] sDeathFuncs => new[]
+    private Action[] sDeathFuncs => new Action[]
     {
         UpdateDie_Start,
         UpdateDie_Flash,
@@ -292,7 +292,7 @@ internal partial class World
         UpdateDie_GameOver,
     };
 
-    private Action[] sLeaveCellarFuncs => new[]
+    private Action[] sLeaveCellarFuncs => new Action[]
     {
         UpdateLeaveCellar_Start,
         UpdateLeaveCellar_FadeOut,
@@ -303,7 +303,7 @@ internal partial class World
         UpdateLeaveCellar_LoadOverworldRoom,
     };
 
-    private Action[] sEnterFuncs => new[]
+    private Action[] sEnterFuncs => new Action[]
     {
         UpdateEnter_Start,
         UpdateEnter_Wait,

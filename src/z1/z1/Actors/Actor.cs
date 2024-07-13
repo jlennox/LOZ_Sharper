@@ -1,4 +1,6 @@
-﻿namespace z1.Actors;
+﻿using System.Diagnostics;
+
+namespace z1.Actors;
 
 [Flags]
 internal enum ActorFlags { None = 0, DrawAbovePlayer = 1 }
@@ -29,20 +31,42 @@ internal enum ActorAttributes
 internal abstract class Actor
 {
     public Game Game { get; }
+    public Point Position
+    {
+        get => new(_x, _y);
+        set
+        {
+            X = value.X;
+            Y = value.Y;
+        }
+    }
 
-    public Point Position { get; set; }
-    public Size Size { get; set; }
-    public Direction Dir = Direction.Left;
+    private int _x;
+    private int _y;
 
-    public Rectangle Rect => new(Position, Size);
     public int X {
         get => Position.X;
-        set => Position += new Size(value, 0);
+        set
+        {
+            if (this is Link && value != _x)
+            {
+                Debug.Print($"X: {Position.X} + {value}");
+            }
+
+            _x = value;
+        }
     }
     public int Y
     {
         get => Position.Y;
-        set => Position += new Size(0, value);
+        set {
+            if (this is Link && value != _y)
+            {
+                Debug.Print($"Y: {Position.Y} + {value}");
+            }
+
+            _y = value;
+        }
     }
 
     public bool IsDeleted;
@@ -61,9 +85,9 @@ internal abstract class Actor
     protected byte StunTimer;
     public ActorFlags Flags;
 
-    public ObjType ObjType => throw new Exception(); // TODO
+    public ObjType ObjType { get; set; }
 
-    public ObjectAttr Attributes;
+    public ObjectAttr Attributes => Game.World.GetObjectAttrs(ObjType);
 
     protected bool IsStunned => _isStunned();
     protected bool IsParalyzed { get; set; }
@@ -75,8 +99,11 @@ internal abstract class Actor
     {
         Game = game;
         Position = new(x, y);
+    }
 
-        Attributes = game.World.GetObjectAttrs(ObjType);
+    public Actor(Game game, ObjType type, int x = 0, int y = 0) : this(game, x, y)
+    {
+        ObjType = type;
     }
 
     public abstract void Update();
@@ -87,85 +114,83 @@ internal abstract class Actor
     public virtual bool CountsAsLiving => true;
     public virtual bool CanHoldRoomItem => false;
     public virtual bool IsReoccuring => true;
-    public bool IsRoomItem { get; set; }
     public virtual bool IsUnderworldPerson => true;
+    public virtual bool IsAttrackedToMeat => false;
 
     public static Actor FromType(ObjType type, Game game, int x, int y, bool isRoomItem)
     {
         return type switch {
-            ObjType.BlueLynel => new LynelActor(game, ActorColor.Blue, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedLynel => new LynelActor(game, ActorColor.Red, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueMoblin => new MoblinActor(game, ActorColor.Blue, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedMoblin => new MoblinActor(game, ActorColor.Red, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueGoriya => new GoriyaActor(game, ActorColor.Blue, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedGoriya => new GoriyaActor(game, ActorColor.Red, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedSlowOctorock => new OctorokActor(game, ActorColor.Red, false, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedFastOctorock => new OctorokActor(game, ActorColor.Red, true, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueSlowOctorock => new OctorokActor(game, ActorColor.Blue, false, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueFastOctorock => new OctorokActor(game, ActorColor.Blue, true, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedDarknut => new RedDarknutActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueDarknut => new BlueDarknutActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueTektite => new TektiteActor(game, ActorColor.Blue, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedTektite => new TektiteActor(game, ActorColor.Red, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueLeever => new LeeverActor(game, ActorColor.Blue, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedLeever => new LeeverActor(game, ActorColor.Red, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Zora => new ZoraActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Vire => new VireActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Zol => new ZolActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.ChildGel => new ChildGelActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Gel => new GelActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.PolsVoice => new PolsVoiceActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.LikeLike => new LikeLikeActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.LittleDigdogger => new DigdoggerActor(game, DigdoggerType.Little, x, y) { IsRoomItem = isRoomItem },
-            // ObjType.Unknown1__ => new Unknown1__Actor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Peahat => new PeahatActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueKeese => new KeeseActor(game, ActorColor.Blue, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedKeese => new KeeseActor(game, ActorColor.Red, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlackKeese => new KeeseActor(game, ActorColor.Black, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Armos => new ArmosActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Boulders => new BouldersActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Boulder => new BoulderActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Ghini => new GhiniActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.FlyingGhini => new FlyingGhiniActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueWizzrobe => new WizzrobeActor(game, ActorColor.Blue, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedWizzrobe => new WizzrobeActor(game, ActorColor.Red, x, y) { IsRoomItem = isRoomItem },
-            ObjType.PatraChild1 => new PatraChildActor(game, PatraType.Circle, x, y) { IsRoomItem = isRoomItem },
-            ObjType.PatraChild2 => new PatraChildActor(game, PatraType.Spin, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Wallmaster => new WallmasterActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Rope => new RopeActor(game, x, y) { IsRoomItem = isRoomItem },
-            // ObjType.Unknown5__ => new Unknown5__Actor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Stalfos => new StalfosActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Bubble1 => new Bubble1Actor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Bubble2 => new Bubble2Actor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Bubble3 => new Bubble3Actor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Whirlwind => new WhirlwindActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.PondFairy => new PondFairyActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Gibdo => new GibdoActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.ThreeDodongos => new DodongosActor(game, 3, x, y) { IsRoomItem = isRoomItem },
-            ObjType.OneDodongo => new DodongosActor(game, 1, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueGohma => new BlueGohmaActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedGohma => new RedGohmaActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RupieStash => new RupieStashActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Grumble => new GrumbleActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Zelda => new ZeldaActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Digdogger1 => new DigdoggerActor(game, DigdoggerType.One, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Digdogger2 => new DigdoggerActor(game, DigdoggerType.Two, x, y) { IsRoomItem = isRoomItem },
-            ObjType.RedLamnola => new LamnolaActor(game, ActorColor.Red, x, y) { IsRoomItem = isRoomItem },
-            ObjType.BlueLamnola => new LamnolaActor(game, ActorColor.Blue, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Manhandla => new ManhandlaActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Aquamentus => new AquamentusActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Ganon => new GanonActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.GuardFire => new GuardFireActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.StandingFire => new StandingFireActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Moldorm => new MoldormActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Gleeok1 => new GleeokActor(game, 1, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Gleeok2 => new GleeokActor(game, 2, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Gleeok3 => new GleeokActor(game, 3, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Gleeok4 => new GleeokActor(game, 4, x, y) { IsRoomItem = isRoomItem },
-            ObjType.GleeokHead => new GleeokHeadActor(game, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Patra1 => new PatraActor(game, PatraType.Circle, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Patra2 => new PatraActor(game, PatraType.Spin, x, y) { IsRoomItem = isRoomItem },
-            ObjType.Trap => new TrapActor(game, x, y) { IsRoomItem = isRoomItem },
+            ObjType.BlueLynel => new LynelActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueLynel },
+            ObjType.RedLynel => new LynelActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedLynel },
+            ObjType.BlueMoblin => new MoblinActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueMoblin },
+            ObjType.RedMoblin => new MoblinActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedMoblin },
+            ObjType.BlueGoriya => new GoriyaActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueGoriya },
+            ObjType.RedGoriya => new GoriyaActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedGoriya },
+            ObjType.RedSlowOctorock => new OctorokActor(game, ActorColor.Red, false, x, y) { ObjType = ObjType.RedSlowOctorock },
+            ObjType.RedFastOctorock => new OctorokActor(game, ActorColor.Red, true, x, y) { ObjType = ObjType.RedFastOctorock },
+            ObjType.BlueSlowOctorock => new OctorokActor(game, ActorColor.Blue, false, x, y) { ObjType = ObjType.BlueSlowOctorock },
+            ObjType.BlueFastOctorock => new OctorokActor(game, ActorColor.Blue, true, x, y) { ObjType = ObjType.BlueFastOctorock },
+            ObjType.RedDarknut => new RedDarknutActor(game, x, y) { ObjType = ObjType.RedDarknut },
+            ObjType.BlueDarknut => new BlueDarknutActor(game, x, y) { ObjType = ObjType.BlueDarknut },
+            ObjType.BlueTektite => new TektiteActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueTektite },
+            ObjType.RedTektite => new TektiteActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedTektite },
+            ObjType.BlueLeever => new LeeverActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueLeever },
+            ObjType.RedLeever => new LeeverActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedLeever },
+            ObjType.Zora => new ZoraActor(game, x, y) { ObjType = ObjType.Zora },
+            ObjType.Vire => new VireActor(game, x, y) { ObjType = ObjType.Vire },
+            ObjType.Zol => new ZolActor(game, x, y) { ObjType = ObjType.Zol },
+            ObjType.ChildGel => new ChildGelActor(game, x, y) { ObjType = ObjType.ChildGel },
+            ObjType.Gel => new GelActor(game, x, y) { ObjType = ObjType.Gel },
+            ObjType.PolsVoice => new PolsVoiceActor(game, x, y) { ObjType = ObjType.PolsVoice },
+            ObjType.LikeLike => new LikeLikeActor(game, x, y) { ObjType = ObjType.LikeLike },
+            ObjType.LittleDigdogger => new DigdoggerActor(game, DigdoggerType.Little, x, y) { ObjType = ObjType.LittleDigdogger },
+            ObjType.Peahat => new PeahatActor(game, x, y) { ObjType = ObjType.Peahat },
+            ObjType.BlueKeese => new KeeseActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueKeese },
+            ObjType.RedKeese => new KeeseActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedKeese },
+            ObjType.BlackKeese => new KeeseActor(game, ActorColor.Black, x, y) { ObjType = ObjType.BlackKeese },
+            ObjType.Armos => new ArmosActor(game, x, y) { ObjType = ObjType.Armos },
+            ObjType.Boulders => new BouldersActor(game, x, y) { ObjType = ObjType.Boulders },
+            ObjType.Boulder => new BoulderActor(game, x, y) { ObjType = ObjType.Boulder },
+            ObjType.Ghini => new GhiniActor(game, x, y) { ObjType = ObjType.Ghini },
+            ObjType.FlyingGhini => new FlyingGhiniActor(game, x, y) { ObjType = ObjType.FlyingGhini },
+            ObjType.BlueWizzrobe => new WizzrobeActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueWizzrobe },
+            ObjType.RedWizzrobe => new WizzrobeActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedWizzrobe },
+            ObjType.PatraChild1 => new PatraChildActor(game, PatraType.Circle, x, y) { ObjType = ObjType.PatraChild1 },
+            ObjType.PatraChild2 => new PatraChildActor(game, PatraType.Spin, x, y) { ObjType = ObjType.PatraChild2 },
+            ObjType.Wallmaster => new WallmasterActor(game, x, y) { ObjType = ObjType.Wallmaster },
+            ObjType.Rope => new RopeActor(game, x, y) { ObjType = ObjType.Rope },
+            ObjType.Stalfos => new StalfosActor(game, x, y) { ObjType = ObjType.Stalfos },
+            ObjType.Bubble1 => new Bubble1Actor(game, x, y) { ObjType = ObjType.Bubble1 },
+            ObjType.Bubble2 => new Bubble2Actor(game, x, y) { ObjType = ObjType.Bubble2 },
+            ObjType.Bubble3 => new Bubble3Actor(game, x, y) { ObjType = ObjType.Bubble3 },
+            ObjType.Whirlwind => new WhirlwindActor(game, x, y) { ObjType = ObjType.Whirlwind },
+            ObjType.PondFairy => new PondFairyActor(game, x, y) { ObjType = ObjType.PondFairy },
+            ObjType.Gibdo => new GibdoActor(game, x, y) { ObjType = ObjType.Gibdo },
+            ObjType.ThreeDodongos => new DodongosActor(game, 3, x, y) { ObjType = ObjType.ThreeDodongos },
+            ObjType.OneDodongo => new DodongosActor(game, 1, x, y) { ObjType = ObjType.OneDodongo },
+            ObjType.BlueGohma => new GohmaActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueGohma },
+            ObjType.RedGohma => new GohmaActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedGohma },
+            ObjType.RupieStash => new RupieStashActor(game, x, y) { ObjType = ObjType.RupieStash },
+            ObjType.Grumble => new GrumbleActor(game, x, y) { ObjType = ObjType.Grumble },
+            ObjType.Zelda => new ZeldaActor(game, x, y) { ObjType = ObjType.Zelda },
+            ObjType.Digdogger1 => new DigdoggerActor(game, DigdoggerType.One, x, y) { ObjType = ObjType.Digdogger1 },
+            ObjType.Digdogger2 => new DigdoggerActor(game, DigdoggerType.Two, x, y) { ObjType = ObjType.Digdogger2 },
+            ObjType.RedLamnola => new LamnolaActor(game, ActorColor.Red, x, y) { ObjType = ObjType.RedLamnola },
+            ObjType.BlueLamnola => new LamnolaActor(game, ActorColor.Blue, x, y) { ObjType = ObjType.BlueLamnola },
+            ObjType.Manhandla => new ManhandlaActor(game, x, y) { ObjType = ObjType.Manhandla },
+            ObjType.Aquamentus => new AquamentusActor(game, x, y) { ObjType = ObjType.Aquamentus },
+            ObjType.Ganon => new GanonActor(game, x, y) { ObjType = ObjType.Ganon },
+            ObjType.GuardFire => new GuardFireActor(game, x, y) { ObjType = ObjType.GuardFire },
+            ObjType.StandingFire => new StandingFireActor(game, x, y) { ObjType = ObjType.StandingFire },
+            ObjType.Moldorm => new MoldormActor(game, x, y) { ObjType = ObjType.Moldorm },
+            ObjType.Gleeok1 => new GleeokActor(game, 1, x, y) { ObjType = ObjType.Gleeok1 },
+            ObjType.Gleeok2 => new GleeokActor(game, 2, x, y) { ObjType = ObjType.Gleeok2 },
+            ObjType.Gleeok3 => new GleeokActor(game, 3, x, y) { ObjType = ObjType.Gleeok3 },
+            ObjType.Gleeok4 => new GleeokActor(game, 4, x, y) { ObjType = ObjType.Gleeok4 },
+            ObjType.GleeokHead => new GleeokHeadActor(game, x, y) { ObjType = ObjType.GleeokHead },
+            ObjType.Patra1 => new PatraActor(game, PatraType.Circle, x, y) { ObjType = ObjType.Patra1 },
+            ObjType.Patra2 => new PatraActor(game, PatraType.Spin, x, y) { ObjType = ObjType.Patra2 },
+            ObjType.Trap => new TrapActor(game, x, y) { ObjType = ObjType.Trap  },
             _ => throw new NotImplementedException(),
         };
     }
@@ -198,18 +223,17 @@ internal abstract class Actor
 
     public static Size MoveSimple8(Direction dir, int speed)
     {
-        int x = 0, y = 0;
-        switch (dir & (Direction.Right | Direction.Left))
-        {
-            case Direction.Right: x = speed; break;
-            case Direction.Left: x = -speed; break;
-        }
+        var x = (dir & (Direction.Right | Direction.Left)) switch {
+            Direction.Right => speed,
+            Direction.Left => -speed,
+            _ => 0
+        };
 
-        switch (dir & (Direction.Down | Direction.Up))
-        {
-            case Direction.Down: y = speed; break;
-            case Direction.Up: y = -speed; break;
-        }
+        var y = (dir & (Direction.Down | Direction.Up)) switch {
+            Direction.Down => speed,
+            Direction.Up => -speed,
+            _ => 0
+        };
 
         return new(x, y);
     }
@@ -230,6 +254,45 @@ internal abstract class Actor
         }
 
         return new(x, y);
+    }
+
+    protected void InitCommonFacing()
+    {
+        InitCommonFacing(X, Y, ref Facing);
+    }
+
+    void InitCommonFacing(int x, int y, ref Direction facing)
+    {
+        if (facing != Direction.None)
+            return;
+
+        Point playerPos = Game.World.GetObservedPlayerPos();
+        // Why did the original game test these distances as unsigned?
+        var xDist = playerPos.X - x;
+        var yDist = playerPos.Y - y;
+
+        if (xDist <= yDist)
+        {
+            // Why is this away from the player, while for Y it's toward the player?
+            if (playerPos.X > x)
+                facing = Direction.Left;
+            else
+                facing = Direction.Right;
+        }
+        else
+        {
+            if (playerPos.Y > y)
+                facing = Direction.Down;
+            else
+                facing = Direction.Up;
+        }
+    }
+
+    protected void InitCommonStateTimer(ref byte stateTimer)
+    {
+        int t = Game.World.curObjSlot;
+        t = (t + 2) * 16;
+        stateTimer = (byte)t;
     }
 
     public void DecrementObjectTimer()
@@ -941,7 +1004,7 @@ internal abstract class Actor
     }
 
     // F14E
-    protected Direction CheckWorldBounds(Direction dir)
+    protected virtual Direction CheckWorldBounds(Direction dir)
     {
         dir = CheckWorldMargin(dir);
         if (dir != Direction.None)
@@ -1088,7 +1151,7 @@ internal abstract class Actor
             dir = dirOrd.GetOrdDirection();
         }
 
-        dir = dir & Direction.Mask;
+        dir = dir & Direction.DirectionMask;
 
         // Original: [$E] := 0
         // Maybe it's only done to set up the call to FindUnblockedDir in CheckTileCollision?
@@ -1160,7 +1223,7 @@ internal abstract class Actor
         {
             ShoveDirection ^= (Direction)0x80;
 
-            var shoveHoriz = ShoveDirection.IsHorizontal(Direction.Mask);
+            var shoveHoriz = ShoveDirection.IsHorizontal(Direction.DirectionMask);
             var facingHoriz = Facing.IsHorizontal();
 
             if (shoveHoriz != facingHoriz && TileOffset != 0 && !IsPlayer)
@@ -1173,13 +1236,13 @@ internal abstract class Actor
 
     protected void MoveShoveWhole()
     {
-        var cleanDir = ShoveDirection & Direction.Mask;
+        var cleanDir = ShoveDirection & Direction.DirectionMask;
 
         for (int i = 0; i < 4; i++)
         {
             if (TileOffset == 0)
             {
-                Position = new Point(Position.X & 0xF8, Position.Y & 0xF8 | 5);
+                Position = new Point(Position.X & 0xF8, (Position.Y & 0xF8) | 5);
 
                 if (Game.CollidesWithTileMoving(X, Y, cleanDir, IsPlayer))
                 {

@@ -2,7 +2,7 @@
 
 namespace z1;
 
-internal class CollisionContext(ObjectSlot weaponSlot, DamageType damageType, int damage, Point distance)
+internal sealed class CollisionContext(ObjectSlot weaponSlot, DamageType damageType, int damage, Point distance)
 {
     public ObjectSlot WeaponSlot { get; set; } = weaponSlot;
     public DamageType DamageType { get; set; } = damageType;

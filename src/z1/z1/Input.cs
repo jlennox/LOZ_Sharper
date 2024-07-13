@@ -8,6 +8,7 @@ internal enum ButtonState
     Held = 3,
 }
 
+[Flags]
 internal enum Button
 {
     None = 0,
@@ -18,7 +19,9 @@ internal enum Button
     Up = 8,
     Down = 4,
     Left = 2,
-    Right = 1
+    Right = 1,
+
+    MovingMask = 0xF,
 }
 
 internal enum InputAxis { None, Horizontal, Vertical }
@@ -39,30 +42,60 @@ internal struct AxisMapping
     public string AxisSettingName;
 }
 
-internal class InputButtons(Button button)
+internal struct InputButtons
 {
-    public Button Buttons = button;
+    public Button Buttons;
     public int ButtonsInt => (int)Buttons;
 
-    public bool Has(Button value) => (Buttons & value) != 0;
-    public void Mask(int value) => Buttons &= (Button)value;
+    public bool Has(Button value) => Buttons.HasFlag(value);
+    public void Mask(Button value) => Buttons &= value;
     public void Clear(Button value) => Buttons = (Button)((int)Buttons ^ (int)value);
 }
 
 internal static class Input
 {
-    private static InputButtons oldInputState = new(0);
-    private static InputButtons inputState = new(0);
+    private static InputButtons oldInputState;
+    private static InputButtons inputState;
 
     public static InputButtons GetButtons()
     {
-        var buttons = 0;
-
-        buttons = (oldInputState.ButtonsInt ^ inputState.ButtonsInt)
+        var buttons = (oldInputState.ButtonsInt ^ inputState.ButtonsInt)
             & inputState.ButtonsInt
             | (inputState.ButtonsInt & 0xF);
 
-        return new((Button)buttons);
+        return new() { Buttons = (Button)buttons };
+    }
+
+    private static readonly Dictionary<Keys, Button> _map = new()
+    {
+        { Keys.Z, Button.A },
+        { Keys.X, Button.B },
+        { Keys.Q, Button.Select },
+        { Keys.Space, Button.Start },
+        { Keys.Up, Button.Up },
+        { Keys.Down, Button.Down },
+        { Keys.Left, Button.Left },
+        { Keys.Right, Button.Right }
+    };
+
+    public static bool SetKey(Keys keys)
+    {
+        if (_map.TryGetValue(keys, out var button))
+        {
+            //oldInputState = inputState;
+            inputState.Buttons |= button;
+            return true;
+        }
+
+        return false;
+    }
+
+    public static void UnsetKey(Keys keys)
+    {
+        if (_map.TryGetValue(keys, out var button))
+        {
+            inputState.Buttons &= ~button;
+        }
     }
 
     public static bool IsKeyDown(int keyCode) => throw new NotImplementedException();
@@ -70,12 +103,15 @@ internal static class Input
     public static ButtonState GetKey(int keyCode) => throw new NotImplementedException();
 
     public static bool IsButtonDown(Button buttonCode) => inputState.Has(buttonCode);
-    public static bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
+    // public static bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
+    public static bool IsButtonPressing(Button buttonCode) => IsButtonDown(buttonCode);
 
     public static ButtonState GetButton(Button buttonCode)
     {
-        int isDown = inputState.Has(buttonCode) ? 1 : 0;
-        int wasDown = oldInputState.Has(buttonCode) ? 1 : 0;
+        var isDown = inputState.Has(buttonCode) ? 1 : 0;
+        var wasDown = oldInputState.Has(buttonCode) ? 1 : 0;
+
+        oldInputState = new InputButtons { Buttons = inputState.Buttons };
 
         return (ButtonState)((wasDown << 1) | isDown);
     }
@@ -83,9 +119,9 @@ internal static class Input
     public static Direction GetInputDirection()
     {
         if (IsButtonDown(Button.Left)) return Direction.Left;
-        else if (IsButtonDown(Button.Right)) return Direction.Right;
-        else if (IsButtonDown(Button.Up)) return Direction.Up;
-        else if (IsButtonDown(Button.Down)) return Direction.Down;
+        if (IsButtonDown(Button.Right)) return Direction.Right;
+        if (IsButtonDown(Button.Up)) return Direction.Up;
+        if (IsButtonDown(Button.Down)) return Direction.Down;
         return Direction.None;
     }
 

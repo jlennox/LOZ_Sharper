@@ -1,4 +1,5 @@
-﻿using z1.Actors;
+﻿using System.Diagnostics;
+using z1.Actors;
 
 namespace z1;
 
@@ -17,6 +18,13 @@ internal static class Global
     public const int LevelBlockRooms = 128;
 
     public const int SysPaletteLength = 64;
+}
+
+internal enum NumberSign
+{
+    None,
+    Negative,
+    Positive,
 }
 
 internal enum ItemId
@@ -135,11 +143,16 @@ internal enum Char
     BoxTR = 0x6B,
     BoxBL = 0x6E,
     BoxBR = 0x6D,
-};
+
+    X = 0x21,
+    Space = 0x24,
+    JustSpace = 0x25,
+    Minus = 0x62,
+    Plus = 0x64,
+}
 
 internal static class GlobalFunctions
 {
-
     public static ItemId ItemValueToItemId(ItemSlot slot, int value)
     {
         static ReadOnlySpan<ItemId> equippedItemIds() => new[]
@@ -192,11 +205,11 @@ internal static class GlobalFunctions
         return ItemValueToItemId(slot, profile.Items[slot]);
     }
 
-    public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, int slot)
+    public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, ObjectSlot slot)
     {
         Actor? obj;
         int origSlot = world.curObjSlot;
-        world.curObjSlot = slot;
+        world.curObjSlot = (int)slot;
 
         switch (type)
         {
@@ -287,6 +300,15 @@ internal static class GlobalFunctions
         Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, 0);
     }
 
+    public static void DrawString(ReadOnlySpan<byte> str, int x, int y, Palette palette)
+    {
+        for (var i = 0; i < str.Length; i++)
+        {
+            DrawChar(str[i], x, y, palette);
+            x += 8;
+        }
+    }
+
     public static void DrawString(string str, int x, int y, Palette palette)
     {
         for (int i = 0; i < str.Length; i++)
@@ -329,7 +351,7 @@ internal static class GlobalFunctions
         }
     }
 
-    public static void DrawHearts(uint heartsValue, uint totalHearts, int left, int top)
+    public static void DrawHearts(int heartsValue, int totalHearts, int left, int top)
     {
         var partialValue = heartsValue & 0xFF;
         var fullHearts = heartsValue >> 8;
@@ -406,4 +428,44 @@ internal static class GlobalFunctions
         // TODO Manhandla::ClearRoomData();
         // TODO Statues::Init();
     }
+
+    public static byte[] NumberToStringR(byte number, NumberSign sign, ref Span<byte> charBuf, int bufLen = 4)
+    {
+        Debug.Assert(bufLen >= 3);
+        Debug.Assert(sign == NumberSign.None || bufLen >= 4);
+
+        byte n = number;
+        int pChar = bufLen - 1;
+
+        while (true)
+        {
+            int digit = n % 10;
+            charBuf[pChar] = (byte)('0' + digit);
+            pChar--;
+            n /= 10;
+            if (n == 0)
+                break;
+        }
+
+        if (sign != NumberSign.None && number != 0)
+        {
+            if (sign == NumberSign.Negative)
+                charBuf[pChar] = (byte)Char.Minus;
+            else
+                charBuf[pChar] = (byte)Char.Plus;
+            pChar--;
+        }
+
+        int strLeft = pChar + 1;
+
+        for (; pChar >= 0; pChar--)
+        {
+            charBuf[pChar] = (byte)Char.Space;
+        }
+
+        charBuf = charBuf[strLeft..];
+
+        return charBuf.ToArray();
+    }
+
 }

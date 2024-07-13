@@ -1,4 +1,5 @@
-﻿using z1.Actors;
+﻿using System.Runtime.InteropServices;
+using z1.Actors;
 
 namespace z1;
 
@@ -213,36 +214,60 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
     }
 }
 
-internal enum DwellerType { None, FriendlyMoblin, OldMan }
-
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal unsafe struct CaveSpec
 {
-    private const int Count = 3;
+    public const int Count = 3;
 
-    public DwellerType DwellerType;
+    public byte Dweller;
     public byte StringId;
     public string String;
-    public fixed byte Items[Count];
-    public fixed byte Prices[Count];
+    public byte ItemA;
+    public byte ItemB;
+    public byte ItemC;
+    public byte PriceA;
+    public byte PriceB;
+    public byte PriceC;
 
-    public int GetStringId() => StringId & 0x3F;
-    public ItemId GetItemId(int i) => (ItemId)((int)Items[i] & 0x3F);
-    public bool GetPay() => (StringId & 0x80) != 0;
-    public bool GetPickUp() => (StringId & 0x40) != 0;
-    public bool GetShowNegative() => ((int)Items[0] & 0x80) != 0;
-    public bool GetCheckHearts() => ((int)Items[0] & 0x40) != 0;
-    public bool GetSpecial() => ((int)Items[1] & 0x80) != 0;
-    public bool GetHint() => ((int)Items[1] & 0x40) != 0;
-    public bool GetShowPrices() => ((int)Items[2] & 0x80) != 0;
-    public bool GetShowItems() => ((int)Items[2] & 0x40) != 0;
+    public readonly ItemId GetItemId(int i) => i switch
+    {
+        0 => (ItemId)ItemA,
+        1 => (ItemId)ItemB,
+        2 => (ItemId)ItemC,
+        _ => throw new ArgumentOutOfRangeException(nameof(i)),
+    };
+
+    public readonly byte GetPrice(int i) => i switch
+    {
+        0 => PriceA,
+        1 => PriceB,
+        2 => PriceC,
+        _ => throw new ArgumentOutOfRangeException(nameof(i)),
+    };
+
+    public ObjType DwellerType
+    {
+        get => (ObjType)Dweller;
+        set => Dweller = (byte)value;
+    }
+
+    public readonly StringId GetStringId() => (StringId)(StringId & 0x3F);
+    public readonly bool GetPay() => (StringId & 0x80) != 0;
+    public readonly bool GetPickUp() => (StringId & 0x40) != 0;
+    public readonly bool GetShowNegative() => ((int)ItemA & 0x80) != 0;
+    public readonly bool GetCheckHearts() => ((int)ItemA & 0x40) != 0;
+    public readonly bool GetSpecial() => ((int)ItemB & 0x80) != 0;
+    public readonly bool GetHint() => ((int)ItemB & 0x40) != 0;
+    public readonly bool GetShowPrices() => ((int)ItemC & 0x80) != 0;
+    public readonly bool GetShowItems() => ((int)ItemC & 0x40) != 0;
 
     public void ClearPickUp() { unchecked { StringId &= (byte)~0x40; } }
-    public void ClearShowPrices() { unchecked { Items[2] &= (byte)~0x80; } }
+    public void ClearShowPrices() { unchecked { ItemC &= (byte)~0x80; } }
     public void SetPickUp() { StringId |= 0x40; }
-    public void SetShowNegative() { Items[0] |= 0x80; }
-    public void SetSpecial() { Items[1] |= 0x80; }
-    public void SetShowPrices() { Items[2] |= 0x80; }
-    public void SetShowItems() { Items[2] |= 0x40; }
+    public void SetShowNegative() { ItemA |= 0x80; }
+    public void SetSpecial() { ItemB |= 0x80; }
+    public void SetShowPrices() { ItemC |= 0x80; }
+    public void SetShowItems() { ItemC |= 0x40; }
 }
 
 internal sealed class TextBox
@@ -257,21 +282,23 @@ internal sealed class TextBox
     private readonly int _charDelay;
     private int _charTimer = 0;
     private bool _drawingDialog = true;
+    private readonly Game _game;
     private string _text;
     public int _currentIndex = 0;
-    // const byte* startCharPtr;
-    // const byte* curCharPtr;
+    private byte[] startCharPtr;
+    private int curCharIndex;
 
-    public TextBox(string text, int delay = CharDelay) {
-        _text = text;
+    public TextBox(Game game, byte[] text, int delay = CharDelay) {
+        _game = game;
+        startCharPtr = text;
         _charDelay = delay;
     }
 
-    public void Reset(string text)
+    public void Reset(byte[] text)
     {
         _drawingDialog = true;
         _charTimer = 0;
-        _text = text;
+        startCharPtr = text;
         _currentIndex = 0;
     }
 
@@ -292,19 +319,20 @@ internal sealed class TextBox
             byte attr;
             byte ch;
 
-            // TODO do
-            // TODO {
-            // TODO     ch = *curCharPtr & 0x3F;
-            // TODO     attr = *curCharPtr & 0xC0;
-            // TODO     if (attr == 0xC0)
-            // TODO         drawingDialog = false;
-            // TODO     else if (attr != 0)
-            // TODO         height += 8;
-            // TODO
-            // TODO     curCharPtr++;
-            // TODO     if (ch != Char_JustSpace)
-            // TODO         Sound::PlayEffect(SEffect_character);
-            // TODO } while (drawingDialog && ch == Char_JustSpace);
+            do
+            {
+                var curCharPtr = startCharPtr[curCharIndex];
+                ch = (byte)(curCharPtr & 0x3F);
+                attr = (byte)(curCharPtr & 0xC0);
+                if (attr == 0xC0)
+                    _drawingDialog = false;
+                else if (attr != 0)
+                    _height += 8;
+
+                curCharIndex++;
+                if (ch != (int)Char.JustSpace)
+                    _game.Sound.Play(SoundEffect.Character);
+            } while (_drawingDialog && ch == (int)Char.JustSpace);
             _charTimer = _charDelay - 1;
         }
         else
@@ -318,24 +346,25 @@ internal sealed class TextBox
         int x = _left;
         int y = _top;
 
-        // TODO for ( const byte* charPtr = startCharPtr; charPtr != curCharPtr; charPtr++ )
-        // TODO {
-        // TODO     byte attr = *charPtr & 0xC0;
-        // TODO     byte ch = *charPtr & 0x3F;
-        // TODO
-        // TODO     if (ch != Char_JustSpace)
-        // TODO         DrawChar(ch, x, y, 0);
-        // TODO
-        // TODO     if (attr == 0)
-        // TODO     {
-        // TODO         x += 8;
-        // TODO     }
-        // TODO     else
-        // TODO     {
-        // TODO         x = StartX;
-        // TODO         y += 8;
-        // TODO     }
-        // TODO }
+        for (var i = 0; i < curCharIndex; i++ )
+        {
+            var chr = startCharPtr[i];
+            var attr = chr & 0xC0;
+            var ch = chr & 0x3F;
+
+            if (ch != (int)Char.JustSpace)
+                GlobalFunctions.DrawChar((byte)ch, x, y, 0);
+
+            if (attr == 0)
+            {
+                x += 8;
+            }
+            else
+            {
+                x = StartX;
+                y += 8;
+            }
+        }
     }
 }
 
@@ -428,7 +457,7 @@ internal sealed class DockActor : Actor
 }
 
 
-internal sealed class TreeActor : TODOActor
+internal sealed class TreeActor : Actor
 {
     public TreeActor(Game game, int x = 0, int y = 0) : base(game, x, y)
     {
@@ -452,6 +481,8 @@ internal sealed class TreeActor : TODOActor
             return;
         }
     }
+
+    public override void Draw() { }
 }
 
 internal sealed class RockWallActor : TODOActor
@@ -478,34 +509,4 @@ internal sealed class RockWallActor : TODOActor
             return;
         }
     }
-}
-
-internal sealed class PersonActor : TODOActor
-{
-    public enum PersonState
-    {
-        Idle,
-        PickedUp,
-        WaitingForLetter,
-        WaitingForFood,
-        WaitingForStairs,
-    };
-
-    public PersonState State = PersonState.Idle;
-    // TODO: SpriteImage image;
-
-    public CaveSpec Spec;
-    public TextBox TextBox;
-    public int ChosenIndex;
-    public bool ShowNumbers;
-
-    // byte priceStrs[3][4];
-
-    public byte[] gamblingAmounts = new byte[3];
-    public byte[] gamblingIndexes = new byte[3];
-
-    public override bool ShouldStopAtPersonWall => true;
-    public override bool IsUnderworldPerson => true;
-
-    public PersonActor(Game game, ObjType type, CaveSpec spec, int x, int y) : base(game, x, y) { }
 }

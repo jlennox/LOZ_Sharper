@@ -1,5 +1,8 @@
-﻿namespace z1;
+﻿using System.Runtime.InteropServices;
 
+namespace z1;
+
+[StructLayout(LayoutKind.Sequential)]
 internal unsafe struct RoomAttrs
 {
     public byte UniqueRoomId;

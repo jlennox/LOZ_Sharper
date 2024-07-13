@@ -1,4 +1,6 @@
-﻿namespace z1;
+﻿using System.Runtime.InteropServices;
+
+namespace z1;
 
 
 internal enum ItemSlot
@@ -39,7 +41,8 @@ internal enum ItemSlot
     MaxItems
 }
 
-internal sealed class OWRoomFlags
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct OWRoomFlags
 {
     private const int ItemState = 0x10;
     private const int ShortcutState = 0x20;
@@ -59,6 +62,7 @@ internal sealed class OWRoomFlags
     public void SetObjCount(int count) => Data = (byte)((Data & ~CountMask) | (count << CountShift));
 }
 
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal sealed class UWRoomFlags
 {
     public const byte ItemState = 0x10;
@@ -78,13 +82,14 @@ internal sealed class UWRoomFlags
     public void SetObjCount(byte count) => Data = (byte)((Data & ~CountMask) | (byte)(count << CountShift));
 }
 
-internal class PlayerProfile
+internal sealed class PlayerProfile
 {
     public const int MaxNameLength = 8;
     public const int DefaultHearts = 3;
     public const int DefaultBombs  = 8;
 
-    public string Name { get; set; } = "Unknown";
+    public byte[] Name = new byte[MaxNameLength];
+    public int NameLength;
     public int Quest;
     public int Deaths;
     public ItemSlot SelectedItem;
@@ -101,6 +106,8 @@ internal class PlayerProfile
             Items[slot] = 0;
         }
     }
+
+    public int GetItem(ItemSlot slot) => Items[slot];
 
     public int GetMaxHeartsValue()
     {

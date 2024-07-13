@@ -1,6 +1,6 @@
 ﻿namespace z1
 {
-    partial class Form1
+    partial class GameForm
     {
         /// <summary>
         ///  Required designer variable.

@@ -178,4 +178,16 @@ internal unsafe static class Extensions
     }
 
     public static byte GetByte(this Random random) => (byte)random.Next(256);
+
+    public static void Shuffle<T>(this T[] array)
+    {
+        int n = array.Length;
+        for (var i = n - 1; i > 0; i--)
+        {
+            int j = Random.Shared.Next(i + 1);
+            T temp = array[i];
+            array[i] = array[j];
+            array[j] = temp;
+        }
+    }
 }

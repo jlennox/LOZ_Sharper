@@ -343,7 +343,7 @@ internal abstract class WalkerActor : Actor
     protected const int StandardSpeed = 0x20;
     protected const int FastSpeed = 0x40;
 
-    protected SpriteAnimator Animator { get; }
+    protected SpriteAnimator Animator = new();
     protected abstract int AnimationTime { get; }
     protected abstract int Speed { get; }
     protected abstract bool IsBlue { get; }
@@ -355,9 +355,13 @@ internal abstract class WalkerActor : Actor
     protected int ShootTimer = 0;
     protected bool WantToShoot = false;
 
+    protected Palette _palette;
+
+    protected abstract ReadOnlySpan<AnimationId> AnimationMap { get; }
+
     protected static SKBitmap SpriteFromIndex(int index, int y) => Sprites.FromSheet(Sprites.BadguysOverworld, 8 + index * 17, y);
 
-    public WalkerActor(Game game, int x, int y) : base(game)
+    public WalkerActor(Game game, int x, int y) : base(game, x, y)
     {
         Animator.Time = 0;
         Animator.DurationFrames = AnimationTime;
@@ -365,22 +369,24 @@ internal abstract class WalkerActor : Actor
         Facing = Direction.Left; // ???
 
         CurrentSpeed = Speed;
-        Position = new Point(x, y);
         SetFacingAnimation();
     }
 
     public override void Draw()
     {
         SetFacingAnimation();
-        // var frame = Animator.GetFrame();
-        // if (frame == null) return;
-        // var offsetX = (16 - Animator.Animation.Value.Width) / 2;
-        // Game.DrawBitmap(TileSheet.Npcs, frame, X + offsetX, Y);
+        int offsetX = (16 - Animator.Animation.Value.Width) / 2;
+        var pal = CalcPalette(_palette);
+        Animator.Draw(TileSheet.Npcs, X + offsetX, Y, pal);
     }
 
     protected void SetFacingAnimation()
     {
-        // Animator.SetAnimation(Facing);
+        int dirOrd = Facing.GetOrdinal();
+        if (AnimationMap != null)
+            Animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationMap[dirOrd]);
+        else
+            Animator.Animation = null;
     }
 
     protected void TryShooting()
@@ -518,6 +524,16 @@ internal abstract class ChaseWalkerActor : WalkerActor
     }
 }
 
+internal abstract class DelayedWanderer : WandererWalkerActor
+{
+    protected DelayedWanderer(Game game, int x, int y) : base(game, x, y)
+    {
+        InitCommonFacing();
+        InitCommonStateTimer(ref ObjTimer);
+        SetFacingAnimation();
+    }
+}
+
 internal abstract class WandererWalkerActor : WalkerActor
 {
     protected byte TurnTimer;
@@ -584,11 +600,11 @@ internal abstract class WandererWalkerActor : WalkerActor
         {
             var playerPos = Game.ObservedPlayer.Position;
 
-            if (Math.Abs(Position.X - playerPos.X) < 9)
+            if (Math.Abs(X - playerPos.X) < 9)
             {
                 TurnY();
             }
-            else if (Math.Abs(Position.Y - playerPos.Y) < 9)
+            else if (Math.Abs(Y - playerPos.Y) < 9)
             {
                 TurnX();
             }
@@ -632,38 +648,42 @@ internal abstract class WandererWalkerActor : WalkerActor
     }
 }
 
-internal sealed class OctorokActor : WandererWalkerActor
+internal sealed class OctorokActor : DelayedWanderer
 {
-    private static class Images
-    {
-        private const int _y = 19;
-
-        public static readonly SKBitmap Down1 = SpriteFromIndex(0, _y);
-        public static readonly SKBitmap Down2 = SpriteFromIndex(1, _y);
-
-        public static readonly SKBitmap Left1 = SpriteFromIndex(2, _y);
-        public static readonly SKBitmap Left2 = SpriteFromIndex(3, _y);
-
-        // public static readonly SKBitmap[] Left = [Left1, Left2];
-        // public static readonly SKBitmap[] Down = [Down1, Down2];
-    }
-
     protected override int AnimationTime => 12;
-    protected override int Speed => StandardSpeed;
+    protected override int Speed => _speed;
     protected override bool HasProjectile => true;
+
+    private readonly int _speed = StandardSpeed;
 
     protected override bool IsBlue => false;
 
     public OctorokActor(Game game, ActorColor color, bool isFast, int x, int y) : base(game, x, y)
     {
-        // var image = Images.Left[0];
-        // Size = new Size(image.Width, image.Height);
+        ObjType = (color, isFast) switch
+        {
+            (ActorColor.Blue, false) => ObjType.BlueSlowOctorock,
+            (ActorColor.Blue, true) => ObjType.BlueFastOctorock,
+            (ActorColor.Red, false) => ObjType.RedSlowOctorock,
+            (ActorColor.Red, true) => ObjType.RedFastOctorock,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+
+        if (isFast) _speed = 0x30;
+        TurnRate = (byte)(color == ActorColor.Red ? 0x70 : 0xA0);
     }
 
     protected override Projectile CreateProjectile()
     {
         return new FlyingRockProjectile(Game, X, Y, Facing);
     }
+
+    protected override ReadOnlySpan<AnimationId> AnimationMap => new[] {
+        AnimationId.OW_Octorock_Right,
+        AnimationId.OW_Octorock_Left,
+        AnimationId.OW_Octorock_Down,
+        AnimationId.OW_Octorock_Up,
+    };
 }
 
 internal abstract class TODOActor : Actor
@@ -671,8 +691,15 @@ internal abstract class TODOActor : Actor
     protected TODOActor(Game game, int x = 0, int y = 0) : base(game, x, y)
     {
     }
+    protected TODOActor(Game game, ObjType type, int x = 0, int y = 0) : base(game, type, x, y)
+    {
+    }
 
     protected TODOActor(Game game, ActorColor color, int x = 0, int y = 0) : base(game, x, y)
+    {
+        Color = color;
+    }
+    protected TODOActor(Game game, ActorColor color, ObjType type, int x = 0, int y = 0) : base(game, type, x, y)
     {
         Color = color;
     }
@@ -685,7 +712,7 @@ internal sealed class GanonActor : TODOActor
 {
     public override bool IsReoccuring => false;
 
-    public GanonActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public GanonActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Ganon, x, y) { }
 }
 
 internal sealed class WhirlwindActor : TODOActor
@@ -693,7 +720,7 @@ internal sealed class WhirlwindActor : TODOActor
     private byte _prevRoomId;
     private readonly SpriteAnimator _animator = new();
 
-    public WhirlwindActor(Game game, int x = 0, int y = 0) : base(game, x, y) {
+    public WhirlwindActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Whirlwind, x, y) {
         Facing = Direction.Right;
 
        _animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.OW_Whirlwind);
@@ -762,22 +789,22 @@ internal sealed class WhirlwindActor : TODOActor
 
 internal abstract class DarknutActor : TODOActor
 {
-    public DarknutActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public DarknutActor(Game game, ActorColor color, ObjType type, int x = 0, int y = 0) : base(game, color, x, y) { }
 }
 
 internal sealed class RedDarknutActor : DarknutActor
 {
-    public RedDarknutActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public RedDarknutActor(Game game, int x = 0, int y = 0) : base(game, ActorColor.Red, ObjType.RedDarknut, x, y) { }
 }
 
 internal sealed class BlueDarknutActor : DarknutActor
 {
-    public BlueDarknutActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public BlueDarknutActor(Game game, int x = 0, int y = 0) : base(game, ActorColor.Red, ObjType.BlueDarknut, x, y) { }
 }
 
 internal sealed class VireActor : TODOActor
 {
-    public VireActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public VireActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Vire, x, y) { }
 }
 
 internal sealed class GrumbleActor : TODOActor
@@ -786,15 +813,15 @@ internal sealed class GrumbleActor : TODOActor
     public override bool IsReoccuring => false;
     public override bool IsUnderworldPerson => true;
 
-    public GrumbleActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public GrumbleActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Grumble, x, y) { }
 }
 
 internal sealed class ZolActor : TODOActor
 {
-    public ZolActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public ZolActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Zol, x, y) { }
 }
 
-internal abstract class GohmaActor : TODOActor
+internal sealed class GohmaActor : TODOActor
 {
     private SpriteAnimator animator;
     private SpriteAnimator leftAnimator;
@@ -813,25 +840,22 @@ internal abstract class GohmaActor : TODOActor
 
     public override bool IsReoccuring => false;
 
-    public GohmaActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public GohmaActor(Game game, ActorColor color, int x = 0, int y = 0) : base(game, color, x, y)
+    {
+        ObjType = color switch {
+            ActorColor.Red => ObjType.RedGohma,
+            ActorColor.Blue => ObjType.BlueGohma,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+    }
 
     public int GetCurrentCheckPart() => _curCheckPart;
     public int GetEyeFrame() => _frame;
 }
 
-internal sealed class BlueGohmaActor : GohmaActor
-{
-    public BlueGohmaActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
-}
-
-internal sealed class RedGohmaActor : GohmaActor
-{
-    public RedGohmaActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
-}
-
 internal sealed class PolsVoiceActor : TODOActor
 {
-    public PolsVoiceActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public PolsVoiceActor(Game game, int x = 0, int y = 0) : base(game, ObjType.PolsVoice, x, y) { }
 }
 
 internal enum BombState { Initing, Ticking, Blasting, Fading }
@@ -840,7 +864,7 @@ internal sealed class BombActor : TODOActor
 {
     public BombState BombState;
 
-    public BombActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public BombActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Bomb, x, y) { }
 }
 
 internal enum FireState { Moving, Standing }
@@ -849,7 +873,8 @@ internal class FireActor : TODOActor
 {
     public FireState FireState;
 
-    public FireActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    protected FireActor(Game game, ObjType type, int x = 0, int y = 0) : base(game, type, x, y) { }
+    public FireActor(Game game, int x = 0, int y = 0) : this(game, ObjType.Fire, x, y) { }
 }
 
 internal abstract class PlayerWeapon : TODOActor
@@ -1065,7 +1090,7 @@ internal sealed class AquamentusActor : TODOActor
 internal sealed class GuardFireActor : FireActor
 {
     public override bool IsReoccuring => false;
-    public GuardFireActor(Game game, int x = 0, int y = 0) : base(game, x, y)
+    public GuardFireActor(Game game, int x = 0, int y = 0) : base(game, ObjType.GuardFire, x, y)
     {
     }
 }
@@ -1074,6 +1099,7 @@ internal sealed class StandingFireActor : FireActor
     public override bool IsReoccuring => false;
     public StandingFireActor(Game game, int x = 0, int y = 0) : base(game, x, y)
     {
+        ObjType = ObjType.StandingFire;
     }
 }
 internal sealed class MoldormActor : TODOActor
@@ -1081,6 +1107,7 @@ internal sealed class MoldormActor : TODOActor
     public override bool IsReoccuring => false;
     public MoldormActor(Game game, int x = 0, int y = 0) : base(game, x, y)
     {
+        ObjType = ObjType.Moldorm;
     }
 }
 internal sealed class GleeokActor : TODOActor
@@ -1088,6 +1115,14 @@ internal sealed class GleeokActor : TODOActor
     public override bool IsReoccuring => false;
     public GleeokActor(Game game, int headCount, int x = 0, int y = 0) : base(game, x, y)
     {
+        ObjType = headCount switch
+        {
+            1 => ObjType.Gleeok1,
+            2 => ObjType.Gleeok2,
+            3 => ObjType.Gleeok3,
+            4 => ObjType.Gleeok4,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
     }
 }
 internal sealed class GleeokHeadActor : TODOActor
@@ -1095,6 +1130,7 @@ internal sealed class GleeokHeadActor : TODOActor
     public override bool IsReoccuring => false;
     public GleeokHeadActor(Game game, int x = 0, int y = 0) : base(game, x, y)
     {
+        ObjType = ObjType.GleeokHead;
     }
 }
 
@@ -1105,6 +1141,12 @@ internal sealed class PatraActor : TODOActor
     public override bool IsReoccuring => false;
     public PatraActor(Game game, PatraType type, int x = 0, int y = 0) : base(game, x, y)
     {
+        ObjType = type switch
+        {
+            PatraType.Circle => ObjType.Patra1,
+            PatraType.Spin => ObjType.Patra2,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
     }
 }
 
@@ -1113,6 +1155,12 @@ internal sealed class PatraChildActor : TODOActor
     public override bool IsReoccuring => false;
     public PatraChildActor(Game game, PatraType type, int x = 0, int y = 0) : base(game, x, y)
     {
+        ObjType = type switch
+        {
+            PatraType.Circle => ObjType.PatraChild1,
+            PatraType.Spin => ObjType.PatraChild2,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
     }
 }
 
@@ -1120,6 +1168,12 @@ internal sealed class LeeverActor : TODOActor
 {
     public LeeverActor(Game game, ActorColor color, int x = 0, int y = 0) : base(game, x, y)
     {
+        ObjType = color switch
+        {
+            ActorColor.Blue => ObjType.BlueLeever,
+            ActorColor.Red => ObjType.RedLeever,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
     }
 }
 
@@ -1127,6 +1181,12 @@ internal sealed class LynelActor : TODOActor
 {
     public LynelActor(Game game, ActorColor color, int x = 0, int y = 0) : base(game, x, y)
     {
+        ObjType = color switch
+        {
+            ActorColor.Blue => ObjType.BlueLynel,
+            ActorColor.Red => ObjType.RedLynel,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
     }
 }
 

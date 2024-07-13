@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace z1;
 
-internal class Assets
+internal sealed class Assets
 {
     // https://github.com/joshbirnholz/cardconjurer
     private static readonly Lazy<string> _baseAssetsDir = new(() => Path.Combine(

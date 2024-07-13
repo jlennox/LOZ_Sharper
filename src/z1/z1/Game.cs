@@ -4,7 +4,21 @@ using z1.Actors;
 namespace z1;
 
 [Flags]
-internal enum Direction { None = 0, Right = 1, Left = 2, Down = 4, Up = 8, Mask = 0x0F, FullMask = 0xFF }
+internal enum Direction
+{
+    None = 0,
+    Right = 1,
+    Left = 2,
+    Down = 4,
+    Up = 8,
+    DirectionMask = 0x0F,
+    FullMask = 0xFF,
+    VerticalMask = Down | Up,
+    HorizontalMask = Left | Right,
+    OppositeVerticals = VerticalMask,
+    OppositeHorizontals = HorizontalMask,
+}
+
 internal enum TileSheet { Background, PlayerAndItems, Npcs, Boss, Font, Max }
 
 internal enum LevelBlock
@@ -136,27 +150,16 @@ internal sealed class Game
 
     public Direction GetXDirToPlayer(int x)
     {
-        var playerPos = ObservedPlayer.Position;
-        return playerPos.X < x ? Direction.Left : Direction.Right;
+        return ObservedPlayer.X < x ? Direction.Left : Direction.Right;
     }
 
     public Direction GetYDirToPlayer(int y)
     {
-        var playerPos = ObservedPlayer.Position;
-        return playerPos.Y < y ? Direction.Up : Direction.Down;
+        return ObservedPlayer.Y < y ? Direction.Up : Direction.Down;
     }
 
     public void SetKeys(Keys keys) => KeyCode = keys;
     public void UnsetKeys() => KeyCode = Keys.None;
-
-    public void UpdateActors()
-    {
-        var surface = Surface;
-        surface.Canvas.Clear();
-        Link.Move(this);
-        foreach (var actor in _actors) actor.Update();
-        foreach (var actor in _actors) actor.Draw();
-    }
 
     public bool AddProjectile(Projectile projectile)
     {
@@ -186,8 +189,8 @@ internal sealed class Game
     public Actor SetObject(ObjectSlot slot, Actor obj) => _objects[slot] = obj;
     public T? GetObject<T>(ObjectSlot slot) where T : Actor => (T)GetObject(slot);
 
-    private int _frameCounter = 0;
-    public int GetFrameCounter() => _frameCounter;
+    public int FrameCounter = 0;
+    public int GetFrameCounter() => FrameCounter;
 
     public void IncrementKilledObjectCount(bool allowBombDrop)
     {
@@ -231,7 +234,7 @@ internal sealed class Game
 
     public void UpdateScreenSize(SKSurface surface, SKImageInfo info)
     {
-        ++_frameCounter;
+        // ++FrameCounter;
         const int NesResX = 256;
         const int NesResY = 240;
 

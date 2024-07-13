@@ -2,7 +2,8 @@
 
 internal sealed class ProfileSummary
 {
-    public string Name; // byte Name[MaxNameLength];
+    public byte[] Name = new byte[PlayerProfile.MaxNameLength];
+    public int NameLength;
     public byte Quest;
     public byte Deaths;
     public byte HeartContainers;
@@ -12,7 +13,8 @@ internal sealed class ProfileSummary
 
 internal sealed class ProfileSummarySnapshot
 {
-    public ProfileSummary[] Summaries = new ProfileSummary[SaveFolder.MaxProfiles];
+    public ProfileSummary[] Summaries =
+        Enumerable.Range(0, SaveFolder.MaxProfiles).Select(_ => new ProfileSummary()).ToArray();
 }
 
 internal static class SaveFolder
@@ -20,7 +22,12 @@ internal static class SaveFolder
     public const int MaxProfiles = 3;
 
     // Make this into LoadSummaries and do not take an argument?
-    public static void ReadSummaries(ProfileSummarySnapshot summaries) => throw new NotImplementedException();
-    public static bool ReadProfile(int index, PlayerProfile profile) => throw new NotImplementedException();
-    public static bool WriteProfile(int index, PlayerProfile profile) => throw new NotImplementedException();
+    // TODO
+    public static ProfileSummarySnapshot ReadSummaries() => new ProfileSummarySnapshot();
+    public static PlayerProfile ReadProfile(int index) => new PlayerProfile();
+
+    public static bool WriteProfile(int index, PlayerProfile profile)
+    {
+        return true;
+    } // TODOthrow new NotImplementedException();
 }

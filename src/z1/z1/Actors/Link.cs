@@ -1,56 +1,549 @@
-﻿using SkiaSharp;
+﻿using System.Diagnostics;
+using z1.Player;
 
 namespace z1.Actors;
 
 internal enum PlayerState { Idle, Wielding, Paused }
 
-internal class Link : Actor
+internal sealed class Link : Actor
 {
-    private static class Images
-    {
-        public static readonly SKBitmap WalkDown1 = Assets.Root.GetSKBitmap("link_walk_down1.png");
-        public static readonly SKBitmap WalkDown2 = Assets.Root.GetSKBitmap("link_walk_down_2.png");
-        public static readonly SKBitmap WalkUp1 = Assets.Root.GetSKBitmap("link_walk_up_1.png");
-        public static readonly SKBitmap WalkUp2 = Assets.Root.GetSKBitmap("link_walk_up_2.png");
-        public static readonly SKBitmap WalkVertical1 = Assets.Root.GetSKBitmap("link_walk_vertical_1.png");
-        public static readonly SKBitmap WalkVertical2 = Assets.Root.GetSKBitmap("link_walk_vertical_2.png");
-
-        // public static readonly SKBitmap[] WalkDown = [WalkDown1, WalkDown2];
-        // public static readonly SKBitmap[] WalkUp = [WalkUp1, WalkUp2];
-        // public static readonly SKBitmap[] WalkLeft = [WalkVertical1, WalkVertical2];
-        // public static readonly SKBitmap[] WalkRight = [WalkVertical1.Mirror(), WalkVertical2.Mirror()];
-    }
-
     public override bool IsPlayer => true;
 
     public const int WalkSpeed = 0x60;
     public const int StairsSpeed = 0x30;
 
+    private const int ShieldStateCount = 3;
+    private const int DirCount = 4;
+    private const int WalkDurationFrames = 12;
+    private const int GridAlign = 8;
+    private const int GridAlignMask = ~(GridAlign - 1);
+    private const int HalfGridAlign = GridAlign / 2;
+
     private int _walkFrame = 0;
     private int _state = 0;
-
     private byte _speed;
     private TileBehavior _tileBehavior;
     private bool _paralyzed;
     private byte _animTimer;
     private byte _avoidTurningWhenDiag;   // 56
     private byte _keepGoingStraight;      // 57
-    // private InputButtons _curButtons;
+    private InputButtons _curButtons;
 
-    public SpriteAnimator Animator;
+    public SpriteAnimator Animator = new() { Time = 0, DurationFrames = WalkDurationFrames };
 
     public static Span<byte> PlayerLimits => new byte[] { 0xF0, 0x00, 0xDD, 0x3D };
 
-    public Link(Game game) : base(game)
+    public Link(Game game) : base(game, ObjType.Player)
     {
-        // TODO Animator = new(game, Palette.Red, Palette.Blue, Images.WalkLeft, Images.WalkDown, Images.WalkUp);
-        Facing = Direction.Left; // TODO
+        Facing = Direction.Up;
     }
 
     public void DecInvincibleTimer()
     {
         if (InvincibilityTimer > 0 && (Game.GetFrameCounter() & 1) == 0)
             InvincibilityTimer--;
+    }
+
+    public override void Update()
+    {
+        // Do this in order to flash while you have the clock. It doesn't matter if it becomes zero,
+        // because foes will check invincibilityTimer AND the clock item.
+        // I suspect that the original game did this in the drawing code.
+        var profile = Game.World.GetProfile();
+        if (profile.GetItem(ItemSlot.Clock) != 0)
+            InvincibilityTimer += 0x10;
+
+        _curButtons = Input.GetButtons();
+
+        // It looks like others set player's state to $40. They don't bitwise-and it with $40.
+        if ((_state & 0xC0) == 0x40)
+            return;
+
+        HandleInput();
+
+        if (_paralyzed)
+            Moving &= 0xF0;
+
+        if ((_state & 0xF0) != 0x10 && (_state & 0xF0) != 0x20)
+            Move();
+
+        if (Game.World.GetMode() == GameMode.LeaveCellar)
+            return;
+
+        if (Game.World.WhirlwindTeleporting == 0)
+        {
+            CheckWater();
+            CheckDoorway();
+            if (Game.World.GetMode() == GameMode.Play)
+                CheckWarp();
+            Animate();
+        }
+
+        // $6EFB
+        // The original game hides part of the player if it's under an underworld doorway.
+        // But, we do it differently.
+
+
+        Debug.WriteLine($"Link {{ X: {X}, Y: {Y}, Moving: {Moving}, Facing: {Facing}, TileOffset: {TileOffset} }}");
+        if (TileOffset == 0)
+        {
+            X = (X & 0xF8);
+            Y = (Y & 0xF8) | 5;
+        }
+    }
+
+    void Animate()
+    {
+        // The original game also didn't animate if gameMode was 4 or $10
+        if (_state != 0)
+        {
+            if (_animTimer != 0)
+                _animTimer--;
+
+            if (_animTimer == 0)
+            {
+                if ((_state & 0x30) == 0x10 || (_state & 0x30) == 0x20)
+                {
+                    Animator.Time = 0;
+                    _animTimer = (byte)(_state & 0xF);
+                    _state |= 0x30;
+                }
+                else if ((_state & 0x30) == 0x30)
+                {
+                    Animator.AdvanceFrame();
+                    _state &= 0xC0;
+                }
+            }
+        }
+        else if (Moving != 0)
+        {
+            Animator.Advance();
+        }
+    }
+
+    TileCollision CollidesWithTileMovingUW(int x, int y, Direction dir)
+    {
+        if (dir == Direction.Up && y == 0x5D)
+            y -= 8;
+
+        TileCollision collision1 = Game.World.CollidesWithTileMoving(x, y, dir, true);
+
+        if (dir.IsHorizontal() && collision1.TileBehavior != TileBehavior.Wall)
+        {
+            TileCollision collision2 = Game.World.CollidesWithTileMoving(x, y - 8, dir, true);
+
+            if (collision2.TileBehavior == TileBehavior.Wall)
+                return collision2;
+        }
+
+        return collision1;
+    }
+
+    TileCollision CollidesWithTileMoving(int x, int y, Direction dir)
+    {
+        if (!Game.World.IsUWMain())
+        {
+            return Game.World.CollidesWithTileMoving(x, y, dir, true);
+        }
+
+        var collision = CollidesWithTileMovingUW(x, y, dir);
+        if (collision.TileBehavior == TileBehavior.Doorway)
+            collision.Collides = false;
+
+        return collision;
+    }
+
+    // F23C
+    void CheckWater()
+    {
+        GameMode mode = Game.World.GetMode();
+
+        if (mode == GameMode.Leave || mode < GameMode.Play)
+            return;
+
+        if (TileOffset != 0)
+        {
+            if ((TileOffset & 7) != 0)
+                return;
+            TileOffset = 0;
+            if (mode != GameMode.Play)
+                return;
+            Game.World.fromUnderground = 0;
+        }
+
+        if (mode != GameMode.Play)
+            return;
+
+        if (Game.World.IsOverworld())
+        {
+            if (!Game.World.DoesRoomSupportLadder())
+                return;
+        }
+
+        if (Game.World.doorwayDir != Direction.None
+            || Game.World.GetItem(ItemSlot.Ladder) == 0
+            || (_state & 0xC0) == 0x40
+            || Game.World.GetLadder() != null)
+            return;
+
+        var collision = CollidesWithTileMoving(X, Y, Facing);
+
+        // The original game checked for specific water tiles in the OW and UW.
+        if (collision.TileBehavior != TileBehavior.Water)
+            return;
+
+        if (Moving == 0)
+            return;
+
+        if (Moving != (int)Facing)
+            return;
+
+        unchecked
+        {
+            static ReadOnlySpan<byte> ladderOffsetsX() => new byte[] { 0x10, (byte)-0x10, 0x00, 0x00 };
+            static ReadOnlySpan<byte> ladderOffsetsY() => new byte[] { 0x03, 0x03, 0x13, (byte)-0x05 };
+
+            int dirOrd = MovingDirection.GetOrdinal();
+
+            var ladder = new LadderActor(Game, X + ladderOffsetsX()[dirOrd], Y + ladderOffsetsY()[dirOrd]);
+            Game.World.SetLadder(ladder);
+        }
+    }
+
+    void CheckWarp()
+    {
+        if (Game.World.fromUnderground != 0 || TileOffset != 0)
+            return;
+
+        if (Game.World.IsOverworld() && Game.World.curRoomId == 0x22)
+        {
+            if ((X & 7) != 0)
+                return;
+        }
+        else
+        {
+            if ((X & 0xF) != 0)
+                return;
+        }
+
+        if ((Y & 0xF) != 0xD)
+            return;
+
+        int fineRow = (Y + 3 - 0x40) / 8;
+        int fineCol = X / 8;
+
+        Game.World.CoverTile(fineRow, fineCol);
+    }
+
+    void CheckDoorway()
+    {
+        TileCollision collision = Game.World.PlayerCoversTile(X, Y);
+
+        if (collision.TileBehavior == TileBehavior.Doorway)
+        {
+            if (Game.World.doorwayDir == Direction.None)
+                Game.World.doorwayDir = Facing;
+        }
+        else
+        {
+            if (Game.World.doorwayDir != Direction.None)
+                Game.World.doorwayDir = Direction.None;
+        }
+    }
+
+    static bool IsInBorder(int coord, Direction dir, ReadOnlySpan<byte> border)
+    {
+        if (dir.IsHorizontal())
+        {
+            return coord < border[0] || coord >= border[1];
+        }
+
+        return coord < border[2] || coord >= border[3];
+    }
+
+    // $8D8C
+    void FilterBorderInput()
+    {
+        // These are reverse from original, because Util::GetDirectionOrd goes in the opposite dir of $7013.
+        static ReadOnlySpan<byte> outerBorderOW() => new byte[] { 0x07, 0xE9, 0x45, 0xD6 };
+        static ReadOnlySpan<byte> outerBorderUW() => new byte[] { 0x17, 0xD9, 0x55, 0xC6 };
+        static ReadOnlySpan<byte> innerBorder() => new byte[] { 0x1F, 0xD1, 0x54, 0xBE };
+
+        int coord = Facing.IsHorizontal() ? X : Y;
+        var outerBorder = Game.World.IsOverworld() ? outerBorderOW() : outerBorderUW();
+
+        if (IsInBorder(coord, Facing, outerBorder))
+        {
+            _curButtons.Buttons = 0;
+            if (!Game.World.IsOverworld())
+            {
+                if (Facing.IsVertical())
+                    Moving = (byte)(Moving & (byte)Direction.VerticalMask);
+                else
+                    Moving = (byte)(Moving & (byte)Direction.HorizontalMask);
+            }
+        }
+        else if (IsInBorder(coord, Facing, innerBorder()))
+        {
+            _curButtons.Mask(Button.A);
+        }
+    }
+
+    void HandleInput()
+    {
+        Moving = (byte)(_curButtons.Buttons & Button.MovingMask);
+
+        if (_state == 0)
+        {
+            FilterBorderInput();
+
+            if (_curButtons.Has(Button.A))
+                UseWeapon();
+
+            if (_curButtons.Has(Button.B))
+                UseItem();
+        }
+
+        if (ShoveDirection != 0)
+            return;
+
+        if (!Game.World.IsOverworld())
+            SetMovingInDoorway();
+
+        if (TileOffset != 0)
+            Align();
+        else
+            CalcAlignedMoving();
+    }
+
+    void SetMovingInDoorway()
+    {
+        if (Game.World.doorwayDir != Direction.None && Moving != 0)
+        {
+            var dir = MovingDirection & Facing;
+            if (dir == 0)
+            {
+                dir = MovingDirection & Facing.GetOppositeDirection();
+                if (dir == 0)
+                    dir = Facing;
+            }
+            Moving = (byte)dir;
+        }
+    }
+
+    // $B38D
+    void Align()
+    {
+        if (Moving == 0)
+            return;
+
+        Direction singleMoving = GetSingleMoving();
+
+        if (singleMoving == Facing)
+        {
+            SetSpeed();
+            return;
+        }
+
+        var dir = singleMoving | Facing;
+        if (dir != Direction.OppositeHorizontals && dir != Direction.OppositeVerticals)
+        {
+            if (_keepGoingStraight != 0)
+            {
+                SetSpeed();
+                return;
+            }
+
+            if (Math.Abs(TileOffset) >= 4)
+                return;
+
+            if (Facing.IsGrowing())
+            {
+                if (TileOffset < 0)
+                    return;
+            }
+            else
+            {
+                if (TileOffset >= 0)
+                    return;
+            }
+
+            Facing = Facing.GetOppositeDirection();
+
+            if (TileOffset >= 0)
+                TileOffset -= 8;
+            else
+                TileOffset += 8;
+        }
+        else
+        {
+            Facing = singleMoving;
+            Moving = (byte)singleMoving;
+        }
+    }
+
+    // $B2CF
+    void CalcAlignedMoving()
+    {
+        Direction lastDir = Direction.None;
+        Direction lastClearDir = Direction.None;
+        int dirCount = 0;
+        int clearDirCount = 0;
+
+        _keepGoingStraight = 0;
+
+        for (int i = 0; i < 4; i++)
+        {
+            Direction dir = i.GetOrdDirection();
+            if ((Moving & (int)dir) != 0)
+            {
+                lastDir = dir;
+                dirCount++;
+
+                var collision = CollidesWithTileMoving(X, Y, dir);
+                _tileBehavior = collision.TileBehavior;
+                if (!collision.Collides)
+                {
+                    lastClearDir = dir;
+                    clearDirCount++;
+                }
+            }
+        }
+
+        if (dirCount == 0)
+            return;
+
+        if (dirCount == 1)
+        {
+            _avoidTurningWhenDiag = 0;
+            Facing = lastDir;
+            Moving = (byte)lastDir;
+            SetSpeed();
+            return;
+        }
+
+        if (clearDirCount == 0)
+        {
+            Moving = 0;
+            return;
+        }
+
+        _keepGoingStraight++;
+
+        if (clearDirCount == 1 || Game.World.IsOverworld())
+        {
+            _avoidTurningWhenDiag = 0;
+            Facing = lastClearDir;
+            Moving = (byte)lastClearDir;
+            SetSpeed();
+            return;
+        }
+
+        if (X == 0x20 || X == 0xD0)
+        {
+            if (Y != 0x85 || (Facing & Direction.Down) == 0)
+                goto TakeFacingPerpDir;
+        }
+
+        if (_avoidTurningWhenDiag == 0)
+            goto TakeFacingPerpDir;
+
+        if (Game.World.IsOverworld()
+            || X != 0x78
+            || Y != 0x5D)
+        {
+            Moving = (byte)Facing;
+            SetSpeed();
+            return;
+        }
+
+    // B34D
+    TakeFacingPerpDir:
+        // Moving dir is diagonal. Take the dir component that's perpendicular to facing.
+        _avoidTurningWhenDiag++;
+
+        static ReadOnlySpan<byte> axisMasks() => new byte[] { 3, 3, 0xC, 0xC };
+
+        int dirOrd = Facing.GetOrdinal();
+        var movingInFacingAxis = Moving & axisMasks()[dirOrd];
+        var perpMoving = Moving ^ movingInFacingAxis;
+        Facing = (Direction)perpMoving;
+        Moving = (byte)perpMoving;
+        SetSpeed();
+    }
+
+    // $B366
+    void SetSpeed()
+    {
+        byte newSpeed = WalkSpeed;
+
+        if (Game.World.IsOverworld())
+        {
+            if (_tileBehavior == TileBehavior.SlowStairs)
+            {
+                newSpeed = StairsSpeed;
+                if (_speed != newSpeed)
+                    Fraction = 0;
+            }
+        }
+
+        _speed = newSpeed;
+    }
+
+    private static readonly AnimationId[] _thrustAnimMap = new[]
+    {
+        AnimationId.LinkThrust_Right,
+        AnimationId.LinkThrust_Left,
+        AnimationId.LinkThrust_Down,
+        AnimationId.LinkThrust_Up
+    };
+
+    private static readonly AnimationId[][] _animMap = new[]
+    {
+        new AnimationId[] {
+            AnimationId.LinkWalk_NoShield_Right,
+            AnimationId.LinkWalk_NoShield_Left,
+            AnimationId.LinkWalk_NoShield_Down,
+            AnimationId.LinkWalk_NoShield_Up,
+        },
+
+        new AnimationId[] {
+            AnimationId.LinkWalk_LittleShield_Right,
+            AnimationId.LinkWalk_LittleShield_Left,
+            AnimationId.LinkWalk_LittleShield_Down,
+            AnimationId.LinkWalk_LittleShield_Up,
+        },
+
+        new AnimationId[] {
+            AnimationId.LinkWalk_BigShield_Right,
+            AnimationId.LinkWalk_BigShield_Left,
+            AnimationId.LinkWalk_BigShield_Down,
+            AnimationId.LinkWalk_BigShield_Up,
+        }
+    };
+
+    void SetFacingAnim()
+    {
+        int shieldState = Game.World.GetItem(ItemSlot.MagicShield) + 1;
+        int dirOrd = Facing.GetOrdinal();
+        if ((_state & 0x30) == 0x10 || (_state & 0x30) == 0x20)
+            Animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, _thrustAnimMap[dirOrd]);
+        else
+            Animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, _animMap[shieldState][dirOrd]);
+    }
+
+    public override void Draw()
+    {
+        var palette = CalcPalette(Palette.Player);
+        int y = Y;
+
+        if (Game.IsOverworld || Game.CurrentMode == GameMode.PlayCellar)
+        {
+            y += 2;
+        }
+
+        SetFacingAnim();
+        Animator.Draw(TileSheet.PlayerAndItems, X, y, palette);
     }
 
     public PlayerState GetState()
@@ -60,14 +553,6 @@ internal class Link : Actor
         if ((_state & 0xF0) != 0)
             return PlayerState.Wielding;
         return PlayerState.Idle;
-    }
-
-    public Rectangle GetBounds() => new(X, Y + 8, 16, 8);
-
-    public Point GetMiddle()
-    {
-        // JOE: This seems silly?
-        return new (X + 8, Y + 8);
     }
 
     public void SetState(PlayerState state)
@@ -81,6 +566,14 @@ internal class Link : Actor
                 _state = 0;
                 break;
         }
+    }
+
+    public Rectangle GetBounds() => new(X, Y + 8, 16, 8);
+
+    public Point GetMiddle()
+    {
+        // JOE: This seems silly?
+        return new (X + 8, Y + 8);
     }
 
     public void ResetShove()
@@ -157,7 +650,6 @@ internal class Link : Actor
         MoveDirection(speed, dir);
     }
 
-
     //====================================================================================
     //  UseItem
     //====================================================================================
@@ -188,102 +680,475 @@ internal class Link : Actor
         return 0;
     }
 
-    public void Move(Game game)
+    int UseBomb(int x, int y, Direction facingDir)
     {
-        Direction? direction = game.KeyCode switch
-        {
-            Keys.Left => Direction.Left,
-            Keys.Right => Direction.Right,
-            Keys.Up => Direction.Up,
-            Keys.Down => Direction.Down,
-            _ => null
-        };
+        int i;
 
-        if (direction != null)
+        for (i = (int)ObjectSlot.FirstBomb; i < (int)ObjectSlot.LastBomb; i++)
         {
-            DoMove(direction.Value, 1);
+            var obj = Game.World.GetObject((ObjectSlot)i);
+            if (obj == null || obj is BombActor)
+                break;
         }
+
+        if (i == (int)ObjectSlot.LastBomb)
+            return 0;
+
+        var freeSlot = (ObjectSlot)i;
+        var otherSlot = ObjectSlot.FirstBomb;
+
+        if (freeSlot == ObjectSlot.FirstBomb)
+            otherSlot++;
+
+        var otherObj = Game.World.GetObject(otherSlot);
+        if (otherObj != null
+            && otherObj is BombActor otherBomb
+            && otherBomb.BombState < BombState.Blasting)
+        {
+            return 0;
+        }
+
+        MoveSimple(ref x, ref y, facingDir, 0x10);
+
+        var bomb = new BombActor(Game, x, y);
+        Game.World.SetObject(freeSlot, bomb);
+        Game.World.DecrementItem(ItemSlot.Bombs);
+        Game.Sound.Play(SoundEffect.PutBomb);
+        return 7;
     }
 
-    // $B366
-    public void SetSpeed()
+    int UseBoomerang(int x, int y, Direction facingDir)
     {
-        byte newSpeed = WalkSpeed;
+        // ORIGINAL: Trumps food. Look at $05:8E40. The behavior is tied to the statement below.
+        //           Skip throw, if there's already a boomerang in the slot. But overwrite Food.
+        if (Game.World.GetObject(ObjectSlot.Boomerang) != null)
+            return 0;
 
-        if (Game.IsOverworld)
+        int itemValue = Game.World.GetItem(ItemSlot.Boomerang);
+        int distance = 0x31;
+
+        MoveSimple(ref x, ref y, facingDir, 0x10);
+
+        if (itemValue == 2)
+            distance = 0xFF;
+
+        if (MovingDirection != Direction.None)
+            facingDir = MovingDirection;
+
+        var boomerang = GlobalFunctions.MakeBoomerang(
+            Game, x, y, facingDir, distance, 3.0f, this, ObjectSlot.Boomerang);
+        Game.World.SetObject(ObjectSlot.Boomerang, boomerang);
+        return 6;
+    }
+
+    int UseArrow(int x, int y, Direction facingDir)
+    {
+        if (Game.World.GetObject(ObjectSlot.Arrow) != null)
+            return 0;
+
+        if (Game.World.GetItem(ItemSlot.Rupees) == 0)
+            return 0;
+
+        Game.World.PostRupeeLoss(1);
+
+        MoveSimple(ref x, ref y, facingDir, 0x10);
+
+        if (facingDir.IsVertical())
+            x += 3;
+
+        var arrow = GlobalFunctions.MakeProjectile(Game.World, ObjType.Arrow, x, y, facingDir, ObjectSlot.Arrow);
+        Game.World.SetObject(ObjectSlot.Arrow, arrow);
+        Game.Sound.Play(SoundEffect.Boomerang);
+        return 6;
+    }
+
+    int UseFood(int x, int y, Direction facingDir)
+    {
+        if (Game.World.GetObject(ObjectSlot.Food) != null)
+            return 0;
+
+        MoveSimple(ref x, ref y, facingDir, 0x10);
+
+        var food = new FoodActor(Game, x, y);
+        Game.World.SetObject(ObjectSlot.Food, food);
+        return 6;
+    }
+
+    int UsePotion(int x, int y, Direction facingDir)
+    {
+        Game.World.DecrementItem(ItemSlot.Potion);
+        Game.World.PauseFillHearts();
+        return 0;
+    }
+
+    int UseRecorder(int x, int y, Direction facingDir)
+    {
+        Game.World.UseRecorder();
+        return 0;
+    }
+
+    int UseLetter(int x, int y, Direction facingDir)
+    {
+        int itemValue = Game.World.GetItem(ItemSlot.Letter);
+        if (itemValue != 1)
+            return 0;
+
+        var obj = Game.World.GetObject(ObjectSlot.Monster1);
+        if (obj == null || obj.ObjType != ObjType.CaveMedicineShop)
+            return 0;
+
+        Game.World.SetItem(ItemSlot.Letter, 2);
+        return 0;
+    }
+
+    int UseItem()
+    {
+        var profile = Game.World.GetProfile();
+        if (profile.SelectedItem == 0)
+            return 0;
+
+        int itemValue = profile.Items[profile.SelectedItem];
+        if (itemValue == 0)
+            return 0;
+
+        if (profile.SelectedItem == ItemSlot.Rod)
+            return UseWeapon(ObjType.Rod, ItemSlot.Rod);
+
+        int waitFrames = 0;
+
+        switch (profile.SelectedItem)
         {
-            if (_tileBehavior == TileBehavior.SlowStairs)
+            case ItemSlot.Bombs: waitFrames = UseBomb(X, Y, Facing); break;
+            case ItemSlot.Arrow: waitFrames = UseArrow(X, Y, Facing); break;
+            case ItemSlot.Candle: waitFrames = UseCandle(X, Y, Facing); break;
+            case ItemSlot.Recorder: waitFrames = UseRecorder(X, Y, Facing); break;
+            case ItemSlot.Food: waitFrames = UseFood(X, Y, Facing); break;
+            case ItemSlot.Potion: waitFrames = UsePotion(X, Y, Facing); break;
+            case ItemSlot.Letter: waitFrames = UseLetter(X, Y, Facing); break;
+            case ItemSlot.Boomerang: waitFrames = UseBoomerang(X, Y, Facing); break;
+        }
+
+        if (waitFrames == 0)
+            return 0;
+        Animator.Time = 0;
+        _animTimer = 6;
+        _state = 0x16;
+        return waitFrames + 6;
+    }
+
+    int UseWeapon()
+    {
+        if (Game.World.SwordBlocked || Game.World.GetStunTimer(ObjectSlot.NoSwordTimer) != 0)
+            return 0;
+        return UseWeapon(ObjType.PlayerSword, ItemSlot.Sword);
+    }
+
+    int UseWeapon(ObjType type, ItemSlot itemSlot)
+    {
+        if (Game.World.GetItem(itemSlot) == 0)
+            return 0;
+
+        if (Game.World.GetObject(ObjectSlot.PlayerSword) != null)
+            return 0;
+
+        // The original game did this:
+        //   player.animTimer := 1
+        //   player.state := $10
+        Animator.Time = 0;
+        _animTimer = 12;
+        _state = 0x11;
+
+        var sword = new PlayerSword(Game, type);
+        Game.World.SetObject(ObjectSlot.PlayerSword, sword);
+        Game.Sound.Play(SoundEffect.Sword);
+        return 13;
+    }
+
+    void Move()
+    {
+        if (ShoveDirection != 0)
+        {
+            ObjShove();
+            return;
+        }
+
+        Direction dir = Direction.None;
+
+        if (TileOffset == 0)
+        {
+            if (Moving != 0)
             {
-                newSpeed = StairsSpeed;
-                if (_speed != newSpeed)
-                {
-                    Fraction = 0;
-                }
+                int dirOrd = MovingDirection.GetOrdinal();
+                dir = dirOrd.GetOrdDirection();
+            }
+        }
+        else if (Moving != 0)
+        {
+            dir = Facing;
+        }
+
+        dir = dir & Direction.DirectionMask;
+
+        // blocks, personal wall, leave cellar, world margin, doorways
+        // tile collision, ladder
+
+        // Original: [$E] := 0
+        // Maybe it's only done to set up the call to FindUnblockedDir in CheckTileCollision?
+
+        // The original game resets ~moving~ here, if player's major state is $10 or $20.
+        // What we do instead in that case is to avoid calling ObjMove in Player. I think
+        // that it's clearer this way.
+
+        dir = StopAtBlock(dir);
+        dir = StopAtPersonWallUW(dir);
+
+        if (Game.World.doorwayDir == Direction.None)
+        {
+            GameMode mode = Game.World.GetMode();
+
+            if (mode == GameMode.PlayCellar
+                || mode == GameMode.PlayCave
+                || mode == GameMode.PlayShortcuts)
+            {
+                dir = CheckSubroom(dir);
+                mode = Game.World.GetMode();
+            }
+
+            // We now check walls using tiles and their behaviors.
+        }
+
+        // We now check doorways using tiles and their behaviors.
+
+        dir = CheckTileCollision(dir);
+        dir = HandleLadder(dir);
+
+        MoveDirection(_speed, dir);
+    }
+
+    // 8ED7
+    Direction CheckSubroom(Direction dir)
+    {
+        GameMode mode = Game.World.GetMode();
+
+        if (mode == GameMode.PlayCellar)
+        {
+            if (Y >= 0x40 || (MovingDirection & Direction.Up) == 0)
+                return dir;
+
+            Game.World.LeaveCellar();
+            dir = Direction.None;
+            StopPlayer();
+        }
+        else    // Cave
+        {
+            dir = StopAtPersonWall(dir);
+
+            // Handling 3 shortcut stairs in shortcut cave is handled by the Person obj, instead of here.
+
+            if (HitsWorldLimit())
+            {
+                Game.World.LeaveCellar();
+                dir = Direction.None;
+                StopPlayer();
             }
         }
 
-        _speed = newSpeed;
+        return dir;
     }
 
-    private void SetFacingAnimation()
+    // 8F7B
+    Direction HandleLadder(Direction dir)
     {
-        int shieldState = Game.GetItem(ItemSlot.MagicShield) + 1;
-        int dirOrd = Facing.GetOrdinal();
-        // TODO: if ((_state & 0x30) == 0x10 || (_state & 0x30) == 0x20)
-        // TODO:     animator.anim = Graphics::GetAnimation(Sheet_PlayerAndItems, thrustAnimMap[dirOrd]);
-        // TODO: else
-        // Animator.GetFrame( = Graphics::GetAnimation(Sheet_PlayerAndItems, animMap[shieldState][dirOrd]);
-    }
+        var ladder = Game.World.GetLadder();
 
-    public override void Draw()
-    {
-        // var sprites = Dir switch
-        // {
-        //     Direction.Down => Images.WalkDown,
-        //     Direction.Up => Images.WalkUp,
-        //     Direction.Left => Images.WalkLeft,
-        //     // Direction.Right => Images.WalkRight,
-        //     _ => throw new InvalidOperationException("Invalid direction")
-        // };
-        //
-        // var sprite = sprites[_walkFrame];
-        // Game.DrawBitmap(TileSheet.PlayerAndItems, sprite, Position);
-        var palette = CalcPalette(Palette.Player);
-        int y = Y;
+        if (ladder == null)
+            return dir;
 
-        if (Game.IsOverworld || Game.CurrentMode == GameMode.PlayCellar)
+        // Original: if ladder.GetState() = 0, destroy it. But, I don't see how it can get in that state.
+
+        int distance = 0;
+
+        if (ladder.Facing.IsVertical())
         {
-            y += 2;
+            if (X != ladder.X)
+            {
+                Game.World.SetLadder(null);
+                return dir;
+            }
+            distance = (Y + 3) - ladder.Y;
+        }
+        else
+        {
+            if ((Y + 3) != ladder.Y)
+            {
+                Game.World.SetLadder(null);
+                return dir;
+            }
+            distance = X - ladder.X;
         }
 
-        SetFacingAnimation();
-        Animator.Draw(TileSheet.PlayerAndItems, X, y, palette);
-        // var frame = Animator.GetFrame();
-        // if (frame != null)
-        // {
-        //     Game.DrawBitmap(TileSheet.PlayerAndItems, frame, X, y);
-        // }
+        distance = Math.Abs(distance);
+
+        if (distance < 0x10)
+        {
+            ladder.state = 2;
+            dir = MoveOnLadder(dir, distance);
+        }
+        else if (distance != 0x10
+            || Facing != ladder.Facing)
+        {
+            Game.World.SetLadder(null);
+        }
+        else if (ladder.state == 1)
+        {
+            dir = MoveOnLadder(dir, distance);
+        }
+        else
+        {
+            Game.World.SetLadder(null);
+        }
+
+        return dir;
     }
 
-    public override void Update()
+    // $05:8FCD
+    Direction MoveOnLadder(Direction dir, int distance)
     {
+        if (Moving == 0)
+            return Direction.None;
+
+        var ladder = Game.World.GetLadder();
+
+        if (distance != 0 && Facing == ladder.Facing)
+            return Facing;
+
+        if (ladder.Facing == dir)
+            return dir;
+
+        Direction oppositeDir = ladder.Facing.GetOppositeDirection();
+
+        if (oppositeDir == Facing)
+            return oppositeDir;
+
+        if (oppositeDir != Direction.Down
+            || MovingDirection != Direction.Up)
+        {
+            return Direction.None;
+        }
+
+        // At this point, ladder faces up, and player moving up.
+
+        dir = MovingDirection;
+
+        if (CollidesWithTileMoving(X, Y - 8, dir))
+            return Direction.None;
+
+        // ORIGINAL: The routine will run again. It'll finish, because now (ladder.facing = dir),
+        //           which is one of the conditions that ends this function.
+        //           But, why not return dir right here?
+        return MoveOnLadder(dir, distance);
     }
 
-    public void DoMove(Direction dir, int amount)
+    // $01:A13E  stop object, if too close to a block
+    Direction StopAtBlock(Direction dir)
     {
-        Dir = dir;
-        Position += new Size(dir switch
+        for (int i = (int)ObjectSlot.Buffer; i >= (int)ObjectSlot.Monster1; i--)
         {
-            Direction.Left => -amount,
-            Direction.Right => amount,
-            _ => 0
-        }, dir switch
-        {
-            Direction.Up => -amount,
-            Direction.Down => amount,
-            _ => 0
-        });
+            var obj = Game.World.GetObject((ObjectSlot)i);
+            if (obj != null && obj is IBlocksPlayer block)
+            {
+                if (block != null)
+                {
+                    if (block.CheckCollision() == CollisionResponse.Blocked)
+                        return Direction.None;
+                }
+            }
+        }
+        return dir;
+    }
 
-        _walkFrame = (_walkFrame + 1) % 2;
+    Direction CheckTileCollision(Direction dir)
+    {
+        if (Game.World.doorwayDir != Direction.None)
+            return CheckWorldBounds(dir);
+        // Original, but seemingly never triggered: if [$E] < 0, leave
+
+        if (TileOffset != 0)
+            return dir;
+
+        if (dir != Direction.None)
+        {
+            return FindUnblockedDir(dir);
+        }
+
+        return dir;
+    }
+
+    bool HitsWorldLimit()
+    {
+        if (Moving != 0)
+        {
+            int dirOrd = MovingDirection.GetOrdinal();
+            Direction singleMoving = dirOrd.GetOrdDirection();
+            var coord = singleMoving.IsVertical() ? Y : X;
+
+            if (coord == PlayerLimits[dirOrd])
+            {
+                Facing = singleMoving;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void StopPlayer()
+    {
+        Stop();
+    }
+
+    // F14E
+    protected override Direction CheckWorldBounds(Direction dir)
+    {
+        if (Game.World.GetMode() == GameMode.Play
+            && Game.World.GetLadder() == null
+            && TileOffset == 0)
+        {
+            if (HitsWorldLimit())
+            {
+                Game.World.LeaveRoom(Facing, Game.World.curRoomId);
+                dir = Direction.None;
+                StopPlayer();
+            }
+        }
+
+        return dir;
+    }
+
+    Direction FindUnblockedDir(Direction dir)
+    {
+        var collision = CollidesWithTileMoving(X, Y, dir);
+        if (!collision.Collides)
+        {
+            dir = CheckWorldBounds(dir);
+            return dir;
+        }
+
+        PushOWTile(collision);
+
+        dir = Direction.None;
+        // ORIGINAL: [$F8] := 0
+        if (Game.World.IsOverworld())
+            return CheckWorldBounds(dir);
+        return dir;
+    }
+
+    // $01:A223
+    void PushOWTile(TileCollision collision )
+    {
+        if (TileOffset != 0 || Moving == 0)
+            return;
+
+        // This isn't anologous to the original's code, but the effect is the same.
+        Game.World.PushTile(collision.FineRow, collision.FineCol);
     }
 }
