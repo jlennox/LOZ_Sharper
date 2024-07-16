@@ -23,7 +23,7 @@ internal sealed class Link : Actor
     private int _state = 0;
     private byte _speed;
     private TileBehavior _tileBehavior;
-    private bool _paralyzed;
+    public bool Paralyzed;
     private byte _animTimer;
     private byte _avoidTurningWhenDiag;   // 56
     private byte _keepGoingStraight;      // 57
@@ -33,9 +33,9 @@ internal sealed class Link : Actor
 
     public static Span<byte> PlayerLimits => new byte[] { 0xF0, 0x00, 0xDD, 0x3D };
 
-    public Link(Game game) : base(game, ObjType.Player)
+    public Link(Game game, Direction facing = Direction.Up) : base(game, ObjType.Player)
     {
-        Facing = Direction.Up;
+        Facing = facing;
     }
 
     public void DecInvincibleTimer()
@@ -61,7 +61,7 @@ internal sealed class Link : Actor
 
         HandleInput();
 
-        if (_paralyzed)
+        if (Paralyzed)
             Moving &= 0xF0;
 
         if ((_state & 0xF0) != 0x10 && (_state & 0xF0) != 0x20)
@@ -92,7 +92,7 @@ internal sealed class Link : Actor
         }
     }
 
-    void Animate()
+    private void Animate()
     {
         // The original game also didn't animate if gameMode was 4 or $10
         if (_state != 0)
@@ -121,16 +121,16 @@ internal sealed class Link : Actor
         }
     }
 
-    TileCollision CollidesWithTileMovingUW(int x, int y, Direction dir)
+    private TileCollision CollidesWithTileMovingUW(int x, int y, Direction dir)
     {
         if (dir == Direction.Up && y == 0x5D)
             y -= 8;
 
-        TileCollision collision1 = Game.World.CollidesWithTileMoving(x, y, dir, true);
+        var collision1 = Game.World.CollidesWithTileMoving(x, y, dir, true);
 
         if (dir.IsHorizontal() && collision1.TileBehavior != TileBehavior.Wall)
         {
-            TileCollision collision2 = Game.World.CollidesWithTileMoving(x, y - 8, dir, true);
+            var collision2 = Game.World.CollidesWithTileMoving(x, y - 8, dir, true);
 
             if (collision2.TileBehavior == TileBehavior.Wall)
                 return collision2;
@@ -139,7 +139,7 @@ internal sealed class Link : Actor
         return collision1;
     }
 
-    TileCollision CollidesWithTileMoving(int x, int y, Direction dir)
+    private TileCollision CollidesWithTileMoving(int x, int y, Direction dir)
     {
         if (!Game.World.IsUWMain())
         {
@@ -154,9 +154,9 @@ internal sealed class Link : Actor
     }
 
     // F23C
-    void CheckWater()
+    private void CheckWater()
     {
-        GameMode mode = Game.World.GetMode();
+        var mode = Game.World.GetMode();
 
         if (mode == GameMode.Leave || mode < GameMode.Play)
             return;
@@ -203,14 +203,14 @@ internal sealed class Link : Actor
             static ReadOnlySpan<byte> ladderOffsetsX() => new byte[] { 0x10, (byte)-0x10, 0x00, 0x00 };
             static ReadOnlySpan<byte> ladderOffsetsY() => new byte[] { 0x03, 0x03, 0x13, (byte)-0x05 };
 
-            int dirOrd = MovingDirection.GetOrdinal();
+            var dirOrd = MovingDirection.GetOrdinal();
 
             var ladder = new LadderActor(Game, X + ladderOffsetsX()[dirOrd], Y + ladderOffsetsY()[dirOrd]);
             Game.World.SetLadder(ladder);
         }
     }
 
-    void CheckWarp()
+    private void CheckWarp()
     {
         if (Game.World.fromUnderground != 0 || TileOffset != 0)
             return;
@@ -229,15 +229,15 @@ internal sealed class Link : Actor
         if ((Y & 0xF) != 0xD)
             return;
 
-        int fineRow = (Y + 3 - 0x40) / 8;
-        int fineCol = X / 8;
+        var fineRow = (Y + 3 - 0x40) / 8;
+        var fineCol = X / 8;
 
         Game.World.CoverTile(fineRow, fineCol);
     }
 
-    void CheckDoorway()
+    private void CheckDoorway()
     {
-        TileCollision collision = Game.World.PlayerCoversTile(X, Y);
+        var collision = Game.World.PlayerCoversTile(X, Y);
 
         if (collision.TileBehavior == TileBehavior.Doorway)
         {
@@ -251,7 +251,7 @@ internal sealed class Link : Actor
         }
     }
 
-    static bool IsInBorder(int coord, Direction dir, ReadOnlySpan<byte> border)
+    private static bool IsInBorder(int coord, Direction dir, ReadOnlySpan<byte> border)
     {
         if (dir.IsHorizontal())
         {
@@ -262,14 +262,14 @@ internal sealed class Link : Actor
     }
 
     // $8D8C
-    void FilterBorderInput()
+    private void FilterBorderInput()
     {
         // These are reverse from original, because Util::GetDirectionOrd goes in the opposite dir of $7013.
         static ReadOnlySpan<byte> outerBorderOW() => new byte[] { 0x07, 0xE9, 0x45, 0xD6 };
         static ReadOnlySpan<byte> outerBorderUW() => new byte[] { 0x17, 0xD9, 0x55, 0xC6 };
         static ReadOnlySpan<byte> innerBorder() => new byte[] { 0x1F, 0xD1, 0x54, 0xBE };
 
-        int coord = Facing.IsHorizontal() ? X : Y;
+        var coord = Facing.IsHorizontal() ? X : Y;
         var outerBorder = Game.World.IsOverworld() ? outerBorderOW() : outerBorderUW();
 
         if (IsInBorder(coord, Facing, outerBorder))
@@ -289,7 +289,7 @@ internal sealed class Link : Actor
         }
     }
 
-    void HandleInput()
+    private void HandleInput()
     {
         Moving = (byte)(_curButtons.Buttons & Button.MovingMask);
 
@@ -316,7 +316,7 @@ internal sealed class Link : Actor
             CalcAlignedMoving();
     }
 
-    void SetMovingInDoorway()
+    private void SetMovingInDoorway()
     {
         if (Game.World.doorwayDir != Direction.None && Moving != 0)
         {
@@ -332,12 +332,12 @@ internal sealed class Link : Actor
     }
 
     // $B38D
-    void Align()
+    private void Align()
     {
         if (Moving == 0)
             return;
 
-        Direction singleMoving = GetSingleMoving();
+        var singleMoving = GetSingleMoving();
 
         if (singleMoving == Facing)
         {
@@ -359,13 +359,11 @@ internal sealed class Link : Actor
 
             if (Facing.IsGrowing())
             {
-                if (TileOffset < 0)
-                    return;
+                if (TileOffset < 0) return;
             }
             else
             {
-                if (TileOffset >= 0)
-                    return;
+                if (TileOffset >= 0) return;
             }
 
             Facing = Facing.GetOppositeDirection();
@@ -383,18 +381,18 @@ internal sealed class Link : Actor
     }
 
     // $B2CF
-    void CalcAlignedMoving()
+    private void CalcAlignedMoving()
     {
-        Direction lastDir = Direction.None;
-        Direction lastClearDir = Direction.None;
-        int dirCount = 0;
-        int clearDirCount = 0;
+        var lastDir = Direction.None;
+        var lastClearDir = Direction.None;
+        var dirCount = 0;
+        var clearDirCount = 0;
 
         _keepGoingStraight = 0;
 
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
-            Direction dir = i.GetOrdDirection();
+            var dir = i.GetOrdDirection();
             if ((Moving & (int)dir) != 0)
             {
                 lastDir = dir;
@@ -410,8 +408,7 @@ internal sealed class Link : Actor
             }
         }
 
-        if (dirCount == 0)
-            return;
+        if (dirCount == 0) return;
 
         if (dirCount == 1)
         {
@@ -439,7 +436,7 @@ internal sealed class Link : Actor
             return;
         }
 
-        if (X == 0x20 || X == 0xD0)
+        if (X is 0x20 or 0xD0)
         {
             if (Y != 0x85 || (Facing & Direction.Down) == 0)
                 goto TakeFacingPerpDir;
@@ -464,7 +461,7 @@ internal sealed class Link : Actor
 
         static ReadOnlySpan<byte> axisMasks() => new byte[] { 3, 3, 0xC, 0xC };
 
-        int dirOrd = Facing.GetOrdinal();
+        var dirOrd = Facing.GetOrdinal();
         var movingInFacingAxis = Moving & axisMasks()[dirOrd];
         var perpMoving = Moving ^ movingInFacingAxis;
         Facing = (Direction)perpMoving;
@@ -473,7 +470,7 @@ internal sealed class Link : Actor
     }
 
     // $B366
-    void SetSpeed()
+    private void SetSpeed()
     {
         byte newSpeed = WalkSpeed;
 
@@ -500,21 +497,21 @@ internal sealed class Link : Actor
 
     private static readonly AnimationId[][] _animMap = new[]
     {
-        new AnimationId[] {
+        new[] {
             AnimationId.LinkWalk_NoShield_Right,
             AnimationId.LinkWalk_NoShield_Left,
             AnimationId.LinkWalk_NoShield_Down,
             AnimationId.LinkWalk_NoShield_Up,
         },
 
-        new AnimationId[] {
+        new[] {
             AnimationId.LinkWalk_LittleShield_Right,
             AnimationId.LinkWalk_LittleShield_Left,
             AnimationId.LinkWalk_LittleShield_Down,
             AnimationId.LinkWalk_LittleShield_Up,
         },
 
-        new AnimationId[] {
+        new[] {
             AnimationId.LinkWalk_BigShield_Right,
             AnimationId.LinkWalk_BigShield_Left,
             AnimationId.LinkWalk_BigShield_Down,
@@ -522,22 +519,20 @@ internal sealed class Link : Actor
         }
     };
 
-    void SetFacingAnim()
+    private void SetFacingAnim()
     {
-        int shieldState = Game.World.GetItem(ItemSlot.MagicShield) + 1;
-        int dirOrd = Facing.GetOrdinal();
-        if ((_state & 0x30) == 0x10 || (_state & 0x30) == 0x20)
-            Animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, _thrustAnimMap[dirOrd]);
-        else
-            Animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, _animMap[shieldState][dirOrd]);
+        var shieldState = Game.World.GetItem(ItemSlot.MagicShield) + 1;
+        var dirOrd = Facing.GetOrdinal();
+        var map = (_state & 0x30) == 0x10 || (_state & 0x30) == 0x20 ? _thrustAnimMap : _animMap[shieldState];
+        Animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, map[dirOrd]);
     }
 
     public override void Draw()
     {
         var palette = CalcPalette(Palette.Player);
-        int y = Y;
+        var y = Y;
 
-        if (Game.IsOverworld || Game.CurrentMode == GameMode.PlayCellar)
+        if (Game.World.IsOverworld() || Game.World.GetMode() == GameMode.PlayCellar)
         {
             y += 2;
         }
@@ -548,24 +543,18 @@ internal sealed class Link : Actor
 
     public PlayerState GetState()
     {
-        if ((_state & 0xC0) == 0x40)
-            return PlayerState.Paused;
-        if ((_state & 0xF0) != 0)
-            return PlayerState.Wielding;
+        if ((_state & 0xC0) == 0x40) return PlayerState.Paused;
+        if ((_state & 0xF0) != 0) return PlayerState.Wielding;
         return PlayerState.Idle;
     }
 
     public void SetState(PlayerState state)
     {
-        switch (state)
-        {
-            case PlayerState.Paused:
-                _state = 0x40;
-                break;
-            case PlayerState.Idle:
-                _state = 0;
-                break;
-        }
+        _state = state switch {
+            PlayerState.Paused => 0x40,
+            PlayerState.Idle => 0,
+            _ => _state
+        };
     }
 
     public Rectangle GetBounds() => new(X, Y + 8, 16, 8);
@@ -607,27 +596,30 @@ internal sealed class Link : Actor
         // The original sets [$C] here. [6] was already set to the result of DoObjectsCollide.
         // [$C] takes on the same values as [6], so I don't know why it was needed.
 
-        var damage = collider.PlayerDamage;
+        // var damage = collider.PlayerDamage;
+        var damage = Game.World.GetPlayerDamage(collider.ObjType);
         BeHarmed(collider, damage);
     }
 
     public void BeHarmed(Actor collider, int damage)
     {
         if (collider is not WhirlwindActor)
-            Game.Sound.Play(SoundEffect.PlayerHit);
+        {
+            Game.Sound.PlayEffect(SoundEffect.PlayerHit);
+        }
 
         var ringValue = Game.Profile.Items.GetValueOrDefault(ItemSlot.Ring, 0);
 
         damage >>= ringValue;
 
-        Game.ResetKilledObjectCount();
+        Game.World.ResetKilledObjectCount();
 
-        if (Game.Profile.Hearts <= damage)
+        if (Game.Profile.Hearts <= damage && false)
         {
             Game.Profile.Hearts = 0;
             _state = 0;
             Facing = Direction.Down;
-            Game.GotoDie();
+            Game.World.GotoDie();
         }
         else
         {
@@ -656,31 +648,31 @@ internal sealed class Link : Actor
 
     public int UseCandle(int x, int y, Direction facingDir)
     {
-        int itemValue = Game.GetItem(ItemSlot.Candle);
+        var itemValue = Game.World.GetItem(ItemSlot.Candle);
         if (itemValue == 1 && Game.World.candleUsed)
             return 0;
 
         Game.World.candleUsed = true;
 
-        for (int i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
+        for (var i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
         {
-            if (Game.GetObject((ObjectSlot)i) != null) continue;
+            if (Game.World.GetObject((ObjectSlot)i) != null) continue;
 
             MoveSimple(ref x, ref y, facingDir, 0x10);
 
-            Game.Sound.Play(SoundEffect.Fire);
+            Game.Sound.PlayEffect(SoundEffect.Fire);
 
             var fire = new FireActor(Game, x, y)
             {
                 Moving = (byte)facingDir
             };
-            Game.SetObject((ObjectSlot)i, fire);
+            Game.World.SetObject((ObjectSlot)i, fire);
             return 12;
         }
         return 0;
     }
 
-    int UseBomb(int x, int y, Direction facingDir)
+    private int UseBomb(int x, int y, Direction facingDir)
     {
         int i;
 
@@ -701,9 +693,7 @@ internal sealed class Link : Actor
             otherSlot++;
 
         var otherObj = Game.World.GetObject(otherSlot);
-        if (otherObj != null
-            && otherObj is BombActor otherBomb
-            && otherBomb.BombState < BombState.Blasting)
+        if (otherObj is BombActor otherBomb && otherBomb.BombState < BombState.Blasting)
         {
             return 0;
         }
@@ -713,19 +703,19 @@ internal sealed class Link : Actor
         var bomb = new BombActor(Game, x, y);
         Game.World.SetObject(freeSlot, bomb);
         Game.World.DecrementItem(ItemSlot.Bombs);
-        Game.Sound.Play(SoundEffect.PutBomb);
+        Game.Sound.PlayEffect(SoundEffect.PutBomb);
         return 7;
     }
 
-    int UseBoomerang(int x, int y, Direction facingDir)
+    private int UseBoomerang(int x, int y, Direction facingDir)
     {
         // ORIGINAL: Trumps food. Look at $05:8E40. The behavior is tied to the statement below.
         //           Skip throw, if there's already a boomerang in the slot. But overwrite Food.
         if (Game.World.GetObject(ObjectSlot.Boomerang) != null)
             return 0;
 
-        int itemValue = Game.World.GetItem(ItemSlot.Boomerang);
-        int distance = 0x31;
+        var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
+        var distance = 0x31;
 
         MoveSimple(ref x, ref y, facingDir, 0x10);
 
@@ -735,13 +725,12 @@ internal sealed class Link : Actor
         if (MovingDirection != Direction.None)
             facingDir = MovingDirection;
 
-        var boomerang = GlobalFunctions.MakeBoomerang(
-            Game, x, y, facingDir, distance, 3.0f, this, ObjectSlot.Boomerang);
+        var boomerang = GlobalFunctions.MakeBoomerang(Game, x, y, facingDir, distance, 3.0f, this, ObjectSlot.Boomerang);
         Game.World.SetObject(ObjectSlot.Boomerang, boomerang);
         return 6;
     }
 
-    int UseArrow(int x, int y, Direction facingDir)
+    private int UseArrow(int x, int y, Direction facingDir)
     {
         if (Game.World.GetObject(ObjectSlot.Arrow) != null)
             return 0;
@@ -758,11 +747,11 @@ internal sealed class Link : Actor
 
         var arrow = GlobalFunctions.MakeProjectile(Game.World, ObjType.Arrow, x, y, facingDir, ObjectSlot.Arrow);
         Game.World.SetObject(ObjectSlot.Arrow, arrow);
-        Game.Sound.Play(SoundEffect.Boomerang);
+        Game.Sound.PlayEffect(SoundEffect.Boomerang);
         return 6;
     }
 
-    int UseFood(int x, int y, Direction facingDir)
+    private int UseFood(int x, int y, Direction facingDir)
     {
         if (Game.World.GetObject(ObjectSlot.Food) != null)
             return 0;
@@ -774,22 +763,22 @@ internal sealed class Link : Actor
         return 6;
     }
 
-    int UsePotion(int x, int y, Direction facingDir)
+    private int UsePotion(int _x, int _y, Direction _facingDir)
     {
         Game.World.DecrementItem(ItemSlot.Potion);
         Game.World.PauseFillHearts();
         return 0;
     }
 
-    int UseRecorder(int x, int y, Direction facingDir)
+    private int UseRecorder(int _x, int _y, Direction _facingDir)
     {
         Game.World.UseRecorder();
         return 0;
     }
 
-    int UseLetter(int x, int y, Direction facingDir)
+    private int UseLetter(int _x, int _y, Direction _facingDir)
     {
-        int itemValue = Game.World.GetItem(ItemSlot.Letter);
+        var itemValue = Game.World.GetItem(ItemSlot.Letter);
         if (itemValue != 1)
             return 0;
 
@@ -801,20 +790,20 @@ internal sealed class Link : Actor
         return 0;
     }
 
-    int UseItem()
+    private int UseItem()
     {
         var profile = Game.World.GetProfile();
         if (profile.SelectedItem == 0)
             return 0;
 
-        int itemValue = profile.Items[profile.SelectedItem];
+        var itemValue = profile.Items[profile.SelectedItem];
         if (itemValue == 0)
             return 0;
 
         if (profile.SelectedItem == ItemSlot.Rod)
             return UseWeapon(ObjType.Rod, ItemSlot.Rod);
 
-        int waitFrames = 0;
+        var waitFrames = 0;
 
         switch (profile.SelectedItem)
         {
@@ -836,14 +825,14 @@ internal sealed class Link : Actor
         return waitFrames + 6;
     }
 
-    int UseWeapon()
+    private int UseWeapon()
     {
         if (Game.World.SwordBlocked || Game.World.GetStunTimer(ObjectSlot.NoSwordTimer) != 0)
             return 0;
         return UseWeapon(ObjType.PlayerSword, ItemSlot.Sword);
     }
 
-    int UseWeapon(ObjType type, ItemSlot itemSlot)
+    private int UseWeapon(ObjType type, ItemSlot itemSlot)
     {
         if (Game.World.GetItem(itemSlot) == 0)
             return 0;
@@ -860,11 +849,11 @@ internal sealed class Link : Actor
 
         var sword = new PlayerSword(Game, type);
         Game.World.SetObject(ObjectSlot.PlayerSword, sword);
-        Game.Sound.Play(SoundEffect.Sword);
+        Game.Sound.PlayEffect(SoundEffect.Sword);
         return 13;
     }
 
-    void Move()
+    private void Move()
     {
         if (ShoveDirection != 0)
         {
@@ -872,13 +861,13 @@ internal sealed class Link : Actor
             return;
         }
 
-        Direction dir = Direction.None;
+        var dir = Direction.None;
 
         if (TileOffset == 0)
         {
             if (Moving != 0)
             {
-                int dirOrd = MovingDirection.GetOrdinal();
+                var dirOrd = MovingDirection.GetOrdinal();
                 dir = dirOrd.GetOrdDirection();
             }
         }
@@ -887,7 +876,7 @@ internal sealed class Link : Actor
             dir = Facing;
         }
 
-        dir = dir & Direction.DirectionMask;
+        dir &= Direction.DirectionMask;
 
         // blocks, personal wall, leave cellar, world margin, doorways
         // tile collision, ladder
@@ -904,14 +893,11 @@ internal sealed class Link : Actor
 
         if (Game.World.doorwayDir == Direction.None)
         {
-            GameMode mode = Game.World.GetMode();
+            var mode = Game.World.GetMode();
 
-            if (mode == GameMode.PlayCellar
-                || mode == GameMode.PlayCave
-                || mode == GameMode.PlayShortcuts)
+            if (mode is GameMode.PlayCellar or GameMode.PlayCave or GameMode.PlayShortcuts)
             {
                 dir = CheckSubroom(dir);
-                mode = Game.World.GetMode();
             }
 
             // We now check walls using tiles and their behaviors.
@@ -922,13 +908,13 @@ internal sealed class Link : Actor
         dir = CheckTileCollision(dir);
         dir = HandleLadder(dir);
 
-        MoveDirection(_speed, dir);
+        MoveDirection(_speed * (Game.SpeedUp ? 3 : 1), dir);
     }
 
     // 8ED7
-    Direction CheckSubroom(Direction dir)
+    private Direction CheckSubroom(Direction dir)
     {
-        GameMode mode = Game.World.GetMode();
+        var mode = Game.World.GetMode();
 
         if (mode == GameMode.PlayCellar)
         {
@@ -957,7 +943,7 @@ internal sealed class Link : Actor
     }
 
     // 8F7B
-    Direction HandleLadder(Direction dir)
+    private Direction HandleLadder(Direction dir)
     {
         var ladder = Game.World.GetLadder();
 
@@ -966,7 +952,7 @@ internal sealed class Link : Actor
 
         // Original: if ladder.GetState() = 0, destroy it. But, I don't see how it can get in that state.
 
-        int distance = 0;
+        var distance = 0;
 
         if (ladder.Facing.IsVertical())
         {
@@ -1012,12 +998,12 @@ internal sealed class Link : Actor
     }
 
     // $05:8FCD
-    Direction MoveOnLadder(Direction dir, int distance)
+    private Direction MoveOnLadder(Direction dir, int distance)
     {
         if (Moving == 0)
             return Direction.None;
 
-        var ladder = Game.World.GetLadder();
+        var ladder = Game.World.GetLadder() ?? throw new Exception();
 
         if (distance != 0 && Facing == ladder.Facing)
             return Facing;
@@ -1025,13 +1011,12 @@ internal sealed class Link : Actor
         if (ladder.Facing == dir)
             return dir;
 
-        Direction oppositeDir = ladder.Facing.GetOppositeDirection();
+        var oppositeDir = ladder.Facing.GetOppositeDirection();
 
         if (oppositeDir == Facing)
             return oppositeDir;
 
-        if (oppositeDir != Direction.Down
-            || MovingDirection != Direction.Up)
+        if (oppositeDir != Direction.Down || MovingDirection != Direction.Up)
         {
             return Direction.None;
         }
@@ -1041,7 +1026,9 @@ internal sealed class Link : Actor
         dir = MovingDirection;
 
         if (CollidesWithTileMoving(X, Y - 8, dir))
+        {
             return Direction.None;
+        }
 
         // ORIGINAL: The routine will run again. It'll finish, because now (ladder.facing = dir),
         //           which is one of the conditions that ends this function.
@@ -1050,46 +1037,38 @@ internal sealed class Link : Actor
     }
 
     // $01:A13E  stop object, if too close to a block
-    Direction StopAtBlock(Direction dir)
+    private Direction StopAtBlock(Direction dir)
     {
-        for (int i = (int)ObjectSlot.Buffer; i >= (int)ObjectSlot.Monster1; i--)
+        for (var i = (int)ObjectSlot.Buffer; i >= (int)ObjectSlot.Monster1; i--)
         {
             var obj = Game.World.GetObject((ObjectSlot)i);
-            if (obj != null && obj is IBlocksPlayer block)
+            if (obj is IBlocksPlayer block)
             {
-                if (block != null)
+                if (block.CheckCollision() == CollisionResponse.Blocked)
                 {
-                    if (block.CheckCollision() == CollisionResponse.Blocked)
-                        return Direction.None;
+                    return Direction.None;
                 }
             }
         }
         return dir;
     }
 
-    Direction CheckTileCollision(Direction dir)
+    private Direction CheckTileCollision(Direction dir)
     {
-        if (Game.World.doorwayDir != Direction.None)
-            return CheckWorldBounds(dir);
+        if (Game.World.doorwayDir != Direction.None) return CheckWorldBounds(dir);
         // Original, but seemingly never triggered: if [$E] < 0, leave
 
-        if (TileOffset != 0)
-            return dir;
+        if (TileOffset != 0) return dir;
 
-        if (dir != Direction.None)
-        {
-            return FindUnblockedDir(dir);
-        }
-
-        return dir;
+        return dir != Direction.None ? FindUnblockedDir(dir) : dir;
     }
 
-    bool HitsWorldLimit()
+    private bool HitsWorldLimit()
     {
         if (Moving != 0)
         {
-            int dirOrd = MovingDirection.GetOrdinal();
-            Direction singleMoving = dirOrd.GetOrdDirection();
+            var dirOrd = MovingDirection.GetOrdinal();
+            var singleMoving = dirOrd.GetOrdDirection();
             var coord = singleMoving.IsVertical() ? Y : X;
 
             if (coord == PlayerLimits[dirOrd])
@@ -1101,7 +1080,7 @@ internal sealed class Link : Actor
         return false;
     }
 
-    void StopPlayer()
+    private void StopPlayer()
     {
         Stop();
     }
@@ -1124,7 +1103,7 @@ internal sealed class Link : Actor
         return dir;
     }
 
-    Direction FindUnblockedDir(Direction dir)
+    private Direction FindUnblockedDir(Direction dir)
     {
         var collision = CollidesWithTileMoving(X, Y, dir);
         if (!collision.Collides)
@@ -1137,16 +1116,13 @@ internal sealed class Link : Actor
 
         dir = Direction.None;
         // ORIGINAL: [$F8] := 0
-        if (Game.World.IsOverworld())
-            return CheckWorldBounds(dir);
-        return dir;
+        return Game.World.IsOverworld() ? CheckWorldBounds(dir) : dir;
     }
 
     // $01:A223
-    void PushOWTile(TileCollision collision )
+    private void PushOWTile(TileCollision collision )
     {
-        if (TileOffset != 0 || Moving == 0)
-            return;
+        if (TileOffset != 0 || Moving == 0) return;
 
         // This isn't anologous to the original's code, but the effect is the same.
         Game.World.PushTile(collision.FineRow, collision.FineCol);

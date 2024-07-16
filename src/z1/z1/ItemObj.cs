@@ -35,9 +35,9 @@ internal sealed class RockObj : BlockObjBase
     public RockObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.Tile_Rock;
-    protected override BlockObjType BlockMob => (BlockObjType)BlockObjType.Mob_Rock;
-    protected override BlockObjType FloorMob1 => (BlockObjType)BlockObjType.Mob_Ground;
-    protected override BlockObjType FloorMob2 => (BlockObjType)BlockObjType.Mob_Ground;
+    protected override BlockObjType BlockMob => BlockObjType.Mob_Rock;
+    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Ground;
+    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Ground;
     protected override int TimerLimit => 1;
     protected override bool AllowHorizontal => false;
 
@@ -52,9 +52,9 @@ internal sealed class HeadstoneObj : BlockObjBase
     public HeadstoneObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.Tile_Headstone;
-    protected override BlockObjType BlockMob => (BlockObjType)BlockObjType.Mob_Headstone;
-    protected override BlockObjType FloorMob1 => (BlockObjType)BlockObjType.Mob_Ground;
-    protected override BlockObjType FloorMob2 => (BlockObjType)BlockObjType.Mob_Stairs;
+    protected override BlockObjType BlockMob => BlockObjType.Mob_Headstone;
+    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Ground;
+    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Stairs;
     protected override int TimerLimit => 1;
     protected override bool AllowHorizontal => false;
 }
@@ -65,8 +65,8 @@ internal sealed class BlockObj : BlockObjBase
 
     protected override byte BlockTile => (byte)BlockObjType.Tile_Block;
     protected override BlockObjType BlockMob => (byte)BlockObjType.Mob_Block;
-    protected override BlockObjType FloorMob1 => (BlockObjType)BlockObjType.Mob_Tile;
-    protected override BlockObjType FloorMob2 => (BlockObjType)BlockObjType.Mob_Tile;
+    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Tile;
+    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Tile;
     protected override int TimerLimit => 17;
     protected override bool AllowHorizontal => true;
 }
@@ -94,7 +94,10 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
     public override void Draw()
     {
-        throw new NotImplementedException();
+        if (CurUpdate == UpdateMoving)
+        {
+            Graphics.DrawStripSprite16X16(TileSheet.Background, BlockTile, X, Y, Game.World.GetInnerPalette());
+        }
     }
 
     public CollisionResponse CheckCollision()
@@ -125,7 +128,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
     {
         if (this is RockObj)
         {
-            if (Game.GetItem(ItemSlot.Bracelet) == 0)
+            if (Game.World.GetItem(ItemSlot.Bracelet) == 0)
                 return;
         }
         else if (this is BlockObj)
@@ -215,13 +218,12 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct CaveSpec
+internal struct CaveSpec
 {
     public const int Count = 3;
 
     public byte Dweller;
     public byte StringId;
-    public string String;
     public byte ItemA;
     public byte ItemB;
     public byte ItemC;
@@ -250,6 +252,8 @@ internal unsafe struct CaveSpec
         get => (ObjType)Dweller;
         set => Dweller = (byte)value;
     }
+
+    public void SetString(string text) { } // TODO
 
     public readonly StringId GetStringId() => (StringId)(StringId & 0x3F);
     public readonly bool GetPay() => (StringId & 0x80) != 0;
@@ -288,10 +292,11 @@ internal sealed class TextBox
     private byte[] startCharPtr;
     private int curCharIndex;
 
-    public TextBox(Game game, byte[] text, int delay = CharDelay) {
+    public TextBox(Game game, byte[] text, int delay = CharDelay)
+    {
         _game = game;
         startCharPtr = text;
-        _charDelay = delay;
+        _charDelay = Game.SpeedUp ? 1 : delay;
     }
 
     public void Reset(byte[] text)
@@ -325,13 +330,19 @@ internal sealed class TextBox
                 ch = (byte)(curCharPtr & 0x3F);
                 attr = (byte)(curCharPtr & 0xC0);
                 if (attr == 0xC0)
+                {
                     _drawingDialog = false;
+                }
                 else if (attr != 0)
+                {
                     _height += 8;
+                }
 
                 curCharIndex++;
                 if (ch != (int)Char.JustSpace)
-                    _game.Sound.Play(SoundEffect.Character);
+                {
+                    _game.Sound.PlayEffect(SoundEffect.Character);
+                }
             } while (_drawingDialog && ch == (int)Char.JustSpace);
             _charTimer = _charDelay - 1;
         }
@@ -353,7 +364,9 @@ internal sealed class TextBox
             var ch = chr & 0x3F;
 
             if (ch != (int)Char.JustSpace)
+            {
                 GlobalFunctions.DrawChar((byte)ch, x, y, 0);
+            }
 
             if (attr == 0)
             {
@@ -412,7 +425,7 @@ internal sealed class DockActor : Actor
 
             player.SetState(PlayerState.Paused);
             player.Facing = facings[_state];
-            Game.Sound.Play(SoundEffect.Secret);
+            Game.Sound.PlayEffect(SoundEffect.Secret);
         }
         else if (_state == 1)
         {
@@ -456,7 +469,6 @@ internal sealed class DockActor : Actor
     }
 }
 
-
 internal sealed class TreeActor : Actor
 {
     public TreeActor(Game game, int x = 0, int y = 0) : base(game, x, y)
@@ -467,7 +479,7 @@ internal sealed class TreeActor : Actor
     {
         for (var i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
         {
-            var gameObj = Game.GetObject((ObjectSlot)i);
+            var gameObj = Game.World.GetObject((ObjectSlot)i);
             if (gameObj is not FireActor fire) continue;
             if (fire.IsDeleted || fire.FireState != FireState.Standing || fire.ObjTimer != 2) continue;
 
@@ -476,7 +488,7 @@ internal sealed class TreeActor : Actor
 
             Game.World.SetMobXY(X, Y, BlockObjType.Mob_Stairs);
             Game.World.TakeSecret();
-            Game.Sound.Play(SoundEffect.Secret);
+            Game.Sound.PlayEffect(SoundEffect.Secret);
             IsDeleted = true;
             return;
         }
@@ -485,7 +497,7 @@ internal sealed class TreeActor : Actor
     public override void Draw() { }
 }
 
-internal sealed class RockWallActor : TODOActor
+internal sealed class RockWallActor : Actor
 {
     public RockWallActor(Game game, int x = 0, int y = 0) : base(game, x, y)
     {
@@ -495,7 +507,7 @@ internal sealed class RockWallActor : TODOActor
     {
         for (var i = (int)ObjectSlot.FirstBomb; i < (int)ObjectSlot.LastBomb; i++)
         {
-            var gameObj = Game.GetObject((ObjectSlot)i);
+            var gameObj = Game.World.GetObject((ObjectSlot)i);
             if (gameObj is not BombActor bomb) continue;
             if (bomb.IsDeleted || bomb.BombState != BombState.Blasting) continue;
 
@@ -504,9 +516,13 @@ internal sealed class RockWallActor : TODOActor
 
             Game.World.SetMobXY(X, Y, BlockObjType.Mob_Cave);
             Game.World.TakeSecret();
-            Game.Sound.Play(SoundEffect.Secret);
+            Game.Sound.PlayEffect(SoundEffect.Secret);
             IsDeleted = true;
             return;
         }
+    }
+
+    public override void Draw()
+    {
     }
 }

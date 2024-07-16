@@ -45,9 +45,9 @@ internal struct AxisMapping
 internal struct InputButtons
 {
     public Button Buttons;
-    public int ButtonsInt => (int)Buttons;
+    public readonly int ButtonsInt => (int)Buttons;
 
-    public bool Has(Button value) => Buttons.HasFlag(value);
+    public readonly bool Has(Button value) => Buttons.HasFlag(value);
     public void Mask(Button value) => Buttons &= value;
     public void Clear(Button value) => Buttons = (Button)((int)Buttons ^ (int)value);
 }
@@ -82,7 +82,7 @@ internal static class Input
     {
         if (_map.TryGetValue(keys, out var button))
         {
-            //oldInputState = inputState;
+            oldInputState = new InputButtons { Buttons = inputState.Buttons };
             inputState.Buttons |= button;
             return true;
         }
@@ -94,6 +94,7 @@ internal static class Input
     {
         if (_map.TryGetValue(keys, out var button))
         {
+            oldInputState = new InputButtons { Buttons = inputState.Buttons };
             inputState.Buttons &= ~button;
         }
     }
@@ -103,15 +104,13 @@ internal static class Input
     public static ButtonState GetKey(int keyCode) => throw new NotImplementedException();
 
     public static bool IsButtonDown(Button buttonCode) => inputState.Has(buttonCode);
-    // public static bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
-    public static bool IsButtonPressing(Button buttonCode) => IsButtonDown(buttonCode);
+    public static bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
+    // public static bool IsButtonPressing(Button buttonCode) => IsButtonDown(buttonCode);
 
     public static ButtonState GetButton(Button buttonCode)
     {
         var isDown = inputState.Has(buttonCode) ? 1 : 0;
         var wasDown = oldInputState.Has(buttonCode) ? 1 : 0;
-
-        oldInputState = new InputButtons { Buttons = inputState.Buttons };
 
         return (ButtonState)((wasDown << 1) | isDown);
     }
@@ -125,5 +124,7 @@ internal static class Input
         return Direction.None;
     }
 
-    public static void Update() => throw new NotImplementedException();
+    public static void Update()
+    {
+    }
 }

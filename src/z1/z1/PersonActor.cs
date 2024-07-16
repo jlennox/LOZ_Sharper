@@ -1,11 +1,9 @@
-﻿using System;
-using System.Linq;
-using z1.Actors;
+﻿using z1.Actors;
 using z1.Player;
 
 namespace z1;
 
-internal sealed class PersonActor : TODOActor
+internal sealed class PersonActor : Actor
 {
     public enum PersonState
     {
@@ -49,14 +47,15 @@ internal sealed class PersonActor : TODOActor
     public override bool ShouldStopAtPersonWall => true;
     public override bool IsUnderworldPerson => true;
 
-    public PersonActor(Game game, ObjType type, CaveSpec spec, int x, int y) : base(game, type, x, y) {
+    public PersonActor(Game game, ObjType type, CaveSpec spec, int x, int y) : base(game, type, x, y)
+    {
         this.spec = spec;
         HP = 0;
         // This isn't used anymore. The effect is implemented a different way.
         Game.World.SetPersonWallY(0x8D);
 
         if (!Game.World.IsOverworld())
-            Game.Sound.Play(SoundEffect.Item);
+            Game.Sound.PlayEffect(SoundEffect.Item);
 
         var stringId = spec.GetStringId();
 
@@ -145,7 +144,7 @@ internal sealed class PersonActor : TODOActor
             Game.Link.SetState(PlayerState.Paused);
     }
 
-    void Update()
+    public override void Update()
     {
         if (_state == PersonState.Idle)
         {
@@ -358,7 +357,7 @@ internal sealed class PersonActor : TODOActor
                     profile.Items[ItemSlot.HeartContainers]--;
                     if (profile.Hearts > 0x100)
                         profile.Hearts -= 0x100;
-                    Game.Sound.Play(SoundEffect.KeyHeart);
+                    Game.Sound.PlayEffect(SoundEffect.KeyHeart);
                 }
             }
             else
@@ -428,7 +427,7 @@ internal sealed class PersonActor : TODOActor
         if (itemValue == 2)
         {
             _state = PersonState.Idle;
-            Game.Sound.Play(SoundEffect.Secret);
+            Game.Sound.PlayEffect(SoundEffect.Secret);
         }
     }
 
@@ -439,7 +438,7 @@ internal sealed class PersonActor : TODOActor
         {
             _state = PersonState.PickedUp;
             ObjTimer = 0x40;
-            Game.Sound.Play(SoundEffect.Secret);
+            Game.Sound.PlayEffect(SoundEffect.Secret);
         }
     }
 

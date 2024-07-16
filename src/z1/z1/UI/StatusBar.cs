@@ -14,6 +14,11 @@ public enum StatusBarFeatures
     EquipmentAndMap = Equipment | MapCursors,
 }
 
+internal readonly record struct TileInst(byte Id, byte X, byte Y, byte PaletteId)
+{
+    public readonly Palette Palette => (Palette)PaletteId;
+}
+
 internal sealed class StatusBar
 {
     private readonly World _world;
@@ -41,7 +46,6 @@ internal sealed class StatusBar
     public const int Tile_HalfHeart  = 0x65;
     public const int Tile_EmptyHeart = 0x66;
 
-    private readonly record struct TileInst(byte Id, byte X, byte Y, byte Palette);
 
     private static readonly TileInst[] uiTiles = new TileInst[]
     {
@@ -102,18 +106,16 @@ internal sealed class StatusBar
 
     private void Draw(int baseY, SKColor backColor)
     {
-        Graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
+        using var _ = Graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
         Graphics.Clear(backColor, 0, baseY, StatusBarWidth, StatusBarHeight);
 
         foreach (var tileInst in uiTiles)
         {
-            DrawTile(tileInst.Id, tileInst.X, tileInst.Y + baseY, (Palette)tileInst.Palette);
+            DrawTile(tileInst.Id, tileInst.X, tileInst.Y + baseY, tileInst.Palette);
         }
 
         DrawMiniMap(baseY);
         DrawItems(baseY);
-
-        Graphics.ResetClip();
     }
 
     private static readonly byte[] _levelStr = new byte[] { 0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x62, 0 };

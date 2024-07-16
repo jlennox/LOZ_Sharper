@@ -3,21 +3,47 @@
 namespace z1;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal record struct SpriteFrame(byte X, byte Y, byte Flags);
+internal readonly record struct SpriteFrame(byte X, byte Y, byte Flags)
+{
+    public DrawingFlags DrawingFlags => (DrawingFlags)Flags;
+}
+
+// JOE: Arg. I hate this, but I couldn't think of a cleaner way to go about it.
+internal interface ILoadVariableLengthData<T>
+{
+    T DoMore(ReadOnlySpan<byte> buf);
+}
+
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct SpriteAnimation
+internal struct SpriteAnimationStruct : ILoadVariableLengthData<SpriteAnimation>
 {
     public byte Length;
     public byte Width;
     public byte Height;
-    public SpriteFrame FrameA;
-    public SpriteFrame FrameB;
 
-    public SpriteFrame GetFrame(int index) => index switch {
-        0 => FrameA,
-        1 => FrameB,
-        _ => throw new IndexOutOfRangeException()
-    };
+    public SpriteAnimation DoMore(ReadOnlySpan<byte> buf)
+    {
+        var frames = MemoryMarshal.Cast<byte, SpriteFrame>(buf)[..Length].ToArray();
+        return new SpriteAnimation(this, frames);
+    }
+}
+
+internal class SpriteAnimation
+{
+    public SpriteFrame[] Frames { get; }
+    public SpriteFrame FrameA => Frames[0];
+
+    public byte Length => _animStruct.Length;
+    public byte Width => _animStruct.Width;
+    public byte Height => _animStruct.Height;
+
+    private readonly SpriteAnimationStruct _animStruct;
+
+    public SpriteAnimation(SpriteAnimationStruct animStruct, SpriteFrame[] frames)
+    {
+        Frames = frames;
+        _animStruct = animStruct;
+    }
 }
 
 internal sealed class SpriteAnimator
@@ -48,59 +74,58 @@ internal sealed class SpriteAnimator
 
     public void AdvanceFrame()
     {
-        if (Animation != null && Animation.Value.Length > 0 && DurationFrames > 0)
+        if (Animation != null && Animation.Length > 0 && DurationFrames > 0)
         {
-            int frameDuration = DurationFrames / Animation.Value.Length;
+            var frameDuration = DurationFrames / Animation.Length;
             Time = (Time + frameDuration) % DurationFrames;
         }
     }
 
-    public void Draw(TileSheet sheetSlot, float x, float y, Palette palette, int flags = 0)
+    public void Draw(TileSheet sheetSlot, float x, float y, Palette palette, DrawingFlags flags = DrawingFlags.None)
     {
         Draw((int)sheetSlot, (int)x, (int)y, (int)palette, flags);
     }
 
-    public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, int flags = 0)
+    public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.None)
     {
-        if (Animation != null && Animation.Value.Length > 0 && DurationFrames > 0)
+        if (Animation != null && Animation.Length > 0 && DurationFrames > 0)
         {
-            int index = (Animation.Value.Length * Time) / DurationFrames;
-
+            var index = (Animation.Length * Time) / DurationFrames;
             DrawFrameInternal(sheetSlot, x, y, palette, index, flags);
         }
     }
 
-    public void Draw(int sheetSlot, int x, int y, int palette, int flags)
+    public void Draw(int sheetSlot, int x, int y, int palette, DrawingFlags flags)
     {
         Draw((TileSheet)sheetSlot, x, y, (Palette)palette, flags);
     }
 
-    public void DrawFrame(TileSheet sheetSlot, int x, int y, Palette palette, int frame, int flags = 0)
+    public void DrawFrame(TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawingFlags flags = DrawingFlags.None)
     {
-        if (Animation != null && Animation.Value.Length > frame)
+        if (Animation != null && Animation.Length > frame)
         {
             DrawFrameInternal(sheetSlot, x, y, palette, frame, flags);
         }
     }
 
-    public void DrawFrame(int sheetSlot, int x, int y, int palette, int frame, int flags = 0)
+    public void DrawFrame(int sheetSlot, int x, int y, int palette, int frame, DrawingFlags flags = DrawingFlags.None)
     {
         DrawFrame((TileSheet)sheetSlot, x, y, (Palette)palette, frame, flags);
     }
 
-    public void DrawFrameInternal(TileSheet sheetSlot, int x, int y, Palette palette, int frame, int flags)
+    public void DrawFrameInternal(TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawingFlags flags)
     {
         var anim = Animation ?? throw new Exception();
         Graphics.DrawSpriteTile(
             sheetSlot,
-            anim.GetFrame(frame).X,
-            anim.GetFrame(frame).Y,
+            anim.Frames[frame].X,
+            anim.Frames[frame].Y,
             anim.Width,
             anim.Height,
             x,
             y,
             palette,
-            anim.GetFrame(frame).Flags | flags
+            anim.Frames[frame].DrawingFlags | flags
         );
     }
 }
@@ -115,7 +140,7 @@ internal sealed class SpriteImage
         Animation = animation;
     }
 
-    public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, int flags = 0)
+    public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.None)
     {
         Graphics.DrawSpriteTile(
             sheetSlot,
@@ -126,7 +151,7 @@ internal sealed class SpriteImage
             x,
             y,
             palette,
-            Animation.FrameA.Flags | flags
+            Animation.FrameA.DrawingFlags | flags
         );
     }
 };

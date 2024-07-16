@@ -81,7 +81,7 @@ internal partial class World
         new Point(112,  64),
     };
 
-    private record struct DoorStateFaces(byte Closed, byte Open);
+    private readonly record struct DoorStateFaces(byte Closed, byte Open);
 
     private static readonly DoorStateFaces[] doorFaces = new[]
     {

@@ -18,6 +18,13 @@ internal static class Global
     public const int LevelBlockRooms = 128;
 
     public const int SysPaletteLength = 64;
+
+    public const int StdSpeed = 0x20;
+
+    public const float TWO_PI = 6.283185307179586f;
+    public const float PI_OVER_16 = 0.196349540849362f;
+    public const float PI_OVER_8 = 0.392699081698724f;
+    public const float NEG_PI_OVER_8 = -0.392699081698724f;
 }
 
 internal enum NumberSign
@@ -311,17 +318,18 @@ internal static class GlobalFunctions
 
     public static void DrawString(string str, int x, int y, Palette palette)
     {
-        for (int i = 0; i < str.Length; i++)
+        foreach (var t in str)
         {
-            DrawChar((byte)str[i], x, y, palette);
+            DrawChar((byte)((byte)char.ToLower(t) - (byte)'a' + 0x0A), x, y, palette);
             x += 8;
         }
     }
 
     public static void DrawSparkle(int x, int y, Palette palette, int frame)
     {
-        var animator = new SpriteAnimator();
-        animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Sparkle);
+        var animator = new SpriteAnimator {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Sparkle)
+        };
         animator.DrawFrame(TileSheet.PlayerAndItems, x, y, palette, frame);
     }
 
@@ -418,15 +426,15 @@ internal static class GlobalFunctions
         else if (itemId == ItemId.PowerTriforce)
             return;
 
-        game.Sound.Play(soundId);
+        game.Sound.PlayEffect(soundId);
     }
 
     public static void ClearRoomMonsterData()
     {
-        // TODO RedLeever::ClearRoomData();
-        // TODO Boulders::ClearRoomData();
-        // TODO Manhandla::ClearRoomData();
-        // TODO Statues::Init();
+        RedLeeverActor.ClearRoomData();
+        BouldersActor.ClearRoomData();
+        ManhandlaActor.ClearRoomData();
+        Statues.Init();
     }
 
     public static byte[] NumberToStringR(byte number, NumberSign sign, ref Span<byte> charBuf, int bufLen = 4)

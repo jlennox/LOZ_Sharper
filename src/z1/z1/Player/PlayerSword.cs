@@ -16,7 +16,7 @@ internal sealed class PlayerSword : Actor
         new[] { new Point(3, 3), new Point(-3, 3), new Point(1, 5), new Point(-1, -1) }
     };
 
-    private static readonly AnimationId[] swordAnimMap =
+    public static readonly AnimationId[] swordAnimMap =
     {
         AnimationId.Sword_Right,
         AnimationId.Sword_Left,
@@ -32,18 +32,11 @@ internal sealed class PlayerSword : Actor
         AnimationId.Wand_Up,
     };
 
-    private static readonly byte[] swordStateDurations = new byte[]
-    {
-        5,
-        8,
-        1,
-        1,
-        1
-    };
+    private static readonly byte[] swordStateDurations = new byte[] { 5, 8, 1, 1, 1 };
 
     public int state;
     private int timer;
-    private SpriteImage image;
+    private SpriteImage image = new();
 
     public PlayerSword(Game game, ObjType type, int x = 0, int y = 0) : base(game, x, y)
     {
@@ -92,7 +85,7 @@ internal sealed class PlayerSword : Actor
                 if (wave == null || wave.ObjType != ObjType.MagicWave)
                 {
                     makeWave = true;
-                    Game.Sound.Play(SoundEffect.MagicWave);
+                    Game.Sound.PlayEffect(SoundEffect.MagicWave);
                 }
             }
             else
@@ -108,7 +101,7 @@ internal sealed class PlayerSword : Actor
                     if (profile.Hearts >= neededHeartsValue)
                     {
                         makeWave = true;
-                        Game.Sound.Play(SoundEffect.SwordWave);
+                        Game.Sound.PlayEffect(SoundEffect.SwordWave);
                     }
                 }
             }

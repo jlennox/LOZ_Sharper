@@ -1,138 +1,10 @@
-﻿using SkiaSharp;
+﻿using System.Numerics;
+using z1.Actors;
 
 namespace z1;
 
-internal unsafe static class Extensions
+internal static class Extensions
 {
-    public static SKBitmap Mirror(this SKBitmap bitmap)
-    {
-        var mirroredBitmap = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
-
-        using (var canvas = new SKCanvas(mirroredBitmap))
-        {
-            var mirrorMatrix = SKMatrix.CreateScale(-1, 1);
-            mirrorMatrix.TransX = bitmap.Width;
-            canvas.SetMatrix(mirrorMatrix);
-            canvas.DrawBitmap(bitmap, 0, 0);
-        }
-
-        return mirroredBitmap;
-    }
-
-    public static SKBitmap Flip(this SKBitmap bitmap)
-    {
-        var mirroredBitmap = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
-
-        using (var canvas = new SKCanvas(mirroredBitmap))
-        {
-            var mirrorMatrix = SKMatrix.CreateScale(1, -1);
-            mirrorMatrix.TransY = bitmap.Height;
-            canvas.SetMatrix(mirrorMatrix);
-            canvas.DrawBitmap(bitmap, 0, 0);
-        }
-
-        return mirroredBitmap;
-    }
-
-    public static SKBitmap[] Mirror(this SKBitmap[] bitmaps)
-    {
-        var newbitmaps = new SKBitmap[bitmaps.Length];
-        for (int i = 0; i < bitmaps.Length; i++) {
-            newbitmaps[i] = bitmaps[i].Mirror();
-        }
-        return newbitmaps;
-    }
-
-    public static SKBitmap[] Flip(this SKBitmap[] bitmaps)
-    {
-        var newbitmaps = new SKBitmap[bitmaps.Length];
-        for (int i = 0; i < bitmaps.Length; i++) {
-            newbitmaps[i] = bitmaps[i].Flip();
-        }
-        return newbitmaps;
-    }
-
-    public static SKBitmap ChangePalette(this SKBitmap bitmap, SKColor[] from, SKColor[] to)
-    {
-        if (from.Length != to.Length) throw new ArgumentException("from and to must have the same length");
-
-        bitmap = bitmap.Copy();
-        var locked = bitmap.Lock();
-        var pixels = locked.Pixels;
-        var end = locked.End;
-
-        fixed (SKColor* fromPtr = from, toPtr = to)
-        {
-            var fromEnd = fromPtr + from.Length;
-            for (var px = pixels; pixels < end; ++px)
-            {
-                var fromCurrentPtr = fromPtr;
-                for (var j = 0; j < from.Length; ++j, ++fromCurrentPtr)
-                {
-                    if (*px == *fromCurrentPtr)
-                    {
-                        *px = toPtr[j];
-                        break;
-                    }
-                }
-            }
-        }
-
-        return bitmap;
-    }
-
-    internal readonly unsafe record struct SKBitmapLock(nint Data, int Stride, int Length)
-    {
-        public SKColor* Pixels => (SKColor*)Data;
-        public SKColor* End => (SKColor*)Data + Length;
-        public SKColor* PtrFromPoint(int x, int y) => (SKColor*)(Data + y * Stride + x * sizeof(SKColor));
-    }
-
-    public static unsafe SKBitmapLock Lock(this SKBitmap bitmap)
-    {
-        return new SKBitmapLock(bitmap.GetPixels(), bitmap.RowBytes, bitmap.RowBytes * bitmap.Height);
-    }
-
-    public static unsafe SKBitmap Extract(this SKBitmap bitmap, int x, int y, int width, int height)
-    {
-        var dest = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
-        using var canvas = new SKCanvas(dest);
-        canvas.DrawBitmap(bitmap, new SKRect(x, y, x + width, y + height), new SKRect(0, 0, width, height));
-        return dest.Mask(Sprites.TransparentMask);
-    }
-
-    public static unsafe SKBitmap Mask(this SKBitmap bitmap, SKColor mask)
-    {
-        var locked = bitmap.Lock();
-        var pixels = locked.Pixels;
-        for (var px = pixels; px < locked.End; ++px)
-        {
-            if (*px == mask)
-            {
-                *px = SKColors.Transparent;
-            }
-        }
-
-        return bitmap;
-    }
-
-    public static void SavePng(this SKBitmap bitmap, string path, int quality = 100)
-    {
-        using (var image = SKImage.FromBitmap(bitmap))
-        using (var data = image.Encode(SKEncodedImageFormat.Png, quality))
-        using (var outputStream = File.OpenWrite(path))
-        {
-            data.SaveTo(outputStream);
-        }
-    }
-
-    public static void SavePng(this SKCanvas canvas, string path, int quality = 100)
-    {
-        canvas.GetDeviceClipBounds(out var rect);
-        using var bitmap = new SKBitmap(rect.Width, rect.Height);
-        bitmap.SavePng(path, quality);
-    }
-
     public static bool IsHorizontal(this Direction direction, Direction mask = Direction.FullMask)
     {
         return (direction & mask) is Direction.Left or Direction.Right;
@@ -143,22 +15,10 @@ internal unsafe static class Extensions
         return (direction & mask) is Direction.Up or Direction.Down;
     }
 
-    // Does X/Y increase in this direction?
+    /// <summary>Does X or Y increase when walking in this direction?</summary>
     public static bool IsGrowing(this Direction direction) => direction is Direction.Right or Direction.Down;
 
-    public static int GetOrdinal(this Direction direction)
-    {
-        // [sic] ORIGINAL: the original game goes in the opposite order.
-        var dir = (int)direction;
-        for (int i = 0; i < 4; i++)
-        {
-            if ((dir & 1) != 0)
-                return i;
-            dir >>= 1;
-        }
-
-        return 0;
-    }
+    public static int GetOrdinal(this Direction direction) => BitOperations.TrailingZeroCount((int)direction);
 
     public static Direction GetOppositeDirection(this Direction direction)
     {
@@ -173,11 +33,49 @@ internal unsafe static class Extensions
 
     public static Direction GetOrdDirection(this int ord)
     {
-        // [sic] ORIGINAL: the original game goes in the opposite order.
+        // ORIGINAL: the original game goes in the opposite order.
         return (Direction)(1 << ord);
     }
 
+    public static Direction GetNextDirection8(this Direction dir)
+    {
+        var index = dir.GetDirection8Ord();
+        index = (index + 1) % 8;
+        return index.GetDirection8();
+    }
+
+    public static Direction GetPrevDirection8(this Direction dir)
+    {
+        var index = (uint)dir.GetDirection8Ord();
+        index = (index - 1) % 8;
+        return index.GetDirection8();
+    }
+
+    private static readonly Direction[] _allDirs = { (Direction)8, (Direction)9, (Direction)1, (Direction)5, (Direction)4, (Direction)6, (Direction)2, (Direction)10 };
+
+    public static int GetDirection8Ord(this Direction dir)
+    {
+        // JOE: TODO: Use index of
+        for (var i = 0; i < _allDirs.Length; i++)
+        {
+            if (dir == _allDirs[i])
+                return i;
+        }
+        return 0;
+    }
+
+    public static Direction GetDirection8(this int ord) => _allDirs[ord];
+    public static Direction GetDirection8(this uint ord) => _allDirs[ord];
+
+    public static Direction GetOppositeDir8(this Direction dir)
+    {
+        var ord = GetDirection8Ord(dir);
+        ord = (ord + 4) % 8;
+        return GetDirection8(ord);
+    }
+
     public static byte GetByte(this Random random) => (byte)random.Next(256);
+    public static Direction GetDirection8(this Random random) => Random.Shared.Next(8).GetDirection8();
 
     public static void Shuffle<T>(this T[] array)
     {
@@ -189,5 +87,10 @@ internal unsafe static class Extensions
             array[i] = array[j];
             array[j] = temp;
         }
+    }
+
+    public static bool IsBlueWalker(this ObjType type)
+    {
+        return type is ObjType.BlueFastOctorock or ObjType.BlueSlowOctorock or ObjType.BlueMoblin or ObjType.BlueLynel;
     }
 }

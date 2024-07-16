@@ -2,7 +2,6 @@
 
 namespace z1;
 
-
 internal enum ItemSlot
 {
     Sword,
@@ -63,12 +62,12 @@ internal struct OWRoomFlags
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal sealed class UWRoomFlags
+internal struct UWRoomFlags
 {
-    public const byte ItemState = 0x10;
-    public const byte VisitState = 0x20;
-    public const byte CountMask = 0xC0;
-    public const byte CountShift = 6;
+    private const byte ItemState = 0x10;
+    private const byte VisitState = 0x20;
+    private const byte CountMask = 0xC0;
+    private const byte CountShift = 6;
 
     private byte Data;
 
@@ -93,7 +92,7 @@ internal sealed class PlayerProfile
     public int Quest;
     public int Deaths;
     public ItemSlot SelectedItem;
-    public int Hearts;
+    public int Hearts = DefaultHearts;
     public Dictionary<ItemSlot, int> Items = new();
     public OWRoomFlags[] OverworldFlags = new OWRoomFlags[Global.LevelBlockRooms];
     public UWRoomFlags[] LevelFlags1 = new UWRoomFlags[Global.LevelBlockRooms];

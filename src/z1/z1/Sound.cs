@@ -66,7 +66,7 @@ internal sealed class Sound
 {
     public const int AmbientInstance = 4;
 
-    public void Play(SoundEffect effect) { }
+    public void PlayEffect(SoundEffect effect) { }
     public void PlayEffect(SoundEffect id, bool loop, int instance) { }
     public void PlaySong(SongId song, SongStream stream, bool loop) { }
     public void PushSong(SongId song) { }

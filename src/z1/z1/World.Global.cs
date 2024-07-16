@@ -1,4 +1,5 @@
-﻿using z1.Actors;
+﻿using SkiaSharp;
+using z1.Actors;
 
 namespace z1;
 
@@ -50,14 +51,14 @@ internal partial class World
         return nextRoomId;
     }
 
-    void GetRoomCoord(int position, out int row, out int col )
+    static void GetRoomCoord(int position, out int row, out int col)
     {
         row = position & 0x0F;
         col = (position & 0xF0) >> 4;
         row -= 4;
     }
 
-    void GetRSpotCoord(int position, out int x, out int y )
+    static void GetRSpotCoord(int position, ref int x, ref int y)
     {
         x = (position & 0x0F) << 4;
         y = (position & 0xF0) | 0xD;
@@ -77,13 +78,12 @@ internal partial class World
 
     void ClearScreen()
     {
-        // TODO: al_clear_to_color(al_map_rgb(0, 0, 0));
+        Graphics.Clear(SKColors.Black);
     }
 
     void ClearScreen(int sysColor)
     {
-        // TODO: ALLEGRO_COLOR color = Graphics.GetSystemColor(sysColor);
-        // TODO: al_clear_to_color(color);
+        Graphics.Clear(Graphics.GetSystemColor(sysColor));
     }
 
     void ClearDeadObjectQueue()
@@ -96,7 +96,7 @@ internal partial class World
         objectsToDeleteCount = 0;
     }
 
-    void SetOnlyObject(ObjectSlot slot, Actor obj)
+    void SetOnlyObject(ObjectSlot slot, Actor? obj)
     {
         // TODO assert(slot >= 0 && slot < (int)ObjectSlot.MaxObjects);
         if (objects[(int)slot] != null)
@@ -109,12 +109,12 @@ internal partial class World
         objects[(int)slot] = obj;
     }
 
-    LadderActor GetLadderObj()
+    LadderActor? GetLadderObj()
     {
-        return (LadderActor)GetObject(ObjectSlot.Ladder);
+        return GetObject(ObjectSlot.Ladder) as LadderActor;
     }
 
-    void SetLadderObj(LadderActor ladder)
+    void SetLadderObj(LadderActor? ladder)
     {
         SetOnlyObject(ObjectSlot.Ladder, ladder);
     }
@@ -212,7 +212,7 @@ internal partial class World
         Array.Clear(placeholderTypes);
     }
 
-    ObjectSlot FindEmptyMonsterSlot()
+    public ObjectSlot FindEmptyMonsterSlot()
     {
         for (int i = (int)ObjectSlot.LastMonster; i >= 0; i--)
         {
@@ -255,7 +255,7 @@ internal partial class World
 
     void SetLevelPalettes(byte[][] palettes) // const byte palettes[2][PaletteLength] )
     {
-        for (int i = 0; i< 2; i++ )
+        for (var i = 0; i < 2; i++)
         {
             Graphics.SetPaletteIndexed((Palette)2 + i, palettes[i]);
         }
@@ -267,7 +267,7 @@ internal partial class World
     {
         var infoBlock = GetLevelInfo();
 
-        for (int i = 2; i < Global.BackgroundPalCount; i++)
+        for (var i = 2; i < Global.BackgroundPalCount; i++)
         {
             Graphics.SetPaletteIndexed((Palette)i, infoBlock.GetPalette(i));
         }

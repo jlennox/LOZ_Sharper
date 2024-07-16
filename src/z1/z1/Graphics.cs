@@ -1,63 +1,44 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SkiaSharp;
 
 namespace z1;
+
+[Flags]
+internal enum DrawingFlags
+{
+    None = 0,
+    FlipHorizontal = 0x00001,
+    FlipVertical = 0x00002
+}
 
 internal static class Graphics
 {
     private static SKSurface _surface;
     private static SKImageInfo _info;
 
-    private static SKBitmap?[] tileSheets = new SKBitmap[(int)TileSheet.Max];
-    private static SKBitmap paletteBmp;
-    private static SKBitmap tileShader;
-    private static byte[] paletteBuf;
-    private static int paletteBufSize;
-    private static int paletteStride;
-    private static byte[] systemPalette = new byte[Global.SysPaletteLength];
-    private static byte[] grayscalePalette = new byte[Global.SysPaletteLength];
-    private static byte[] activeSystemPalette = systemPalette;
-    private static byte[] palettes = new byte[Global.PaletteCount * Global.PaletteLength];
+    private static readonly int _paletteBmpWidth = Math.Max(Global.PaletteLength, 16);
+    private static readonly int _paletteBmpHeight = Math.Max(Global.PaletteCount, 16);
 
-    private static int PaletteBmpWidth = Math.Max(Global.PaletteLength, 16);
-    private static int PaletteBmpHeight = Math.Max(Global.PaletteCount, 16);
+    private static readonly SKBitmap?[] _tileSheets = new SKBitmap[(int)TileSheet.Max];
+    private static readonly byte[] _paletteBuf;
+    private static readonly int _paletteStride = _paletteBmpWidth * Unsafe.SizeOf<SKColor>();
+    private static readonly int[] _systemPalette = new int[Global.SysPaletteLength];
+    private static readonly int[] _grayscalePalette = new int[Global.SysPaletteLength];
+    private static readonly int[] _activeSystemPalette = _systemPalette;
+    private static readonly byte[] _palettes = new byte[Global.PaletteCount * Global.PaletteLength];
 
-    public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];
-    public static Span<byte> GetPalette(Palette paletteIndex) => MemoryMarshal.CreateSpan(ref palettes[(int)paletteIndex * Global.PaletteLength], Global.PaletteLength);
+    public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];
+    public static Span<byte> GetPalette(Palette paletteIndex) => MemoryMarshal.CreateSpan(ref _palettes[(int)paletteIndex * Global.PaletteLength], Global.PaletteLength);
 
-    private static float viewScale;
-    private static float viewOffsetX;
-    private static float viewOffsetY;
-
-    private static int savedClipX;
-    private static int savedClipY;
-    private static int savedClipWidth;
-    private static int savedClipHeight;
-
-    private static TableResource<SpriteAnimation>[] animSpecs = new TableResource<SpriteAnimation>[(int)TileSheet.Max];
+    private static readonly TableResource<SpriteAnimationStruct>[] _animSpecs = new TableResource<SpriteAnimationStruct>[(int)TileSheet.Max];
 
     static Graphics()
     {
-        paletteBmp = new SKBitmap(PaletteBmpWidth, PaletteBmpHeight);
-
-        AllocatePaletteBuffer();
-    }
-
-    private static void AllocatePaletteBuffer()
-    {
-        var stride = paletteBmp.RowBytes;
-        if (stride < 0)
-            stride = -stride;
-
-        paletteBufSize = stride * PaletteBmpHeight;
-        paletteStride = stride;
-
-        paletteBuf = new byte[paletteBufSize];
-    }
-
-    public static void Begin()
-    {
+        var size = _paletteBmpWidth * _paletteStride * _paletteBmpHeight;
+        _paletteBuf = new byte[size];
     }
 
     public static void SetSurface(SKSurface surface, SKImageInfo info)
@@ -66,55 +47,53 @@ internal static class Graphics
         _info = info;
     }
 
-    public static void End()
+    public static void Begin()
     {
-        // Not needed?
-        _surface.Canvas.Flush();
     }
 
-    public static void LoadTileSheet(TileSheet sheet, string file) {
+    public static void End()
+    {
+    }
+
+    public static void LoadTileSheet(TileSheet sheet, string file)
+    {
         var slot = (int)sheet;
 
-        ref var foundRef = ref tileSheets[slot];
+        ref var foundRef = ref _tileSheets[slot];
         if (foundRef != null)
         {
             foundRef.Dispose();
             foundRef = null;
         }
 
-        tileSheets[slot] = SKBitmap.Decode(Assets.Root.GetPath("out", file)) ?? throw new Exception(); //new SKBitmap(1, 1);
+        var bitmap = SKBitmap.Decode(Assets.Root.GetPath("out", file)) ?? throw new Exception();
+        _tileSheets[slot] = bitmap;
     }
 
     public static void LoadTileSheet(TileSheet sheet, string path, string animationFile)
     {
         LoadTileSheet(sheet, path);
-        animSpecs[(int)sheet] = TableResource<SpriteAnimation>.Load(animationFile);
+        _animSpecs[(int)sheet] = TableResource<SpriteAnimationStruct>.Load(animationFile);
     }
 
     public static SpriteAnimation GetAnimation(TileSheet sheet, AnimationId id)
     {
-        return animSpecs[(int)sheet].GetItem<SpriteAnimation>((int)id);
-    }
-
-    // Uh, is this stuff right?!
-    public static SpriteAnimation GetAnimation(TileSheet sheet, int id)
-    {
-        return animSpecs[(int)sheet].GetItem<SpriteAnimation>(id);
+        return _animSpecs[(int)sheet].LoadVariableLengthData<SpriteAnimation>((int)id);
     }
 
     public static void LoadSystemPalette(int[] colorsArgb8)
     {
-        Buffer.BlockCopy(colorsArgb8, 0, systemPalette, 0, systemPalette.Length);
+        colorsArgb8.CopyTo(_systemPalette.AsSpan());
 
         for (var i = 0; i < Global.SysPaletteLength; i++)
         {
-            grayscalePalette[i] = systemPalette[i & 0x30];
+            _grayscalePalette[i] = _systemPalette[i & 0x30];
         }
     }
 
     public static SKColor GetSystemColor(int sysColor)
     {
-        int argb8 = activeSystemPalette[sysColor];
+        var argb8 = _activeSystemPalette[sysColor];
         return new SKColor(
             (byte)((argb8 >> 16) & 0xFF),
             (byte)((argb8 >> 8) & 0xFF),
@@ -123,23 +102,24 @@ internal static class Graphics
         );
     }
 
+    // TODO: this method has to consider the picture format
     public static void SetColor(Palette paletteIndex, int colorIndex, uint colorArgb8)
     {
         var y = (int)paletteIndex;
         var x = colorIndex;
 
-        var line = MemoryMarshal.Cast<byte, uint>(paletteBuf[(y * paletteStride)..]);
+        var line = MemoryMarshal.Cast<byte, uint>(_paletteBuf.AsSpan()[(y * _paletteStride)..]);
         line[x] = colorArgb8;
     }
 
     public static void SetColor(Palette paletteIndex, int colorIndex, int colorArgb8) => SetColor(paletteIndex, colorIndex, (uint)colorArgb8);
 
-    public static void SetPalette(Palette paletteIndex, ReadOnlySpan<byte> colorsArgb8)
+    public static void SetPalette(Palette paletteIndex, ReadOnlySpan<int> colorsArgb8)
     {
         var y = (int)paletteIndex;
-        var line = MemoryMarshal.Cast<byte, int>(paletteBuf[(y * paletteStride)..]);
+        var line = MemoryMarshal.Cast<byte, int>(_paletteBuf.AsSpan()[(y * _paletteStride)..]);
 
-        for ( var x = 0; x < Global.PaletteLength; x++ )
+        for (var x = 0; x < Global.PaletteLength; x++)
         {
             line[x] = colorsArgb8[x];
         }
@@ -149,19 +129,19 @@ internal static class Graphics
     {
         var colorArgb8 = 0;
         if (colorIndex != 0)
-            colorArgb8 = activeSystemPalette[sysColor];
+            colorArgb8 = _activeSystemPalette[sysColor];
         SetColor(paletteIndex, colorIndex, colorArgb8);
         GetPalette(paletteIndex, colorIndex) = (byte)sysColor;
     }
 
     public static void SetPaletteIndexed(Palette paletteIndex, ReadOnlySpan<byte> sysColors)
     {
-        var colorsArgb8 = new byte[]
+        var colorsArgb8 = new[]
         {
             0,
-            activeSystemPalette[sysColors[1]],
-            activeSystemPalette[sysColors[2]],
-            activeSystemPalette[sysColors[3]],
+            _activeSystemPalette[sysColors[1]],
+            _activeSystemPalette[sysColors[2]],
+            _activeSystemPalette[sysColors[3]],
         };
 
         SetPalette(paletteIndex, colorsArgb8);
@@ -171,35 +151,25 @@ internal static class Graphics
 
     public static void UpdatePalettes()
     {
-        // TODO int format = al_get_bitmap_format( paletteBmp );
-        // TODO ALLEGRO_LOCKED_REGION*  region = al_lock_bitmap( paletteBmp, format, ALLEGRO_LOCK_WRITEONLY );
-        // TODO assert( region != nullptr );
-        // TODO
-        // TODO unsigned char* base = (unsigned char*) region->data;
-        // TODO if ( region->pitch < 0 )
-        // TODO     base += region->pitch * (PaletteBmpHeight - 1);
-        // TODO
-        // TODO memcpy( base, paletteBuf, paletteBufSize );
-        // TODO
-        // TODO al_unlock_bitmap( paletteBmp );
+        // JOE: No-op.
     }
 
-    public static void SwitchSystemPalette(Span<byte> newSystemPalette)
+    public static void SwitchSystemPalette(Span<int> newSystemPalette)
     {
-        if (newSystemPalette.SequenceEqual(activeSystemPalette))
+        if (newSystemPalette.SequenceEqual(_activeSystemPalette))
             return;
 
-        newSystemPalette.CopyTo(activeSystemPalette);
+        newSystemPalette.CopyTo(_activeSystemPalette);
 
         for (var i = 0; i < Global.PaletteCount; i++)
         {
             var sysColors = GetPalette((Palette)i);
-            var colorsArgb8 = new byte[]
+            var colorsArgb8 = new[]
             {
                 0,
-                activeSystemPalette[sysColors[1]],
-                activeSystemPalette[sysColors[2]],
-                activeSystemPalette[sysColors[3]],
+                _activeSystemPalette[sysColors[1]],
+                _activeSystemPalette[sysColors[2]],
+                _activeSystemPalette[sysColors[3]],
             };
             SetPalette((Palette)i, colorsArgb8);
         }
@@ -208,12 +178,12 @@ internal static class Graphics
 
     public static void EnableGrayscale()
     {
-        SwitchSystemPalette(grayscalePalette);
+        SwitchSystemPalette(_grayscalePalette);
     }
 
     public static void DisableGrayscale()
     {
-        SwitchSystemPalette(systemPalette);
+        SwitchSystemPalette(_systemPalette);
     }
 
     public static SpriteAnimator GetSpriteAnimator(TileSheet sheet, AnimationId id) => new(GetAnimation(sheet, id));
@@ -228,18 +198,16 @@ internal static class Graphics
         int destX,
         int destY,
         Palette palette,
-        int flags
+        DrawingFlags flags
     )
     {
-        var palRed = (int)palette / (float)bitmap.Height;
-        var tint = new SKColor((byte)(palRed * 255), 0, 0, 255);
+        ArgumentNullException.ThrowIfNull(bitmap);
 
         var sourceRect = new SKRect(srcX, srcY, srcX + width, srcY + height);
         var destRect = new SKRect(destX, destY, destX + width, destY + height);
 
-        using var paint = new SKPaint { ColorFilter = SKColorFilter.CreateBlendMode(tint, SKBlendMode.SrcIn) };
-
-        _surface.Canvas.DrawBitmap(bitmap, sourceRect, destRect, paint);
+        // JOE: TODO: Apply flags.
+        _surface.Canvas.DrawBitmap(bitmap, sourceRect, destRect); //, paint);
     }
 
     public static void DrawSpriteTile(
@@ -251,13 +219,21 @@ internal static class Graphics
         int destX,
         int destY,
         Palette palette,
-        int flags
+        DrawingFlags flags
     )
     {
-        DrawTile( slot, srcX, srcY, width, height, destX, destY + 1, palette, flags);
+        DrawTile(slot, srcX, srcY, width, height, destX, destY + 1, palette, flags);
     }
 
-    public static void DrawTile(
+    private readonly record struct TileCache(int X, int Y, Palette Palette, DrawingFlags Flags)
+    {
+        private static readonly Dictionary<TileCache, SKBitmap> _tileCache = new(200);
+
+        public bool TryGetValue([MaybeNullWhen(false)] out SKBitmap bitmap) => _tileCache.TryGetValue(this, out bitmap);
+        public void Set(SKBitmap bitmap) => _tileCache[this] = bitmap;
+    }
+
+    public static unsafe void DrawTile(
         TileSheet slot,
         int srcX,
         int srcY,
@@ -266,31 +242,51 @@ internal static class Graphics
         int destX,
         int destY,
         Palette palette,
-        int flags
+        DrawingFlags flags
     )
     {
         Debug.Assert(slot < TileSheet.Max);
 
-        var sheet = tileSheets[(int)slot];
-        var palRed = (int)palette / (float)sheet.Height;
-        var tint = new SKColor((byte)(palRed * 255), 0, 0, 255);
-
-        var sourceRect = new SKRect(srcX, srcY, srcX + width, srcY + height);
+        var sheet = _tileSheets[(int)slot] ?? throw new Exception();
         var destRect = new SKRect(destX, destY, destX + width, destY + height);
+        var cacheKey = new TileCache(srcX, srcY, palette, flags);
+        if (!cacheKey.TryGetValue(out var tile))
+        {
+            tile = sheet.Extract(srcX, srcY, width, height, null, flags);
 
-        // TODO using var paint = new SKPaint { ColorFilter = SKColorFilter.CreateBlendMode(tint, SKBlendMode.SrcIn) };
+            var locked = tile.Lock();
+            for (var y = 0; y < locked.Height; ++y)
+            {
+                var px = locked.PtrFromPoint(0, y);
+                for (var x = 0; x < locked.Width; ++x, ++px)
+                {
+                    var r = px->Blue;
 
-        _surface.Canvas.DrawBitmap(sheet, sourceRect, destRect); //, paint);
+                    if (r == 0)
+                    {
+                        *px = SKColors.Transparent;
+                        continue;
+                    }
 
-        _surface.Canvas.Flush();
-        // sheet.SavePng(@"C:\users\joe\desktop\delete\_sheet.png");
-        // _surface.Canvas.SavePng(@"C:\users\joe\desktop\delete\_canvas.png");
+                    var paletteX = r / 16;
+                    var paletteY = (int)palette;
+
+                    var val = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY * _paletteBmpWidth + paletteX];
+                    var color = new SKColor(val.Blue, val.Green, val.Red, val.Alpha);
+                    *px = color;
+                }
+            }
+
+            cacheKey.Set(tile);
+        }
+
+        _surface.Canvas.DrawBitmap(tile, destRect);
     }
 
-    public static void DrawStripSprite16x16(TileSheet slot,int firstTile,int destX,int destY,Palette palette)
+    public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)
     {
-        static ReadOnlySpan<byte> offsetsX() => new byte[] { 0, 0, 8, 8 };
-        static ReadOnlySpan<byte> offsetsY() => new byte[] { 0, 8, 0, 8 };
+        static ReadOnlySpan<byte> OffsetsX() => new byte[] { 0, 0, 8, 8 };
+        static ReadOnlySpan<byte> OffsetsY() => new byte[] { 0, 8, 0, 8 };
 
         var tileRef = firstTile;
 
@@ -306,18 +302,11 @@ internal static class Graphics
                 srcY,
                 World.TileWidth,
                 World.TileHeight,
-                destX + offsetsX()[i],
-                destY + offsetsY()[i],
+                destX + OffsetsX()[i],
+                destY + OffsetsY()[i],
                 palette,
                 0);
         }
-    }
-
-    public static void SetViewParams(float scale, float x, float y)
-    {
-        viewScale = scale;
-        viewOffsetX = x;
-        viewOffsetY = y;
     }
 
     public static void Clear(SKColor color)
@@ -330,14 +319,13 @@ internal static class Graphics
         _surface.Canvas.Clear(color);
     }
 
-    public static void SetClip(int x, int y, int width, int height)
+    public readonly record struct UnclipScope : IDisposable
     {
-        var savedClipRect = _surface.Canvas.DeviceClipBounds;
-        savedClipX = savedClipRect.Left;
-        savedClipY = savedClipRect.Top;
-        savedClipWidth = savedClipRect.Width;
-        savedClipHeight = savedClipRect.Height;
+        public void Dispose() => ResetClip();
+    }
 
+    public static UnclipScope SetClip(int x, int y, int width, int height)
+    {
         var y2 = y + height;
 
         if (y2 < 0)
@@ -364,21 +352,51 @@ internal static class Graphics
             }
         }
 
-        var clipX = (int)(viewOffsetX + x * viewScale);
-        var clipY = (int)(viewOffsetY + y * viewScale);
-        var clipWidth = (int)(width * viewScale);
-        var clipHeight = (int)(height * viewScale);
-
-        // _surface.Canvas.ClipRect(new SKRect(clipX, clipY, clipX + clipWidth, clipY + clipHeight));
+        _surface.Canvas.Save();
+        _surface.Canvas.ClipRect(new SKRect(x, y, x + width, y + height));
+        return new UnclipScope();
     }
 
     public static void ResetClip()
     {
-        _surface.Canvas.ClipRect(new SKRect(savedClipX, savedClipY, savedClipX + savedClipWidth, savedClipY + savedClipHeight));
+        _surface.Canvas.Restore();
     }
 }
 
-enum BossAnimationIds
+internal enum UWNpcsAnimIds
+{
+    UW_Bubble,
+    UW_Gel,
+    UW_Trap,
+    UW_OldMan,
+    UW_Keese,
+    UW_Moldorm,
+    UW_Wallmaster,
+    UW_Rope_Right,
+    UW_Rope_Left,
+    UW_Stalfos,
+    UW_Goriya_Down,
+    UW_Goriya_Up,
+    UW_Goriya_Right,
+    UW_Goriya_Left,
+    UW_PolsVoice,
+    UW_Gibdo,
+    UW_Zol,
+    UW_Darknut_Down,
+    UW_Darknut_Up,
+    UW_Darknut_Right,
+    UW_Darknut_Left,
+    UW_LanmolaHead,
+    UW_LanmolaBody,
+    UW_LikeLike,
+    UW_Vire_Down,
+    UW_Vire_Up,
+    UW_Wizzrobe_Right,
+    UW_Wizzrobe_Left,
+    UW_Wizzrobe_Up,
+}
+
+internal enum BossAnimationIds
 {
     B1_Aquamentus,
     B1_Aquamentus_Mouth_Open,
@@ -613,5 +631,34 @@ internal enum AnimationId
     OW_Moblin_Left = OverworldAnimationIds.OW_Moblin_Left,
     OW_Moblin_Down = OverworldAnimationIds.OW_Moblin_Down,
     OW_Moblin_Up = OverworldAnimationIds.OW_Moblin_Up,
-}
 
+    UW_Bubble = UWNpcsAnimIds.UW_Bubble,
+    UW_Gel = UWNpcsAnimIds.UW_Gel,
+    UW_Trap = UWNpcsAnimIds.UW_Trap,
+    UW_OldMan = UWNpcsAnimIds.UW_OldMan,
+    UW_Keese = UWNpcsAnimIds.UW_Keese,
+    UW_Moldorm = UWNpcsAnimIds.UW_Moldorm,
+    UW_Wallmaster = UWNpcsAnimIds.UW_Wallmaster,
+    UW_Rope_Right = UWNpcsAnimIds.UW_Rope_Right,
+    UW_Rope_Left = UWNpcsAnimIds.UW_Rope_Left,
+    UW_Stalfos = UWNpcsAnimIds.UW_Stalfos,
+    UW_Goriya_Down = UWNpcsAnimIds.UW_Goriya_Down,
+    UW_Goriya_Up = UWNpcsAnimIds.UW_Goriya_Up,
+    UW_Goriya_Right = UWNpcsAnimIds.UW_Goriya_Right,
+    UW_Goriya_Left = UWNpcsAnimIds.UW_Goriya_Left,
+    UW_PolsVoice = UWNpcsAnimIds.UW_PolsVoice,
+    UW_Gibdo = UWNpcsAnimIds.UW_Gibdo,
+    UW_Zol = UWNpcsAnimIds.UW_Zol,
+    UW_Darknut_Down = UWNpcsAnimIds.UW_Darknut_Down,
+    UW_Darknut_Up = UWNpcsAnimIds.UW_Darknut_Up,
+    UW_Darknut_Right = UWNpcsAnimIds.UW_Darknut_Right,
+    UW_Darknut_Left = UWNpcsAnimIds.UW_Darknut_Left,
+    UW_LanmolaHead = UWNpcsAnimIds.UW_LanmolaHead,
+    UW_LanmolaBody = UWNpcsAnimIds.UW_LanmolaBody,
+    UW_LikeLike = UWNpcsAnimIds.UW_LikeLike,
+    UW_Vire_Down = UWNpcsAnimIds.UW_Vire_Down,
+    UW_Vire_Up = UWNpcsAnimIds.UW_Vire_Up,
+    UW_Wizzrobe_Right = UWNpcsAnimIds.UW_Wizzrobe_Right,
+    UW_Wizzrobe_Left = UWNpcsAnimIds.UW_Wizzrobe_Left,
+    UW_Wizzrobe_Up = UWNpcsAnimIds.UW_Wizzrobe_Up,
+}

@@ -1,0 +1,15 @@
+root = true
+
+[*.cs]
+
+indent_size = 4
+indent_style = space
+tab_width = 4
+max_line_length = 120
+charset = utf-8-bom
+trim_trailing_whitespace = true
+guidelines = 80, 120
+
+dotnet_diagnostic.CA1833.severity = error
+dotnet_diagnostic.CS0114.severity = error
+

@@ -20,9 +20,8 @@ internal sealed class SubmenuType
     private const int ActiveMapX = 0x80;
     private const int ActiveMapY = 0x58;
 
-
-    readonly record struct PassiveItemSpec(ItemSlot ItemSlot, byte X);
-    readonly record struct TileInst(byte Id, byte X, byte Y, byte Palette);
+    private readonly record struct PassiveItemSpec(ItemSlot ItemSlot, byte X);
+    private readonly record struct TriforcePieceSpec(byte X, byte Y, byte[][] OffTiles, byte[][] OnTiles);
 
     private static readonly byte[] equippedUISlots = new byte[]
     {
@@ -181,7 +180,7 @@ internal sealed class SubmenuType
         _world = world;
     }
 
-    ItemId GetItemIdForUISlot(int uiSlot, ItemSlot itemSlot)
+    private ItemId GetItemIdForUISlot(int uiSlot, ref ItemSlot itemSlot)
     {
         var slots = new[]
         {
@@ -231,12 +230,11 @@ internal sealed class SubmenuType
 
     public void Enable()
     {
-        for (int i = 0; i < ActiveItems; i++)
+        for (var i = 0; i < ActiveItems; i++)
         {
-            activeItems[i] = GetItemIdForUISlot(i, activeSlots[i]);
+            activeItems[i] = GetItemIdForUISlot(i, ref activeSlots[i]);
         }
 
-        // This breaks.
         cursor.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cursor);
 
         var profile = _world.GetProfile();
@@ -265,16 +263,22 @@ internal sealed class SubmenuType
         if (!activated)
             return;
 
-        int dir = 0;
+        int dir;
 
         if (Input.IsButtonPressing(Button.Left))
+        {
             dir = -1;
+        }
         else if (Input.IsButtonPressing(Button.Right))
+        {
             dir = 1;
+        }
         else
+        {
             return;
+        }
 
-        _world.Game.Sound.Play(SoundEffect.Cursor);
+        _world.Game.Sound.PlayEffect(SoundEffect.Cursor);
 
         for (int i = 0; i < ActiveItems; i++)
         {
@@ -296,12 +300,11 @@ internal sealed class SubmenuType
 
     public void Draw(int bottom)
     {
-        if (!enabled)
-            return;
+        if (!enabled) return;
 
-        int top = bottom - Height;
+        var top = bottom - Height;
 
-        Graphics.SetClip(0, 0, Width, bottom);
+        using var _ = Graphics.SetClip(0, 0, Width, bottom);
 
         DrawBackground(top);
         DrawPassiveInventory(top);
@@ -309,25 +312,27 @@ internal sealed class SubmenuType
         DrawCurrentSelection(top);
 
         if (_world.IsOverworld())
+        {
             DrawTriforce(top);
+        }
         else
+        {
             DrawMap(top);
-
-        Graphics.ResetClip();
+        }
     }
 
-    void DrawBackground(int top)
+    private static void DrawBackground(int top)
     {
         Graphics.Clear(SKColors.Black);
 
         for (int i = 0; i < uiTiles.Length; i++)
         {
             var tileInst = uiTiles[i];
-            GlobalFunctions.DrawChar(tileInst.Id, tileInst.X, tileInst.Y + top, (Palette)tileInst.Palette);
+            GlobalFunctions.DrawChar(tileInst.Id, tileInst.X, tileInst.Y + top, tileInst.Palette);
         }
     }
 
-    void DrawActiveInventory(int top)
+    private void DrawActiveInventory(int top)
     {
         var profile = _world.GetProfile();
         var x = ActiveItemX;
@@ -335,7 +340,6 @@ internal sealed class SubmenuType
 
         for (int i = 0; i < ActiveItems; i++)
         {
-            var itemSlot = activeSlots[i];
             var itemId = activeItems[i];
 
             if (i == ArrowBowUISlot)
@@ -364,12 +368,12 @@ internal sealed class SubmenuType
         x = ActiveItemX + (activeUISlot % 4) * ActiveItemStrideX;
         y = ActiveItemY + (activeUISlot / 4) * ActiveItemStrideY + top;
 
-        var cursorPals = new Palette[] { Palette.BlueFgPalette, Palette.RedFgPalette };
+        var cursorPals = new[] { Palette.BlueFgPalette, Palette.RedFgPalette };
         var cursorPal = cursorPals[(_world.Game.GetFrameCounter() >> 3) & 1];
         cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal);
     }
 
-    void DrawPassiveInventory(int top)
+    private void DrawPassiveInventory(int top)
     {
         var profile = _world.GetProfile();
 
@@ -386,7 +390,7 @@ internal sealed class SubmenuType
         }
     }
 
-    void DrawCurrentSelection(int top)
+    private void DrawCurrentSelection(int top)
     {
         var profile = _world.GetProfile();
         var curSlot = profile.SelectedItem;
@@ -398,103 +402,85 @@ internal sealed class SubmenuType
         }
     }
 
-
-    // struct TriforcePieceSpec
-    // {
-    //     byte  X;
-    //     byte  Y;
-    //     byte  OffTiles[2][2];
-    //     byte  OnTiles[2][2];
-    // };
-
-    void DrawTriforce(int top)
+    private static readonly TriforcePieceSpec[] pieceSpecs = new TriforcePieceSpec[]
     {
-        // TODO var Triforce = new byte[] { 0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E };
-        // TODO
-        // TODO static const TriforcePieceSpec pieceSpecs[] =
-        // TODO {
-        // TODO { 0x70, 0x70, { { 0xED, 0xE9 }, { 0xE9, 0x24 } }, { { 0xED, 0xE7 }, { 0xE7, 0xF5 } } },
-        // TODO { 0x80, 0x70, { { 0xEA, 0xEE }, { 0x24, 0xEA } }, { { 0xE8, 0xEE }, { 0xF5, 0xE8 } } },
-        // TODO { 0x60, 0x80, { { 0xED, 0xE9 }, { 0xE9, 0x24 } }, { { 0xED, 0xE7 }, { 0xE7, 0xF5 } } },
-        // TODO { 0x90, 0x80, { { 0xEA, 0xEE }, { 0x24, 0xEA } }, { { 0xE8, 0xEE }, { 0xF5, 0xE8 } } },
-        // TODO { 0x70, 0x80, { { 0x24, 0x24 }, { 0x24, 0x24 } }, { { 0xE5, 0xF5 }, { 0x24, 0xE5 } } },
-        // TODO { 0x70, 0x80, { { 0x24, 0x24 }, { 0x24, 0x24 } }, { { 0xE8, 0x24 }, { 0xF5, 0xE8 } } },
-        // TODO { 0x80, 0x80, { { 0x24, 0x24 }, { 0x24, 0x24 } }, { { 0xF5, 0xE6 }, { 0xE6, 0x24 } } },
-        // TODO { 0x80, 0x80, { { 0x24, 0x24 }, { 0x24, 0x24 } }, { { 0x24, 0xE7 }, { 0xE7, 0xF5 } } },
-        // TODO  };
-        // TODO
-        // TODO GlobalFunctions.DrawChar(0xED, 0x78, 0x68 + top, 1);
-        // TODO GlobalFunctions.DrawChar(0xEE, 0x80, 0x68 + top, 1);
-        // TODO
-        // TODO GlobalFunctions.DrawChar(0xED, 0x68, 0x78 + top, 1);
-        // TODO GlobalFunctions.DrawChar(0xEE, 0x90, 0x78 + top, 1);
-        // TODO
-        // TODO GlobalFunctions.DrawChar(0xED, 0x58, 0x88 + top, 1);
-        // TODO GlobalFunctions.DrawChar(0xEE, 0xA0, 0x88 + top, 1);
-        // TODO
-        // TODO GlobalFunctions.DrawChar(0xEB, 0x50, 0x90 + top, 1);
-        // TODO GlobalFunctions.DrawChar(0xEF, 0x58, 0x90 + top, 1);
-        // TODO GlobalFunctions.DrawChar(0xF0, 0xA0, 0x90 + top, 1);
-        // TODO GlobalFunctions.DrawChar(0xEC, 0xA8, 0x90 + top, 1);
-        // TODO
-        // TODO DrawString(Triforce, _countof(Triforce), 0x60, 0xA0 + top, 1);
-        // TODO
-        // TODO int x = 0x60;
-        // TODO for (int i = 0; i < 8; i++, x += 8)
-        // TODO {
-        // TODO     GlobalFunctions.DrawChar(0xF1, x, 0x90 + top, 1);
-        // TODO }
-        // TODO
-        // TODO uint pieces = _world.GetItem(ItemSlot.TriforcePieces);
-        // TODO uint piece = pieces;
-        // TODO
-        // TODO for (int i = 0; i < 8; i++, piece >>= 1)
-        // TODO {
-        // TODO     const byte * tiles = nullptr;
-        // TODO     uint have = piece & 1;
-        // TODO
-        // TODO     if (have)
-        // TODO     {
-        // TODO         tiles = (byte *)pieceSpecs[i].OnTiles;
-        // TODO     }
-        // TODO     else
-        // TODO     {
-        // TODO         tiles = (byte *)pieceSpecs[i].OffTiles;
-        // TODO     }
-        // TODO
-        // TODO     for (int r = 0; r < 2; r++)
-        // TODO     {
-        // TODO         for (int c = 0; c < 2; c++, tiles++)
-        // TODO         {
-        // TODO             int x = pieceSpecs[i].X + (c * 8);
-        // TODO             int y = pieceSpecs[i].Y + (r * 8) + top;
-        // TODO             GlobalFunctions.DrawChar(*tiles, x, y, 1);
-        // TODO         }
-        // TODO     }
-        // TODO }
-        // TODO
-        // TODO if ((pieces & 0x30) == 0x30)
-        // TODO {
-        // TODO     GlobalFunctions.DrawChar(0xF5, 0x70, 0x80 + top, 1);
-        // TODO     GlobalFunctions.DrawChar(0xF5, 0x78, 0x88 + top, 1);
-        // TODO }
-        // TODO
-        // TODO if ((pieces & 0xC0) == 0xC0)
-        // TODO {
-        // TODO     GlobalFunctions.DrawChar(0xF5, 0x88, 0x80 + top, 1);
-        // TODO     GlobalFunctions.DrawChar(0xF5, 0x80, 0x88 + top, 1);
-        // TODO }
+        new(0x70, 0x70, new[]{ new byte[]{ 0xED, 0xE9 }, new byte[]{ 0xE9, 0x24 } }, new[]{ new byte[]{ 0xED, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
+        new(0x80, 0x70, new[]{ new byte[]{ 0xEA, 0xEE }, new byte[]{ 0x24, 0xEA } }, new[]{ new byte[]{ 0xE8, 0xEE }, new byte[]{ 0xF5, 0xE8 } }),
+        new(0x60, 0x80, new[]{ new byte[]{ 0xED, 0xE9 }, new byte[]{ 0xE9, 0x24 } }, new[]{ new byte[]{ 0xED, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
+        new(0x90, 0x80, new[]{ new byte[]{ 0xEA, 0xEE }, new byte[]{ 0x24, 0xEA } }, new[]{ new byte[]{ 0xE8, 0xEE }, new byte[]{ 0xF5, 0xE8 } }),
+        new(0x70, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0xE5, 0xF5 }, new byte[]{ 0x24, 0xE5 } }),
+        new(0x70, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0xE8, 0x24 }, new byte[]{ 0xF5, 0xE8 } }),
+        new(0x80, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0xF5, 0xE6 }, new byte[]{ 0xE6, 0x24 } }),
+        new(0x80, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0x24, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
+     };
+
+    private static readonly byte[] Triforce = new byte[] { 0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E };
+
+    private void DrawTriforce(int top)
+    {
+        GlobalFunctions.DrawChar(0xED, 0x78, 0x68 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xEE, 0x80, 0x68 + top, Palette.RedBgPalette);
+
+        GlobalFunctions.DrawChar(0xED, 0x68, 0x78 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xEE, 0x90, 0x78 + top, Palette.RedBgPalette);
+
+        GlobalFunctions.DrawChar(0xED, 0x58, 0x88 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xEE, 0xA0, 0x88 + top, Palette.RedBgPalette);
+
+        GlobalFunctions.DrawChar(0xEB, 0x50, 0x90 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xEF, 0x58, 0x90 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xF0, 0xA0, 0x90 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xEC, 0xA8, 0x90 + top, Palette.RedBgPalette);
+
+        GlobalFunctions.DrawString(Triforce, 0x60, 0xA0 + top, Palette.RedBgPalette);
+
+        int x = 0x60;
+        for (int i = 0; i < 8; i++, x += 8)
+        {
+            GlobalFunctions.DrawChar(0xF1, x, 0x90 + top, Palette.RedBgPalette);
+        }
+
+        var pieces = _world.GetItem(ItemSlot.TriforcePieces);
+        var piece = pieces;
+
+        for (int i = 0; i < 8; i++, piece >>= 1)
+        {
+            var have = (piece & 1) != 0;
+            var tiles = have ? pieceSpecs[i].OnTiles : pieceSpecs[i].OffTiles;
+
+            var ii = 0;
+            for (int r = 0; r < 2; r++)
+            {
+                for (int c = 0; c < 2; c++, ii++)
+                {
+                    int xx = pieceSpecs[i].X + (c * 8);
+                    int yy = pieceSpecs[i].Y + (r * 8) + top;
+                    // JOE: TODO: Uh, is this right? Maybe just flatten the array?
+                    GlobalFunctions.DrawChar(tiles[ii / tiles.Length][ii % tiles.Length], xx, yy, Palette.RedBgPalette);
+                }
+            }
+        }
+
+        if ((pieces & 0x30) == 0x30)
+        {
+            GlobalFunctions.DrawChar(0xF5, 0x70, 0x80 + top, Palette.RedBgPalette);
+            GlobalFunctions.DrawChar(0xF5, 0x78, 0x88 + top, Palette.RedBgPalette);
+        }
+
+        if ((pieces & 0xC0) == 0xC0)
+        {
+            GlobalFunctions.DrawChar(0xF5, 0x88, 0x80 + top, Palette.RedBgPalette);
+            GlobalFunctions.DrawChar(0xF5, 0x80, 0x88 + top, Palette.RedBgPalette);
+        }
     }
 
-    unsafe void DrawMap(int top)
-    {
-        var Map = new byte[] { 0x16, 0x0A, 0x19 };
-        var Compass = new byte[] { 0x0C, 0x18, 0x16, 0x19, 0x0A, 0x1C, 0x1C };
-        var TopMapLine = new byte[]
-            { 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5 };
-        var BottomMapLine = new byte[]
-            { 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5 };
+    private static readonly byte[] Map = new byte[] { 0x16, 0x0A, 0x19 };
+    private static readonly byte[] Compass = new byte[] { 0x0C, 0x18, 0x16, 0x19, 0x0A, 0x1C, 0x1C };
+    private static readonly byte[] TopMapLine = new byte[] { 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5 };
+    private static readonly byte[] BottomMapLine = new byte[] { 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5 };
 
+    private unsafe void DrawMap(int top)
+    {
         GlobalFunctions.DrawString(Map, 0x28, 0x58 + top, (Palette)1);
         GlobalFunctions.DrawString(Compass, 0x18, 0x80 + top, (Palette)1);
         GlobalFunctions.DrawString(TopMapLine, 0x60, 0x50 + top, (Palette)1);
@@ -536,14 +522,16 @@ internal sealed class SubmenuType
                     var doorBit = 8;
                     for (; doorBit != 0; doorBit >>= 1)
                     {
-                        DoorType doorType = _world.GetDoorType(roomId, (Direction)doorBit);
+                        var doorType = _world.GetDoorType(roomId, (Direction)doorBit);
                         if (doorType == DoorType.Open)
+                        {
                             doorSum |= doorBit;
+                        }
                         else if (roomFlags.GetDoorState((Direction)doorBit)
-                            && (doorType == DoorType.Bombable
-                            || doorType == DoorType.Key
-                            || doorType == DoorType.Key2))
+                            && doorType is DoorType.Bombable or DoorType.Key or DoorType.Key2)
+                        {
                             doorSum |= doorBit;
+                        }
                     }
                     tile = (byte)(0xD0 + doorSum);
                 }
@@ -561,5 +549,4 @@ internal sealed class SubmenuType
         x = ActiveMapX + playerCol * 8 + 2;
         GlobalFunctions.DrawChar(0xE0, x, y, Palette.Player);
     }
-
 }
