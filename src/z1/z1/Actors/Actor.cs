@@ -291,7 +291,7 @@ internal abstract class Actor
         if (facing != Direction.None)
             return;
 
-        Point playerPos = Game.World.GetObservedPlayerPos();
+        var playerPos = Game.World.GetObservedPlayerPos();
         // Why did the original game test these distances as unsigned?
         var xDist = playerPos.X - x;
         var yDist = playerPos.Y - y;
@@ -315,7 +315,7 @@ internal abstract class Actor
 
     protected void InitCommonStateTimer(ref byte stateTimer)
     {
-        int t = Game.World.curObjSlot;
+        var t = Game.World.curObjSlot;
         t = (t + 2) * 16;
         stateTimer = (byte)t;
     }
@@ -622,7 +622,7 @@ internal abstract class Actor
         var weaponObj = Game.World.GetObject(context.WeaponSlot);
         if (weaponObj == null) return false;
 
-        Point objCenter = CalcObjMiddle();
+        var objCenter = CalcObjMiddle();
         weaponOffset.X += weaponObj.X;
         weaponOffset.Y += weaponObj.Y;
 
@@ -805,7 +805,7 @@ internal abstract class Actor
 
             if (player.InvincibilityTimer != 0) return;
 
-            bool useY = false;
+            var useY = false;
 
             if (player.TileOffset == 0)
             {
@@ -1043,13 +1043,13 @@ internal abstract class Actor
 
     protected Direction GetSingleMoving()
     {
-        int dirOrd = ((Direction)Moving).GetOrdinal();
+        var dirOrd = ((Direction)Moving).GetOrdinal();
         return dirOrd.GetOrdDirection();
     }
 
     protected Direction FindUnblockedDir(Direction dir, TileCollisionStep firstStep)
     {
-        int i = 0;
+        var i = 0;
 
         // JOE: This was a goto statement before. My change is a bit sus.
         var startOnNext = firstStep == TileCollisionStep.NextDir;
@@ -1109,7 +1109,7 @@ internal abstract class Actor
             // Choose a random direction perpendicular to facing.
             case 0:
                 {
-                    int index = 0;
+                    var index = 0;
                     int r = Random.Shared.GetByte();
                     if ((r & 1) == 0)
                         index++;
@@ -1171,7 +1171,7 @@ internal abstract class Actor
 
         if (Moving != 0)
         {
-            int dirOrd = ((Direction)Moving).GetOrdinal();
+            var dirOrd = ((Direction)Moving).GetOrdinal();
             dir = dirOrd.GetOrdDirection();
         }
 
@@ -1188,7 +1188,7 @@ internal abstract class Actor
 
     protected void MoveDirection(int speed, Direction dir)
     {
-        int align = 0x10;
+        var align = 0x10;
 
         if (IsPlayer)
             align = 8;
@@ -1219,7 +1219,7 @@ internal abstract class Actor
             frac -= speed;
         }
 
-        int carry = frac >> 8;
+        var carry = frac >> 8;
         Fraction = (byte)(frac & 0xFF);
 
         if (TileOffset != align && TileOffset != -align)
@@ -1262,7 +1262,7 @@ internal abstract class Actor
     {
         var cleanDir = ShoveDirection & Direction.DirectionMask;
 
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
             if (TileOffset == 0)
             {
@@ -1307,13 +1307,13 @@ internal abstract class Actor
 
 
     protected Direction GetXDirToPlayer(int x) => Game.World.GetObservedPlayerPos().X < x ? Direction.Left : Direction.Right;
-    private Direction GetYDirToPlayer(int y) => Game.World.GetObservedPlayerPos().Y < y ? Direction.Up : Direction.Down;
+    protected Direction GetYDirToPlayer(int y) => Game.World.GetObservedPlayerPos().Y < y ? Direction.Up : Direction.Down;
     protected Direction GetXDirToTruePlayer(int x) => Game.Link.X < x ? Direction.Left : Direction.Right;
     protected Direction GetYDirToTruePlayer(int y) => Game.Link.Y < y ? Direction.Up : Direction.Down;
 
     private Direction GetDir8ToPlayer(int x, int y)
     {
-        Point playerPos = Game.World.GetObservedPlayerPos();
+        var playerPos = Game.World.GetObservedPlayerPos();
         var dir = Direction.None;
 
         if (playerPos.Y < y)
@@ -1386,8 +1386,8 @@ internal abstract class Actor
 
         Actor? shot = null;
         var thisSlot = Game.World.curObjectSlot;
-        int oldActiveShots = Game.World.activeShots;
-        Actor? thisPtr = Game.World.GetObject(thisSlot);
+        var oldActiveShots = Game.World.activeShots;
+        var thisPtr = Game.World.GetObject(thisSlot);
 
         if (shotType == ObjType.Boomerang)
         {
@@ -1401,7 +1401,7 @@ internal abstract class Actor
         if (shot == null)
             return (ObjectSlot)(-1);
 
-        int newActiveShots = Game.World.activeShots;
+        var newActiveShots = Game.World.activeShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)
         {
             return (ObjectSlot)(-1);

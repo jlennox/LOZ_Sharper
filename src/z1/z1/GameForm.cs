@@ -25,9 +25,6 @@ public partial class GameForm : Form
 
         KeyPreview = true;
         KeyUp += Form1_KeyUp;
-        KeyDown += Form1_KeyDown;
-        _skControl.KeyUp += Form1_KeyUp;
-        _skControl.KeyDown += Form1_KeyDown;
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -43,11 +40,6 @@ public partial class GameForm : Form
     private void Form1_KeyUp(object? sender, KeyEventArgs e)
     {
         _game.Input.UnsetKey(e.KeyCode);
-    }
-
-    private void Form1_KeyDown(object? sender, KeyEventArgs e)
-    {
-        _game.SetKeys(e.KeyData);
     }
 
     private void Timer_Tick(object? sender, EventArgs e)

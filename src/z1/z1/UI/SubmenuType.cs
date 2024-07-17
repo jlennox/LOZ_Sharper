@@ -218,7 +218,7 @@ internal sealed class SubmenuType
                     itemSlot = ItemSlot.Potion;
             }
 
-            int itemValue = profile.Items[itemSlot];
+            var itemValue = profile.Items[itemSlot];
             if (itemValue != 0)
             {
                 var itemId = GlobalFunctions.ItemValueToItemId(itemSlot, itemValue);
@@ -282,7 +282,7 @@ internal sealed class SubmenuType
 
         _world.Game.Sound.PlayEffect(SoundEffect.Cursor);
 
-        for (int i = 0; i < ActiveItems; i++)
+        for (var i = 0; i < ActiveItems; i++)
         {
             activeUISlot += dir;
 
@@ -327,7 +327,7 @@ internal sealed class SubmenuType
     {
         Graphics.Clear(SKColors.Black);
 
-        for (int i = 0; i < uiTiles.Length; i++)
+        for (var i = 0; i < uiTiles.Length; i++)
         {
             var tileInst = uiTiles[i];
             GlobalFunctions.DrawChar(tileInst.Id, tileInst.X, tileInst.Y + top, tileInst.Palette);
@@ -340,7 +340,7 @@ internal sealed class SubmenuType
         var x = ActiveItemX;
         var y = ActiveItemY + top;
 
-        for (int i = 0; i < ActiveItems; i++)
+        for (var i = 0; i < ActiveItems; i++)
         {
             var itemId = activeItems[i];
 
@@ -379,7 +379,7 @@ internal sealed class SubmenuType
     {
         var profile = _world.GetProfile();
 
-        for (int i = 0; i < PassiveItems; i++)
+        for (var i = 0; i < PassiveItems; i++)
         {
             var slot = passiveItems[i].ItemSlot;
             var value = profile.Items[slot];
@@ -436,8 +436,8 @@ internal sealed class SubmenuType
 
         GlobalFunctions.DrawString(Triforce, 0x60, 0xA0 + top, Palette.RedBgPalette);
 
-        int x = 0x60;
-        for (int i = 0; i < 8; i++, x += 8)
+        var x = 0x60;
+        for (var i = 0; i < 8; i++, x += 8)
         {
             GlobalFunctions.DrawChar(0xF1, x, 0x90 + top, Palette.RedBgPalette);
         }
@@ -445,18 +445,18 @@ internal sealed class SubmenuType
         var pieces = _world.GetItem(ItemSlot.TriforcePieces);
         var piece = pieces;
 
-        for (int i = 0; i < 8; i++, piece >>= 1)
+        for (var i = 0; i < 8; i++, piece >>= 1)
         {
             var have = (piece & 1) != 0;
             var tiles = have ? pieceSpecs[i].OnTiles : pieceSpecs[i].OffTiles;
 
             var ii = 0;
-            for (int r = 0; r < 2; r++)
+            for (var r = 0; r < 2; r++)
             {
-                for (int c = 0; c < 2; c++, ii++)
+                for (var c = 0; c < 2; c++, ii++)
                 {
-                    int xx = pieceSpecs[i].X + (c * 8);
-                    int yy = pieceSpecs[i].Y + (r * 8) + top;
+                    var xx = pieceSpecs[i].X + (c * 8);
+                    var yy = pieceSpecs[i].Y + (r * 8) + top;
                     // JOE: TODO: Uh, is this right? Maybe just flatten the array?
                     GlobalFunctions.DrawChar(tiles[ii / tiles.Length][ii % tiles.Length], xx, yy, Palette.RedBgPalette);
                 }
@@ -488,11 +488,11 @@ internal sealed class SubmenuType
         GlobalFunctions.DrawString(TopMapLine, 0x60, 0x50 + top, (Palette)1);
         GlobalFunctions.DrawString(BottomMapLine, 0x60, 0x98 + top, (Palette)1);
 
-        int y = 0x58 + top;
-        for (int r = 0; r < 8; r++, y += 8)
+        var y = 0x58 + top;
+        for (var r = 0; r < 8; r++, y += 8)
         {
-            int xx = 0;
-            for (int c = 0; c < 4; c++, xx += 8)
+            var xx = 0;
+            for (var c = 0; c < 4; c++, xx += 8)
             {
                 GlobalFunctions.DrawChar(0xF5, 0x60 + xx, y, (Palette)1);
                 GlobalFunctions.DrawChar(0xF5, 0xC0 + xx, y, (Palette)1);
@@ -500,22 +500,22 @@ internal sealed class SubmenuType
         }
 
         var levelInfo = _world.GetLevelInfo();
-        bool hasMap = _world.HasCurrentMap();
-        bool hasCompass = _world.HasCurrentCompass();
+        var hasMap = _world.HasCurrentMap();
+        var hasCompass = _world.HasCurrentCompass();
 
         if (hasMap)
             GlobalFunctions.DrawItemNarrow(_world.Game, ItemId.Map, 0x30, 0x68 + top);
         if (hasCompass)
             GlobalFunctions.DrawItemNarrow(_world.Game, ItemId.Compass, 0x30, 0x90 + top);
 
-        int x = ActiveMapX;
-        for (int c = 0; c < 8; c++, x += 8)
+        var x = ActiveMapX;
+        for (var c = 0; c < 8; c++, x += 8)
         {
             uint mapMaskByte = levelInfo.DrawnMap[c + 4];
             y = ActiveMapY + top;
-            for (int r = 0; r < 8; r++, y += 8, mapMaskByte <<= 1)
+            for (var r = 0; r < 8; r++, y += 8, mapMaskByte <<= 1)
             {
-                int roomId = (r << 4) | (c - levelInfo.DrawnMapOffset + 0x10 + 4) & 0xF;
+                var roomId = (r << 4) | (c - levelInfo.DrawnMapOffset + 0x10 + 4) & 0xF;
                 var roomFlags = _world.GetUWRoomFlags(roomId);
                 byte  tile = 0xF5;
                 if ((mapMaskByte & 0x80) == 0x80 && roomFlags.GetVisitState())
@@ -541,9 +541,9 @@ internal sealed class SubmenuType
             }
         }
 
-        int curRoomId = _world.curRoomId;
-        int playerRow = (curRoomId >> 4) & 0xF;
-        int playerCol = curRoomId & 0xF;
+        var curRoomId = _world.curRoomId;
+        var playerRow = (curRoomId >> 4) & 0xF;
+        var playerCol = curRoomId & 0xF;
         playerCol = (playerCol + levelInfo.DrawnMapOffset) & 0xF;
         playerCol -= 4;
 

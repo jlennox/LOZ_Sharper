@@ -47,7 +47,7 @@ internal partial class World
                 break;
         }
 
-        int nextRoomId = MakeRoomId(row, col);
+        var nextRoomId = MakeRoomId(row, col);
         return nextRoomId;
     }
 
@@ -88,7 +88,7 @@ internal partial class World
 
     void ClearDeadObjectQueue()
     {
-        for (int i = 0; i < objectsToDeleteCount; i++)
+        for (var i = 0; i < objectsToDeleteCount; i++)
         {
             objectsToDelete[i] = null;
         }
@@ -126,7 +126,7 @@ internal partial class World
 
     void DeleteObjects()
     {
-        for (int i = 0; i < (int)ObjectSlot.MaxObjects; i++)
+        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
             objects[i] = null;
         }
@@ -142,9 +142,9 @@ internal partial class World
 
     void DeleteDeadObjects()
     {
-        for (int i = 0; i < (int)ObjectSlot.MaxObjects; i++)
+        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            Actor? obj = objects[i];
+            var obj = objects[i];
             if (obj != null && obj.IsDeleted)
             {
                 objects[i] = null;
@@ -156,7 +156,7 @@ internal partial class World
 
     void InitObjectTimers()
     {
-        for (int i = 0; i < (int)ObjectSlot.MaxObjects; i++)
+        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
             objectTimers[i] = 0;
         }
@@ -164,7 +164,7 @@ internal partial class World
 
     void DecrementObjectTimers()
     {
-        for (int i = 0; i < (int)ObjectSlot.MaxObjects; i++)
+        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
             if (objectTimers[i] != 0)
                 objectTimers[i]--;
@@ -179,7 +179,7 @@ internal partial class World
     void InitStunTimers()
     {
         longTimer = 0;
-        for (int i = 0; i < (int)ObjectSlot.MaxObjects; i++)
+        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
             stunTimers[i] = 0;
         }
@@ -195,7 +195,7 @@ internal partial class World
 
         longTimer = 9;
 
-        for (int i = 0; i < (int)ObjectSlot.MaxObjects; i++)
+        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
             if (stunTimers[i] != 0)
                 stunTimers[i]--;
@@ -214,7 +214,7 @@ internal partial class World
 
     public ObjectSlot FindEmptyMonsterSlot()
     {
-        for (int i = (int)ObjectSlot.LastMonster; i >= 0; i--)
+        for (var i = (int)ObjectSlot.LastMonster; i >= 0; i--)
         {
             if (objects[i] == null)
                 return (ObjectSlot)i;
@@ -236,7 +236,7 @@ internal partial class World
     {
         static ReadOnlySpan<byte> palette() => new byte[] { 0x29, 0x32, 0x16 };
 
-        int value = profile.Items[ItemSlot.Ring];
+        var value = profile.Items[ItemSlot.Ring];
 
         Graphics.SetColorIndexed(Palette.Player, 1, palette()[value]);
     }
@@ -245,7 +245,7 @@ internal partial class World
     {
         static ReadOnlySpan<byte> palette() => new byte[] { 0x0F, 0x30, 0x30, 0x30 };
 
-        for (int i = 2; i < Global.BackgroundPalCount; i++)
+        for (var i = 2; i < Global.BackgroundPalCount; i++)
         {
             Graphics.SetPaletteIndexed((Palette)i, palette());
         }

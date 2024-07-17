@@ -32,7 +32,7 @@ internal sealed class GameMenu : Menu
             new byte[] { 0x00, 0x15, 0x27, 0x30 }
         };
 
-        for (int i = 0; i < palettes.Length; i++)
+        for (var i = 0; i < palettes.Length; i++)
         {
             Graphics.SetPaletteIndexed((Palette)i, palettes[i]);
         }
@@ -100,8 +100,8 @@ internal sealed class GameMenu : Menu
         GlobalFunctions.DrawString(_registerStr, 0x30, 0xA8, 0);
         GlobalFunctions.DrawString(_eliminateStr, 0x30, 0xB8, 0);
 
-        int y = 0x58;
-        for (int i = 0; i < 3; i++)
+        var y = 0x58;
+        for (var i = 0; i < 3; i++)
         {
             var summary = summaries.Summaries[i];
             if (summary.IsActive())
@@ -263,15 +263,15 @@ internal sealed class RegisterMenu : Menu
 
     byte GetSelectedChar()
     {
-        byte ch = _charSetStrs[_charPosRow][_charPosCol];
+        var ch = _charSetStrs[_charPosRow][_charPosCol];
         return ch;
     }
 
     void MoveCharSetCursorH(int dir)
     {
-        int fullSize = _charSetStr0.Length * _charSetStrs.Length;
+        var fullSize = _charSetStr0.Length * _charSetStrs.Length;
 
-        for (int i = 0; i < fullSize; i++)
+        for (var i = 0; i < fullSize; i++)
         {
             _charPosCol += dir;
 
@@ -293,7 +293,7 @@ internal sealed class RegisterMenu : Menu
 
     void MoveCharSetCursorV(int dir, bool skip = true)
     {
-        for (int i = 0; i < _charSetStrs.Length; i++)
+        for (var i = 0; i < _charSetStrs.Length; i++)
         {
             _charPosRow += dir;
 
@@ -315,7 +315,7 @@ internal sealed class RegisterMenu : Menu
 
     void CommitFiles()
     {
-        for (int i = 0; i < SaveFolder.MaxProfiles; i++)
+        for (var i = 0; i < SaveFolder.MaxProfiles; i++)
         {
             if (!_origActive[i] && _summaries.Summaries[i].IsActive())
             {
@@ -399,7 +399,7 @@ internal sealed class RegisterMenu : Menu
 
         if (_selectedIndex < 3)
         {
-            bool showCursor = ((_game.GetFrameCounter() >> 3) & 1) != 0;
+            var showCursor = ((_game.GetFrameCounter() >> 3) & 1) != 0;
             if (showCursor)
             {
                 var x = 0x70 + (_namePos * 8);
@@ -417,13 +417,13 @@ internal sealed class RegisterMenu : Menu
         GlobalFunctions.DrawString(_registerEndStr, 0x50, 0x78, 0);
 
         y = 0x88;
-        for (int i = 0; i < _charSetStrs.Length; i++, y += 8)
+        for (var i = 0; i < _charSetStrs.Length; i++, y += 8)
         {
             GlobalFunctions.DrawString(_charSetStrs[i], 0x30, y, 0);
         }
 
         y = 0x30;
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             var summary = _summaries.Summaries[i];
             GlobalFunctions.DrawString(summary.Name[..summary.NameLength], 0x70, y, 0);

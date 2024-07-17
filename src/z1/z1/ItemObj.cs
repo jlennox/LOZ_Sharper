@@ -104,8 +104,8 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
         var player = Game.Link;
         if (player == null) return CollisionResponse.Unknown;
 
-        int playerX = player.X;
-        int playerY = player.Y + 3;
+        var playerX = player.X;
+        var playerY = player.Y + 3;
 
         if (Math.Abs(playerX - X) < World.MobTileWidth && Math.Abs(playerY - Y) < World.MobTileHeight)
         {
@@ -189,7 +189,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
     private void UpdateMoving()
     {
-        bool done = false;
+        var done = false;
 
         MoveDirection(0x20, Facing);
 
@@ -350,8 +350,8 @@ internal sealed class TextBox
 
     public void Draw()
     {
-        int x = _left;
-        int y = _top;
+        var x = _left;
+        var y = _top;
 
         for (var i = 0; i < curCharIndex; i++ )
         {

@@ -62,7 +62,7 @@ internal sealed class Game
     const float AspectRatio = 16 / 9;
     const int MaxProjectiles = 11;
 
-    public Link Link { get; }
+    public Link Link;
 
     // Use rect?
     public const int MarginTop = 0x5D;
@@ -87,7 +87,6 @@ internal sealed class Game
     public Game()
     {
         World = new World(this);
-        Link = new(this);
     }
 
     public void UpdateScreenSize(SKSurface surface, SKImageInfo info)

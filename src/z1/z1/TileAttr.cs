@@ -41,7 +41,7 @@ internal static class Maffs
 
     public static int GetSector16(float x, float y)
     {
-        int sector = 0;
+        var sector = 0;
 
         if (y < 0)
         {
@@ -53,7 +53,7 @@ internal static class Maffs
         if (x < 0)
         {
             sector += 4;
-            float temp = x;
+            var temp = x;
             x = y;
             y = -temp;
         }
@@ -61,7 +61,7 @@ internal static class Maffs
         if (x < y)
         {
             sector += 2;
-            float temp = y - x;
+            var temp = y - x;
             x = x + y;
             y = temp;
             // Because we're only finding out the sector, only the angle matters, not the point along it.
@@ -79,10 +79,10 @@ internal static class Maffs
 
     public static void Rotate(float angle, ref float x, ref float y )
     {
-        float sine = (float)Math.Sin(angle);
-        float cosine = (float)Math.Cos(angle);
-        float x1 = x;
-        float y1 = y;
+        var sine = (float)Math.Sin(angle);
+        var cosine = (float)Math.Cos(angle);
+        var x1 = x;
+        var y1 = y;
 
         x = x1 * cosine - y * sine;
         y = x1 * sine + y * cosine;

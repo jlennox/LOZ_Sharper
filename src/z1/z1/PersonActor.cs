@@ -100,7 +100,7 @@ internal sealed class PersonActor : Actor
             }
         }
 
-        int animIndex = spec.DwellerType - ObjType.OldMan;
+        var animIndex = spec.DwellerType - ObjType.OldMan;
         var animId = sPersonGraphics[animIndex].AnimId;
         image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animId);
 
@@ -112,7 +112,7 @@ internal sealed class PersonActor : Actor
         {
             var sign = this.spec.GetShowNegative() ? NumberSign.Negative : NumberSign.None;
 
-            for (int i = 0; i < 3; i++)
+            for (var i = 0; i < 3; i++)
             {
                 var price = GetPrice(i);
                 GlobalFunctions.NumberToStringR(this.spec.GetPrice(i), sign, ref price);
@@ -124,7 +124,7 @@ internal sealed class PersonActor : Actor
 
         if (type == ObjType.CaveMedicineShop)
         {
-            int itemValue = Game.World.GetItem(ItemSlot.Letter);
+            var itemValue = Game.World.GetItem(ItemSlot.Letter);
             if (itemValue == 2)
                 _state = PersonState.Idle;
             else
@@ -215,11 +215,11 @@ internal sealed class PersonActor : Actor
 
         var player = Game.Link;
 
-        int distanceY = Math.Abs(ItemY - player.Y);
+        var distanceY = Math.Abs(ItemY - player.Y);
         if (distanceY >= 6)
             return;
 
-        for (int i = 0; i < CaveSpec.Count; i++)
+        for (var i = 0; i < CaveSpec.Count; i++)
         {
             var itemId = spec.GetItemId(i);
             if (itemId != ItemId.None && player.X == itemXs[i])
@@ -304,7 +304,7 @@ internal sealed class PersonActor : Actor
 
             int finalIndex;
 
-            for (int i = 0; i < CaveSpec.Count; i++)
+            for (var i = 0; i < CaveSpec.Count; i++)
             {
                 finalIndex = gamblingIndexes[i];
                 var sign = finalIndex != 2 ? NumberSign.Negative : NumberSign.Positive;
@@ -374,7 +374,7 @@ internal sealed class PersonActor : Actor
         }
         else  // Give money
         {
-            byte amount = spec.GetPrice(index);
+            var amount = spec.GetPrice(index);
 
             Game.World.PostRupeeWin(amount);
             Game.World.MarkItem();
@@ -423,7 +423,7 @@ internal sealed class PersonActor : Actor
 
     void UpdateWaitForLetter()
     {
-        int itemValue = Game.World.GetItem(ItemSlot.Letter);
+        var itemValue = Game.World.GetItem(ItemSlot.Letter);
         if (itemValue == 2)
         {
             _state = PersonState.Idle;
@@ -450,10 +450,10 @@ internal sealed class PersonActor : Actor
             return;
 
         var rooms = Game.World.GetShortcutRooms();
-        int playerX = Game.Link.X;
-        int stairsIndex = -1;
+        var playerX = Game.Link.X;
+        var stairsIndex = -1;
 
-        for (int i = 0; i < stairsXs.Length; i++)
+        for (var i = 0; i < stairsXs.Length; i++)
         {
             if (playerX == stairsXs[i])
             {
@@ -493,7 +493,7 @@ internal sealed class PersonActor : Actor
             DrawDialog();
         }
 
-        int animIndex = spec.DwellerType - ObjType.OldMan;
+        var animIndex = spec.DwellerType - ObjType.OldMan;
         var palette = sPersonGraphics[animIndex].PaletteAttrs;
         palette = CalcPalette(palette);
         image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
@@ -501,7 +501,7 @@ internal sealed class PersonActor : Actor
         if (_state == PersonState.WaitingForLetter)
             return;
 
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             var itemId = spec.GetItemId(i);
 

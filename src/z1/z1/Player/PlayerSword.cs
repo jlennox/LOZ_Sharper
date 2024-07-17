@@ -55,11 +55,11 @@ internal sealed class PlayerSword : Actor
     void Put()
     {
         var player = Game.Link;
-        Direction facingDir = player.Facing;
+        var facingDir = player.Facing;
         X = player.X;
         Y = player.Y;
 
-        int dirOrd = facingDir.GetOrdinal();
+        var dirOrd = facingDir.GetOrdinal();
         var offset = swordOffsets[state][dirOrd];
         X += offset.X;
         Y += offset.Y;
@@ -75,7 +75,7 @@ internal sealed class PlayerSword : Actor
     {
         if (state == 2)
         {
-            bool makeWave = false;
+            var makeWave = false;
             var wave = Game.World.GetObject(ObjectSlot.PlayerSwordShot);
 
             if (ObjType == ObjType.Rod)
@@ -112,9 +112,9 @@ internal sealed class PlayerSword : Actor
     void MakeWave()
     {
         var player = Game.Link;
-        int x = player.X;
-        int y = player.Y;
-        Direction dir = player.Facing;
+        var x = player.X;
+        var y = player.Y;
+        var dir = player.Facing;
 
         MoveSimple(ref x, ref y, dir, 0x10);
 

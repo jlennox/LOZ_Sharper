@@ -196,7 +196,7 @@ internal static class GlobalFunctions
 
         if (value == 0) return ItemId.None;
 
-        int itemValue = value;
+        var itemValue = value;
 
         if (slot == ItemSlot.Bombs || slot == ItemSlot.Letter)
         {
@@ -215,7 +215,7 @@ internal static class GlobalFunctions
     public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, ObjectSlot slot)
     {
         Actor? obj;
-        int origSlot = world.curObjSlot;
+        var origSlot = world.curObjSlot;
         world.curObjSlot = (int)slot;
 
         switch (type)
@@ -275,7 +275,7 @@ internal static class GlobalFunctions
 
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, graphics.Value.AnimId);
         Palette pal;
-        int xOffset = 0;
+        var xOffset = 0;
 
         if (width != 0)
             xOffset = (width - image.Animation.Width) / 2;
@@ -301,8 +301,8 @@ internal static class GlobalFunctions
     public static void DrawChar(Char ch, int x, int y, Palette palette) => DrawChar((byte)ch, x, y, palette);
     public static void DrawChar(byte ch, int x, int y, Palette palette)
     {
-        int srcX = (ch & 0x0F) * 8;
-        int srcY = (ch & 0xF0) / 2;
+        var srcX = (ch & 0x0F) * 8;
+        var srcY = (ch & 0xF0) / 2;
 
         Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, 0);
     }
@@ -335,24 +335,24 @@ internal static class GlobalFunctions
 
     public static void DrawBox(int x, int y, int width, int height)
     {
-        int x2 = x + width - 8;
-        int y2 = y + height - 8;
-        int[] xs = new[] { x, x2 };
-        int[] ys = new[] { y, y2 };
+        var x2 = x + width - 8;
+        var y2 = y + height - 8;
+        var xs = new[] { x, x2 };
+        var ys = new[] { y, y2 };
 
         DrawChar(0x69, x, y, 0);
         DrawChar(0x6B, x2, y, 0);
         DrawChar(0x6E, x, y2, 0);
         DrawChar(0x6D, x2, y2, 0);
 
-        for (int i = 0; i < 2; i++)
+        for (var i = 0; i < 2; i++)
         {
-            for (int xx = x + 8; xx < x2; xx += 8)
+            for (var xx = x + 8; xx < x2; xx += 8)
             {
                 DrawChar(0x6A, xx, ys[i], 0);
             }
 
-            for (int yy = y + 8; yy < y2; yy += 8)
+            for (var yy = y + 8; yy < y2; yy += 8)
             {
                 DrawChar(0x6C, xs[i], yy, 0);
             }
@@ -373,8 +373,8 @@ internal static class GlobalFunctions
                 fullHearts++;
         }
 
-        int x = left;
-        int y = top;
+        var x = left;
+        var y = top;
 
         for (var i = 0; i < totalHearts; i++)
         {
@@ -442,12 +442,12 @@ internal static class GlobalFunctions
         Debug.Assert(bufLen >= 3);
         Debug.Assert(sign == NumberSign.None || bufLen >= 4);
 
-        byte n = number;
-        int pChar = bufLen - 1;
+        var n = number;
+        var pChar = bufLen - 1;
 
         while (true)
         {
-            int digit = n % 10;
+            var digit = n % 10;
             charBuf[pChar] = (byte)('0' + digit);
             pChar--;
             n /= 10;
@@ -464,7 +464,7 @@ internal static class GlobalFunctions
             pChar--;
         }
 
-        int strLeft = pChar + 1;
+        var strLeft = pChar + 1;
 
         for (; pChar >= 0; pChar--)
         {

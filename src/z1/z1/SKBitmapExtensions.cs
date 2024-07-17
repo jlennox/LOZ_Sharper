@@ -57,7 +57,7 @@ internal static unsafe class SKBitmapExtensions
     public static SKBitmap[] Mirror(this SKBitmap[] bitmaps)
     {
         var newbitmaps = new SKBitmap[bitmaps.Length];
-        for (int i = 0; i < bitmaps.Length; i++)
+        for (var i = 0; i < bitmaps.Length; i++)
         {
             newbitmaps[i] = bitmaps[i].Mirror();
         }
@@ -67,7 +67,7 @@ internal static unsafe class SKBitmapExtensions
     public static SKBitmap[] Flip(this SKBitmap[] bitmaps)
     {
         var newbitmaps = new SKBitmap[bitmaps.Length];
-        for (int i = 0; i < bitmaps.Length; i++)
+        for (var i = 0; i < bitmaps.Length; i++)
         {
             newbitmaps[i] = bitmaps[i].Flip();
         }

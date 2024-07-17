@@ -56,7 +56,7 @@ internal abstract class Projectile : Actor
 
     protected void UpdateBounce()
     {
-        int dirOrd = BounceDir.GetOrdinal();
+        var dirOrd = BounceDir.GetOrdinal();
 
         X += xSpeeds[dirOrd];
         Y += ySpeeds[dirOrd];
@@ -313,7 +313,7 @@ internal sealed class BoomerangProjectile : TODOProjectile, IDisposable
 
     void UpdateLeaveSlow()
     {
-        bool gotoNextState = true;
+        var gotoNextState = true;
 
         if ((Facing & Direction.Left) == 0 || _x >= 2)
         {
@@ -354,8 +354,8 @@ internal sealed class BoomerangProjectile : TODOProjectile, IDisposable
             return;
         }
 
-        int yDist = _owner.Y - (int)Math.Floor(_y);
-        int xDist = _owner.X - (int)Math.Floor(_x);
+        var yDist = _owner.Y - (int)Math.Floor(_y);
+        var xDist = _owner.X - (int)Math.Floor(_x);
 
         if (Math.Abs(xDist) < 9 && Math.Abs(yDist) < 9)
         {
@@ -427,7 +427,7 @@ internal sealed class BoomerangProjectile : TODOProjectile, IDisposable
     {
         if (!IsPlayerWeapon())
         {
-            PlayerCollision collision = CheckPlayerCollision();
+            var collision = CheckPlayerCollision();
             if (collision.ShotCollides)
             {
                 _state = 2;
@@ -438,11 +438,11 @@ internal sealed class BoomerangProjectile : TODOProjectile, IDisposable
 
     public override void Draw()
     {
-        int itemValue = Game.World.GetItem(ItemSlot.Boomerang);
+        var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
         if (itemValue == 0)
             itemValue = 1;
         var pal = (_state == 2) ? Palette.RedFgPalette : (Palette.Player + itemValue - 1);
-        int xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
+        var xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
         _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal);
     }
 }
@@ -487,7 +487,7 @@ internal abstract class WalkerActor : Actor
     public override void Draw()
     {
         SetFacingAnimation();
-        int offsetX = (16 - Animator.Animation.Width) / 2;
+        var offsetX = (16 - Animator.Animation.Width) / 2;
         var pal = CalcPalette(Palette);
         Animator.Draw(TileSheet.Npcs, X + offsetX, Y, pal);
     }
@@ -752,14 +752,14 @@ internal abstract class WandererWalkerActor : WalkerActor
 
     void TurnX()
     {
-        Facing = Game.GetXDirToPlayer(X);
+        Facing = GetXDirToPlayer(X);
         TurnTimer = Random.Shared.GetByte();
         WantToShoot = true;
     }
 
     void TurnY()
     {
-        Facing = Game.GetYDirToPlayer(Y);
+        Facing = GetYDirToPlayer(Y);
         TurnTimer = Random.Shared.GetByte();
         WantToShoot = true;
     }
@@ -871,7 +871,7 @@ internal sealed class GleeokHeadActor : FlyingActor
 
     protected override void UpdateFullSpeedImpl()
     {
-        int nextState = 2;
+        var nextState = 2;
         int r = Random.Shared.GetByte();
 
         if (r >= 0xD0)
@@ -947,7 +947,7 @@ internal sealed class GleeokNeck
     void Init(int index)
     {
 
-        for (int i = 0; i < MaxParts; i++)
+        for (var i = 0; i < MaxParts; i++)
         {
             parts[i].x = 0x7C;
             parts[i].y = startYs[i];
@@ -987,7 +987,7 @@ internal sealed class GleeokNeck
 
     public void Draw()
     {
-        for (int i = 0; i < HeadIndex; i++)
+        for (var i = 0; i < HeadIndex; i++)
         {
             neckImage.Draw(TileSheet.Boss, parts[i].x, parts[i].y, Palette.SeaPal);
         }
@@ -1041,21 +1041,21 @@ internal sealed class GleeokNeck
         Limits xLimits = new();
         Limits yLimits = new();
 
-        int headToEndXDiv4 = (parts[4].x - parts[0].x) / 4;
-        int headToEndXDiv4Abs = Math.Abs(headToEndXDiv4);
+        var headToEndXDiv4 = (parts[4].x - parts[0].x) / 4;
+        var headToEndXDiv4Abs = Math.Abs(headToEndXDiv4);
         GetLimits(headToEndXDiv4Abs, ref xLimits);
 
-        int headToEndYDiv4Abs = Math.Abs(parts[4].y - parts[0].y) / 4;
+        var headToEndYDiv4Abs = Math.Abs(parts[4].y - parts[0].y) / 4;
         GetLimits(headToEndYDiv4Abs, ref yLimits);
 
         // If passed the capped high limit X or Y from previous part, then bring it back in. (1..4)
-        for (int i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++)
         {
             var distance = Math.Abs(parts[i].x - parts[i + 1].x);
             if (distance >= xLimits.value2)
             {
-                int oldX = parts[i + 1].x;
-                int x = oldX + 2;
+                var oldX = parts[i + 1].x;
+                var x = oldX + 2;
                 if (oldX >= parts[i].x)
                     x -= 4;
                 parts[i + 1].x = x;
@@ -1063,8 +1063,8 @@ internal sealed class GleeokNeck
             distance = Math.Abs(parts[i].y - parts[i + 1].y);
             if (distance >= yLimits.value2)
             {
-                int oldY = parts[i + 1].y;
-                int y = oldY + 2;
+                var oldY = parts[i + 1].y;
+                var y = oldY + 2;
                 if (oldY >= parts[i].y)
                     y -= 4;
                 parts[i + 1].y = y;
@@ -1072,29 +1072,29 @@ internal sealed class GleeokNeck
         }
 
         // Stretch, depending on distance to the next part. (1..3)
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             Stretch(i, ref xLimits, ref yLimits);
         }
 
         // If passed the X limit, then bring it back in. (3..1)
-        for (int i = 2; i >= 0; i--)
+        for (var i = 2; i >= 0; i--)
         {
-            int xLimit = parts[0].x;
-            for (int j = i; j >= 0; j--)
+            var xLimit = parts[0].x;
+            for (var j = i; j >= 0; j--)
             {
                 xLimit += headToEndXDiv4;
             }
-            int x = parts[i + 1].x + 1;
+            var x = parts[i + 1].x + 1;
             if (xLimit < parts[i + 1].x)
                 x -= 2;
             parts[i + 1].x = x;
         }
 
         // If part's Y is not in between surrounding parts, then bring it back in. (3..2)
-        for (int i = 1; i >= 0; i--)
+        for (var i = 1; i >= 0; i--)
         {
-            int y2 = parts[i + 2].y;
+            var y2 = parts[i + 2].y;
             if (y2 < parts[i + 1].y)
             {
                 if (y2 < parts[i + 3].y)
@@ -1127,7 +1127,7 @@ internal sealed class GleeokNeck
 
     void Stretch(int index, ref Limits xLimits, ref Limits yLimits )
     {
-        int funcIndex = 0;
+        var funcIndex = 0;
 
         // The original was [index+2] - [index+2]
         var distance = Math.Abs(parts[index + 2].x - parts[index + 1].x);
@@ -1162,19 +1162,19 @@ internal sealed class GleeokNeck
 
     void CrossedNoLimits(int index)
     {
-        int r = Random.Shared.Next(2);
+        var r = Random.Shared.Next(2);
         if (r == 0)
         {
-            int oldX = parts[index + 1].x;
-            int x = oldX + 2;
+            var oldX = parts[index + 1].x;
+            var x = oldX + 2;
             if (oldX < parts[index + 2].x)
                 x -= 4;
             parts[index + 1].x = x;
         }
         else
         {
-            int oldY = parts[index + 1].y;
-            int y = oldY + 2;
+            var oldY = parts[index + 1].y;
+            var y = oldY + 2;
             if (oldY <= parts[index + 2].y)
                 y -= 4;
             parts[index + 1].y = y;
@@ -1188,8 +1188,8 @@ internal sealed class GleeokNeck
 
     void CrossedMidYLimit(int index)
     {
-        int oldY = parts[index + 1].y;
-        int y = oldY + 2;
+        var oldY = parts[index + 1].y;
+        var y = oldY + 2;
         if (oldY > parts[index + 2].y)
             y -= 4;
         parts[index + 1].y = y;
@@ -1197,8 +1197,8 @@ internal sealed class GleeokNeck
 
     void CrossedMidXLimit(int index)
     {
-        int oldX = parts[index + 1].x;
-        int x = oldX + 2;
+        var oldX = parts[index + 1].x;
+        var x = oldX + 2;
         if (oldX >= parts[index + 2].x)
             x -= 4;
         parts[index + 1].x = x;
@@ -1206,7 +1206,7 @@ internal sealed class GleeokNeck
 
     void CrossedBothMidLimits(int index)
     {
-        int r = Random.Shared.Next(2);
+        var r = Random.Shared.Next(2);
         if (r == 0)
             CrossedMidXLimit(index);
         else
@@ -1252,7 +1252,7 @@ internal sealed class GleeokActor : Actor
             Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Body)
         };
 
-        for (int i = 0; i < neckCount; i++)
+        for (var i = 0; i < neckCount; i++)
         {
             necks[i] = new GleeokNeck(game, i);
         }
@@ -1267,7 +1267,7 @@ internal sealed class GleeokActor : Actor
     {
         Animate();
 
-        for (int i = 0; i < neckCount; i++)
+        for (var i = 0; i < neckCount; i++)
         {
             if (!necks[i].IsAlive())
                 continue;
@@ -1284,7 +1284,7 @@ internal sealed class GleeokActor : Actor
         var pal = CalcPalette(Palette.SeaPal);
         Animator.Draw(TileSheet.Boss, X, Y, pal);
 
-        for (int i = 0; i < neckCount; i++)
+        for (var i = 0; i < neckCount; i++)
         {
             if (necks[i].IsAlive())
                 necks[i].Draw();
@@ -1310,14 +1310,14 @@ internal sealed class GleeokActor : Actor
     {
         var neck = necks[index];
         var partIndexes = new[] { 0, GleeokNeck.HeadIndex };
-        int origX = X;
-        int origY = Y;
-        int bodyDecoration = 0;
+        var origX = X;
+        var origY = Y;
+        var bodyDecoration = 0;
 
-        for (int i = 0; i < 2; i++)
+        for (var i = 0; i < 2; i++)
         {
-            int partIndex = partIndexes[i];
-            Point loc = neck.GetPartLocation(partIndex);
+            var partIndex = partIndexes[i];
+            var loc = neck.GetPartLocation(partIndex);
 
             X = loc.X;
             Y = loc.Y;
@@ -1353,7 +1353,7 @@ internal sealed class GleeokActor : Actor
                     var head = new GleeokHeadActor(Game, X, Y);
                     Game.World.SetObject(slot, head);
 
-                    int aliveCount = 0;
+                    var aliveCount = 0;
                     for (var jj = 0; jj < neckCount; jj++)
                     {
                         if (necks[jj].IsAlive())
@@ -1476,12 +1476,12 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         if (visual.HasFlag(Visual.Pieces))
         {
-            int cloudFrame = (cloudDist < 6) ? 2 : 1;
+            var cloudFrame = (cloudDist < 6) ? 2 : 1;
 
-            for (int i = 0; i < 8; i++)
+            for (var i = 0; i < 8; i++)
             {
-                int cloudX = X;
-                int cloudY = Y;
+                var cloudX = X;
+                var cloudY = Y;
 
                 MoveSimple8(ref cloudX, ref cloudY, piecesDir[i], cloudDist);
 
@@ -1490,7 +1490,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
             var slashPal = 4 + (Game.GetFrameCounter() & 3);
 
-            for (int i = 0; i < 8; i++)
+            for (var i = 0; i < 8; i++)
             {
                 var slashSpec = slashSpecs[i];
                 var image = new SpriteImage();
@@ -1619,7 +1619,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         if (lastHitTimer != 0)
         {
-            int itemValue = Game.World.GetItem(ItemSlot.Arrow);
+            var itemValue = Game.World.GetItem(ItemSlot.Arrow);
             if (itemValue == 2)
             {
                 // The original checks the state of the arrow here and leaves if <> $10.
@@ -1699,7 +1699,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
     void MakePieces()
     {
-        for (int i = 0; i < 8; i++)
+        for (var i = 0; i < 8; i++)
         {
             sparksX[i] = X + 4;
             sparksY[i] = Y + 4;
@@ -1712,7 +1712,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
         if (cloudDist != 0 && (Game.GetFrameCounter() & 7) == 0)
             cloudDist--;
 
-        for (int i = 0; i < 8; i++)
+        for (var i = 0; i < 8; i++)
         {
             if (piecesDir[i].IsHorizontal()
                 || piecesDir[i].IsVertical()
@@ -1764,7 +1764,7 @@ internal sealed class ZeldaActor : Actor
 
     public static ZeldaActor Make(Game game)
     {
-        for (int i = 0; i < xs.Length; i++)
+        for (var i = 0; i < xs.Length; i++)
         {
             int y = ys[i];
 
@@ -1781,8 +1781,8 @@ internal sealed class ZeldaActor : Actor
 
         if (state == 0)
         {
-            int playerX = player.X;
-            int playerY = player.Y;
+            var playerX = player.X;
+            var playerY = player.Y;
 
             if (playerX >= ZeldaLineX1
                 && playerX <= ZeldaLineX2
@@ -1880,7 +1880,7 @@ internal sealed class RupeeStashActor : Actor
 
     public static RupeeStashActor Make(Game game)
     {
-        for (int i = 0; i < xs.Length; i++)
+        for (var i = 0; i < xs.Length; i++)
         {
             var rupee = new RupeeStashActor(game, xs[i], ys[i]);
             game.World.SetObject((ObjectSlot)i, rupee);
@@ -1892,8 +1892,8 @@ internal sealed class RupeeStashActor : Actor
     public override void Update()
     {
         var player = Game.Link;
-        int distanceX = Math.Abs(player.X - X);
-        int distanceY = Math.Abs(player.Y - Y);
+        var distanceX = Math.Abs(player.X - X);
+        var distanceY = Math.Abs(player.Y - Y);
 
         if (distanceX <= 8
             && distanceY <= 8)
@@ -1943,7 +1943,7 @@ internal sealed class FairyActor : FlyingActor
         UpdateStateAndMove();
 
         var objSlots = new[] { ObjectSlot.Player, ObjectSlot .Boomerang};
-        bool touchedItem = false;
+        var touchedItem = false;
 
         foreach (var slot in objSlots)
         {
@@ -1974,8 +1974,8 @@ internal sealed class FairyActor : FlyingActor
 
     bool TouchesObject(Actor obj)
     {
-        int distanceX = Math.Abs(obj.X - X);
-        int distanceY = Math.Abs(obj.Y - Y);
+        var distanceX = Math.Abs(obj.X - X);
+        var distanceY = Math.Abs(obj.Y - Y);
 
         return distanceX <= 8
             && distanceY <= 8;
@@ -2028,8 +2028,8 @@ internal sealed class PondFairyActor : Actor
     void UpdateIdle()
     {
         var player = Game.Link;
-        int playerX = player.X;
-        int playerY = player.Y;
+        var playerX = player.X;
+        var playerY = player.Y;
 
         if (playerY != PondFairyLineY
             || playerX < PondFairyLineX1
@@ -2043,7 +2043,7 @@ internal sealed class PondFairyActor : Actor
     private static readonly byte[] entryAngles = new byte[] { 0, 11, 22, 33, 44, 55, 66, 77 };
     void UpdateHealing()
     {
-        for (int i = 0; i< heartState.Length; i++ )
+        for (var i = 0; i< heartState.Length; i++ )
         {
             if (heartState[i] == 0 )
             {
@@ -2059,7 +2059,7 @@ internal sealed class PondFairyActor : Actor
         }
 
         var profile = Game.World.GetProfile();
-        int maxHeartsValue = profile.GetMaxHeartsValue();
+        var maxHeartsValue = profile.GetMaxHeartsValue();
 
         Game.Sound.PlayEffect(SoundEffect.Character);
 
@@ -2078,7 +2078,7 @@ internal sealed class PondFairyActor : Actor
 
     public override void Draw()
     {
-        int xOffset = (16 - Animator.Animation.Width) / 2;
+        var xOffset = (16 - Animator.Animation.Width) / 2;
         Animator.Draw(TileSheet.PlayerAndItems, PondFairyX + xOffset, PondFairyY, Palette.RedFgPalette);
 
         if (state != State.Healing)
@@ -2086,19 +2086,19 @@ internal sealed class PondFairyActor : Actor
 
         const float Radius = 0x36;
         const float Angle = -Global.TWO_PI / 85.0f;
-        SpriteImage heart = new SpriteImage();
+        var heart = new SpriteImage();
 
         heart.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Heart);
 
-        for (int i = 0; i < heartState.Length; i++)
+        for (var i = 0; i < heartState.Length; i++)
         {
             if (heartState[i] == 0)
                 continue;
 
-            int angleIndex = heartAngle[i] + 22;
-            float angle = Angle * angleIndex;
-            int x = (int)(Math.Cos(angle) * Radius + PondFairyRingCenterX);
-            int y = (int)(Math.Sin(angle) * Radius + PondFairyRingCenterY);
+            var angleIndex = heartAngle[i] + 22;
+            var angle = Angle * angleIndex;
+            var x = (int)(Math.Cos(angle) * Radius + PondFairyRingCenterX);
+            var y = (int)(Math.Sin(angle) * Radius + PondFairyRingCenterY);
 
             heart.Draw(TileSheet.PlayerAndItems, x, y, Palette.RedFgPalette);
         }
@@ -2417,7 +2417,7 @@ internal sealed class GelActor : WandererWalkerActor
 
             if (ObjTimer == 0 && TileOffset == 0)
             {
-                int index = Random.Shared.Next(4);
+                var index = Random.Shared.Next(4);
                 ObjTimer = gelWaitTimes[index];
             }
         }
@@ -2514,7 +2514,7 @@ internal sealed class ZolActor : WandererWalkerActor
 
         var orthoDirs = Facing.IsHorizontal() ? sVDirs : sHDirs;
 
-        for (int i = 0; i < 2; i++)
+        for (var i = 0; i < 2; i++)
         {
             var slot = Game.World.FindEmptyMonsterSlot();
             if (slot < 0)
@@ -2645,7 +2645,7 @@ internal sealed class VireActor : WandererWalkerActor
         IsDeleted = true;
         Game.World.RoomObjCount++;
 
-        for (int i = 0; i < 2; i++)
+        for (var i = 0; i < 2; i++)
         {
             var slot = Game.World.FindEmptyMonsterSlot();
             if (slot < 0)
@@ -2706,7 +2706,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
         }
         else
         {
-            int frame = Animator.Time / 4;
+            var frame = Animator.Time / 4;
             if (frame < 3)
                 Animator.Advance();
 
@@ -2944,7 +2944,7 @@ internal sealed class RedLeeverActor : Actor
 
     public override void Update()
     {
-        bool advanceState = false;
+        var advanceState = false;
 
         if (state == 0)
         {
@@ -3020,7 +3020,7 @@ internal sealed class RedLeeverActor : Actor
 
     void SetFacingAnimation()
     {
-        int dirOrd = Facing.GetOrdinal();
+        var dirOrd = Facing.GetOrdinal();
         if (spec.AnimationMap != null)
             Animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, spec.AnimationMap[dirOrd]);
         else
@@ -3030,8 +3030,8 @@ internal sealed class RedLeeverActor : Actor
     bool TargetPlayer()
     {
         var player = Game.Link;
-        int x = player.X;
-        int y = player.Y;
+        var x = player.X;
+        var y = player.Y;
 
         Facing = player.Facing;
 
@@ -3132,7 +3132,7 @@ internal abstract class FlyingActor : Actor
     public override void Draw()
     {
         var pal = CalcPalette(spec.Palette);
-        int frame = GetFrame();
+        var frame = GetFrame();
         Animator.DrawFrame(spec.Sheet, X, Y, pal, frame);
     }
 
@@ -3191,7 +3191,7 @@ internal abstract class FlyingActor : Actor
 
     void SetFacingAnimation()
     {
-        int dirOrd = (int)(Facing - 1);
+        var dirOrd = (int)(Facing - 1);
 
         if ((Facing & Direction.Down) != 0)
         {
@@ -3537,7 +3537,7 @@ internal sealed class MoldormActor : FlyingActor
 
     public static MoldormActor MakeSet(Game game)
     {
-        for (int i = 0; i < 5 * 2; i++)
+        for (var i = 0; i < 5 * 2; i++)
         {
             var moldorm = new MoldormActor(game, 0x80, 0x70);
             game.World.SetObject((ObjectSlot)i, moldorm);
@@ -3572,7 +3572,7 @@ internal sealed class MoldormActor : FlyingActor
     {
         // ORIGINAL: This is just like CheckLamnolaCollisions; but it saves stateTimer, and plays sounds.
 
-        Direction origFacing = Facing;
+        var origFacing = Facing;
         int origStateTimer = ObjTimer;
 
         CheckCollisions();
@@ -3760,8 +3760,8 @@ internal sealed class PatraActor : FlyingActor
         if (childStateTimer > 0)
             childStateTimer--;
 
-        int origX = X;
-        int origY = Y;
+        var origX = X;
+        var origY = Y;
 
         UpdateStateAndMove();
 
@@ -3897,7 +3897,7 @@ internal sealed class PatraChildActor : Actor
         }
 
         var patra = Game.World.GetObject<PatraActor>(0) ?? throw new Exception();
-        int distance = ObjType == ObjType.PatraChild1 ? 0x2C : 0x18;
+        var distance = ObjType == ObjType.PatraChild1 ? 0x2C : 0x18;
 
         if (slot == (ObjectSlot)8)
             PatraActor.patraState[0] = 1;
@@ -3919,8 +3919,8 @@ internal sealed class PatraChildActor : Actor
         x += patra.GetXMove() << 8;
         y += patra.GetYMove() << 8;
 
-        int step = ObjType == ObjType.PatraChild1 ? 0x70 : 0x60;
-        short angleFix = (short)((PatraActor.patraAngle[(int)slot] << 8) | angleAccum);
+        var step = ObjType == ObjType.PatraChild1 ? 0x70 : 0x60;
+        var angleFix = (short)((PatraActor.patraAngle[(int)slot] << 8) | angleAccum);
         angleFix -= (short)step;
         angleAccum = angleFix & 0xFF;
         PatraActor.patraAngle[(int)slot] = (angleFix >> 8) & 0x1F;
@@ -3928,7 +3928,7 @@ internal sealed class PatraChildActor : Actor
 
     int yShiftCount;
     int xShiftCount;
-    int index = patra.GetManeuverState();
+    var index = patra.GetManeuverState();
 
     if (ObjType == ObjType.PatraChild1)
     {
@@ -3945,8 +3945,8 @@ internal sealed class PatraChildActor : Actor
 
 
     index = PatraActor.patraAngle[(int)slot] & 0xF;
-    byte cos = sinCos[index];
-    short n = ShiftMult(cos, TurnSpeed, xShiftCount);
+    var cos = sinCos[index];
+    var n = ShiftMult(cos, TurnSpeed, xShiftCount);
 
     if ((PatraActor.patraAngle[(int)slot] & 0x18) < 0x10)
         x += n;
@@ -3954,7 +3954,7 @@ internal sealed class PatraChildActor : Actor
         x -= n;
 
     index = (PatraActor.patraAngle[(int)slot] + 8) & 0xF;
-    byte sin = sinCos[index];
+    var sin = sinCos[index];
     n = ShiftMult(sin, TurnSpeed, yShiftCount);
 
     if (((PatraActor.patraAngle[(int)slot] - 8) & 0x18) < 0x10)
@@ -3996,7 +3996,7 @@ internal abstract class JumperActor : Actor
             DurationFrames = spec.AnimationTimer
         };
 
-        int r = Random.Shared.Next(4);
+        var r = Random.Shared.Next(4);
         Facing = (Direction)jumperStartDirs[r];
         ObjTimer = (byte)((int)Facing * 4);
 
@@ -4107,7 +4107,7 @@ internal abstract class JumperActor : Actor
         Y += curSpeed;
         accelStep += acceleration;
 
-        int carry = accelStep >> 8;
+        var carry = accelStep >> 8;
         accelStep &= 0xFF;
 
         curSpeed += carry;
@@ -4135,8 +4135,8 @@ internal abstract class JumperActor : Actor
 
     int GetRandomStillTime()
     {
-        byte r = Random.Shared.GetByte();
-        byte t = (byte)(r + 0x10);
+        var r = Random.Shared.GetByte();
+        var t = (byte)(r + 0x10);
 
         if (t < 0x20)
             t -= 0x40;
@@ -4234,8 +4234,8 @@ internal sealed class BouldersActor : Actor
 
     public BouldersActor(Game game, int x, int y) : base(game, x, y)
     {
-        int r = Random.Shared.Next(4);
-        int Facing = JumperActor.jumperStartDirs[r];
+        var r = Random.Shared.Next(4);
+        var Facing = JumperActor.jumperStartDirs[r];
         ObjTimer = (byte)(Facing * 4);
         Decoration = 0;
     }
@@ -4246,8 +4246,8 @@ internal sealed class BouldersActor : Actor
         {
             if (Count < MaxBoulders)
             {
-                Point playerPos = Game.World.GetObservedPlayerPos();
-                int y = World.WorldLimitTop;
+                var playerPos = Game.World.GetObservedPlayerPos();
+                var y = World.WorldLimitTop;
                 int x = Random.Shared.GetByte();
 
                 // Make sure the new boulder is in the same half of the screen.
@@ -4342,11 +4342,11 @@ internal sealed class TrapActor : Actor
     void UpdateIdle()
     {
         var player = Game.Link;
-        int playerX = player.X;
-        int playerY = player.Y;
-        Direction dir = Direction.None;
-        int distX = Math.Abs(playerX - X);
-        int distY = Math.Abs(playerY - Y);
+        var playerX = player.X;
+        var playerY = player.Y;
+        var dir = Direction.None;
+        var distX = Math.Abs(playerX - X);
+        var distY = Math.Abs(playerY - Y);
 
         if (distY >= 0xE)
         {
@@ -4455,7 +4455,7 @@ internal sealed class RopeActor : Actor
 
     public override void Update()
     {
-        Direction origFacing = Facing;
+        var origFacing = Facing;
 
         MovingDirection = Facing;
 
@@ -4491,7 +4491,7 @@ internal sealed class RopeActor : Actor
 
         var player = Game.Link;
 
-        int xDist = Math.Abs(player.X - X);
+        var xDist = Math.Abs(player.X - X);
         if (xDist < 8)
         {
             Facing = player.Y < Y ? Direction.Up : Direction.Down;
@@ -4499,7 +4499,7 @@ internal sealed class RopeActor : Actor
         }
         else
         {
-            int yDist = Math.Abs(player.Y - Y);
+            var yDist = Math.Abs(player.Y - Y);
             if (yDist < 8)
             {
                 Facing = player.X < X ? Direction.Left : Direction.Right;
@@ -4523,7 +4523,7 @@ internal sealed class RopeActor : Actor
 
     void SetFacingAnimation()
     {
-        int dirOrd = Facing.GetOrdinal();
+        var dirOrd = Facing.GetOrdinal();
         Animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, ropeAnimMap[dirOrd]);
     }
 }
@@ -4575,8 +4575,8 @@ internal sealed class PolsVoiceActor : Actor
         if (!UpdateY())
             return;
 
-        int x = X;
-        int y = Y;
+        var x = X;
+        var y = Y;
 
         var collision = Game.World.CollidesWithTileStill(x, y);
         if (!collision.Collides)
@@ -4606,7 +4606,7 @@ internal sealed class PolsVoiceActor : Actor
 
     void UpdateX()
     {
-        int ord = Facing.GetOrdinal();
+        var ord = Facing.GetOrdinal();
         X += polsVoiceXSpeeds[ord];
     }
 
@@ -4621,7 +4621,7 @@ internal sealed class PolsVoiceActor : Actor
 
         accelStep += Acceleration;
 
-        int carry = accelStep >> 8;
+        var carry = accelStep >> 8;
         accelStep &= 0xFF;
 
         curSpeed += carry;
@@ -4651,7 +4651,7 @@ internal sealed class PolsVoiceActor : Actor
         }
 
         stateTimer--;
-        int ord = Facing.GetOrdinal();
+        var ord = Facing.GetOrdinal();
         Y += polsVoiceYSpeeds[ord];
         return true;
     }
@@ -4661,7 +4661,7 @@ internal sealed class PolsVoiceActor : Actor
         if (state != 0)
             return;
 
-        int dirOrd = Facing.GetOrdinal();
+        var dirOrd = Facing.GetOrdinal();
 
         if (Y < 0x78)
             dirOrd = 2;
@@ -4761,7 +4761,7 @@ internal sealed class RedWizzrobeActor : Actor
 
     void SetFacingAnimation()
     {
-        int dirOrd = Facing.GetOrdinal();
+        var dirOrd = Facing.GetOrdinal();
         Animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, BlueWizzrobeBase.wizzrobeAnimMap[dirOrd]);
     }
 
@@ -4821,7 +4821,7 @@ internal sealed class RedWizzrobeActor : Actor
             var player = Game.Link;
 
             var r = Random.Shared.Next(16);
-            int dirOrd = r % 4;
+            var dirOrd = r % 4;
             Facing = wizzrobeDirs[dirOrd];
 
             X = (player.X + wizzrobeXOffsets[r]) & 0xF0;
@@ -4833,7 +4833,7 @@ internal sealed class RedWizzrobeActor : Actor
             }
             else
             {
-                int collisionResult = CheckWizzrobeTileCollision(X, Y, Facing);
+                var collisionResult = CheckWizzrobeTileCollision(X, Y, Facing);
 
                 if (collisionResult != 0)
                     stateTimer++;    // Try again
@@ -4938,7 +4938,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
     {
         Move();
 
-        int collisionResult = CheckWizzrobeTileCollision(X, Y, Facing);
+        var collisionResult = CheckWizzrobeTileCollision(X, Y, Facing);
 
         if (collisionResult == 1)
         {
@@ -5030,13 +5030,13 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
     void TryTeleporting()
     {
-        int index = Random.Shared.Next(4);
+        var index = Random.Shared.Next(4);
 
-        int teleportX = X + blueWizzrobeTeleportXOffsets[index];
-        int teleportY = Y + blueWizzrobeTeleportYOffsets[index];
-        Direction dir = (Direction)blueWizzrobeTeleportDirs[index];
+        var teleportX = X + blueWizzrobeTeleportXOffsets[index];
+        var teleportY = Y + blueWizzrobeTeleportYOffsets[index];
+        var dir = (Direction)blueWizzrobeTeleportDirs[index];
 
-        int collisionResult = CheckWizzrobeTileCollision(teleportX, teleportY, dir);
+        var collisionResult = CheckWizzrobeTileCollision(teleportX, teleportY, dir);
 
         if (collisionResult != 0)
         {
@@ -5076,7 +5076,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
             return;
         }
 
-        Direction origFacing = Facing;
+        var origFacing = Facing;
 
         MoveOrTeleport();
         TryShooting();
@@ -5097,7 +5097,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 
     void SetFacingAnimation()
     {
-        int dirOrd = Facing.GetOrdinal();
+        var dirOrd = Facing.GetOrdinal();
         Animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, wizzrobeAnimMap[dirOrd]);
     }
 
@@ -5150,9 +5150,9 @@ internal sealed class LamnolaActor : Actor
     {
         const int Y = 0x8D;
 
-        for (int i = 0; i < 5 * 2; i++)
+        for (var i = 0; i < 5 * 2; i++)
         {
-            bool isHead = (i == 4) || (i == 9);
+            var isHead = (i == 4) || (i == 9);
             var lamnola = new LamnolaActor(game, color, isHead, 0x40, Y);
             game.World.SetObject((ObjectSlot)i, lamnola);
         }
@@ -5175,7 +5175,7 @@ internal sealed class LamnolaActor : Actor
 
         if (Game.World.GetItem(ItemSlot.Clock) == 0)
         {
-            int speed = ObjType - ObjType.RedLamnola + 1;
+            var speed = ObjType - ObjType.RedLamnola + 1;
             var slot = Game.World.curObjectSlot;
 
             MoveSimple(Facing, speed);
@@ -5191,7 +5191,7 @@ internal sealed class LamnolaActor : Actor
     {
         var pal = ObjType == ObjType.RedLamnola ? Palette.Red : Palette.Blue;
         pal = CalcPalette(pal);
-        int xOffset = (16 - image.Animation.Width) / 2;
+        var xOffset = (16 - image.Animation.Width) / 2;
         image.Draw(TileSheet.Npcs, X + xOffset, Y, pal);
     }
 
@@ -5221,15 +5221,15 @@ internal sealed class LamnolaActor : Actor
 
     void Turn()
     {
-        Direction oppositeDir = Facing.GetOppositeDirection();
+        var oppositeDir = Facing.GetOppositeDirection();
         var dirMask = ~oppositeDir;
         int r = Random.Shared.GetByte();
         Direction dir;
 
         if (r < 128)
         {
-            Direction xDir = GetXDirToTruePlayer(X);
-            Direction yDir = GetYDirToTruePlayer(Y);
+            var xDir = GetXDirToTruePlayer(X);
+            var yDir = GetYDirToTruePlayer(Y);
 
             if ((xDir & dirMask) == 0 || (xDir & Facing) == 0)
                 dir = yDir;
@@ -5283,7 +5283,7 @@ internal sealed class LamnolaActor : Actor
 
     void CheckLamnolaCollisions()
     {
-        Direction origFacing = Facing;
+        var origFacing = Facing;
         CheckCollisions();
         Facing = origFacing;
 
@@ -5352,7 +5352,7 @@ internal sealed class WallmasterActor : Actor
         int baseDirIndex, int leastCoord, ref int orthoCoord, ref int coordIndex)
     {
         var player = Game.Link;
-        int offset = 0x24;
+        var offset = 0x24;
 
         dirIndex = baseDirIndex;
         if (player.Moving != 0)
@@ -5403,8 +5403,8 @@ internal sealed class WallmasterActor : Actor
         if (player.GetState() == PlayerState.Paused)
             return;
 
-        int playerX = player.X;
-        int playerY = player.Y;
+        var playerX = player.X;
+        var playerY = player.Y;
 
         if (playerX < 0x29 || playerX >= 0xC8)
         {
@@ -5417,16 +5417,16 @@ internal sealed class WallmasterActor : Actor
 
         if (playerX == 0x20 || playerX == 0xD0)
         {
-            int y = 0;
-            int xIndex = 0;
+            var y = 0;
+            var xIndex = 0;
             CalcStartPosition(playerY, playerX, Direction.Up, 0, 0x20, ref y, ref xIndex);
             X = startXs[xIndex];
             Y = y;
         }
         else if (playerY == LeastY || playerY == MostY)
         {
-            int x = 0;
-            int yIndex = 0;
+            var x = 0;
+            var yIndex = 0;
             CalcStartPosition(playerX, playerY, Direction.Left, 0x20, LeastY, ref x, ref yIndex);
             Y = startYs[yIndex];
             X = x;
@@ -5557,7 +5557,7 @@ internal sealed class AquamentusActor : Actor
     {
         if (distance == 0)
         {
-            int r = Random.Shared.Next(16);
+            var r = Random.Shared.Next(16);
             distance = r | 7;
             Facing = (Direction)((r & 1) + 1);
             return;
@@ -5597,7 +5597,7 @@ internal sealed class AquamentusActor : Actor
             ObjTimer = (byte)(r | 0x70);
 
 
-            for (int i = 0; i < 3; i++)
+            for (var i = 0; i < 3; i++)
             {
                 var slot = Game.World.FindEmptyMonsterSlot();
                 if (slot < 0)
@@ -5609,7 +5609,7 @@ internal sealed class AquamentusActor : Actor
         }
         else
         {
-            for (int i = 0; i < (int)ObjectSlot.MaxMonsters; i++)
+            for (var i = 0; i < (int)ObjectSlot.MaxMonsters; i++)
             {
                 var obj = Game.World.GetObject((ObjectSlot)i);
 
@@ -5691,7 +5691,7 @@ internal sealed class DodongoActor : WandererWalkerActor
         };
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar2, true, Sound.AmbientInstance);
-        int r = Random.Shared.Next(2);
+        var r = Random.Shared.Next(2);
         Facing = r == 1 ? Direction.Left : Direction.Right;
 
         Animator.DurationFrames = 16;
@@ -5732,13 +5732,13 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     void SetWalkAnimation()
     {
-        int dirOrd = Facing.GetOrdinal();
+        var dirOrd = Facing.GetOrdinal();
         Animator.Animation = Graphics.GetAnimation(TileSheet.Boss, dodongoWalkAnimMap[dirOrd]);
     }
 
     void SetBloatAnimation()
     {
-        int dirOrd = Facing.GetOrdinal();
+        var dirOrd = Facing.GetOrdinal();
         Animator.Animation = Graphics.GetAnimation(TileSheet.Boss, dodongoBloatAnimMap[dirOrd]);
     }
 
@@ -5789,16 +5789,16 @@ internal sealed class DodongoActor : WandererWalkerActor
             return;
 
         var bombState = bomb.BombState;
-        int bombX = bomb.X + 8;
-        int bombY = bomb.Y + 8;
-        int thisX = X + 8;
-        int thisY = Y + 8;
+        var bombX = bomb.X + 8;
+        var bombY = bomb.Y + 8;
+        var thisX = X + 8;
+        var thisY = Y + 8;
 
         if (Facing.IsHorizontal())
             thisX += 8;
 
-        int xDist = thisX - bombX;
-        int yDist = thisY - bombY;
+        var xDist = thisX - bombX;
+        var yDist = thisY - bombY;
 
         if (bombState == BombState.Ticking)
         {
@@ -5819,9 +5819,9 @@ internal sealed class DodongoActor : WandererWalkerActor
 
 
         var index = (int)Facing >> 1;
-        int dist = xDist;
+        var dist = xDist;
 
-        for (int i = 0; i< 2; i++ )
+        for (var i = 0; i< 2; i++ )
         {
             if (dist<negBounds[index]
                 || dist >= posBounds[index] )
@@ -5844,7 +5844,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
         var distances = new[] { xDist, yDist };
 
-        for (int i = 1; i >= 0; i--)
+        for (var i = 1; i >= 0; i--)
         {
             if (distances[i] >= posBoundsOverlaps[boundsIndex]
                 || distances[i] < negBoundsOverlaps[boundsIndex])
@@ -5871,8 +5871,8 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     void UpdateMoveState()
     {
-        Direction origFacing = Facing;
-        int xOffset = 0;
+        var origFacing = Facing;
+        var xOffset = 0;
 
         if (Facing != Direction.Left)
         {
@@ -5998,11 +5998,11 @@ internal sealed class ManhandlaActor : Actor
 
         game.Sound.PlayEffect(SoundEffect.BossRoar3, true, Sound.AmbientInstance);
 
-        for (int i = 0; i< 5; i++ )
+        for (var i = 0; i< 5; i++ )
         {
             // ORIGINAL: Get the base X and Y from the fifth spawn spot.
-            int xPos = x + xOffsets[i];
-            int yPos = y + yOffsets[i];
+            var xPos = x + xOffsets[i];
+            var yPos = y + yOffsets[i];
 
             var manhandla = new ManhandlaActor(game, i, xPos, yPos, dir);
 
@@ -6014,7 +6014,7 @@ internal sealed class ManhandlaActor : Actor
 
     void SetPartFacings(Direction dir)
     {
-        for (int i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++)
         {
             var manhandla = Game.World.GetObject<ManhandlaActor>((ObjectSlot)i);
             if (manhandla != null)
@@ -6064,7 +6064,7 @@ internal sealed class ManhandlaActor : Actor
     {
         if (sPartsDied != 0)
         {
-            for (int i = 0; i < 5; i++)
+            for (var i = 0; i < 5; i++)
             {
                 var manhandla = Game.World.GetObject<ManhandlaActor>((ObjectSlot)i);
                 if (manhandla != null)
@@ -6085,7 +6085,7 @@ internal sealed class ManhandlaActor : Actor
         {
             ObjTimer = 0x10;
 
-            int r = Random.Shared.Next(2);
+            var r = Random.Shared.Next(2);
             Facing = r == 0 ? TurnRandomly8(Facing) : TurnTowardsPlayer8(X, Y, Facing);
 
             // The original game set sBounceDir = Facing here, instead of to Direction.None above.
@@ -6097,7 +6097,7 @@ internal sealed class ManhandlaActor : Actor
     {
         speedAccum &= 0xFF;
         speedAccum += (short)(curSpeedFix & 0xFFE0);
-        int speed = speedAccum >> 8;
+        var speed = speedAccum >> 8;
 
         MoveSimple8(Facing, speed);
 
@@ -6154,7 +6154,7 @@ internal sealed class ManhandlaActor : Actor
             return;
         }
 
-        int handCount = 0;
+        var handCount = 0;
 
         for (var i = ObjectSlot.Monster1; i < ObjectSlot.Monster1 + 4; i++)
         {
@@ -6211,7 +6211,7 @@ internal abstract class DigdoggerActorBase : Actor
         {
             ObjTimer = 0x10;
 
-            int r = Random.Shared.Next(2);
+            var r = Random.Shared.Next(2);
             if (r == 0)
                 Facing = TurnRandomly8(Facing);
             else
@@ -6226,7 +6226,7 @@ internal abstract class DigdoggerActorBase : Actor
     {
         speedAccum &= 0xFF;
         speedAccum += (short)(curSpeedFix & 0xFFE0);
-        int speed = speedAccum >> 8;
+        var speed = speedAccum >> 8;
 
         MoveSimple8(Facing, speed);
     }
@@ -6321,10 +6321,10 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
 
         if (updateBig )
         {
-            int x = X;
-            int y = Y;
+            var x = X;
+            var y = Y;
 
-            for (int i = 0; i< 4; i++ )
+            for (var i = 0; i< 4; i++ )
             {
                 X += offsetsX[i];
                 Y += offsetsY[i];
@@ -6532,7 +6532,7 @@ internal sealed class GohmaActor : Actor
 
     void ChangeFacing()
     {
-        int dir = 1;
+        var dir = 1;
         int r = Random.Shared.GetByte();
 
         if (r < 0xB0)
@@ -6592,7 +6592,7 @@ internal sealed class GohmaActor : Actor
         }
         else
         {
-            int t = eyeOpenTimer;
+            var t = eyeOpenTimer;
             eyeOpenTimer--;
             frame = 2;
             if (t < 0x70 && t >= 0x10)
@@ -6612,10 +6612,10 @@ internal sealed class GohmaActor : Actor
 
     void CheckGohmaCollisions()
     {
-        int origX = X;
+        var origX = X;
         X -= 0x10;
 
-        for (int i = 5; i > 0; i--)
+        for (var i = 5; i > 0; i--)
         {
             curCheckPart = i;
             // With other object types, we'd only call CheckCollisions. But, Gohma needs
@@ -6801,7 +6801,7 @@ internal static class Statues
         var player = game.Link;
         int statueCount = statueCounts[(int)pattern];
 
-        for (int i = 0; i < statueCount; i++)
+        for (var i = 0; i < statueCount; i++)
         {
             int timer = Timers[i];
             Timers[i]--;
@@ -6813,10 +6813,10 @@ internal static class Statues
             if (r >= 0xF0)
                 continue;
 
-            int j = r & 3;
+            var j = r & 3;
             Timers[i] = startTimers[j];
 
-            int offset = i + patternOffsets[(int)pattern];
+            var offset = i + patternOffsets[(int)pattern];
             int x = xs[offset];
             int y = ys[offset];
 
