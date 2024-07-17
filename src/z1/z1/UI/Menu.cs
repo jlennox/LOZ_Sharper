@@ -395,14 +395,14 @@ internal sealed class RegisterMenu : Menu
 
         Graphics.Clear(SKColors.Black);
 
-        int x, y;
+        int y;
 
         if (_selectedIndex < 3)
         {
             bool showCursor = ((_game.GetFrameCounter() >> 3) & 1) != 0;
             if (showCursor)
             {
-                x = 0x70 + (_namePos * 8);
+                var x = 0x70 + (_namePos * 8);
                 y = 0x30 + (_selectedIndex * 24);
                 GlobalFunctions.DrawChar((byte)0x25, x, y, (Palette)7);
 

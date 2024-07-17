@@ -1048,12 +1048,10 @@ internal sealed class GleeokNeck
         int headToEndYDiv4Abs = Math.Abs(parts[4].y - parts[0].y) / 4;
         GetLimits(headToEndYDiv4Abs, ref yLimits);
 
-        int distance;
-
         // If passed the capped high limit X or Y from previous part, then bring it back in. (1..4)
         for (int i = 0; i < 4; i++)
         {
-            distance = Math.Abs(parts[i].x - parts[i + 1].x);
+            var distance = Math.Abs(parts[i].x - parts[i + 1].x);
             if (distance >= xLimits.value2)
             {
                 int oldX = parts[i + 1].x;
@@ -1129,11 +1127,10 @@ internal sealed class GleeokNeck
 
     void Stretch(int index, ref Limits xLimits, ref Limits yLimits )
     {
-        int distance;
         int funcIndex = 0;
 
         // The original was [index+2] - [index+2]
-        distance = Math.Abs(parts[index + 2].x - parts[index + 1].x);
+        var distance = Math.Abs(parts[index + 2].x - parts[index + 1].x);
         if (distance >= xLimits.value0)
             funcIndex++;
         if (distance >= xLimits.value1)
@@ -3590,13 +3587,12 @@ internal sealed class MoldormActor : FlyingActor
         Game.Sound.StopEffect(StopEffect.AmbientInstance);
 
         var slot = Game.World.curObjectSlot;
-        Actor? obj = null;
 
         slot = slot >= TailSlot2 ? TailSlot2 : TailSlot1;
 
         for (; ; slot++)
         {
-            obj = Game.World.GetObject(slot);
+            var obj = Game.World.GetObject(slot);
             if (obj != null && obj.GetType() == GetType())
                 break;
         }
@@ -4579,11 +4575,10 @@ internal sealed class PolsVoiceActor : Actor
         if (!UpdateY())
             return;
 
-        TileCollision collision;
         int x = X;
         int y = Y;
 
-        collision = Game.World.CollidesWithTileStill(x, y);
+        var collision = Game.World.CollidesWithTileStill(x, y);
         if (!collision.Collides)
         {
             x += 0xE;
@@ -4806,9 +4801,7 @@ internal sealed class RedWizzrobeActor : Actor
         x += allWizzrobeCollisionXOffsets[(int)ord];
         y += allWizzrobeCollisionYOffsets[(int)ord];
 
-        TileCollision collision;
-
-        collision = Game.World.CollidesWithTileStill(x, y);
+        var collision = Game.World.CollidesWithTileStill(x, y);
         if (!collision.Collides)
             return 0;
 
@@ -5298,13 +5291,12 @@ internal sealed class LamnolaActor : Actor
             return;
 
         var slot = Game.World.curObjectSlot;
-        Actor? obj = null;
 
         slot = slot >= TailSlot2 ? TailSlot2 : TailSlot1;
 
         for (; ; slot++)
         {
-            obj = Game.World.GetObject(slot);
+            var obj = Game.World.GetObject(slot);
             if (obj != null && obj.GetType() == GetType())
                 break;
         }
@@ -5633,9 +5625,7 @@ internal sealed class AquamentusActor : Actor
 
     void Animate()
     {
-        AnimationId mouthAnimIndex;
-
-        mouthAnimIndex = ObjTimer < 0x20 ? AnimationId.B1_Aquamentus_Mouth_Open : AnimationId.B1_Aquamentus_Mouth_Closed;
+        var mouthAnimIndex = ObjTimer < 0x20 ? AnimationId.B1_Aquamentus_Mouth_Open : AnimationId.B1_Aquamentus_Mouth_Closed;
 
         mouthImage.Animation = Graphics.GetAnimation(TileSheet.Boss, mouthAnimIndex);
         Animator.Advance();
@@ -6962,9 +6952,7 @@ internal abstract class WizzrobeBase : Actor
         x += allWizzrobeCollisionXOffsets[(int)ord];
         y += allWizzrobeCollisionYOffsets[(int)ord];
 
-        TileCollision collision;
-
-        collision = Game.World.CollidesWithTileStill(x, y);
+        var collision = Game.World.CollidesWithTileStill(x, y);
         if (!collision.Collides)
             return 0;
 

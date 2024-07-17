@@ -65,9 +65,7 @@ internal sealed class PlayerSword : Actor
         Y += offset.Y;
         Facing = facingDir;
 
-        AnimationId[] animMap;
-
-        animMap = ObjType == ObjType.Rod ? rodAnimMap : swordAnimMap;
+        var animMap = ObjType == ObjType.Rod ? rodAnimMap : swordAnimMap;
 
         var animIndex = animMap[dirOrd];
         image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animIndex);

@@ -318,14 +318,13 @@ internal sealed class TextBox
 
         if (_charTimer == 0)
         {
-            byte attr;
             byte ch;
 
             do
             {
                 var curCharPtr = startCharPtr[curCharIndex];
                 ch = (byte)(curCharPtr & 0x3F);
-                attr = (byte)(curCharPtr & 0xC0);
+                var attr = (byte)(curCharPtr & 0xC0);
                 if (attr == 0xC0)
                 {
                     _drawingDialog = false;

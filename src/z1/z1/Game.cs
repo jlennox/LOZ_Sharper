@@ -62,30 +62,18 @@ internal sealed class Game
     const float AspectRatio = 16 / 9;
     const int MaxProjectiles = 11;
 
-    public static readonly SKColor[][] Palettes = z1.Palettes.GetPalettes();
-
-    public Keys KeyCode { get; private set; } = Keys.None;
-
-    public Link Link;
-    public Actor ChaseTarget { get; set; }
+    public Link Link { get; }
 
     // Use rect?
-    public int MarginTop => 0x5D;
-    public int MarginBottom => 0xCD;
-    public int MarginLeft => 0x20;
-    public int MarginRight => 0xD0;
+    public const int MarginTop = 0x5D;
+    public const int MarginBottom = 0xCD;
+    public const int MarginLeft = 0x20;
+    public const int MarginRight = 0xD0;
 
     public readonly Sound Sound = new();
     public readonly PlayerProfile Profile = new();
 
     public static bool SpeedUp = true;
-
-    public Game()
-    {
-        World = new World(this);
-        Link = new(this);
-        ChaseTarget = Link;
-    }
 
     // TODO:
     public Actor ObservedPlayer => Link;
@@ -93,28 +81,17 @@ internal sealed class Game
     public World World;
     public Input Input = new();
 
-    public void SetKeys(Keys keys) => KeyCode = keys;
-    public void UnsetKeys() => KeyCode = Keys.None;
-
     public int FrameCounter = 0;
     public int GetFrameCounter() => FrameCounter;
 
-    public Direction GetXDirToPlayer(int x)
+    public Game()
     {
-        var playerPos = World.GetObservedPlayerPos();
-        return playerPos.X < x ? Direction.Left : Direction.Right;
-    }
-
-    // JOE: TODO: This is a duplicate.
-    public Direction GetYDirToPlayer(int y)
-    {
-        var playerPos = World.GetObservedPlayerPos();
-        return playerPos.Y < y ? Direction.Up : Direction.Down;
+        World = new World(this);
+        Link = new(this);
     }
 
     public void UpdateScreenSize(SKSurface surface, SKImageInfo info)
     {
-        // ++FrameCounter;
         const int NesResX = 256;
         const int NesResY = 240;
 

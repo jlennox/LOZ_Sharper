@@ -971,7 +971,7 @@ internal abstract class Actor
         return (dir & curDir) != 0 ? Direction.None : dir;
     }
 
-    protected Direction CheckWorldMarginV(int y, Direction dir, bool adjust)
+    protected static Direction CheckWorldMarginV(int y, Direction dir, bool adjust)
     {
         var curDir = Direction.Up;
 
@@ -1049,7 +1049,6 @@ internal abstract class Actor
 
     protected Direction FindUnblockedDir(Direction dir, TileCollisionStep firstStep)
     {
-        TileCollision collision;
         int i = 0;
 
         // JOE: This was a goto statement before. My change is a bit sus.
@@ -1059,7 +1058,7 @@ internal abstract class Actor
         {
             if (!startOnNext)
             {
-                collision = Game.World.CollidesWithTileMoving(X, Y, dir, false);
+                var collision = Game.World.CollidesWithTileMoving(X, Y, dir, false);
                 if (!collision.Collides)
                 {
                     dir = CheckWorldBounds(dir);
