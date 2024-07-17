@@ -5,8 +5,6 @@ namespace z1;
 internal enum Palette
 {
     Red = 6, Blue = 5, Player = 4, SeaPal = 7,
-    BlueForeground = 9999,
-    LevelForeground = 9999,
     WhiteBgPalette = 0,
     RedBgPalette = 1,
     BlueFgPalette = 5,

@@ -4,6 +4,7 @@ namespace z1.UI;
 
 internal sealed class SubmenuType
 {
+    private readonly Game _game;
     private const int ArrowBowUISlot = 2;
 
     private const int CurItemX = 0x40;
@@ -162,7 +163,7 @@ internal sealed class SubmenuType
         new(ItemSlot.Bracelet, PassiveItemX + 0x50),
     };
 
-    private readonly World _world;
+    private readonly World _world; // JOE: TODO: Factor out.
     public const int Width = Global.StdViewWidth;
     public const int Height = 0xAE;
     public const int ActiveItems = 8;
@@ -175,9 +176,10 @@ internal sealed class SubmenuType
     private ItemId[] activeItems = new ItemId[ActiveItems];
     private SpriteImage cursor = new();
 
-    public SubmenuType(World world)
+    public SubmenuType(Game game)
     {
-        _world = world;
+        _game = game;
+        _world = game.World;
     }
 
     private ItemId GetItemIdForUISlot(int uiSlot, ref ItemSlot itemSlot)
@@ -265,11 +267,11 @@ internal sealed class SubmenuType
 
         int dir;
 
-        if (Input.IsButtonPressing(Button.Left))
+        if (_game.Input.IsButtonPressing(Button.Left))
         {
             dir = -1;
         }
-        else if (Input.IsButtonPressing(Button.Right))
+        else if (_game.Input.IsButtonPressing(Button.Right))
         {
             dir = 1;
         }

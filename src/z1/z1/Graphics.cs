@@ -319,7 +319,7 @@ internal static class Graphics
         _surface.Canvas.Clear(color);
     }
 
-    public readonly record struct UnclipScope : IDisposable
+    public readonly struct UnclipScope : IDisposable
     {
         public void Dispose() => ResetClip();
     }

@@ -52,12 +52,12 @@ internal sealed class GameMenu : Menu
 
     public override void Update()
     {
-        if (Input.IsButtonPressing(Button.Select))
+        if (game.Input.IsButtonPressing(Button.Select))
         {
             SelectNext();
             game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (Input.IsButtonPressing(Button.Start))
+        else if (game.Input.IsButtonPressing(Button.Start))
         {
             if (selectedIndex < 3)
                 StartWorld(selectedIndex);
@@ -340,13 +340,13 @@ internal sealed class RegisterMenu : Menu
 
     public override void Update()
     {
-        if (Input.IsButtonPressing(Button.Select))
+        if (_game.Input.IsButtonPressing(Button.Select))
         {
             SelectNext();
             _namePos = 0;
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (Input.IsButtonPressing(Button.Start))
+        else if (_game.Input.IsButtonPressing(Button.Start))
         {
             if (_selectedIndex == 3)
             {
@@ -354,7 +354,7 @@ internal sealed class RegisterMenu : Menu
                 _game.World.ChooseFile(_summaries);
             }
         }
-        else if (Input.IsButtonPressing(Button.A))
+        else if (_game.Input.IsButtonPressing(Button.A))
         {
             if (_selectedIndex < 3)
             {
@@ -362,27 +362,27 @@ internal sealed class RegisterMenu : Menu
                 _game.Sound.PlayEffect(SoundEffect.PutBomb);
             }
         }
-        else if (Input.IsButtonPressing(Button.B))
+        else if (_game.Input.IsButtonPressing(Button.B))
         {
             if (_selectedIndex < 3)
                 MoveNextNamePosition();
         }
-        else if (Input.IsButtonPressing(Button.Right))
+        else if (_game.Input.IsButtonPressing(Button.Right))
         {
             MoveCharSetCursorH(1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (Input.IsButtonPressing(Button.Left))
+        else if (_game.Input.IsButtonPressing(Button.Left))
         {
             MoveCharSetCursorH(-1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (Input.IsButtonPressing(Button.Down))
+        else if (_game.Input.IsButtonPressing(Button.Down))
         {
             MoveCharSetCursorV(1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (Input.IsButtonPressing(Button.Up))
+        else if (_game.Input.IsButtonPressing(Button.Up))
         {
             MoveCharSetCursorV(-1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);

@@ -544,6 +544,14 @@ internal abstract class WalkerActor : Actor
         // TODO }
     }
 
+    protected ObjectSlot Shoot(ObjType shotType)
+    {
+        if (!WantToShoot)
+            return (ObjectSlot)(-1);
+
+        return Shoot(shotType, X, Y, Facing);
+    }
+
     public bool TryBigShove()
     {
         if (TileOffset == 0)
@@ -2001,9 +2009,11 @@ internal sealed class PondFairyActor : Actor
 
     public PondFairyActor(Game game) : base(game, ObjType.PondFairy, PondFairyX, PondFairyY)
     {
-        Animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fairy);
-        Animator.Time = 0;
-        Animator.DurationFrames = 8;
+        Animator = new() {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fairy),
+            Time = 0,
+            DurationFrames = 8
+        };
 
         Game.Sound.PlayEffect(SoundEffect.Item);
     }
@@ -2853,10 +2863,10 @@ internal sealed class BlueLeeverActor : DigWanderer
         AnimationId.OW_LeeverHalf,
     };
 
-    private static readonly WalkerSpec blueLeeverHiddenSpec = new(null, 32, Palette.WhiteBgPalette, 0x8);
-    private static readonly WalkerSpec blueLeeverMoundSpec = new(moundAnimMap, 22, Palette.WhiteBgPalette, 0xA);
-    private static readonly WalkerSpec blueLeeverHalfSpec = new(leeverHalfAnimMap, 2, Palette.WhiteBgPalette, 0x10);
-    private static readonly WalkerSpec blueLeeverFullSpec = new(leeverAnimMap, 10, Palette.WhiteBgPalette, Global.StdSpeed);
+    private static readonly WalkerSpec blueLeeverHiddenSpec = new(null, 32, Palette.Blue, 0x8);
+    private static readonly WalkerSpec blueLeeverMoundSpec = new(moundAnimMap, 22, Palette.Blue, 0xA);
+    private static readonly WalkerSpec blueLeeverHalfSpec = new(leeverHalfAnimMap, 2, Palette.Blue, 0x10);
+    private static readonly WalkerSpec blueLeeverFullSpec = new(leeverAnimMap, 10, Palette.Blue, Global.StdSpeed);
 
     private static readonly WalkerSpec[] blueLeeverSpecs = new[]
     {
@@ -6437,9 +6447,8 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
     }
 }
 
-internal sealed class GohmaActor : TODOActor
+internal sealed class GohmaActor : Actor
 {
-    private readonly ActorColor _color;
     private const int GohmaX = 0x80;
     private const int GohmaY = 0x70;
 
@@ -6460,15 +6469,8 @@ internal sealed class GohmaActor : TODOActor
 
     public override bool IsReoccuring => false;
 
-    public GohmaActor(Game game, ActorColor color, int x = GohmaX, int y = GohmaY) : base(game, color, x, y)
+    private GohmaActor(Game game, ObjType type, int x = GohmaX, int y = GohmaY) : base(game, type, x, y)
     {
-        _color = color;
-        ObjType = color switch {
-            ActorColor.Red => ObjType.RedGohma,
-            ActorColor.Blue => ObjType.BlueGohma,
-            _ => throw new ArgumentOutOfRangeException(),
-        };
-
         Decoration = 0;
         InvincibilityMask = 0xFB;
 
@@ -6491,6 +6493,15 @@ internal sealed class GohmaActor : TODOActor
             DurationFrames = 32,
             Time = 0,
             Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gohma_Legs_R)
+        };
+    }
+
+    public static GohmaActor Make(Game game, ActorColor color, int x = GohmaX, int y = GohmaY)
+    {
+        return color switch {
+            ActorColor.Red => new GohmaActor(game, ObjType.RedGohma, x, y),
+            ActorColor.Blue => new GohmaActor(game, ObjType.BlueGohma, x, y),
+            _ => throw new ArgumentOutOfRangeException(),
         };
     }
 
@@ -6521,7 +6532,7 @@ internal sealed class GohmaActor : TODOActor
 
     public override void Draw()
     {
-        var pal = _color == ActorColor.Blue ? Palette.Blue : Palette.Red;
+        var pal = ObjType == ObjType.BlueGohma ? Palette.Blue : Palette.Red;
         pal = CalcPalette(pal);
 
         Animator.DrawFrame(TileSheet.Boss, X, Y, pal, frame);
@@ -6679,10 +6690,90 @@ internal sealed class ArmosActor : TODOActor
 
 internal enum ActorColor { Undefined, Blue, Red, Black }
 
-internal sealed class GoriyaActor : TODOActor
+internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
 {
-    public GoriyaActor(Game game, ActorColor type, int x, int y) : base(game, x, y)
+    private static readonly AnimationId[] goriyaAnimMap = new[]
     {
+        AnimationId.UW_Goriya_Right,
+        AnimationId.UW_Goriya_Left,
+        AnimationId.UW_Goriya_Down,
+        AnimationId.UW_Goriya_Up
+    };
+
+    private static readonly WalkerSpec blueGoriyaSpec = new(goriyaAnimMap, 12, Palette.Blue, Global.StdSpeed);
+    private static readonly WalkerSpec redGoriyaSpec = new(goriyaAnimMap, 12, Palette.Red, Global.StdSpeed);
+
+    private Actor? shotRef;
+
+    private GoriyaActor(Game game, ObjType type, WalkerSpec spec, int x, int y) : base(game, type, spec, x, y)
+    {
+        InitCommonFacing();
+        SetFacingAnimation();
+    }
+
+    public static GoriyaActor Make(Game game, ActorColor color, int x, int y)
+    {
+        return color switch
+        {
+            ActorColor.Blue => new GoriyaActor(game, ObjType.BlueGoriya, blueGoriyaSpec, x, y),
+            ActorColor.Red => new GoriyaActor(game, ObjType.RedGoriya, redGoriyaSpec, x, y),
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+    }
+
+    public void Catch()
+    {
+        shotRef = null;
+
+        int r = Random.Shared.GetByte();
+        int t;
+
+        if (r < 0x30)
+            t = 0x30;
+        else if (r < 0x70)
+            t = 0x50;
+        else
+            t = 0x70;
+
+        ObjTimer = (byte)t;
+    }
+
+    public override void Update()
+    {
+        Animator.Advance();
+
+        if (shotRef != null)
+            return;
+
+        ObjMove(CurrentSpeed);
+        if (ShoveDirection != 0)
+            return;
+        TargetPlayer();
+        TryThrowingBoomerang();
+    }
+
+    private void TryThrowingBoomerang()
+    {
+        if (ObjTimer != 0)
+            return;
+
+        if (ObjType == ObjType.RedGoriya)
+        {
+            int r = Random.Shared.GetByte();
+            if (r != 0x23 && r != 0x77)
+                return;
+        }
+
+        if (Game.World.GetItem(ItemSlot.Clock) != 0)
+            return;
+
+        var slot = Shoot(ObjType.Boomerang);
+        if (slot >= 0)
+        {
+            WantToShoot = false;
+            shotRef = Game.World.GetObject(slot);
+            ObjTimer = (byte)Random.Shared.Next(0x40);
+        }
     }
 }
 
@@ -6886,6 +6977,5 @@ internal abstract class WizzrobeBase : Actor
         return 2;
     }
 
-    protected WizzrobeBase(Game game, int x, int y) : base(game, x, y) { }
     protected WizzrobeBase(Game game, ObjType type, int x, int y) : base(game, type, x, y) { }
 }

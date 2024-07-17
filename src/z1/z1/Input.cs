@@ -52,12 +52,12 @@ internal struct InputButtons
     public void Clear(Button value) => Buttons = (Button)((int)Buttons ^ (int)value);
 }
 
-internal static class Input
+internal class Input
 {
-    private static InputButtons oldInputState;
-    private static InputButtons inputState;
+    private InputButtons oldInputState;
+    private InputButtons inputState;
 
-    public static InputButtons GetButtons()
+    public InputButtons GetButtons()
     {
         var buttons = (oldInputState.ButtonsInt ^ inputState.ButtonsInt)
             & inputState.ButtonsInt
@@ -78,7 +78,7 @@ internal static class Input
         { Keys.Right, Button.Right }
     };
 
-    public static bool SetKey(Keys keys)
+    public bool SetKey(Keys keys)
     {
         if (_map.TryGetValue(keys, out var button))
         {
@@ -90,7 +90,7 @@ internal static class Input
         return false;
     }
 
-    public static void UnsetKey(Keys keys)
+    public void UnsetKey(Keys keys)
     {
         if (_map.TryGetValue(keys, out var button))
         {
@@ -99,15 +99,15 @@ internal static class Input
         }
     }
 
-    public static bool IsKeyDown(int keyCode) => throw new NotImplementedException();
-    public static bool IsKeyPressing(int keyCode) => throw new NotImplementedException();
-    public static ButtonState GetKey(int keyCode) => throw new NotImplementedException();
+    public bool IsKeyDown(int keyCode) => throw new NotImplementedException();
+    public bool IsKeyPressing(int keyCode) => throw new NotImplementedException();
+    public ButtonState GetKey(int keyCode) => throw new NotImplementedException();
 
-    public static bool IsButtonDown(Button buttonCode) => inputState.Has(buttonCode);
-    public static bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
-    // public static bool IsButtonPressing(Button buttonCode) => IsButtonDown(buttonCode);
+    public bool IsButtonDown(Button buttonCode) => inputState.Has(buttonCode);
+    public bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
+    // public bool IsButtonPressing(Button buttonCode) => IsButtonDown(buttonCode);
 
-    public static ButtonState GetButton(Button buttonCode)
+    public ButtonState GetButton(Button buttonCode)
     {
         var isDown = inputState.Has(buttonCode) ? 1 : 0;
         var wasDown = oldInputState.Has(buttonCode) ? 1 : 0;
@@ -115,7 +115,7 @@ internal static class Input
         return (ButtonState)((wasDown << 1) | isDown);
     }
 
-    public static Direction GetInputDirection()
+    public Direction GetInputDirection()
     {
         if (IsButtonDown(Button.Left)) return Direction.Left;
         if (IsButtonDown(Button.Right)) return Direction.Right;
@@ -124,7 +124,7 @@ internal static class Input
         return Direction.None;
     }
 
-    public static void Update()
+    public void Update()
     {
     }
 }

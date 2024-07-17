@@ -40,11 +40,6 @@ internal sealed class RockObj : BlockObjBase
     protected override BlockObjType FloorMob2 => BlockObjType.Mob_Ground;
     protected override int TimerLimit => 1;
     protected override bool AllowHorizontal => false;
-
-    public override void Draw()
-    {
-        throw new NotImplementedException();
-    }
 }
 
 internal sealed class HeadstoneObj : BlockObjBase
@@ -83,6 +78,8 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
     protected BlockObjBase(Game game, int x = 0, int y = 0) : base(game, x, y)
     {
+        Decoration = 0;
+        CurUpdate = UpdateIdle;
     }
 
     protected abstract byte BlockTile { get; }
@@ -522,7 +519,5 @@ internal sealed class RockWallActor : Actor
         }
     }
 
-    public override void Draw()
-    {
-    }
+    public override void Draw() { }
 }

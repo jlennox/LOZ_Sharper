@@ -32,7 +32,7 @@ public partial class GameForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        if (Input.SetKey(keyData))
+        if (_game.Input.SetKey(keyData))
         {
             return true;
         }
@@ -42,7 +42,7 @@ public partial class GameForm : Form
 
     private void Form1_KeyUp(object? sender, KeyEventArgs e)
     {
-        Input.UnsetKey(e.KeyCode);
+        _game.Input.UnsetKey(e.KeyCode);
     }
 
     private void Form1_KeyDown(object? sender, KeyEventArgs e)
@@ -63,6 +63,8 @@ public partial class GameForm : Form
         var updated = false;
         var frameTime = TimeSpan.FromSeconds(1 / 60d);
 
+        // JOE: TODO: Should this instead use new SKPictureRecorder()?
+
         using var offScreenSurface = SKSurface.Create(e.Info);
         _game.UpdateScreenSize(offScreenSurface, e.Info);
         Graphics.SetSurface(offScreenSurface, e.Info);
@@ -71,7 +73,7 @@ public partial class GameForm : Form
         {
             _game.FrameCounter++;
 
-            Input.Update();
+            _game.Input.Update();
             _game.World.Update();
             _game.Sound.Update();
 

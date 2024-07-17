@@ -475,5 +475,4 @@ internal static class GlobalFunctions
 
         return charBuf.ToArray();
     }
-
 }

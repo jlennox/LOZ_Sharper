@@ -53,7 +53,7 @@ internal sealed class Link : Actor
         if (profile.GetItem(ItemSlot.Clock) != 0)
             InvincibilityTimer += 0x10;
 
-        _curButtons = Input.GetButtons();
+        _curButtons = Game.Input.GetButtons();
 
         // It looks like others set player's state to $40. They don't bitwise-and it with $40.
         if ((_state & 0xC0) == 0x40)
@@ -614,7 +614,7 @@ internal sealed class Link : Actor
 
         Game.World.ResetKilledObjectCount();
 
-        if (Game.Profile.Hearts <= damage && false)
+        if (Game.Profile.Hearts <= damage)
         {
             Game.Profile.Hearts = 0;
             _state = 0;
@@ -1053,7 +1053,7 @@ internal sealed class Link : Actor
         return dir;
     }
 
-    private Direction CheckTileCollision(Direction dir)
+    private new Direction CheckTileCollision(Direction dir) // JOE: TODO: Is this supposed to be "new"'ed?
     {
         if (Game.World.doorwayDir != Direction.None) return CheckWorldBounds(dir);
         // Original, but seemingly never triggered: if [$E] < 0, leave

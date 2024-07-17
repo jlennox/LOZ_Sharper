@@ -28,7 +28,7 @@ internal enum LevelBlock
     Rooms = 128,
 }
 
-enum GameMode
+internal enum GameMode
 {
     Demo,
     GameMenu,
@@ -91,6 +91,7 @@ internal sealed class Game
     public Actor ObservedPlayer => Link;
 
     public World World;
+    public Input Input = new();
 
     public void SetKeys(Keys keys) => KeyCode = keys;
     public void UnsetKeys() => KeyCode = Keys.None;
@@ -100,23 +101,15 @@ internal sealed class Game
 
     public Direction GetXDirToPlayer(int x)
     {
-        Point playerPos = World.GetObservedPlayerPos();
-
-        if (playerPos.X < x)
-            return Direction.Left;
-        else
-            return Direction.Right;
+        var playerPos = World.GetObservedPlayerPos();
+        return playerPos.X < x ? Direction.Left : Direction.Right;
     }
 
     // JOE: TODO: This is a duplicate.
     public Direction GetYDirToPlayer(int y)
     {
-        Point playerPos = World.GetObservedPlayerPos();
-
-        if (playerPos.Y < y)
-            return Direction.Up;
-        else
-            return Direction.Down;
+        var playerPos = World.GetObservedPlayerPos();
+        return playerPos.Y < y ? Direction.Up : Direction.Down;
     }
 
     public void UpdateScreenSize(SKSurface surface, SKImageInfo info)

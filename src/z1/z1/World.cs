@@ -302,17 +302,32 @@ internal unsafe struct LevelInfoBlock
 
     public ReadOnlySpan<byte> DarkPalette(int index, int fade)
     {
-        throw new NotImplementedException();
+        var i = index * FadePals * PaletteLength + fade * PaletteLength;;
+        fixed (byte* p = &DarkPaletteSeq[i])
+        {
+            return new ReadOnlySpan<byte>(p, PaletteLength);
+        }
     }
 
     public ReadOnlySpan<byte> DeathPalette(int index, int fade)
     {
-        throw new NotImplementedException();
+        var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
+        fixed (byte* p = &DeathPaletteSeq[i])
+        {
+            return new ReadOnlySpan<byte>(p, PaletteLength);
+        }
     }
 
     public byte[][] DeathPalettes(int index)
     {
-        throw new NotImplementedException();
+        // JOE: I dislike this.
+        var result = new byte[FadePals][];
+        for (var i = 0; i < FadePals; i++)
+        {
+            result[i] = DeathPalette(index, i).ToArray();
+        }
+
+        return result;
     }
 }
 
@@ -664,7 +679,7 @@ internal sealed unsafe partial class World
     {
         Game = game;
         statusBar = new(this);
-        menu = new SubmenuType(this);
+        menu = new SubmenuType(game);
 
         lastMode = GameMode.Demo;
         curMode = GameMode.Play;
@@ -1347,7 +1362,7 @@ internal sealed unsafe partial class World
         Game.Link.SetState(PlayerState.Paused);
         Game.Link.ObjTimer = 0xC0;
 
-        Graphics.SetPaletteIndexed(Palette.LevelForeground, _onTouchedPowerTriforcePalette);
+        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _onTouchedPowerTriforcePalette);
         Graphics.UpdatePalettes();
     }
 
@@ -2436,7 +2451,7 @@ internal sealed unsafe partial class World
 
             if (Submenu != 0)
             {
-                if (Input.IsButtonPressing(Button.Select))
+                if (Game.Input.IsButtonPressing(Button.Select))
                 {
                     Submenu = 0;
                     SubmenuOffsetY = 0;
@@ -2451,13 +2466,13 @@ internal sealed unsafe partial class World
 
             if (Pause == 0)
             {
-                if (Input.IsButtonPressing(Button.Select))
+                if (Game.Input.IsButtonPressing(Button.Select))
                 {
                     Pause = 1;
                     Game.Sound.Pause();
                     return;
                 }
-                else if (Input.IsButtonPressing(Button.Start))
+                else if (Game.Input.IsButtonPressing(Button.Start))
                 {
                     Submenu = 1;
                     return;
@@ -2465,7 +2480,7 @@ internal sealed unsafe partial class World
             }
             else if (Pause == 1)
             {
-                if (Input.IsButtonPressing(Button.Select))
+                if (Game.Input.IsButtonPressing(Button.Select))
                 {
                     Pause = 0;
                     Game.Sound.Unpause();
@@ -2550,7 +2565,7 @@ internal sealed unsafe partial class World
         }
         else if (Submenu == 8)
         {
-            if (Input.IsButtonPressing(Button.Start))
+            if (Game.Input.IsButtonPressing(Button.Start))
             {
                 menu.Deactivate();
                 Submenu++;
@@ -4551,7 +4566,7 @@ internal sealed unsafe partial class World
         // TODO credits.Update();
         // TODO if (credits.IsDone())
         // TODO {
-        // TODO     if (Input.IsButtonPressing(Button.Start))
+        // TODO     if (Game.Input.IsButtonPressing(Button.Start))
         // TODO     {
         // TODO         delete credits;
         // TODO         credits = null;
@@ -5227,7 +5242,7 @@ internal sealed unsafe partial class World
 
             if (State.Death.Substate == DeathState.Substates.Spark && State.Death.Step > 0)
             {
-                GlobalFunctions.DrawSparkle(player.X, player.Y, Palette.BlueForeground, State.Death.Step - 1);
+                GlobalFunctions.DrawSparkle(player.X, player.Y, Palette.Blue, State.Death.Step - 1);
             }
             else if (State.Death.Substate <= DeathState.Substates.Spark)
             {
@@ -5260,13 +5275,13 @@ internal sealed unsafe partial class World
         }
         else if (State.Continue.Substate == ContinueState.Substates.Idle)
         {
-            if (Input.IsButtonPressing(Button.Select))
+            if (Game.Input.IsButtonPressing(Button.Select))
             {
                 State.Continue.SelectedIndex++;
                 if (State.Continue.SelectedIndex == 3)
                     State.Continue.SelectedIndex = 0;
             }
-            else if (Input.IsButtonPressing(Button.Start))
+            else if (Game.Input.IsButtonPressing(Button.Start))
             {
                 State.Continue.Substate = ContinueState.Substates.Chosen;
                 State.Continue.Timer = 0x40;

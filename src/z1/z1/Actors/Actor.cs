@@ -95,7 +95,6 @@ internal abstract class Actor
 
     protected bool IsStunned => _isStunned();
     protected bool IsParalyzed { get; set; }
-    public int PlayerDamage => 0; // TODO
 
     public ActorColor Color;
 
@@ -128,8 +127,8 @@ internal abstract class Actor
             ObjType.RedLynel => LynelActor.Make(game, ActorColor.Red, x, y),
             ObjType.BlueMoblin => MoblinActor.Make(game, ActorColor.Blue, x, y),
             ObjType.RedMoblin => MoblinActor.Make(game, ActorColor.Red, x, y),
-            ObjType.BlueGoriya => new GoriyaActor(game, ActorColor.Blue, x, y),
-            ObjType.RedGoriya => new GoriyaActor(game, ActorColor.Red, x, y),
+            ObjType.BlueGoriya => GoriyaActor.Make(game, ActorColor.Blue, x, y),
+            ObjType.RedGoriya => GoriyaActor.Make(game, ActorColor.Red, x, y),
             ObjType.RedSlowOctorock => OctorokActor.Make(game, ActorColor.Red, false, x, y),
             ObjType.RedFastOctorock => OctorokActor.Make(game, ActorColor.Red, true, x, y),
             ObjType.BlueSlowOctorock => OctorokActor.Make(game, ActorColor.Blue, false, x, y),
@@ -170,8 +169,8 @@ internal abstract class Actor
             ObjType.Gibdo => new GibdoActor(game, x, y),
             ObjType.ThreeDodongos => DodongoActor.Make(game, 3, x, y),
             ObjType.OneDodongo => DodongoActor.Make(game, 1, x, y),
-            ObjType.BlueGohma => new GohmaActor(game, ActorColor.Blue, x, y),
-            ObjType.RedGohma => new GohmaActor(game, ActorColor.Red, x, y),
+            ObjType.BlueGohma => GohmaActor.Make(game, ActorColor.Blue),
+            ObjType.RedGohma => GohmaActor.Make(game, ActorColor.Red),
             ObjType.RupieStash => new RupieStashActor(game, x, y),
             ObjType.Grumble => new GrumbleActor(game, x, y),
             ObjType.Zelda => ZeldaActor.Make(game),
@@ -185,10 +184,10 @@ internal abstract class Actor
             ObjType.GuardFire => new GuardFireActor(game, x, y),
             ObjType.StandingFire => new StandingFireActor(game, x, y),
             ObjType.Moldorm => MoldormActor.MakeSet(game),
-            ObjType.Gleeok1 => new GleeokActor(game, 1, x, y),
-            ObjType.Gleeok2 => new GleeokActor(game, 2, x, y),
-            ObjType.Gleeok3 => new GleeokActor(game, 3, x, y),
-            ObjType.Gleeok4 => new GleeokActor(game, 4, x, y),
+            ObjType.Gleeok1 => new GleeokActor(game, 1),
+            ObjType.Gleeok2 => new GleeokActor(game, 2),
+            ObjType.Gleeok3 => new GleeokActor(game, 3),
+            ObjType.Gleeok4 => new GleeokActor(game, 4),
             ObjType.GleeokHead => new GleeokHeadActor(game, x, y),
             ObjType.Patra1 => new PatraActor(game, PatraType.Circle, x, y),
             ObjType.Patra2 => new PatraActor(game, PatraType.Spin, x, y),
@@ -1102,7 +1101,7 @@ internal abstract class Actor
         }
     }
 
-    private static Span<Direction> _nextDirections => new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
+    private static ReadOnlySpan<Direction> _nextDirections => new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
 
     private Direction GetNextAltDir(ref int seq, Direction dir)
     {
