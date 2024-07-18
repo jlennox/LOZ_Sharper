@@ -27,7 +27,7 @@ internal static class Graphics
     private static readonly int _paletteStride = _paletteBmpWidth * Unsafe.SizeOf<SKColor>();
     private static readonly int[] _systemPalette = new int[Global.SysPaletteLength];
     private static readonly int[] _grayscalePalette = new int[Global.SysPaletteLength];
-    private static readonly int[] _activeSystemPalette = _systemPalette;
+    private static int[] _activeSystemPalette = _systemPalette;
     private static readonly byte[] _palettes = new byte[Global.PaletteCount * Global.PaletteLength];
 
     public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];
@@ -132,6 +132,7 @@ internal static class Graphics
             colorArgb8 = _activeSystemPalette[sysColor];
         SetColor(paletteIndex, colorIndex, colorArgb8);
         GetPalette(paletteIndex, colorIndex) = (byte)sysColor;
+        TileCache.Clear();
     }
 
     public static void SetPaletteIndexed(Palette paletteIndex, ReadOnlySpan<byte> sysColors)
@@ -147,19 +148,20 @@ internal static class Graphics
         SetPalette(paletteIndex, colorsArgb8);
         var dest = GetPalette(paletteIndex);
         sysColors[..Global.PaletteLength].CopyTo(dest);
+        TileCache.Clear();
     }
 
     public static void UpdatePalettes()
     {
-        // JOE: No-op.
+        TileCache.Clear();
     }
 
-    public static void SwitchSystemPalette(Span<int> newSystemPalette)
+    public static void SwitchSystemPalette(int[] newSystemPalette)
     {
-        if (newSystemPalette.SequenceEqual(_activeSystemPalette))
+        if (newSystemPalette == _activeSystemPalette)
             return;
 
-        newSystemPalette.CopyTo(_activeSystemPalette);
+        _activeSystemPalette = newSystemPalette;
 
         for (var i = 0; i < Global.PaletteCount; i++)
         {
@@ -225,12 +227,14 @@ internal static class Graphics
         DrawTile(slot, srcX, srcY, width, height, destX, destY + 1, palette, flags);
     }
 
-    private readonly record struct TileCache(int X, int Y, Palette Palette, DrawingFlags Flags)
+    private readonly record struct TileCache(TileSheet Slot, int[] SystemPalette, int X, int Y, Palette Palette, DrawingFlags Flags)
     {
         private static readonly Dictionary<TileCache, SKBitmap> _tileCache = new(200);
 
         public bool TryGetValue([MaybeNullWhen(false)] out SKBitmap bitmap) => _tileCache.TryGetValue(this, out bitmap);
         public void Set(SKBitmap bitmap) => _tileCache[this] = bitmap;
+        // JOE: Arg. This makes me hate the tile cache even more.
+        public static void Clear() => _tileCache.Clear();
     }
 
     public static unsafe void DrawTile(
@@ -247,11 +251,10 @@ internal static class Graphics
     {
         Debug.Assert(slot < TileSheet.Max);
 
-        var sheet = _tileSheets[(int)slot] ?? throw new Exception();
-        var destRect = new SKRect(destX, destY, destX + width, destY + height);
-        var cacheKey = new TileCache(srcX, srcY, palette, flags);
+        var cacheKey = new TileCache(slot, _activeSystemPalette, srcX, srcY, palette, flags);
         if (!cacheKey.TryGetValue(out var tile))
         {
+            var sheet = _tileSheets[(int)slot] ?? throw new Exception();
             tile = sheet.Extract(srcX, srcY, width, height, null, flags);
 
             var locked = tile.Lock();
@@ -261,7 +264,6 @@ internal static class Graphics
                 for (var x = 0; x < locked.Width; ++x, ++px)
                 {
                     var r = px->Blue;
-
                     if (r == 0)
                     {
                         *px = SKColors.Transparent;
@@ -280,6 +282,7 @@ internal static class Graphics
             cacheKey.Set(tile);
         }
 
+        var destRect = new SKRect(destX, destY, destX + width, destY + height);
         _surface.Canvas.DrawBitmap(tile, destRect);
     }
 

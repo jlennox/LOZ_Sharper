@@ -1,11 +1,11 @@
-﻿using SkiaSharp;
+﻿using System.Diagnostics;
+using SkiaSharp;
 
 namespace z1.UI;
 
 internal sealed class SubmenuType
 {
     private readonly Game _game;
-    private const int ArrowBowUISlot = 2;
 
     private const int CurItemX = 0x40;
     private const int CurItemY = 0x28;
@@ -163,6 +163,21 @@ internal sealed class SubmenuType
         new(ItemSlot.Bracelet, PassiveItemX + 0x50),
     };
 
+    private static readonly ItemSlot[] inventoryOrder = new[]
+    {
+        ItemSlot.Boomerang,
+        ItemSlot.Bombs,
+        ItemSlot.Arrow,
+        ItemSlot.Candle,
+
+        ItemSlot.Recorder,
+        ItemSlot.Food,
+        ItemSlot.Letter,
+        ItemSlot.Rod,
+    };
+
+    private static readonly int ArrowBowUISlot = Array.IndexOf(inventoryOrder, ItemSlot.Arrow);
+
     public const int Width = Global.StdViewWidth;
     public const int Height = 0xAE;
     public const int ActiveItems = 8;
@@ -182,22 +197,9 @@ internal sealed class SubmenuType
 
     private ItemId GetItemIdForUISlot(int uiSlot, ref ItemSlot itemSlot)
     {
-        var slots = new[]
-        {
-            ItemSlot.Boomerang,
-            ItemSlot.Bombs,
-            ItemSlot.Arrow,
-            ItemSlot.Candle,
-
-            ItemSlot.Recorder,
-            ItemSlot.Food,
-            ItemSlot.Letter,
-            ItemSlot.Rod,
-        };
-
         var profile = _game.World.GetProfile();
 
-        itemSlot = slots[uiSlot];
+        itemSlot = inventoryOrder[uiSlot];
 
         if (itemSlot == ItemSlot.Arrow)
         {
@@ -213,7 +215,9 @@ internal sealed class SubmenuType
             if (itemSlot == ItemSlot.Letter)
             {
                 if (profile.Items[ItemSlot.Potion] != 0)
+                {
                     itemSlot = ItemSlot.Potion;
+                }
             }
 
             var itemValue = profile.Items[itemSlot];

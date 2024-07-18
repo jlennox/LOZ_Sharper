@@ -813,11 +813,9 @@ internal abstract class Actor
         else
         {
             var player = Game.Link;
-
             if (player.InvincibilityTimer != 0) return;
 
             var useY = false;
-
             if (player.TileOffset == 0)
             {
                 if (context.Distance.Y >= 4)
@@ -830,7 +828,6 @@ internal abstract class Actor
             }
 
             Direction dir;
-
             if (useY)
             {
                 dir = Y < player.Y ? Direction.Down : Direction.Up;
@@ -886,7 +883,7 @@ internal abstract class Actor
 
         if (IsStunned || player.StunTimer != 0 || player.InvincibilityTimer != 0)
         {
-            return new(false, false);
+            return new PlayerCollision(false, false);
         }
 
         return CheckPlayerCollisionDirect();
@@ -899,12 +896,12 @@ internal abstract class Actor
         if (player.GetState() == PlayerState.Paused
             || player.IsParalyzed)
         {
-            return new(false, false);
+            return new PlayerCollision(false, false);
         }
 
         if (this is Projectile shot && !shot.IsInShotStartState())
         {
-            return new(false, false);
+            return new PlayerCollision(false, false);
         }
 
         var objCenter = CalcObjMiddle();
@@ -913,17 +910,17 @@ internal abstract class Actor
 
         if (!DoObjectsCollide(objCenter, playerCenter, box, out var distance))
         {
-            return new(false, false);
+            return new PlayerCollision(false, false);
         }
 
-        var context = new CollisionContext(0, 0, 0, Point.Empty);
-        context.Distance = distance;
+        // JOE: NOTE: Is this right? Original code did: CollisionContext context = { 0 };
+        var context = new CollisionContext(0, 0, 0, distance);
 
         if (this is PersonActor)
         {
             Shove(context);
             player.BeHarmed(this);
-            return new(true, true);
+            return new PlayerCollision(true, true);
         }
 
         if (ObjType is ObjType.Fireball2 || ObjType == (ObjType)0x5A ||
@@ -931,7 +928,7 @@ internal abstract class Actor
         {
             Shove(context);
             player.BeHarmed(this);
-            return new(true, true);
+            return new PlayerCollision(true, true);
         }
 
         if (((int)(Facing | player.Facing) & 0xC) != 0xC &&
@@ -939,7 +936,7 @@ internal abstract class Actor
         {
             Shove(context);
             player.BeHarmed(this);
-            return new(true, true);
+            return new PlayerCollision(true, true);
         }
 
         if (this is Projectile projectile &&
@@ -948,11 +945,11 @@ internal abstract class Actor
         {
             Shove(context);
             player.BeHarmed(this);
-            return new(true, true);
+            return new PlayerCollision(true, true);
         }
 
         Game.Sound.PlayEffect(SoundEffect.Parry);
-        return new(false, true);
+        return new PlayerCollision(false, true);
     }
 
     protected Direction CheckWorldMarginH(int x, Direction dir, bool adjust)

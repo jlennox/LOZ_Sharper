@@ -84,14 +84,6 @@ internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette
     public Palette GetPalette() => PaletteAttrs & Palette.Mask;
     public bool HasFlashAttr() => ((int)PaletteAttrs & FlashPalAttr) != 0;
 
-    public static readonly ItemGraphics[] Persons = new[]
-    {
-        new ItemGraphics(AnimationId.OldMan, Palette.Red),
-        new ItemGraphics(AnimationId.OldWoman, Palette.Red),
-        new ItemGraphics(AnimationId.Merchant, Palette.Player),
-        new ItemGraphics(AnimationId.Moblin, Palette.Red),
-    };
-
     public static readonly ItemGraphics[] Items = new[]
     {
         new ItemGraphics(AnimationId.BombItem, Palette.Blue),
@@ -187,16 +179,16 @@ internal static class GlobalFunctions
             (ItemId)28,         // Boomerang
         };
 
-        if (value == 0) return ItemId.None;
-
         var itemValue = value;
 
-        if (slot == ItemSlot.Bombs || slot == ItemSlot.Letter)
+        if (itemValue == 0) return ItemId.None;
+
+        if (slot is ItemSlot.Bombs or ItemSlot.Letter)
         {
             itemValue = 1;
         }
 
-        return equippedItemIds()[(int)slot] + itemValue;
+        return (ItemId)(byte)(equippedItemIds()[(int)slot] + itemValue);
     }
 
     public static ItemId ItemValueToItemId(World world, ItemSlot slot)
@@ -268,16 +260,12 @@ internal static class GlobalFunctions
             return;
 
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, graphics.Value.AnimId);
-        Palette pal;
-        var xOffset = 0;
 
-        if (width != 0)
-            xOffset = (width - image.Animation.Width) / 2;
+        var xOffset = width != 0 ? (width - image.Animation.Width) / 2 : 0;
 
-        if (graphics.Value.HasFlashAttr())
-            pal = (game.GetFrameCounter() & 8) == 0 ? Palette.Blue : Palette.Red;
-        else
-            pal = graphics.Value.GetPalette();
+        var pal = graphics.Value.HasFlashAttr()
+            ? (game.GetFrameCounter() & 8) == 0 ? Palette.Blue : Palette.Red
+            : graphics.Value.GetPalette();
 
         image.Draw(TileSheet.PlayerAndItems, x + xOffset, y, pal);
     }
@@ -438,8 +426,10 @@ internal static class GlobalFunctions
         Statues.Init();
     }
 
-    public static byte[] NumberToStringR(byte number, NumberSign sign, ref Span<byte> charBuf, int bufLen = 4)
+    public static byte[] NumberToStringR(byte number, NumberSign sign, ref Span<byte> charBuf)
     {
+        var bufLen = charBuf.Length;
+
         Debug.Assert(bufLen >= 3);
         Debug.Assert(sign == NumberSign.None || bufLen >= 4);
 
@@ -449,7 +439,7 @@ internal static class GlobalFunctions
         while (true)
         {
             var digit = n % 10;
-            charBuf[pChar] = (byte)digit; //(byte)('0' + digit);
+            charBuf[pChar] = (byte)digit;
             pChar--;
             n /= 10;
             if (n == 0)

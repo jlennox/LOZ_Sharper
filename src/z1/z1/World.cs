@@ -553,9 +553,13 @@ internal sealed unsafe partial class World
                 }
 
                 if (makeWhirlwind)
+                {
                     SummonWhirlwind();
+                }
                 else
+                {
                     MakeFluteSecret();
+                }
             }
         }
         else
@@ -848,7 +852,7 @@ internal sealed unsafe partial class World
             }
         }
 
-        return new(false, behavior, hitFineCol, hitFineRow);
+        return new TileCollision(false, behavior, hitFineCol, hitFineRow);
     }
 
     public void OnPushedBlock()
@@ -1571,6 +1575,8 @@ internal sealed unsafe partial class World
         var damageByte = damageAttrs[(int)type];
         return ((damageByte & 0xF) << 8) | (damageByte & 0xF0);
     }
+
+    public void LoadOverworldRoom(int x, int y) => LoadRoom(x + y * 16, 0);
 
     private void LoadRoom(int roomId, int tileMapIndex)
     {
@@ -2670,8 +2676,7 @@ internal sealed unsafe partial class World
         else
             Game.Link.Draw();
 
-        if (objOverPlayer != null)
-            objOverPlayer.DecoratedDraw();
+        objOverPlayer?.DecoratedDraw();
 
         if (IsUWMain(curRoomId))
             DrawDoors(curRoomId, true, 0, 0);
@@ -2872,6 +2877,7 @@ internal sealed unsafe partial class World
 
     private void MakeUnderworldPerson(ObjType type)
     {
+        // JOE: TODO: Make all of these private and make a MoneyOrLife/etc constructor on CaveSpec.
         var cave = new CaveSpec {
             ItemA = (byte)ItemId.None,
             ItemB = (byte)ItemId.None,
@@ -4226,7 +4232,9 @@ private void UpdateWinGame_Hold2()
                     GotoPlayCave();
             }
             else
+            {
                 GotoPlayCellar();
+            }
         }
         else if (State.Stairs.substate == StairsState.Substates.WalkCave)
         {

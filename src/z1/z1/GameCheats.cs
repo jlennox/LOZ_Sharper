@@ -82,7 +82,7 @@ internal class GameCheats
                 return;
             }
 
-            // game.World.GotoLoadLevel(
+            game.World.LoadOverworldRoom(x, y);
         }
     }
 
@@ -124,27 +124,32 @@ internal class GameCheats
         {
             var profile = game.World.profile;
             if (profile == null) return;
-            profile.Items[ItemSlot.MagicShield] = 1;
-            profile.Items[ItemSlot.Food] = 1;
-            profile.Items[ItemSlot.Bombs] = 99;
-            profile.Items[ItemSlot.Keys] = 99;
-            profile.Items[ItemSlot.Sword] = 3;
-            profile.Items[ItemSlot.HeartContainers] = 16;
-            profile.Items[ItemSlot.Raft] = 1;
-            profile.Items[ItemSlot.Ladder] = 1;
-            profile.Items[ItemSlot.Ring] = 2;
-            profile.Items[ItemSlot.RupeesToAdd] = 0xff;
-            profile.Items[ItemSlot.Bow] = 1;
-            profile.Items[ItemSlot.Arrow] = 2;
-            profile.Items[ItemSlot.Bracelet] = 1;
-            profile.Items[ItemSlot.Candle] = 2;
-            profile.Items[ItemSlot.Rod] = 1;
+            profile.Items[ItemSlot.Bombs] = 0x98;
+            profile.Items[ItemSlot.Keys] = 0x98;
+            profile.Items[ItemSlot.HeartContainers] = 0x16;
+            game.World.AddItem(ItemId.MagicShield);
+            game.World.AddItem(ItemId.MagicShield);
+            game.World.AddItem(ItemId.Food);
+            game.World.AddItem(ItemId.Raft);
+            game.World.AddItem(ItemId.Ladder);
+            game.World.AddItem(ItemId.RedRing);
+            game.World.AddItem(ItemId.Bow);
+            game.World.AddItem(ItemId.SilverArrow);
+            game.World.AddItem(ItemId.Bracelet);
+            game.World.AddItem(ItemId.RedCandle);
+            game.World.AddItem(ItemId.Rod);
+            game.World.AddItem(ItemId.MagicSword);
+            // game.World.AddItem(ItemId.Bomb);
+            // game.World.AddItem(ItemId.Key);
+            game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
+            game.World.PostRupeeWin(0xFF);
+            profile.SelectedItem = ItemSlot.Bombs;
         }
     }
 
     private readonly Game _game;
-    private readonly Cheat[] _cheats = new Cheat[]
+    private readonly Cheat[] _cheats =
     {
         new OverworldWarpCheat(),
         new DungeonWarpCheat(),

@@ -52,7 +52,7 @@ internal struct InputButtons
     public void Clear(Button value) => Buttons = (Button)((int)Buttons ^ (int)value);
 }
 
-internal class Input
+internal sealed class Input
 {
     private InputButtons oldInputState;
     private InputButtons inputState;
@@ -105,23 +105,18 @@ internal class Input
 
     public bool IsButtonDown(Button buttonCode) => inputState.Has(buttonCode);
     public bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
-    // public bool IsButtonPressing(Button buttonCode) => IsButtonDown(buttonCode);
 
-    public ButtonState GetButton(Button buttonCode)
+    private ButtonState GetButton(Button buttonCode)
     {
-        var isDown = inputState.Has(buttonCode) ? 1 : 0;
-        var wasDown = oldInputState.Has(buttonCode) ? 1 : 0;
+        var isDown = inputState.Has(buttonCode);
+        var wasDown = oldInputState.Has(buttonCode);
 
-        return (ButtonState)((wasDown << 1) | isDown);
-    }
-
-    public Direction GetInputDirection()
-    {
-        if (IsButtonDown(Button.Left)) return Direction.Left;
-        if (IsButtonDown(Button.Right)) return Direction.Right;
-        if (IsButtonDown(Button.Up)) return Direction.Up;
-        if (IsButtonDown(Button.Down)) return Direction.Down;
-        return Direction.None;
+        return (isDown, wasDown) switch {
+            (false, false) => ButtonState.Lifted,
+            (true, false) => ButtonState.Pressing,
+            (false, true) => ButtonState.Releasing,
+            (true, true) => ButtonState.Held,
+        };
     }
 
     public void Update()

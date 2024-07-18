@@ -138,7 +138,6 @@ internal sealed class StatusBar
         }
         else
         {
-
             var levelInfo = _world.GetLevelInfo();
 
             _levelStr[6] = levelInfo.LevelNumber;
@@ -235,7 +234,7 @@ internal sealed class StatusBar
         var charBuf = new byte[4].AsSpan();
 
         var count = _world.GetItem(itemSlot);
-        var strLeft = GlobalFunctions.NumberToStringR((byte)count, NumberSign.None, ref charBuf, charBuf.Length);
+        var strLeft = GlobalFunctions.NumberToStringR((byte)count, NumberSign.None, ref charBuf);
 
         if (count < 100)
         {

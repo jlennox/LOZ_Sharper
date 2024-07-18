@@ -237,7 +237,6 @@ internal partial class World
         static ReadOnlySpan<byte> palette() => new byte[] { 0x29, 0x32, 0x16 };
 
         var value = profile.Items[ItemSlot.Ring];
-
         Graphics.SetColorIndexed(Palette.Player, 1, palette()[value]);
     }
 

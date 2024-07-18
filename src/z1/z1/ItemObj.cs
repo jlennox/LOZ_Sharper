@@ -393,6 +393,8 @@ internal sealed class BombActor : Actor
         }
     };
 
+    private static readonly byte[] times = new byte[] { 0x30, 0x18, 0xC, 0 };
+
     public BombState BombState = BombState.Initing;
 
     SpriteAnimator animator;
@@ -408,28 +410,25 @@ internal sealed class BombActor : Actor
         };
     }
 
-    private static readonly byte[] times = new byte[] { 0x30, 0x18, 0xC, 0 };
-
     public override void Update()
     {
-
-        if ( ObjTimer == 0 )
+        if (ObjTimer == 0)
         {
             ObjTimer = times[(int)BombState];
             BombState++;
 
-            if (BombState == BombState.Blasting )
+            if (BombState == BombState.Blasting)
             {
-                animator.Animation = Graphics.GetAnimation( TileSheet.PlayerAndItems, AnimationId.Cloud );
+                animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cloud);
                 animator.Time = 0;
                 animator.DurationFrames = animator.Animation.Length;
-                Game.Sound.PlayEffect( SoundEffect.Bomb );
+                Game.Sound.PlayEffect(SoundEffect.Bomb);
             }
-            else if (BombState == BombState.Fading )
+            else if (BombState == BombState.Fading)
             {
                 animator.AdvanceFrame();
             }
-            else if (BombState > BombState.Fading )
+            else if (BombState > BombState.Fading)
             {
                 IsDeleted = true;
                 ObjTimer = 0;
@@ -451,19 +450,21 @@ internal sealed class BombActor : Actor
 
     public override void Draw()
     {
-        if (BombState == BombState.Ticking )
+        if (BombState == BombState.Ticking)
         {
-            int offset = (16 - animator.Animation.Width) / 2;
-            animator.Draw( TileSheet.PlayerAndItems, X + offset, Y, Palette.BlueFgPalette );
+            var offset = (16 - animator.Animation.Width) / 2;
+            animator.Draw(TileSheet.PlayerAndItems, X + offset, Y, Palette.BlueFgPalette);
         }
         else
         {
             var positions = cloudPositions[ObjTimer % CloudFrames];
 
-            for ( int i = 0; i < Clouds; i++ )
+            for (var i = 0; i < Clouds; i++)
             {
                 animator.Draw(
-                    TileSheet.PlayerAndItems, X + positions[i].X, Y + positions[i].Y, Palette.BlueFgPalette );
+                    TileSheet.PlayerAndItems,
+                    X + positions[i].X, Y + positions[i].Y,
+                    Palette.BlueFgPalette);
             }
         }
     }
@@ -673,9 +674,9 @@ internal struct CaveSpec
 
     public readonly ItemId GetItemId(int i) => i switch
     {
-        0 => (ItemId)ItemA,
-        1 => (ItemId)ItemB,
-        2 => (ItemId)ItemC,
+        0 => (ItemId)(ItemA & 0x3F),
+        1 => (ItemId)(ItemB & 0x3F),
+        2 => (ItemId)(ItemC & 0x3F),
         _ => throw new ArgumentOutOfRangeException(nameof(i)),
     };
 
@@ -692,8 +693,6 @@ internal struct CaveSpec
         get => (ObjType)Dweller;
         set => Dweller = (byte)value;
     }
-
-    public void SetString(string text) { } // TODO
 
     public readonly StringId GetStringId() => (StringId)(StringId & 0x3F);
     public readonly bool GetPay() => (StringId & 0x80) != 0;

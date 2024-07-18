@@ -16,30 +16,31 @@ internal sealed class PersonActor : Actor
     private const int ItemY = 0x98;
     private const int PriceY = 0xB0;
 
+    private const int MaxItemCount = 3;
+    private const int PriceLength = 4;
+
     private static readonly byte[] itemXs = new byte[] { 0x58, 0x78, 0x98 };
     private static readonly byte[] priceXs = new byte[] { 0x48, 0x68, 0x88 };
 
-    private static readonly ItemGraphics[] sPersonGraphics = new ItemGraphics[]
+    private static readonly ItemGraphics[] sPersonGraphics = new[]
     {
-        new(AnimationId.OldMan,       Palette.Red),
-        new(AnimationId.OldWoman,     Palette.Red),
-        new(AnimationId.Merchant,     Palette.Player),
-        new(AnimationId.Moblin,       Palette.Red),
+        new ItemGraphics(AnimationId.OldMan,       Palette.Red),
+        new ItemGraphics(AnimationId.OldWoman,     Palette.Red),
+        new ItemGraphics(AnimationId.Merchant,     Palette.Player),
+        new ItemGraphics(AnimationId.Moblin,       Palette.Red),
     };
 
-    public PersonState _state = PersonState.Idle;
-    SpriteImage image;
+    private PersonState _state = PersonState.Idle;
+    SpriteImage? image;
 
     public CaveSpec spec;
     public TextBox textBox;
     public int chosenIndex;
     public bool showNumbers;
 
-    private const int _maxItemCount = 3;
-    private const int _priceLength = 4;
-    byte[] priceStrs = new byte[_maxItemCount * _priceLength];
+    byte[] priceStrs = new byte[MaxItemCount * PriceLength];
 
-    private Span<byte> GetPrice(int index) => priceStrs.AsSpan()[(index * _priceLength)..];
+    private Span<byte> GetPrice(int index) => priceStrs.AsSpan(index * PriceLength, PriceLength);
 
     public byte[] gamblingAmounts = new byte[3];
     public byte[] gamblingIndexes = new byte[3];
@@ -123,7 +124,9 @@ internal sealed class PersonActor : Actor
         }
 
         if (IsGambling())
+        {
             InitGambling();
+        }
 
         if (type == ObjType.CaveMedicineShop)
         {
@@ -199,20 +202,23 @@ internal sealed class PersonActor : Actor
 
             var player = Game.Link;
             if (player.GetState() == PlayerState.Paused)
+            {
                 player.SetState(PlayerState.Idle);
+            }
         }
     }
 
     void CheckPlayerHit()
     {
-        if (!spec.GetPickUp())
-            return;
+        if (!spec.GetPickUp()) return;
 
         var player = Game.Link;
 
         var distanceY = Math.Abs(ItemY - player.Y);
         if (distanceY >= 6)
+        {
             return;
+        }
 
         for (var i = 0; i < CaveSpec.Count; i++)
         {
@@ -237,14 +243,18 @@ internal sealed class PersonActor : Actor
             };
 
             if (Game.World.GetItem(ItemSlot.HeartContainers) < expectedCount)
+            {
                 return;
+            }
         }
 
         if (spec.GetPay())
         {
             var price = spec.GetPrice(index);
             if (price > Game.World.GetItem(ItemSlot.Rupees))
+            {
                 return;
+            }
             Game.World.PostRupeeLoss(price);
         }
 

@@ -107,7 +107,7 @@ internal sealed class GameMenu : Menu
             if (summary.IsActive())
             {
                 var numBuf = new byte[3].AsSpan();
-                GlobalFunctions.NumberToStringR(summary.Deaths, NumberSign.None, ref numBuf, numBuf.Length);
+                GlobalFunctions.NumberToStringR(summary.Deaths, NumberSign.None, ref numBuf);
                 GlobalFunctions.DrawString(numBuf, 0x48, y + 8, 0);
                 GlobalFunctions.DrawString(summary.Name, 0x48, y, 0);
                 var totalHearts = summary.HeartContainers;
