@@ -109,7 +109,7 @@ internal abstract class Actor
 
     public ActorColor Color;
 
-    public Actor(Game game, int x = 0, int y = 0)
+    private Actor(Game game, int x = 0, int y = 0)
     {
         Game = game;
         Position = new(x, y);
@@ -167,8 +167,8 @@ internal abstract class Actor
             ObjType.FlyingGhini => new FlyingGhiniActor(game, x, y),
             ObjType.BlueWizzrobe => new BlueWizzrobeActor(game, x, y),
             ObjType.RedWizzrobe => new RedWizzrobeActor(game, x, y),
-            ObjType.PatraChild1 => new PatraChildActor(game, PatraType.Circle, x, y),
-            ObjType.PatraChild2 => new PatraChildActor(game, PatraType.Spin, x, y),
+            ObjType.PatraChild1 => PatraChildActor.Make(game, PatraType.Circle, x, y),
+            ObjType.PatraChild2 => PatraChildActor.Make(game, PatraType.Spin, x, y),
             ObjType.Wallmaster => new WallmasterActor(game, x, y),
             ObjType.Rope => new RopeActor(game, x, y),
             ObjType.Stalfos => new StalfosActor(game, x, y),
@@ -194,14 +194,15 @@ internal abstract class Actor
             ObjType.GuardFire => new GuardFireActor(game, x, y),
             ObjType.StandingFire => new StandingFireActor(game, x, y),
             ObjType.Moldorm => MoldormActor.MakeSet(game),
-            ObjType.Gleeok1 => new GleeokActor(game, 1),
-            ObjType.Gleeok2 => new GleeokActor(game, 2),
-            ObjType.Gleeok3 => new GleeokActor(game, 3),
-            ObjType.Gleeok4 => new GleeokActor(game, 4),
+            ObjType.Gleeok1 => GleeokActor.Make(game, 1),
+            ObjType.Gleeok2 => GleeokActor.Make(game, 2),
+            ObjType.Gleeok3 => GleeokActor.Make(game, 3),
+            ObjType.Gleeok4 => GleeokActor.Make(game, 4),
             ObjType.GleeokHead => new GleeokHeadActor(game, x, y),
             ObjType.Patra1 => new PatraActor(game, PatraType.Circle, x, y),
             ObjType.Patra2 => new PatraActor(game, PatraType.Spin, x, y),
-            ObjType.Trap => TrapActor.MakeSet(game, 4), // JOE: TODO: Fix count.
+            ObjType.Trap => TrapActor.MakeSet(game, 6),
+            ObjType.TrapSet4 => TrapActor.MakeSet(game, 4),
             _ => throw new NotImplementedException(),
         };
     }

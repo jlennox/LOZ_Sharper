@@ -9,7 +9,7 @@ internal sealed class LadderActor : Actor
     public Direction origDir = Direction.Down; // JOE: NOTE: This is unused in the original?
     SpriteImage image;
 
-    public LadderActor(Game game, int x = 0, int y = 0) : base(game, x, y) {
+    public LadderActor(Game game, int x, int y) : base(game, ObjType.Ladder, x, y) {
         Facing = Game.Link.Facing;
         Decoration = 0;
 
@@ -66,7 +66,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
     Action? curUpdate;
 
-    protected BlockObjBase(Game game, int x = 0, int y = 0) : base(game, x, y)
+    protected BlockObjBase(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
         Decoration = 0;
         curUpdate = UpdateIdle;
@@ -206,7 +206,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
 internal sealed class RockObj : BlockObjBase
 {
-    public RockObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public RockObj(Game game, int x, int y) : base(game, ObjType.Rock, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.Tile_Rock;
     protected override BlockObjType BlockMob => BlockObjType.Mob_Rock;
@@ -218,7 +218,7 @@ internal sealed class RockObj : BlockObjBase
 
 internal sealed class HeadstoneObj : BlockObjBase
 {
-    public HeadstoneObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public HeadstoneObj(Game game, int x, int y) : base(game, ObjType.Headstone, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.Tile_Headstone;
     protected override BlockObjType BlockMob => BlockObjType.Mob_Headstone;
@@ -230,7 +230,7 @@ internal sealed class HeadstoneObj : BlockObjBase
 
 internal sealed class BlockObj : BlockObjBase
 {
-    public BlockObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public BlockObj(Game game, int x, int y) : base(game, ObjType.Block, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.Tile_Block;
     protected override BlockObjType BlockMob => (byte)BlockObjType.Mob_Block;
@@ -343,7 +343,7 @@ internal class FireActor : Actor
 
 internal sealed class TreeActor : Actor
 {
-    public TreeActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Tree, x, y)
+    public TreeActor(Game game, int x, int y) : base(game, ObjType.Tree, x, y)
     {
     }
 
@@ -471,7 +471,7 @@ internal sealed class BombActor : Actor
 
 internal sealed class RockWallActor : Actor
 {
-    public RockWallActor(Game game, int x = 0, int y = 0) : base(game, x, y)
+    public RockWallActor(Game game, int x, int y) : base(game, ObjType.RockWall, x, y)
     {
     }
 
@@ -533,10 +533,8 @@ internal sealed class PlayerSwordActor : Actor
     private int timer;
     private SpriteImage image = new();
 
-    public PlayerSwordActor(Game game, ObjType type, int x = 0, int y = 0) : base(game, x, y)
+    public PlayerSwordActor(Game game, ObjType type) : base(game, type, 0, 0)
     {
-        ObjType = type;
-
         Put();
         timer = swordStateDurations[state];
         Decoration = 0;
@@ -724,7 +722,7 @@ internal sealed class ItemObjActor : Actor
     bool isRoomItem;
     int timer;
 
-    public ItemObjActor(Game game, ItemId itemId, bool isRoomItem, int x = 0, int y = 0) : base(game, ObjType.Item, x, y)
+    public ItemObjActor(Game game, ItemId itemId, bool isRoomItem, int x, int y) : base(game, ObjType.Item, x, y)
     {
         this.itemId = itemId;
         this.isRoomItem = isRoomItem;
@@ -899,7 +897,7 @@ internal sealed class DockActor : Actor
     private int _state = 0;
     private SpriteImage _raftImage;
 
-    public DockActor(Game game, int x = 0, int y = 0) : base(game, x, y)
+    public DockActor(Game game, int x, int y) : base(game, ObjType.Dock, x, y)
     {
         _raftImage = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.Raft);
     }

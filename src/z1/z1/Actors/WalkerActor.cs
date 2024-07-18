@@ -773,16 +773,8 @@ internal sealed class GleeokActor : Actor
     readonly GleeokNeck[] necks = new GleeokNeck[MaxNecks];
 
     public override bool IsReoccuring => false;
-    public GleeokActor(Game game, int headCount, int x = GleeokX, int y = GleeokY) : base(game, x, y)
+    private GleeokActor(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
-        ObjType = headCount switch
-        {
-            1 => ObjType.Gleeok1,
-            2 => ObjType.Gleeok2,
-            3 => ObjType.Gleeok3,
-            4 => ObjType.Gleeok4,
-            _ => throw new ArgumentOutOfRangeException(),
-        };
 
         Decoration = 0;
         InvincibilityMask = 0xFE;
@@ -802,6 +794,20 @@ internal sealed class GleeokActor : Actor
         Graphics.UpdatePalettes();
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance );
+    }
+
+    public static GleeokActor Make(Game game, int headCount, int x = GleeokX, int y = GleeokY)
+    {
+        var type = headCount switch
+        {
+            1 => ObjType.Gleeok1,
+            2 => ObjType.Gleeok2,
+            3 => ObjType.Gleeok3,
+            4 => ObjType.Gleeok4,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+
+        return new GleeokActor(game, type, x, y);
     }
 
     public override void Update()
@@ -3270,14 +3276,8 @@ internal sealed class PatraChildActor : Actor
     int angleAccum;
 
     public override bool IsReoccuring => false;
-    public PatraChildActor(Game game, PatraType type, int x, int y) : base(game, x, y)
+    private PatraChildActor(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
-        ObjType = type switch
-        {
-            PatraType.Circle => ObjType.PatraChild1,
-            PatraType.Spin => ObjType.PatraChild2,
-            _ => throw new ArgumentOutOfRangeException(),
-        };
         InvincibilityMask = 0xFE;
 
         Animator = new() {
@@ -3285,6 +3285,18 @@ internal sealed class PatraChildActor : Actor
             Time = 0,
             Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_PatraChild)
         };
+    }
+
+    public static PatraChildActor Make(Game game, PatraType type, int x, int y)
+    {
+        var objtype = type switch
+        {
+            PatraType.Circle => ObjType.PatraChild1,
+            PatraType.Spin => ObjType.PatraChild2,
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+
+        return new PatraChildActor(game, objtype, x, y);
     }
 
     private static short ShiftMult(int mask, int addend, int shiftCount)
@@ -3691,11 +3703,10 @@ internal sealed class BouldersActor : Actor
 
     public static int Count;
 
-    public BouldersActor(Game game, int x, int y) : base(game, x, y)
+    public BouldersActor(Game game, int x, int y) : base(game, ObjType.Boulders, x, y)
     {
-        var r = Random.Shared.Next(4);
-        var Facing = JumperActor.jumperStartDirs[r];
-        ObjTimer = (byte)(Facing * 4);
+        var facing = JumperActor.jumperStartDirs.GetRandom();
+        ObjTimer = (byte)(facing * 4);
         Decoration = 0;
     }
 
@@ -3761,7 +3772,7 @@ internal sealed class TrapActor : Actor
     int origCoord;
 
     public override bool CountsAsLiving => false;
-    private TrapActor(Game game, int trapIndex, int x, int y) : base(game, x, y)
+    private TrapActor(Game game, int trapIndex, int x, int y) : base(game, ObjType.Trap, x, y)
     {
         this.trapIndex = trapIndex;
         image = new() {
@@ -4590,15 +4601,8 @@ internal sealed class LamnolaActor : Actor
 
     readonly SpriteImage image;
 
-    private LamnolaActor(Game game, ActorColor color, bool isHead, int x, int y) : base(game, x, y)
+    private LamnolaActor(Game game, ObjType type, bool isHead, int x, int y) : base(game, type, x, y)
     {
-        ObjType = color switch
-        {
-            ActorColor.Red => ObjType.RedLamnola,
-            ActorColor.Blue => ObjType.BlueLamnola,
-            _ => throw new ArgumentOutOfRangeException(nameof(color))
-        };
-
         var animationId = isHead ? AnimationId.UW_LanmolaHead : AnimationId.UW_LanmolaBody;
         image = new() {
             Animation = Graphics.GetAnimation(TileSheet.Npcs, animationId)
@@ -4607,12 +4611,19 @@ internal sealed class LamnolaActor : Actor
 
     public static LamnolaActor MakeSet(Game game, ActorColor color)
     {
+        var objtype = color switch
+        {
+            ActorColor.Red => ObjType.RedLamnola,
+            ActorColor.Blue => ObjType.BlueLamnola,
+            _ => throw new ArgumentOutOfRangeException(nameof(color))
+        };
+
         const int Y = 0x8D;
 
         for (var i = 0; i < 5 * 2; i++)
         {
             var isHead = (i == 4) || (i == 9);
-            var lamnola = new LamnolaActor(game, color, isHead, 0x40, Y);
+            var lamnola = new LamnolaActor(game, objtype, isHead, 0x40, Y);
             game.World.SetObject((ObjectSlot)i, lamnola);
         }
 
