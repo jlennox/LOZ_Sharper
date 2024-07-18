@@ -15,7 +15,7 @@ internal enum CollisionResponse { Unknown, Free, Blocked }
 
 internal interface IBlocksPlayer
 {
-    public abstract CollisionResponse CheckCollision();
+    public CollisionResponse CheckCollision();
 }
 
 internal readonly record struct PlayerCollision(bool Collides, bool ShotCollides)

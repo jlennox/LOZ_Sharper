@@ -163,7 +163,6 @@ internal sealed class SubmenuType
         new(ItemSlot.Bracelet, PassiveItemX + 0x50),
     };
 
-    private readonly World _world; // JOE: TODO: Factor out.
     public const int Width = Global.StdViewWidth;
     public const int Height = 0xAE;
     public const int ActiveItems = 8;
@@ -179,7 +178,6 @@ internal sealed class SubmenuType
     public SubmenuType(Game game)
     {
         _game = game;
-        _world = game.World;
     }
 
     private ItemId GetItemIdForUISlot(int uiSlot, ref ItemSlot itemSlot)
@@ -197,7 +195,7 @@ internal sealed class SubmenuType
             ItemSlot.Rod,
         };
 
-        var profile = _world.GetProfile();
+        var profile = _game.World.GetProfile();
 
         itemSlot = slots[uiSlot];
 
@@ -206,7 +204,7 @@ internal sealed class SubmenuType
             if (profile.Items[ItemSlot.Arrow] != 0
                 && profile.Items[ItemSlot.Bow] != 0)
             {
-                var arrowId = GlobalFunctions.ItemValueToItemId(_world, ItemSlot.Arrow);
+                var arrowId = GlobalFunctions.ItemValueToItemId(_game.World, ItemSlot.Arrow);
                 return arrowId;
             }
         }
@@ -239,7 +237,7 @@ internal sealed class SubmenuType
 
         cursor.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cursor);
 
-        var profile = _world.GetProfile();
+        var profile = _game.World.GetProfile();
 
         activeUISlot = equippedUISlots[(int)profile.SelectedItem];
         enabled = true;
@@ -280,7 +278,7 @@ internal sealed class SubmenuType
             return;
         }
 
-        _world.Game.Sound.PlayEffect(SoundEffect.Cursor);
+        _game.World.Game.Sound.PlayEffect(SoundEffect.Cursor);
 
         for (var i = 0; i < ActiveItems; i++)
         {
@@ -295,7 +293,7 @@ internal sealed class SubmenuType
                 break;
         }
 
-        var profile = _world.GetProfile();
+        var profile = _game.World.GetProfile();
 
         profile.SelectedItem = activeSlots[activeUISlot];
     }
@@ -313,7 +311,7 @@ internal sealed class SubmenuType
         DrawActiveInventory(top);
         DrawCurrentSelection(top);
 
-        if (_world.IsOverworld())
+        if (_game.World.IsOverworld())
         {
             DrawTriforce(top);
         }
@@ -336,7 +334,7 @@ internal sealed class SubmenuType
 
     private void DrawActiveInventory(int top)
     {
-        var profile = _world.GetProfile();
+        var profile = _game.World.GetProfile();
         var x = ActiveItemX;
         var y = ActiveItemY + top;
 
@@ -348,15 +346,15 @@ internal sealed class SubmenuType
             {
                 if (profile.Items[ItemSlot.Arrow] != 0)
                 {
-                    itemId = GlobalFunctions.ItemValueToItemId(_world, ItemSlot.Arrow);
-                    GlobalFunctions.DrawItemNarrow(_world.Game, itemId, x, y);
+                    itemId = GlobalFunctions.ItemValueToItemId(_game.World, ItemSlot.Arrow);
+                    GlobalFunctions.DrawItemNarrow(_game.World.Game, itemId, x, y);
                 }
                 if (profile.Items[ItemSlot.Bow] != 0)
-                    GlobalFunctions.DrawItemNarrow(_world.Game, ItemId.Bow, x + 8, y);
+                    GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Bow, x + 8, y);
             }
             else if (itemId != ItemId.None)
             {
-                GlobalFunctions.DrawItemWide(_world.Game, itemId, x, y);
+                GlobalFunctions.DrawItemWide(_game.World.Game, itemId, x, y);
             }
 
             x += ActiveItemStrideX;
@@ -371,13 +369,13 @@ internal sealed class SubmenuType
         y = ActiveItemY + (activeUISlot / 4) * ActiveItemStrideY + top;
 
         var cursorPals = new[] { Palette.BlueFgPalette, Palette.RedFgPalette };
-        var cursorPal = cursorPals[(_world.Game.GetFrameCounter() >> 3) & 1];
+        var cursorPal = cursorPals[(_game.World.Game.GetFrameCounter() >> 3) & 1];
         cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal);
     }
 
     private void DrawPassiveInventory(int top)
     {
-        var profile = _world.GetProfile();
+        var profile = _game.World.GetProfile();
 
         for (var i = 0; i < PassiveItems; i++)
         {
@@ -387,20 +385,20 @@ internal sealed class SubmenuType
             if (value != 0)
             {
                 var itemId = GlobalFunctions.ItemValueToItemId(slot, value);
-                GlobalFunctions.DrawItem(_world.Game, itemId, passiveItems[i].X, PassiveItemY + top, 0);
+                GlobalFunctions.DrawItem(_game.World.Game, itemId, passiveItems[i].X, PassiveItemY + top, 0);
             }
         }
     }
 
     private void DrawCurrentSelection(int top)
     {
-        var profile = _world.GetProfile();
+        var profile = _game.World.GetProfile();
         var curSlot = profile.SelectedItem;
 
         if (curSlot != 0)
         {
-            var itemId = GlobalFunctions.ItemValueToItemId(_world, curSlot);
-            GlobalFunctions.DrawItemWide(_world.Game, itemId, CurItemX, CurItemY + top);
+            var itemId = GlobalFunctions.ItemValueToItemId(_game.World, curSlot);
+            GlobalFunctions.DrawItemWide(_game.World.Game, itemId, CurItemX, CurItemY + top);
         }
     }
 
@@ -442,7 +440,7 @@ internal sealed class SubmenuType
             GlobalFunctions.DrawChar(0xF1, x, 0x90 + top, Palette.RedBgPalette);
         }
 
-        var pieces = _world.GetItem(ItemSlot.TriforcePieces);
+        var pieces = _game.World.GetItem(ItemSlot.TriforcePieces);
         var piece = pieces;
 
         for (var i = 0; i < 8; i++, piece >>= 1)
@@ -499,14 +497,14 @@ internal sealed class SubmenuType
             }
         }
 
-        var levelInfo = _world.GetLevelInfo();
-        var hasMap = _world.HasCurrentMap();
-        var hasCompass = _world.HasCurrentCompass();
+        var levelInfo = _game.World.GetLevelInfo();
+        var hasMap = _game.World.HasCurrentMap();
+        var hasCompass = _game.World.HasCurrentCompass();
 
         if (hasMap)
-            GlobalFunctions.DrawItemNarrow(_world.Game, ItemId.Map, 0x30, 0x68 + top);
+            GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Map, 0x30, 0x68 + top);
         if (hasCompass)
-            GlobalFunctions.DrawItemNarrow(_world.Game, ItemId.Compass, 0x30, 0x90 + top);
+            GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Compass, 0x30, 0x90 + top);
 
         var x = ActiveMapX;
         for (var c = 0; c < 8; c++, x += 8)
@@ -516,7 +514,7 @@ internal sealed class SubmenuType
             for (var r = 0; r < 8; r++, y += 8, mapMaskByte <<= 1)
             {
                 var roomId = (r << 4) | (c - levelInfo.DrawnMapOffset + 0x10 + 4) & 0xF;
-                var roomFlags = _world.GetUWRoomFlags(roomId);
+                var roomFlags = _game.World.GetUWRoomFlags(roomId);
                 byte  tile = 0xF5;
                 if ((mapMaskByte & 0x80) == 0x80 && roomFlags.GetVisitState())
                 {
@@ -524,7 +522,7 @@ internal sealed class SubmenuType
                     var doorBit = 8;
                     for (; doorBit != 0; doorBit >>= 1)
                     {
-                        var doorType = _world.GetDoorType(roomId, (Direction)doorBit);
+                        var doorType = _game.World.GetDoorType(roomId, (Direction)doorBit);
                         if (doorType == DoorType.Open)
                         {
                             doorSum |= doorBit;
@@ -541,7 +539,7 @@ internal sealed class SubmenuType
             }
         }
 
-        var curRoomId = _world.curRoomId;
+        var curRoomId = _game.World.curRoomId;
         var playerRow = (curRoomId >> 4) & 0xF;
         var playerCol = curRoomId & 0xF;
         playerCol = (playerCol + levelInfo.DrawnMapOffset) & 0xF;

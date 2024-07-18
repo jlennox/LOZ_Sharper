@@ -6,7 +6,11 @@ internal sealed class FoodActor : Actor
 {
     private int periods;
 
-    public FoodActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Food, x, y) { }
+    public FoodActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Food, x, y)
+    {
+        Decoration = 0;
+        ObjTimer = 0xFF;
+    }
 
     public override void Update()
     {

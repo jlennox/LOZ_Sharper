@@ -93,4 +93,59 @@ internal static class Extensions
     {
         return type is ObjType.BlueFastOctorock or ObjType.BlueSlowOctorock or ObjType.BlueMoblin or ObjType.BlueLynel;
     }
+
+    public static PointF Rotate(this PointF point, float angle)
+    {
+        var x = point.X;
+        var y = point.Y;
+        var sin = Math.Sin(angle);
+        var cos = Math.Cos(angle);
+
+        // JOE: NOTE: The orignial had an unused variable of `y1` but I think
+        // that's ok, they only needed `x1` due to the reassignment.
+
+        return new PointF((float)(x * cos - y * sin), (float)(x * sin + y * cos));
+    }
+
+    public static int GetSector16(this PointF point)
+    {
+        var x = point.X;
+        var y = point.Y;
+        var sector = 0;
+
+        if (y < 0)
+        {
+            sector += 8;
+            y = -y;
+            x = -x;
+        }
+
+        if (x < 0)
+        {
+            sector += 4;
+            float temp = x;
+            x = y;
+            y = -temp;
+        }
+
+        if (x < y)
+        {
+            sector += 2;
+            float temp = y - x;
+            x = x + y;
+            y = temp;
+            // Because we're only finding out the sector, only the angle matters, not the point along it.
+            // So, we can skip multiplying x and y by 1/(2^.5)
+        }
+
+        var rotated = Rotate(new PointF(x, y), Global.NEG_PI_OVER_8);
+        x = rotated.X;
+        y = rotated.Y;
+
+        if (y > 0)
+            sector++;
+
+        sector %= 16;
+        return sector;
+    }
 }

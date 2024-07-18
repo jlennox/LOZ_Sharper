@@ -31,7 +31,7 @@ internal sealed class Link : Actor
 
     public SpriteAnimator Animator = new() { Time = 0, DurationFrames = WalkDurationFrames };
 
-    public static Span<byte> PlayerLimits => new byte[] { 0xF0, 0x00, 0xDD, 0x3D };
+    public static ReadOnlySpan<byte> PlayerLimits => new byte[] { 0xF0, 0x00, 0xDD, 0x3D };
 
     public Link(Game game, Direction facing = Direction.Up) : base(game, ObjType.Player)
     {
@@ -198,16 +198,13 @@ internal sealed class Link : Actor
         if (Moving != (int)Facing)
             return;
 
-        unchecked
-        {
-            static ReadOnlySpan<byte> ladderOffsetsX() => new byte[] { 0x10, (byte)-0x10, 0x00, 0x00 };
-            static ReadOnlySpan<byte> ladderOffsetsY() => new byte[] { 0x03, 0x03, 0x13, (byte)-0x05 };
+        static ReadOnlySpan<sbyte> ladderOffsetsX() => new sbyte[] { 0x10, -0x10, 0x00, 0x00 };
+        static ReadOnlySpan<sbyte> ladderOffsetsY() => new sbyte[] { 0x03, 0x03, 0x13, -0x05 };
 
-            var dirOrd = MovingDirection.GetOrdinal();
+        var dirOrd = MovingDirection.GetOrdinal();
 
-            var ladder = new LadderActor(Game, X + ladderOffsetsX()[dirOrd], Y + ladderOffsetsY()[dirOrd]);
-            Game.World.SetLadder(ladder);
-        }
+        var ladder = new LadderActor(Game, X + ladderOffsetsX()[dirOrd], Y + ladderOffsetsY()[dirOrd]);
+        Game.World.SetLadder(ladder);
     }
 
     private void CheckWarp()
@@ -445,9 +442,7 @@ internal sealed class Link : Actor
         if (_avoidTurningWhenDiag == 0)
             goto TakeFacingPerpDir;
 
-        if (Game.World.IsOverworld()
-            || X != 0x78
-            || Y != 0x5D)
+        if (Game.World.IsOverworld() || X != 0x78 || Y != 0x5D)
         {
             Moving = (byte)Facing;
             SetSpeed();
@@ -462,8 +457,8 @@ internal sealed class Link : Actor
         static ReadOnlySpan<byte> axisMasks() => new byte[] { 3, 3, 0xC, 0xC };
 
         var dirOrd = Facing.GetOrdinal();
-        var movingInFacingAxis = Moving & axisMasks()[dirOrd];
-        var perpMoving = Moving ^ movingInFacingAxis;
+        uint movingInFacingAxis = (uint)(Moving & axisMasks()[dirOrd]);
+        uint perpMoving = Moving ^ movingInFacingAxis;
         Facing = (Direction)perpMoving;
         Moving = (byte)perpMoving;
         SetSpeed();
@@ -601,8 +596,11 @@ internal sealed class Link : Actor
         BeHarmed(collider, damage);
     }
 
+    // JOE: NOTE: This used to have a `Point& otherMiddle` argument that was unused?
     public void BeHarmed(Actor collider, int damage)
     {
+        if (Game.GodMode) return;
+
         if (collider is not WhirlwindActor)
         {
             Game.Sound.PlayEffect(SoundEffect.PlayerHit);
@@ -847,7 +845,7 @@ internal sealed class Link : Actor
         _animTimer = 12;
         _state = 0x11;
 
-        var sword = new PlayerSword(Game, type);
+        var sword = new PlayerSwordActor(Game, type);
         Game.World.SetObject(ObjectSlot.PlayerSword, sword);
         Game.Sound.PlayEffect(SoundEffect.Sword);
         return 13;
@@ -980,8 +978,7 @@ internal sealed class Link : Actor
             ladder.state = 2;
             dir = MoveOnLadder(dir, distance);
         }
-        else if (distance != 0x10
-            || Facing != ladder.Facing)
+        else if (distance != 0x10 || Facing != ladder.Facing)
         {
             Game.World.SetLadder(null);
         }

@@ -76,7 +76,18 @@ internal abstract class Actor
     protected byte InvincibilityMask;
     protected Direction ShoveDirection = Direction.None;
     protected byte ShoveDistance = 0;
-    public Direction Facing = Direction.None;
+    public Direction Facing
+    {
+        get => _facing;
+        set {
+            if (this is Link && value == Direction.None)
+            {
+                Debugger.Break();
+            }
+            _facing = value;
+        }
+    }
+    public Direction _facing = Direction.None;
     public sbyte TileOffset = 0;
     protected byte Fraction;
     public byte Moving;
@@ -154,8 +165,8 @@ internal abstract class Actor
             ObjType.Boulder => new BoulderActor(game, x, y),
             ObjType.Ghini => new GhiniActor(game, x, y),
             ObjType.FlyingGhini => new FlyingGhiniActor(game, x, y),
-            ObjType.BlueWizzrobe => new WizzrobeActor(game, ActorColor.Blue, x, y),
-            ObjType.RedWizzrobe => new WizzrobeActor(game, ActorColor.Red, x, y),
+            ObjType.BlueWizzrobe => new BlueWizzrobeActor(game, x, y),
+            ObjType.RedWizzrobe => new RedWizzrobeActor(game, x, y),
             ObjType.PatraChild1 => new PatraChildActor(game, PatraType.Circle, x, y),
             ObjType.PatraChild2 => new PatraChildActor(game, PatraType.Spin, x, y),
             ObjType.Wallmaster => new WallmasterActor(game, x, y),
@@ -171,8 +182,7 @@ internal abstract class Actor
             ObjType.OneDodongo => DodongoActor.Make(game, 1, x, y),
             ObjType.BlueGohma => GohmaActor.Make(game, ActorColor.Blue),
             ObjType.RedGohma => GohmaActor.Make(game, ActorColor.Red),
-            ObjType.RupieStash => new RupieStashActor(game, x, y),
-            ObjType.Grumble => new GrumbleActor(game, x, y),
+            ObjType.RupieStash => RupeeStashActor.Make(game),
             ObjType.Zelda => ZeldaActor.Make(game),
             ObjType.Digdogger1 => DigdoggerActor.Make(game, x, y, 3),
             ObjType.Digdogger2 => DigdoggerActor.Make(game, x, y, 1),
@@ -283,7 +293,7 @@ internal abstract class Actor
 
     protected void InitCommonFacing()
     {
-        InitCommonFacing(X, Y, ref Facing);
+        InitCommonFacing(X, Y, ref _facing);
     }
 
     private void InitCommonFacing(int x, int y, ref Direction facing)
@@ -452,7 +462,7 @@ internal abstract class Actor
 
         if (weaponObj is PlayerSwordProjectile wave)
         {
-            if (wave.State != ProjectileState.Flying) return;
+            if (wave.state != ProjectileState.Flying) return;
         }
 
         var box = new Point(0xC, 0xC);
@@ -516,12 +526,12 @@ internal abstract class Actor
         }
     }
 
-    private static Span<byte> _swordPowers => new byte[] { 0, 0x10, 0x20, 0x40 };
+    private static ReadOnlySpan<byte> _swordPowers => new byte[] { 0, 0x10, 0x20, 0x40 };
 
     protected void CheckSword(ObjectSlot slot)
     {
-        var sword = Game.World.GetObject<PlayerWeapon>(slot);
-        if (sword == null || sword.State != 1) return;
+        var sword = Game.World.GetObject<PlayerSwordActor>(slot);
+        if (sword == null || sword.state != 1) return;
 
         var box = new Point();
         var player = Game.Link;
@@ -539,13 +549,13 @@ internal abstract class Actor
 
         var context = new CollisionContext(slot, DamageType.Sword, 0, Point.Empty);
 
-        if (this is SwordPlayerWeapon)
+        if (sword.ObjType == ObjType.PlayerSword)
         {
             var itemValue = Game.World.GetItem(ItemSlot.Sword);
             int power = _swordPowers[itemValue];
             context.Damage = power;
         }
-        else if (this is RodPlayerWeapon)
+        else if (sword.ObjType == ObjType.Rod)
         {
             context.Damage = 0x20;
         }
@@ -554,14 +564,14 @@ internal abstract class Actor
             ShoveCommon(context);
     }
 
-    private static Span<int> _arrowPowers => new[] { 0, 0x20, 0x40 };
+    private static ReadOnlySpan<int> _arrowPowers => new[] { 0, 0x20, 0x40 };
 
     protected bool CheckArrow(ObjectSlot slot)
     {
         var arrow = Game.World.GetObject<ArrowProjectile>(slot);
         if (arrow == null) return false;
 
-        if (arrow.State != ProjectileState.Flying)
+        if (arrow.state != ProjectileState.Flying)
             return false;
 
         var itemValue = Game.World.GetItem(ItemSlot.Arrow);
@@ -630,7 +640,7 @@ internal abstract class Actor
 
         if (weaponObj is BoomerangProjectile boomerang)
         {
-            boomerang.State = ProjectileState.Unknown5;
+            boomerang.state = ProjectileState.Unknown5;
 
             if ((InvincibilityMask & (int)context.DamageType) != 0)
             {
@@ -915,7 +925,7 @@ internal abstract class Actor
             return new(true, true);
         }
 
-        if (this is Fireball2Projectile || ObjType == (ObjType)0x5A ||
+        if (ObjType is ObjType.Fireball2 || ObjType == (ObjType)0x5A ||
             player.GetState() != PlayerState.Idle)
         {
             Shove(context);
@@ -1389,17 +1399,14 @@ internal abstract class Actor
         var oldActiveShots = Game.World.activeShots;
         var thisPtr = Game.World.GetObject(thisSlot);
 
-        if (shotType == ObjType.Boomerang)
-        {
-            shot = GlobalFunctions.MakeBoomerang(Game, x, y, facing, 0x51, 2.5f, thisPtr, slot);
-        }
-        else
-        {
-            shot = GlobalFunctions.MakeProjectile(Game.World, shotType, x, y, facing, slot);
-        }
+        shot = shotType == ObjType.Boomerang
+            ? GlobalFunctions.MakeBoomerang(Game, x, y, facing, 0x51, 2.5f, thisPtr, slot)
+            : GlobalFunctions.MakeProjectile(Game.World, shotType, x, y, facing, slot);
 
         if (shot == null)
+        {
             return (ObjectSlot)(-1);
+        }
 
         var newActiveShots = Game.World.activeShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)
@@ -1418,7 +1425,7 @@ internal abstract class Actor
         var newSlot = Game.World.FindEmptyMonsterSlot();
         if (newSlot >= 0)
         {
-            var fireball = new Fireball(Game, type, x + 4, y, 1.75f);
+            var fireball = new FireballProjectile(Game, type, x + 4, y, 1.75f);
             Game.World.SetObject(newSlot, fireball);
         }
     }

@@ -11,7 +11,7 @@ internal readonly record struct SpriteFrame(byte X, byte Y, byte Flags)
 // JOE: Arg. I hate this, but I couldn't think of a cleaner way to go about it.
 internal interface ILoadVariableLengthData<T>
 {
-    T DoMore(ReadOnlySpan<byte> buf);
+    T LoadVariableData(ReadOnlySpan<byte> buf);
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -21,7 +21,7 @@ internal struct SpriteAnimationStruct : ILoadVariableLengthData<SpriteAnimation>
     public byte Width;
     public byte Height;
 
-    public SpriteAnimation DoMore(ReadOnlySpan<byte> buf)
+    public SpriteAnimation LoadVariableData(ReadOnlySpan<byte> buf)
     {
         var frames = MemoryMarshal.Cast<byte, SpriteFrame>(buf)[..Length].ToArray();
         return new SpriteAnimation(this, frames);

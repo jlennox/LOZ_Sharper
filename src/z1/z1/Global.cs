@@ -77,13 +77,6 @@ internal enum ItemId
     None = MAX
 }
 
-internal sealed class ItemActor : Actor {
-    public ItemActor(Game game, ItemId itemId, int x, int y, bool isRoomItem) : base(game, x, y) { }
-
-    public override void Update() { }
-    public override void Draw() { }
-}
-
 internal readonly record struct ItemGraphics(AnimationId AnimId, Palette PaletteAttrs)
 {
     public const byte FlashPalAttr = 0x80;
@@ -212,6 +205,7 @@ internal static class GlobalFunctions
         return ItemValueToItemId(slot, profile.Items[slot]);
     }
 
+    // JOE: TODO: These should take Game to make them uniform.
     public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, ObjectSlot slot)
     {
         Actor? obj;
@@ -223,8 +217,8 @@ internal static class GlobalFunctions
             case ObjType.FlyingRock: obj = new FlyingRockProjectile(world.Game, x, y, moving); break;
             case ObjType.PlayerSwordShot: obj = new PlayerSwordProjectile(world.Game, x, y, moving); break;
             case ObjType.Arrow: obj = new ArrowProjectile(world.Game, x, y, moving); break;
-            case ObjType.MagicWave: obj = new MagicWaveProjectile(world.Game, MagicWaveType.MagicWave1, x, y, moving); break;
-            case ObjType.MagicWave2: obj = new MagicWaveProjectile(world.Game, MagicWaveType.MagicWave2, x, y, moving); break;
+            case ObjType.MagicWave: obj = new MagicWaveProjectile(world.Game, ObjType.MagicWave, x, y, moving); break;
+            case ObjType.MagicWave2: obj = new MagicWaveProjectile(world.Game, ObjType.MagicWave2, x, y, moving); break;
             default: throw new Exception();
         }
 
@@ -254,7 +248,7 @@ internal static class GlobalFunctions
             return new FairyActor(game, x, y);
         }
 
-        return new ItemActor(game, itemId, x, y, isRoomItem);
+        return new ItemObjActor(game, itemId, isRoomItem, x, y);
     }
 
     public static ItemGraphics? GetItemGraphics( int itemId )
@@ -309,9 +303,9 @@ internal static class GlobalFunctions
 
     public static void DrawString(ReadOnlySpan<byte> str, int x, int y, Palette palette)
     {
-        for (var i = 0; i < str.Length; i++)
+        foreach (var t in str)
         {
-            DrawChar(str[i], x, y, palette);
+            DrawChar(t, x, y, palette);
             x += 8;
         }
     }
@@ -419,12 +413,19 @@ internal static class GlobalFunctions
     {
         var soundId = SoundEffect.Item;
 
-        if (itemId == ItemId.Heart || itemId == ItemId.Key)
-            soundId = SoundEffect.KeyHeart;
-        else if (itemId == ItemId.FiveRupees || itemId == ItemId.Rupee)
-            soundId = SoundEffect.Cursor;
-        else if (itemId == ItemId.PowerTriforce)
-            return;
+        switch (itemId)
+        {
+            case ItemId.Heart:
+            case ItemId.Key:
+                soundId = SoundEffect.KeyHeart;
+                break;
+            case ItemId.FiveRupees:
+            case ItemId.Rupee:
+                soundId = SoundEffect.Cursor;
+                break;
+            case ItemId.PowerTriforce:
+                return;
+        }
 
         game.Sound.PlayEffect(soundId);
     }
@@ -448,7 +449,7 @@ internal static class GlobalFunctions
         while (true)
         {
             var digit = n % 10;
-            charBuf[pChar] = (byte)('0' + digit);
+            charBuf[pChar] = (byte)digit; //(byte)('0' + digit);
             pChar--;
             n /= 10;
             if (n == 0)

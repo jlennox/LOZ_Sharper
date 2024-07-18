@@ -3,8 +3,6 @@
 namespace z1;
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Text;
 using SkiaSharp;
 using z1.Actors;
 using z1.UI;
@@ -18,205 +16,6 @@ internal record Cell(byte Row, byte Col)
     public const int MobPatchCellCount = 16;
 
     public static Cell[] MakeMobPatchCell() => new Cell[MobPatchCellCount];
-};
-
-internal readonly struct TableResource<T>
-    where T : struct
-{
-    public readonly string Filename; // for debugging purposes.
-    public readonly int Length;
-    public readonly short[] Offsets;
-    public readonly byte[] Heap;
-
-    public TableResource(string filename, int length, short[] offsets, byte[] heap)
-    {
-        Filename = filename;
-        Length = length;
-        Offsets = offsets;
-        Heap = heap;
-    }
-
-    public static TableResource<T> Load(string file)
-    {
-        Span<byte> bytes = File.ReadAllBytes(Assets.Root.GetPath("out", file));
-
-        var length = BitConverter.ToInt16(bytes);
-        bytes = bytes[sizeof(short)..];
-
-        var offsetLength = length * sizeof(short);
-        var offsets = MemoryMarshal.Cast<byte, short>(bytes[..offsetLength]);
-
-        var heap = bytes[offsetLength..];
-        return new TableResource<T>(file, length, offsets.ToArray(), heap.ToArray());
-    }
-
-    public ReadOnlySpan<T> GetItem(int index)
-    {
-        if (index >= Length) return null;
-        if (Heap == null || index >= Offsets.Length) throw new Exception();
-
-        var offset = Offsets[index];
-        if (Heap.Length <= offset) throw new Exception();
-
-        return MemoryMarshal.Cast<byte, T>(Heap.AsSpan()[offset..]);
-    }
-
-    // JOE: TODO: Make this use LoadVariableLengthData?
-    public ReadOnlySpan<T> ReadLengthPrefixedItem(int index)
-    {
-        var offset = Offsets[index];
-        var offsetHeap = Heap.AsSpan()[offset..];
-        var length = MemoryMarshal.Read<int>(offsetHeap);
-        return MemoryMarshal.Cast<byte, T>(offsetHeap[sizeof(int)..length]);
-    }
-
-    // JOE: TODO: Put this into its own class so `ILoadVariableLengthData` does not need to return object.
-    public TAs LoadVariableLengthData<TAs>(int index)
-    {
-        var offset = Offsets[index];
-        if (Heap.Length <= offset) throw new Exception();
-
-        var localHeap = Heap.AsSpan()[offset..];
-        var item = MemoryMarshal.Read<T>(localHeap);
-
-        if (item is not ILoadVariableLengthData<TAs> more) throw new ArgumentOutOfRangeException();
-        return more.DoMore(localHeap[Unsafe.SizeOf<T>()..]);
-    }
-
-    public TAs GetItem<TAs>(World.Extra extra) where TAs : struct => GetItem<TAs>((int)extra);
-    public ReadOnlySpan<TAs> GetItems<TAs>(World.Extra extra) where TAs : struct => GetItems<TAs>((int)extra);
-    public TAs GetItem<TAs>(World.Sparse extra) where TAs : struct => GetItem<TAs>((int)extra);
-    public ReadOnlySpan<TAs> GetItems<TAs>(World.Sparse extra) where TAs : struct => GetItems<TAs>((int)extra);
-
-    public ReadOnlySpan<TAs> GetItems<TAs>(int index) where TAs : struct => MemoryMarshal.Cast<T, TAs>(GetItem(index));
-    public TAs GetItem<TAs>(int index) where TAs : struct => GetItems<TAs>(index)[0];
-
-    public TSparse? FindSparseAttr<TSparse>(World.Sparse attrId, int elemId)
-        where TSparse : struct
-    {
-        if (Heap == null) return null;
-        var valueArray = GetItems<byte>(attrId);
-
-        var count = valueArray[0];
-        var elemSize = valueArray[1];
-        var elem = valueArray[2..];
-
-        for (var i = 0; i < count; i++, elem = elem[elemSize..])
-        {
-            if (elem[0] == elemId)
-            {
-                return MemoryMarshal.Cast<byte, TSparse>(elem)[0];
-            }
-        }
-
-        return null;
-    }
-}
-
-internal readonly struct ListResource<T>
-    where T : struct
-{
-    public T this[int i]
-    {
-        get => _backing[i];
-        set => _backing[i] = value;
-    }
-
-    private readonly T[] _backing;
-
-    public ListResource(T[] backing)
-    {
-        _backing = backing;
-    }
-
-    public static ListResource<T> Load(string file)
-    {
-        file = Assets.Root.GetPath("out", file);
-        Span<byte> bytes = File.ReadAllBytes(file);
-        var length = BitConverter.ToInt16(bytes);
-        bytes = bytes[sizeof(short)..];
-        if (bytes.Length != length) throw new InvalidOperationException();
-        return new ListResource<T>(MemoryMarshal.Cast<byte, T>(bytes).ToArray());
-    }
-
-    public static ReadOnlySpan<T> LoadList(string file, int amount)
-    {
-        file = Assets.Root.GetPath("out", file);
-        Span<byte> bytes = File.ReadAllBytes(file);
-        return MemoryMarshal.Cast<byte, T>(bytes)[..amount];
-    }
-
-    public static T LoadSingle(string file) => LoadList(file, 1)[0];
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1, Size = Length)]
-internal unsafe struct FixedString
-{
-    private const int Length = 32;
-
-    public fixed byte Str[Length];
-
-    public bool IsNull => Str[0] == 0;
-
-    // public static implicit operator string(FixedString b) => b.ToString();
-
-    public override string ToString()
-    {
-        fixed (byte* p = Str)
-        {
-            var span = new Span<byte>(p, 32);
-            var end = span.IndexOf((byte)0);
-            return Encoding.ASCII.GetString(p, end == -1 ? Length : end);
-        }
-    }
-
-    public string FullPath()
-    {
-        return Assets.Root.GetPath("out", ToString());
-    }
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct LevelDirectory
-{
-    public FixedString LevelInfoBlock;
-    public FixedString RoomCols;
-    public FixedString ColTables;
-    public FixedString TileAttrs;
-    public FixedString TilesImage;
-    public FixedString PlayerImage;
-    public FixedString PlayerSheet;
-    public FixedString NpcImage;
-    public FixedString NpcSheet;
-    public FixedString BossImage;
-    public FixedString BossSheet;
-    public FixedString RoomAttrs;
-    public FixedString LevelInfoEx;
-    public FixedString ObjLists;
-    public FixedString Extra1;
-    public FixedString Extra2;
-    public FixedString Extra3;
-    public FixedString Extra4;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct RoomCols
-{
-    public fixed byte ColumnDesc[World.MobColumns];
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct HPAttr
-{
-    public byte Data;
-
-    public readonly int GetHP(int type)
-    {
-        return (type & 1) switch {
-            0 => Data & 0xF0,
-            _ => Data << 4
-        };
-    }
 }
 
 internal sealed class TileMap
@@ -233,135 +32,9 @@ internal sealed class TileMap
     public TileBehavior AsBehaviors(int row, int col) => (TileBehavior)_tileBehaviors[row * World.Columns + col];
 }
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct SparsePos
-{
-    public byte roomId;
-    public byte pos;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct SparsePos2
-{
-    public byte roomId;
-    public byte x;
-    public byte y;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct LevelInfoBlock
-{
-    public const int LevelPaletteCount = 8;
-    public const int LevelShortcutCount = 4;
-    public const int LevelCellarCount = 10;
-    public const int FadeLength = 4;
-    public const int FadePals = 2;
-    public const int MapLength = 16;
-    public const int PaletteCount = 8;
-    public const int PaletteLength = Global.PaletteLength;
-    public const int ForegroundPalCount = 4;
-    public const int BackgroundPalCount = 4;
-
-    public fixed byte Palettes[LevelPaletteCount * PaletteLength];
-    public byte StartY;
-    public byte StartRoomId;
-    public byte TriforceRoomId;
-    public byte BossRoomId;
-    public byte Song;
-    public byte LevelNumber;
-    public byte EffectiveLevelNumber;
-    public byte DrawnMapOffset;
-    public fixed byte CellarRoomIds[LevelCellarCount];
-    public fixed byte ShortcutPosition[LevelShortcutCount];
-    public fixed byte DrawnMap[MapLength];
-    public fixed byte Padding[2];
-    public fixed byte OutOfCellarPaletteSeq[FadeLength * FadePals * PaletteLength];
-    public fixed byte InCellarPaletteSeq[FadeLength * FadePals * PaletteLength];
-    public fixed byte DarkPaletteSeq[FadeLength * FadePals * PaletteLength];
-    public fixed byte DeathPaletteSeq[FadeLength * FadePals * PaletteLength];
-
-    public SongId SongId => (SongId)Song;
-
-    public ReadOnlySpan<byte> GetPalette(int index)
-    {
-        fixed (byte* p = Palettes)
-        {
-            return new ReadOnlySpan<byte>(p + index * PaletteLength, PaletteLength);
-        }
-    }
-
-    public ReadOnlySpan<byte> OutOfCellarPalette(int index, int fade)
-    {
-        throw new NotImplementedException();
-    }
-
-    public ReadOnlySpan<byte> InCellarPalette(int index, int fade)
-    {
-        throw new NotImplementedException();
-    }
-
-    public ReadOnlySpan<byte> DarkPalette(int index, int fade)
-    {
-        var i = index * FadePals * PaletteLength + fade * PaletteLength;;
-        fixed (byte* p = &DarkPaletteSeq[i])
-        {
-            return new ReadOnlySpan<byte>(p, PaletteLength);
-        }
-    }
-
-    public ReadOnlySpan<byte> DeathPalette(int index, int fade)
-    {
-        var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
-        fixed (byte* p = &DeathPaletteSeq[i])
-        {
-            return new ReadOnlySpan<byte>(p, PaletteLength);
-        }
-    }
-
-    public byte[][] DeathPalettes(int index)
-    {
-        // JOE: I dislike this.
-        var result = new byte[FadePals][];
-        for (var i = 0; i < FadePals; i++)
-        {
-            result[i] = DeathPalette(index, i).ToArray();
-        }
-
-        return result;
-    }
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct ObjectAttr
-{
-    [Flags]
-    public enum Type
-    {
-        CustomCollision = 1,
-        CustomDraw = 4,
-        Unknown10__ = 0x10,
-        InvincibleToWeapons = 0x20,
-        HalfWidth = 0x40,
-        Unknown80__ = 0x80,
-        WorldCollision = 0x100,
-    }
-
-    public short Data;
-
-    public readonly Type Typed => (Type)Data;
-
-    public readonly bool GetCustomCollision() => Typed.HasFlag(Type.CustomCollision);
-    public readonly bool GetUnknown10__() => Typed.HasFlag(Type.Unknown10__);
-    public readonly bool GetInvincibleToWeapons() => Typed.HasFlag(Type.InvincibleToWeapons);
-    public readonly bool GetHalfWidth() => Typed.HasFlag(Type.HalfWidth);
-    public readonly bool GetUnknown80__() => Typed.HasFlag(Type.Unknown80__);
-    public readonly bool GetWorldCollision() => Typed.HasFlag(Type.WorldCollision);
-    public readonly int GetItemDropClass() => (Data >> 9) & 7;
-}
-
 internal sealed unsafe partial class World
 {
-    private const int LevelGroups = 3;
+    public const int LevelGroups = 3;
 
     internal enum Cave
     {
@@ -386,106 +59,6 @@ internal sealed unsafe partial class World
         Overworld,
         UnderworldMain,
         UnderworldCellar,
-    };
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct SparseRoomAttr
-    {
-        public readonly byte roomId;
-        public readonly RoomAttrs attrs;
-
-        public OWRoomAttrs OWRoomAttrs => attrs;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private unsafe struct SparseMaze
-    {
-        public readonly byte roomId;
-        public readonly byte exitDir;
-        public fixed byte path[4];
-
-        public Direction ExitDirection => (Direction)exitDir;
-        public ReadOnlySpan<Direction> Paths => new[] { (Direction)path[0], (Direction)path[1], (Direction)path[2], (Direction)path[3], };
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct SparseRoomItem
-    {
-        public readonly byte roomId;
-        public readonly byte x;
-        public readonly byte y;
-        public readonly byte itemId;
-
-        public ItemId AsItemId => (ItemId)itemId;
-    }
-
-    public enum Sparse
-    {
-        ArmosStairs,
-        ArmosItem,
-        Dock,
-        Item,
-        Shortcut,
-        Maze,
-        SecretScroll,
-        Ladder,
-        Recorder,
-        Fairy,
-        RoomReplacement,
-    }
-
-    public enum Extra
-    {
-        PondColors,
-        SpawnSpots,
-        ObjAttrs,
-        CavePalettes,
-        Caves,
-        LevelPersonStringIds,
-        HitPoints,
-        PlayerDamage,
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private unsafe struct PaletteSet
-    {
-        public readonly int Length;
-        public readonly int Start;
-        public fixed byte PaletteA[LevelInfoBlock.PaletteLength];
-        public fixed byte PaletteB[LevelInfoBlock.PaletteLength];
-
-        public ReadOnlySpan<byte> GetPalette(int i)
-        {
-            fixed (byte* p = PaletteA)
-            fixed (byte* p2 = PaletteB)
-            {
-                return new ReadOnlySpan<byte>(i == 0 ? p : p2, LevelInfoBlock.PaletteLength);
-            }
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private unsafe struct CaveSpecList
-    {
-        public readonly int Count;
-        public readonly CaveSpec SpecA;
-        public readonly CaveSpec SpecB;
-
-        public readonly CaveSpec GetSpecs(int i) => i == 0 ? SpecA : SpecB;
-    };
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private unsafe struct LevelPersonStrings
-    {
-        public fixed byte StringIds[LevelGroups * (int)ObjType.PersonTypes];
-
-        public ReadOnlySpan<byte> GetStringIds(int levelTableIndex)
-        {
-            fixed (byte* p = StringIds)
-            {
-                return new ReadOnlySpan<byte>(p + levelTableIndex * (int)ObjType.PersonTypes, (int)ObjType.PersonTypes);
-            }
-        }
     }
 
     public const int MobRows = 11;
@@ -634,7 +207,7 @@ internal sealed unsafe partial class World
 
     public Link Player => Game.Link;
     public bool giveFakePlayerPos;
-    public int playerPosTimer;
+    public int playerPosTimer; // JOE: TOOD: Unused on purpose?
     public Point fakePlayerPos;
 
     public Actor?[] objects = new Actor[(int)ObjectSlot.MaxObjects];
@@ -671,14 +244,18 @@ internal sealed unsafe partial class World
     public Cell[] ghostCells = Cell.MakeMobPatchCell();
     public Cell[] armosCells = Cell.MakeMobPatchCell();
 
-    private UWRoomAttrs CurrentUWRoomAttrs => roomAttrs[curRoomId];
-    private OWRoomAttrs CurrentOWRoomAttrs => roomAttrs[curRoomId];
+    private UWRoomAttrs CurrentUWRoomAttrs => GetUWRoomAttrs(curRoomId);
+    private OWRoomAttrs CurrentOWRoomAttrs => GetOWRoomAttrs(curRoomId);
 
-    public Game Game;
+    private UWRoomAttrs GetUWRoomAttrs(int roomId) => roomAttrs[roomId];
+    private OWRoomAttrs GetOWRoomAttrs(int roomId) => roomAttrs[roomId];
+
+    public Game Game { get; }
+
     public World(Game game)
     {
         Game = game;
-        statusBar = new(this);
+        statusBar = new StatusBar(this);
         menu = new SubmenuType(game);
 
         lastMode = GameMode.Demo;
@@ -781,17 +358,14 @@ internal sealed unsafe partial class World
         if (level == 0)
         {
             LoadOverworldContext();
-            curUWBlockFlags = null;
+            curUWBlockFlags = null; // JOE: TODO: This seems wrong.
         }
         else
         {
             LoadUnderworldContext();
             wallsBmp = SKBitmap.Decode(directory.Extra2.FullPath());
             doorsBmp = SKBitmap.Decode(directory.Extra3.FullPath());
-            if (level < 7)
-                curUWBlockFlags = profile.LevelFlags1;
-            else
-                curUWBlockFlags = profile.LevelFlags2;
+            curUWBlockFlags = level < 7 ? profile.LevelFlags1 : profile.LevelFlags2;
 
             for (var i = 0; i < tileMaps.Length; i++)
             {
@@ -886,7 +460,9 @@ internal sealed unsafe partial class World
     public void Draw()
     {
         if (StatusBarVisible)
+        {
             statusBar.Draw(SubmenuOffsetY);
+        }
 
         sDrawFuncs[(int)curMode]();
     }
@@ -918,38 +494,14 @@ internal sealed unsafe partial class World
         LeaveCellar();
     }
 
-    private void Die()
-    {
-        GotoDie();
-    }
-
-    public void UnfurlLevel()
-    {
-        GotoUnfurl();
-    }
-
-    public void ChooseFile(ProfileSummarySnapshot summaries )
-    {
-        GotoFileMenu(summaries);
-    }
-
-    public void RegisterFile(ProfileSummarySnapshot summaries )
-    {
-        GotoRegisterMenu(summaries);
-    }
-
-    public void EliminateFile(ProfileSummarySnapshot summaries )
-    {
-        GotoEliminateMenu(summaries);
-    }
-
+    private void Die() => GotoDie();
+    public void UnfurlLevel() => GotoUnfurl();
+    public void ChooseFile(ProfileSummarySnapshot summaries) => GotoFileMenu(summaries);
+    public void RegisterFile(ProfileSummarySnapshot summaries) => GotoRegisterMenu(summaries);
+    public void EliminateFile(ProfileSummarySnapshot summaries) => GotoEliminateMenu(summaries);
     private bool IsPlaying() => IsPlaying(curMode);
     private static bool IsPlaying(GameMode mode) => mode is GameMode.Play or GameMode.PlayCave or GameMode.PlayCellar or GameMode.PlayShortcuts;
-
-    private bool IsPlayingCave()
-    {
-        return GetMode() == GameMode.PlayCave;
-    }
+    private bool IsPlayingCave() => GetMode() == GameMode.PlayCave;
 
     public GameMode GetMode() =>
         curMode switch
@@ -993,7 +545,9 @@ internal sealed unsafe partial class World
                     {
                         if ((i == 0 && profile.Quest == 0)
                             || (i != 0 && profile.Quest != 0))
+                        {
                             makeWhirlwind = false;
+                        }
                         break;
                     }
                 }
@@ -1151,14 +705,14 @@ internal sealed unsafe partial class World
         SetOnlyObject(slot, obj);
     }
 
-    private int FindEmptyFireSlot()
+    public ObjectSlot FindEmptyFireSlot()
     {
-        for (var i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
+        for (var i = ObjectSlot.FirstFire; i < ObjectSlot.LastFire; i++)
         {
-            if (objects[i] == null)
+            if (objects[(int)i] == null)
                 return i;
         }
-        return -1;
+        return (ObjectSlot)(-1);
     }
 
     public ref int GetObjectTimer(ObjectSlot slot) => ref objectTimers[(int)slot];
@@ -1328,7 +882,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void OnActivatedArmos(int x, int y)
+    public void OnActivatedArmos(int x, int y)
     {
         var pos = FindSparsePos2(Sparse.ArmosStairs, curRoomId);
 
@@ -1356,7 +910,7 @@ internal sealed unsafe partial class World
 
     private static ReadOnlySpan<byte> _onTouchedPowerTriforcePalette => new byte[] { 0, 0x0F, 0x10, 0x30 };
 
-    private void OnTouchedPowerTriforce()
+    public void OnTouchedPowerTriforce()
     {
         powerTriforceFanfare = true;
         Game.Link.SetState(PlayerState.Paused);
@@ -1384,9 +938,13 @@ internal sealed unsafe partial class World
         {
             var timer = Game.Link.ObjTimer;
             if ((timer & 4) > 0)
+            {
                 SetFlashPalette();
+            }
             else
+            {
                 SetLevelPalette();
+            }
         }
     }
 
@@ -1401,12 +959,16 @@ internal sealed unsafe partial class World
             {
                 if (profile.Items[ItemSlot.Arrow] != 0
                     && profile.Items[ItemSlot.Bow] != 0)
+                {
                     break;
+                }
             }
             else
             {
                 if (profile.Items[profile.SelectedItem] != 0)
+                {
                     break;
+                }
             }
 
             switch ((int)profile.SelectedItem)
@@ -1460,7 +1022,9 @@ internal sealed unsafe partial class World
         }
 
         if (!playedSound)
+        {
             Game.Sound.StopEffects();
+        }
     }
 
     private void ShowShortcutStairs(int roomId, int _tileMapIndex) // JOE: TODO: Is _tileMapIndex not being used a mistake?
@@ -1540,18 +1104,13 @@ internal sealed unsafe partial class World
                 if (c < startCol || c >= endCol)
                     continue;
 
-                int tileRef = map.Refs(r, c);
+                var tileRef = map.Refs(r, c);
                 var srcX = (tileRef & 0x0F) * TileWidth;
                 var srcY = ((tileRef & 0xF0) >> 4) * TileHeight;
 
                 var palette = (r is < 4 or >= 18 || c is < 4 or >= 28)  ? outerPalette : innerPalette;
 
-                Graphics.DrawTile(
-                    TileSheet.Background,
-                    srcX, srcY,
-                    TileWidth, TileHeight,
-                    x, y,
-                    palette, 0);
+                Graphics.DrawTile(TileSheet.Background, srcX, srcY, TileWidth, TileHeight, x, y, palette, 0);
             }
         }
 
@@ -1567,7 +1126,7 @@ internal sealed unsafe partial class World
     {
         var outerPalette = roomAttrs[roomId].GetOuterPalette();
         var baseY = above ? DoorOverlayBaseY : DoorUnderlayBaseY;
-        var uwRoomAttr = CurrentUWRoomAttrs;
+        var uwRoomAttr = GetUWRoomAttrs(roomId);
 
         for (var i = 0; i < 4; i++)
         {
@@ -1580,7 +1139,9 @@ internal sealed unsafe partial class World
                     doorState = true;
             }
             if (doorType == DoorType.Shutter && TempShutters && TempShutterRoomId == roomId)
+            {
                 doorState = true;
+            }
             var doorFace = GetDoorStateFace(doorType, doorState);
             Graphics.DrawBitmap(
                 doorsBmp,
@@ -1696,7 +1257,9 @@ internal sealed unsafe partial class World
                 Graphics.UpdatePalettes();
             }
             if (slot == ItemSlot.HeartContainers)
+            {
                 FillHearts(0x100);
+            }
         }
     }
 
@@ -1733,7 +1296,7 @@ internal sealed unsafe partial class World
     public DoorType GetDoorType(int roomId, Direction dir)
     {
         var dirOrd = dir.GetOrdinal();
-        var uwRoomAttrs = CurrentUWRoomAttrs;
+        var uwRoomAttrs = GetUWRoomAttrs(roomId);
         return uwRoomAttrs.GetDoor(dirOrd);
     }
 
@@ -1741,52 +1304,23 @@ internal sealed unsafe partial class World
     {
         // TODO: the original game does it a little different, by looking at $EE.
         return GetDoorState(roomId, doorDir)
-            || (GetDoorType((Direction)doorDir) == DoorType.Shutter
+            || (GetDoorType(doorDir) == DoorType.Shutter
                 && TempShutters && roomId == TempShutterRoomId)
             || (TempShutterDoorDir == doorDir && roomId == TempShutterRoomId);
     }
 
-    private bool GetEffectiveDoorState(Direction doorDir)
-    {
-        return GetEffectiveDoorState(curRoomId, doorDir);
-    }
-
-    public UWRoomFlags GetUWRoomFlags(int curRoomId)
-    {
-        return curUWBlockFlags[curRoomId];
-    }
-
-    public LevelInfoBlock GetLevelInfo()
-    {
-        return infoBlock;
-    }
-
-    public bool IsOverworld()
-    {
-        return infoBlock.LevelNumber == 0;
-    }
-
-    public bool DoesRoomSupportLadder()
-    {
-        return FindSparseFlag(Sparse.Ladder, curRoomId);
-    }
-
+    private bool GetEffectiveDoorState(Direction doorDir) => GetEffectiveDoorState(curRoomId, doorDir);
+    public UWRoomFlags GetUWRoomFlags(int roomId) => curUWBlockFlags[roomId];
+    public LevelInfoBlock GetLevelInfo() => infoBlock;
+    public bool IsOverworld() => infoBlock.LevelNumber == 0;
+    public bool DoesRoomSupportLadder() => FindSparseFlag(Sparse.Ladder, curRoomId);
     private TileAction GetTileAction(int tileRef) => TileAttr.GetAction(tileAttrs[tileRef]);
-
     public bool IsUWMain(int roomId) => !IsOverworld() && (roomAttrs[roomId].GetUniqueRoomId() < 0x3E);
     public bool IsUWMain() => IsUWMain(curRoomId);
     private bool IsUWCellar(int roomId) => !IsOverworld() && (roomAttrs[roomId].GetUniqueRoomId() >= 0x3E);
-    private bool IsUWCellar() => IsUWCellar(curRoomId);
-
-    private bool GotShortcut(int roomId)
-    {
-        return profile.OverworldFlags[roomId].GetShortcutState();
-    }
-
-    private bool GotSecret()
-    {
-        return profile.OverworldFlags[curRoomId].GetSecretState();
-    }
+    public bool IsUWCellar() => IsUWCellar(curRoomId);
+    private bool GotShortcut(int roomId) => profile.OverworldFlags[roomId].GetShortcutState();
+    private bool GotSecret() => profile.OverworldFlags[curRoomId].GetSecretState();
 
     public ReadOnlySpan<byte> GetShortcutRooms()
     {
@@ -1795,28 +1329,13 @@ internal sealed unsafe partial class World
         return valueArray[2..valueArray[0]];
     }
 
-    private void TakeShortcut()
-    {
-        profile.OverworldFlags[curRoomId].SetShortcutState();
-    }
-
-    public void TakeSecret()
-    {
-        profile.OverworldFlags[curRoomId].SetSecretState();
-    }
-
+    private void TakeShortcut() => profile.OverworldFlags[curRoomId].SetShortcutState();
+    public void TakeSecret() => profile.OverworldFlags[curRoomId].SetSecretState();
     public bool GotItem() => GotItem(curRoomId);
 
     public bool GotItem(int roomId)
     {
-        if (IsOverworld())
-        {
-            return profile.OverworldFlags[roomId].GetItemState();
-        }
-        else
-        {
-            return curUWBlockFlags[roomId].GetItemState();
-        }
+        return IsOverworld() ? profile.OverworldFlags[roomId].GetItemState() : curUWBlockFlags[roomId].GetItemState();
     }
 
     public void MarkItem()
@@ -1923,7 +1442,7 @@ internal sealed unsafe partial class World
         return DarkRoomFadeStep;
     }
 
-    private void BeginFadeIn()
+    public void BeginFadeIn()
     {
         if (DarkRoomFadeStep > 0)
             brightenRoom = true;
@@ -1952,6 +1471,7 @@ internal sealed unsafe partial class World
         }
     }
 
+    // JOE: TODO: Research why this is unused.
     private bool UseKey()
     {
         if (GetItem(ItemSlot.MagicKey) != 0)
@@ -2085,7 +1605,7 @@ internal sealed unsafe partial class World
                 var roomItem = FindSparseItem(Sparse.Item, roomId);
                 if (roomItem != null)
                 {
-                    var itemObj = new ItemActor(Game, roomItem.Value.AsItemId, roomItem.Value.x, roomItem.Value.y, true);
+                    var itemObj = new ItemObjActor(Game, roomItem.Value.AsItemId, true, roomItem.Value.x, roomItem.Value.y);
                     objects[(int)ObjectSlot.Item] = itemObj;
                 }
             }
@@ -2094,11 +1614,13 @@ internal sealed unsafe partial class World
         {
             if (!GotItem())
             {
-                var uwRoomAttrs = CurrentUWRoomAttrs;
+                var uwRoomAttrs = GetUWRoomAttrs(roomId);
 
                 if (uwRoomAttrs.GetSecret() != Secret.FoesItem
                     && uwRoomAttrs.GetSecret() != Secret.LastBoss)
+                {
                     AddUWRoomItem(roomId);
+                }
             }
         }
     }
@@ -2110,7 +1632,7 @@ internal sealed unsafe partial class World
 
     private void AddUWRoomItem(int roomId)
     {
-        var uwRoomAttrs = CurrentUWRoomAttrs;
+        var uwRoomAttrs = GetUWRoomAttrs(roomId);
         var itemId = uwRoomAttrs.GetItemId();
 
         if (itemId != ItemId.None)
@@ -2122,12 +1644,14 @@ internal sealed unsafe partial class World
                 pos.X = TriforcePieceX;
 
             // Arg
-            var itemObj = new ItemActor(Game, itemId, pos.X, pos.Y, true);
+            var itemObj = new ItemObjActor(Game, itemId, true, pos.X, pos.Y);
             objects[(int)ObjectSlot.Item] = itemObj;
 
             if (uwRoomAttrs.GetSecret() == Secret.FoesItem
                 || uwRoomAttrs.GetSecret() == Secret.LastBoss)
+            {
                 Game.Sound.PlayEffect(SoundEffect.RoomItem);
+            }
         }
     }
 
@@ -2220,12 +1744,12 @@ internal sealed unsafe partial class World
 
         var owLayoutFormat = tileScheme is TileScheme.Overworld or TileScheme.UnderworldCellar;
 
-        switch (tileScheme)
-        {
-            case TileScheme.Overworld: loadMobFunc = LoadOWMob; break;
-            case TileScheme.UnderworldMain: loadMobFunc = LoadUWMob; break;
-            case TileScheme.UnderworldCellar: loadMobFunc = LoadOWMob; break;
-        }
+        loadMobFunc = tileScheme switch {
+            TileScheme.Overworld => LoadOWMob,
+            TileScheme.UnderworldMain => LoadUWMob,
+            TileScheme.UnderworldCellar => LoadOWMob,
+            _ => loadMobFunc
+        };
 
         for (var i = 0; i < colCount / 2; i++)
         {
@@ -2256,18 +1780,13 @@ internal sealed unsafe partial class World
             for (var r = startRow; r < rowEnd; j++)
             {
                 var t = table[j];
-                byte tileRef;
-
-                if (owLayoutFormat)
-                    tileRef = (byte)(t & 0x3F);
-                else
-                    tileRef = (byte)(t & 0x7);
+                var tileRef = owLayoutFormat ? (byte)(t & 0x3F) : (byte)(t & 0x7);
 
                 loadMobFunc(ref map, r, c, tileRef);
 
                 var attr = tileAttrs[tileRef];
                 var action = TileAttr.GetAction(attr);
-                TileActionDel actionFunc = null;
+                TileActionDel? actionFunc = null;
 
                 if (action != 0)
                 {
@@ -2282,9 +1801,7 @@ internal sealed unsafe partial class World
                     if ((t & 0x40) != 0 && r < rowEnd)
                     {
                         loadMobFunc(ref map, r, c, tileRef);
-
-                        if (actionFunc != null)
-                            actionFunc(r, c, TileInteraction.Load);
+                        actionFunc?.Invoke(r, c, TileInteraction.Load);
                         r += 2;
                     }
                 }
@@ -2294,9 +1811,7 @@ internal sealed unsafe partial class World
                     for (var m = 0; m < repeat && r < rowEnd; m++)
                     {
                         loadMobFunc(ref map, r, c, tileRef);
-
-                        if (actionFunc != null)
-                            actionFunc(r, c, TileInteraction.Load);
+                        actionFunc?.Invoke(r, c, TileInteraction.Load);
                         r += 2;
                     }
                 }
@@ -2339,8 +1854,8 @@ internal sealed unsafe partial class World
     {
         for (var i = 0; i < count; i++)
         {
-            int row = cells[i].Row;
-            int col = cells[i].Col;
+            var row = cells[i].Row;
+            var col = cells[i].Col;
             var behavior = (byte)((int)baseBehavior + 15 - i);
             tileMaps[curTileMapIndex].Behaviors(row, col) = behavior;
             tileMaps[curTileMapIndex].Behaviors(row, col + 1) = behavior;
@@ -2879,7 +2394,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    private static Span<int> _fireballLayouts => new[] { 0x24, 0x23 };
+    private static ReadOnlySpan<int> _fireballLayouts => new[] { 0x24, 0x23 };
 
     private void UpdateStatues()
     {
@@ -3322,7 +2837,6 @@ internal sealed unsafe partial class World
         }
     }
 
-
     private void MakeCellarObjects()
     {
         static ReadOnlySpan<int> startXs() => new int[] { 0x20, 0x60, 0x90, 0xD0 };
@@ -3342,12 +2856,15 @@ internal sealed unsafe partial class World
         var owRoomAttrs = CurrentOWRoomAttrs;
         var caveIndex = owRoomAttrs.GetCaveId() - FirstCaveIndex;
 
-        var caves = extraData.GetItem<CaveSpecList>(Extra.Caves);
+        var caves = extraData.LoadVariableLengthData<CaveSpecListStruct, CaveSpecList>((int)Extra.Caves);
 
         if (caveIndex >= caves.Count)
+        {
+            throw new Exception("JOE: This logic was in the original but seems questionable?");
             return;
+        }
 
-        var cave = caves.GetSpecs(caveIndex);
+        var cave = caves[caveIndex];
         var type = (ObjType)((int)ObjType.Cave1 + caveIndex);
 
         MakePersonRoomObjects(type, cave);
@@ -3355,23 +2872,23 @@ internal sealed unsafe partial class World
 
     private void MakeUnderworldPerson(ObjType type)
     {
-        var cave = new CaveSpec();
-
-        cave.ItemA = (byte)ItemId.None;
-        cave.ItemB = (byte)ItemId.None;
-        cave.ItemC = (byte)ItemId.None;
+        var cave = new CaveSpec {
+            ItemA = (byte)ItemId.None,
+            ItemB = (byte)ItemId.None,
+            ItemC = (byte)ItemId.None
+        };
 
         var uwRoomAttrs = CurrentUWRoomAttrs;
-        var secret = (Secret)uwRoomAttrs.GetSecret();
+        var secret = uwRoomAttrs.GetSecret();
 
         if (type == ObjType.Grumble)
         {
-            cave.SetString("Grumble Grumble");
+            cave.StringId = (byte)StringId.Grumble;
             cave.DwellerType = ObjType.FriendlyMoblin;
         }
         else if (secret == Secret.MoneyOrLife)
         {
-            cave.SetString("Money or life");
+            cave.StringId = (byte)StringId.MoneyOrLife;
             cave.DwellerType = ObjType.OldMan;
             cave.ItemA = (byte)ItemId.HeartContainer;
             cave.PriceA = 1;
@@ -3392,7 +2909,7 @@ internal sealed unsafe partial class World
             var stringId = (StringId)stringIdTables.GetStringIds(levelTableIndex)[stringSlot];
 
             cave.DwellerType = ObjType.OldMan;
-            cave.SetString("I'm old man");
+            cave.StringId = (byte)stringId;
 
             if (stringId == StringId.MoreBombs)
             {
@@ -3430,7 +2947,7 @@ internal sealed unsafe partial class World
 
     private void MakeWhirlwind()
     {
-        static Span<int> teleportYs() => new[] { 0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D };
+        static ReadOnlySpan<int> teleportYs() => new[] { 0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D };
 
         if (WhirlwindTeleporting != 0)
         {
@@ -3498,7 +3015,7 @@ internal sealed unsafe partial class World
             var col = (x / 8);
             var behavior = GetTileBehavior(row, col);
 
-            if ((behavior != TileBehavior.Sand) && !CollidesTile(behavior))
+            if (behavior != TileBehavior.Sand && !CollidesTile(behavior))
                 break;
             if (y == EdgeY && x == EdgeX)
                 break;
@@ -3540,9 +3057,9 @@ internal sealed unsafe partial class World
         TryDroppingItem(obj, x, y);
     }
 
-    private static Span<int> _classBases => new[] { 0, 10, 20, 30 };
-    private static Span<int> _classRates => new[] { 0x50, 0x98, 0x68, 0x68 };
-    private static Span<int> _dropItems => new[] {
+    private static ReadOnlySpan<int> _classBases => new[] { 0, 10, 20, 30 };
+    private static ReadOnlySpan<int> _classRates => new[] { 0x50, 0x98, 0x68, 0x68 };
+    private static ReadOnlySpan<int> _dropItems => new[] {
         0x22, 0x18, 0x22, 0x18, 0x23, 0x18, 0x22, 0x22, 0x18, 0x18, 0x0F, 0x18, 0x22, 0x18, 0x0F, 0x22,
         0x21, 0x18, 0x18, 0x18, 0x22, 0x00, 0x18, 0x21, 0x18, 0x22, 0x00, 0x18, 0x00, 0x22, 0x22, 0x22,
         0x23, 0x18, 0x22, 0x23, 0x22, 0x22, 0x22, 0x18
@@ -3569,17 +3086,14 @@ internal sealed unsafe partial class World
         }
         else if (HelpDropCounter >= 0xA)
         {
-            if (HelpDropValue == 0)
-                itemId = ItemId.FiveRupees;
-            else
-                itemId = ItemId.Bomb;
+            itemId = HelpDropValue == 0 ? ItemId.FiveRupees : ItemId.Bomb;
             HelpDropCounter = 0;
             HelpDropValue = 0;
         }
         else
         {
             int r = Random.Shared.GetByte();
-            var rate = _classBases[objClass];
+            var rate = _classRates[objClass];
 
             if (r >= rate)
                 return;
@@ -3784,7 +3298,7 @@ internal sealed unsafe partial class World
 
         LoadRoom(nextRoomId, nextTileMapIndex);
 
-        var uwRoomAttrs = CurrentUWRoomAttrs;
+        var uwRoomAttrs = GetUWRoomAttrs(nextRoomId);
         if (uwRoomAttrs.IsDark() && DarkRoomFadeStep == 0)
         {
             State.Scroll.substate = ScrollState.Substates.FadeOut;
@@ -3942,7 +3456,7 @@ internal sealed unsafe partial class World
             var origShutterDoorDir = TempShutterDoorDir;
             TempShutterDoorDir = Direction.None;
             if (IsUWMain(curRoomId)
-                && (origShutterDoorDir != Direction.None)
+                && origShutterDoorDir != Direction.None
                 && GetDoorType(curRoomId, origShutterDoorDir) == DoorType.Shutter)
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);
@@ -3971,7 +3485,7 @@ internal sealed unsafe partial class World
             var behavior = GetTileBehaviorXY(Game.Link.X, Game.Link.Y + 3);
             if (behavior == TileBehavior.Cave)
             {
-                Game.Link.Y = Game.Link.Y + MobTileHeight;
+                Game.Link.Y += MobTileHeight;
                 Game.Link.Facing = Direction.Down;
 
                 State.Enter.playerFraction = 0;
@@ -4000,9 +3514,13 @@ internal sealed unsafe partial class World
             int distance;
 
             if (doorType is DoorType.Shutter or DoorType.Bombable)
+            {
                 distance = MobTileWidth * 2;
+            }
             else
+            {
                 distance = MobTileWidth;
+            }
 
             State.Enter.targetX = Game.Link.X;
             State.Enter.targetY = Game.Link.Y;
@@ -4030,10 +3548,7 @@ internal sealed unsafe partial class World
             State.Enter.timer = EnterState.StateTime;
         }
 
-        if (IsUWMain(curRoomId))
-            doorwayDir = State.Enter.scrollDir;
-        else
-            doorwayDir = Direction.None;
+        doorwayDir = IsUWMain(curRoomId) ? State.Enter.scrollDir : Direction.None;
     }
 
     private void UpdateEnter_Wait()
@@ -4100,7 +3615,9 @@ internal sealed unsafe partial class World
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
         if (State.Enter.substate != EnterState.Substates.Start)
+        {
             DrawRoomNoObjects(State.Enter.playerPriority);
+        }
     }
 
     public void GotoLoadLevel(int level, bool restartOW = false)
@@ -4115,7 +3632,7 @@ internal sealed unsafe partial class World
 
     private void SetPlayerExitPosOW(int roomId)
     {
-        var owRoomAttrs = CurrentOWRoomAttrs;
+        var owRoomAttrs = GetOWRoomAttrs(roomId);
         var exitRPos = owRoomAttrs.GetExitPosition();
 
         var col = exitRPos & 0xF;
@@ -4124,11 +3641,6 @@ internal sealed unsafe partial class World
         Game.Link.X = col * MobTileWidth;
         Game.Link.Y = row * MobTileHeight + 0xD;
     }
-
-    // string GetString(int stringId)
-    // {
-    //     return sWorld.GetString(stringId);
-    // }
 
     public ReadOnlySpan<byte> GetString(StringId stringId)
     {
@@ -4271,7 +3783,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void EndLevel()
+    public void EndLevel()
     {
         GotoEndLevel();
     }
@@ -4320,7 +3832,9 @@ internal sealed unsafe partial class World
     private void UpdateEndLevel_Flash()
     {
         if (State.EndLevel.timer == 0)
+        {
             State.EndLevel.substate += 1;
+        }
         else
         {
             var step = State.EndLevel.timer & 0x7;
@@ -4382,7 +3896,6 @@ internal sealed unsafe partial class World
             {
                 ClearScreen();
             }
-
         }
 
         using (var _ = Graphics.SetClip(left, TileMapBaseY, width, TileMapHeight))
@@ -4415,6 +3928,12 @@ internal sealed unsafe partial class World
         sWinGameFuncs[(int)State.WinGame.substate]();
     }
 
+    private static readonly byte[] winGameStr1 = new byte[] {
+        0x1d, 0x11, 0x0a, 0x17, 0x14, 0x1c, 0x24, 0x15, 0x12, 0x17, 0x14, 0x28, 0x22, 0x18, 0x1e, 0x2a,
+        0x1b, 0x8e, 0x64, 0x1d, 0x11, 0x0e, 0x24, 0x11, 0x0e, 0x1b, 0x18, 0x24, 0x18, 0x0f, 0x24, 0x11,
+        0x22, 0x1b, 0x1e, 0x15, 0x0e, 0xec
+    };
+
     private void UpdateWinGame_Start()
     {
         if (State.WinGame.timer > 0)
@@ -4427,12 +3946,8 @@ internal sealed unsafe partial class World
             statusBar.EnableFeatures(StatusBarFeatures.EquipmentAndMap, false);
 
             // A959
-            var str1 = new byte[] {
-                0x1d, 0x11, 0x0a, 0x17, 0x14, 0x1c, 0x24, 0x15, 0x12, 0x17, 0x14, 0x28, 0x22, 0x18, 0x1e, 0x2a,
-                0x1b, 0x8e, 0x64, 0x1d, 0x11, 0x0e, 0x24, 0x11, 0x0e, 0x1b, 0x18, 0x24, 0x18, 0x0f, 0x24, 0x11,
-                0x22, 0x1b, 0x1e, 0x15, 0x0e, 0xec
-            };
-            textBox1 = new TextBox(Game, str1); // FIX
+
+            textBox1 = new TextBox(Game, winGameStr1); // FIX
         }
         else if (State.WinGame.stepTimer == 0)
         {
@@ -4488,25 +4003,24 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void UpdateWinGame_Hold2()
+    private static ReadOnlySpan<byte> winGameStr2 => new byte[] {
+        0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25,
+        0x0f, 0x12, 0x17, 0x0a, 0x15, 0x15, 0x22, 0x28,
+        0xa5, 0x65,
+        0x19, 0x0e, 0x0a, 0x0c, 0x0e, 0x24, 0x1b, 0x0e,
+        0x1d, 0x1e, 0x1b, 0x17, 0x1c, 0x24, 0x1d, 0x18, 0x24, 0x11, 0x22, 0x1b, 0x1e, 0x15, 0x0e, 0x2c,
+        0xa5, 0x65, 0x65, 0x25, 0x25,
+        0x1d, 0x11, 0x12, 0x1c, 0x24, 0x0e, 0x17, 0x0d, 0x1c, 0x24, 0x1d, 0x11, 0x0e, 0x24, 0x1c, 0x1d,
+        0x18, 0x1b, 0x22, 0x2c, 0xe5
+    };
+
+private void UpdateWinGame_Hold2()
     {
         State.WinGame.timer--;
         if (State.WinGame.timer == 0)
         {
-            // AB07
-            var str2 = new byte[] {
-                0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25,
-                0x0f, 0x12, 0x17, 0x0a, 0x15, 0x15, 0x22, 0x28,
-                0xa5, 0x65,
-                0x19, 0x0e, 0x0a, 0x0c, 0x0e, 0x24, 0x1b, 0x0e,
-                0x1d, 0x1e, 0x1b, 0x17, 0x1c, 0x24, 0x1d, 0x18, 0x24, 0x11, 0x22, 0x1b, 0x1e, 0x15, 0x0e, 0x2c,
-                0xa5, 0x65, 0x65, 0x25, 0x25,
-                0x1d, 0x11, 0x12, 0x1c, 0x24, 0x0e, 0x17, 0x0d, 0x1c, 0x24, 0x1d, 0x11, 0x0e, 0x24, 0x1c, 0x1d,
-                0x18, 0x1b, 0x22, 0x2c, 0xe5
-            };
-
             State.WinGame.substate = WinGameState.Substates.Text2;
-            textBox2 = new TextBox(Game, str2, 8); // TODO
+            textBox2 = new TextBox(Game, winGameStr2.ToArray(), 8); // TODO
             textBox2.SetY(WinGameState.TextBox2Top);
         }
     }
@@ -5108,20 +4622,19 @@ internal sealed unsafe partial class World
         }
     }
 
+    private static readonly byte[][] deathRedPals = new[]
+    {
+        new byte[] {0x0F, 0x17, 0x16, 0x26 },
+        new byte[] {0x0F, 0x17, 0x16, 0x26 },
+    };
+
     private void UpdateDie_Wait1()
     {
         // TODO: the last 2 frames make the whole play area use palette 3.
 
         if (State.Death.Timer == 0)
         {
-            // TODO: Make static.
-            var redPals = new[]
-            {
-                new byte[] {0x0F, 0x17, 0x16, 0x26 },
-                new byte[] {0x0F, 0x17, 0x16, 0x26 },
-            };
-
-            SetLevelPalettes(redPals);
+            SetLevelPalettes(deathRedPals);
 
             State.Death.Step = 16;
             State.Death.Timer = 0;
@@ -5251,9 +4764,8 @@ internal sealed unsafe partial class World
         }
         else
         {
-            // static const byte GameOver[] = { 0x10, 0x0A, 0x16, 0x0E, 0x24, 0x18, 0x1F, 0x0E, 0x1B };
-            // DrawString(GameOver, sizeof GameOver, 0x60, 0x90, 0);
-            GlobalFunctions.DrawString("Game Over", 0x60, 0x90, 0); // ????
+            var gameOver = new byte[] { 0x10, 0x0A, 0x16, 0x0E, 0x24, 0x18, 0x1F, 0x0E, 0x1B };
+            GlobalFunctions.DrawString(gameOver, 0x60, 0x90, 0);
         }
     }
 
@@ -5321,10 +4833,6 @@ internal sealed unsafe partial class World
 
     private void DrawContinueQuestion()
     {
-        // byte Continue[] = { 0x0C, 0x18, 0x17, 0x1D, 0x12, 0x17, 0x1E, 0x0E };
-        // byte Save[] = { 0x1C, 0x0A, 0x1F, 0x0E, 0x24, 0x24, 0x24, 0x24 };
-        // byte Retry[] = { 0x1B, 0x0E, 0x1D, 0x1B, 0x22, 0x24, 0x24, 0x24 };
-        // byte* Strs[] = { Continue, Save, Retry };
         var strs = new[] { "Continue", "Save", "Retry" };
 
         ClearScreen();
@@ -5386,7 +4894,7 @@ internal sealed unsafe partial class World
             if (cellarRoomId >= 0x80)
                 break;
 
-            var uwRoomAttrs = CurrentUWRoomAttrs;
+            var uwRoomAttrs = GetUWRoomAttrs(cellarRoomId);
             if (mainRoomId == uwRoomAttrs.GetLeftCellarExitRoomId())
             {
                 isLeft = true;
@@ -5478,7 +4986,7 @@ internal sealed unsafe partial class World
         if (interaction != TileInteraction.Touch)
             return;
 
-        Console.WriteLine("Touch water: {0}, {1}", row, col);
+        Debug.WriteLine("Touch water: {0}, {1}", row, col);
     }
 
     private void RaftTileAction(int row, int col, TileInteraction interaction)
@@ -5488,7 +4996,7 @@ internal sealed unsafe partial class World
         if (interaction != TileInteraction.Cover)
             return;
 
-        Console.WriteLine("Cover dock: {0}, {1}", row, col);
+        Debug.WriteLine("Cover dock: {0}, {1}", row, col);
 
         if (Game.World.GetItem(ItemSlot.Raft) == 0)
             return;
@@ -5507,7 +5015,7 @@ internal sealed unsafe partial class World
             GotoStairs(behavior);
         }
 
-        Console.WriteLine("Cover cave: {0}, {1}", row, col);
+        Debug.WriteLine("Cover cave: {0}, {1}", row, col);
     }
 
     private void StairsTileAction(int row, int col, TileInteraction interaction)
@@ -5518,19 +5026,19 @@ internal sealed unsafe partial class World
         if (GetMode() == GameMode.Play)
             GotoStairs(TileBehavior.Stairs);
 
-        Console.WriteLine("Cover stairs: {0}, {1}", row, col);
+        Debug.WriteLine("Cover stairs: {0}, {1}", row, col);
     }
 
     public void GhostTileAction(int row, int col, TileInteraction interaction)
     {
-        if (interaction == TileInteraction.Push) Console.WriteLine("Push headstone: {0}, {1}", row, col);
+        if (interaction == TileInteraction.Push) Debug.WriteLine("Push headstone: {0}, {1}", row, col);
 
         CommonMakeObjectAction(ObjType.FlyingGhini, row, col, interaction, ref ghostCount, ghostCells);
     }
 
     public void ArmosTileAction(int row, int col, TileInteraction interaction)
     {
-        if (interaction == TileInteraction.Push) Console.WriteLine("Push armos: {0}, {1}", row, col);
+        if (interaction == TileInteraction.Push) Debug.WriteLine("Push armos: {0}, {1}", row, col);
 
         CommonMakeObjectAction(ObjType.Armos, row, col, interaction, ref armosCount, armosCells);
     }
@@ -5581,7 +5089,9 @@ internal sealed unsafe partial class World
             var objRow = obj.Y / TileHeight;
 
             if (objCol == col && objRow == row)
+            {
                 return;
+            }
         }
 
         var freeSlot = FindEmptyMonsterSlot();
@@ -5609,7 +5119,7 @@ internal sealed unsafe partial class World
 
         // Based on $91D6 and old implementation Player::CheckDoor.
 
-        Console.WriteLine("Push door: {0}, {1}", row, col);
+        Debug.WriteLine("Push door: {0}, {1}", row, col);
         var player = Player;
 
         var doorType = GetDoorType(player.MovingDirection);

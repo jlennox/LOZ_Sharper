@@ -1,450 +1,11 @@
 ﻿using System.Diagnostics;
 using SkiaSharp;
-using z1.Player;
 
 namespace z1.Actors;
-
-internal enum ProjectileState { Flying, Spark, Bounce, Spreading, Unknown5 = 5 }
-
-internal abstract class Projectile : Actor
-{
-    public Actor Source { get; }
-    public bool IsPlayerWeapon => Game.World.curObjectSlot > ObjectSlot.Buffer;
-
-    public Direction BounceDir;
-    public ProjectileState State;
-
-    public Projectile(Game game, int x, int y, Direction direction) : base(game, x, y)
-    {
-        // Source = source;
-    }
-
-    public virtual bool IsInShotStartState() => State == ProjectileState.Flying;
-
-    public virtual bool IsBlockedByMagicSheild => true;
-
-    public void ShotMove(int speed)
-    {
-        MoveDirection(speed, Facing);
-
-        if ((TileOffset & 7) == 0)
-        {
-            TileOffset = 0;
-        }
-    }
-
-    protected void CheckPlayer()
-    {
-        if (!IsPlayerWeapon)
-        {
-            var collision = CheckPlayerCollision();
-            if (collision.Collides)
-            {
-                IsDeleted = true;
-            }
-            else if (collision.ShotCollides)
-            {
-                TileOffset = 0;
-                State = ProjectileState.Bounce;
-                BounceDir = Game.Link.Facing;
-            }
-        }
-    }
-
-    private static readonly int[] xSpeeds = new[] { 2, -2, -1, 1 };
-    private static readonly int[] ySpeeds = new[] { -1, -1, 2, -2 };
-
-    protected void UpdateBounce()
-    {
-        var dirOrd = BounceDir.GetOrdinal();
-
-        X += xSpeeds[dirOrd];
-        Y += ySpeeds[dirOrd];
-        TileOffset += 2;
-
-        if (TileOffset >= 0x20)
-            IsDeleted = true;
-    }
-
-}
-
-internal abstract class TODOProjectile : Projectile
-{
-    protected TODOProjectile(Game game, int x, int y, Direction direction) : base(game, x, y, direction)
-    {
-    }
-
-    public override void Draw() => throw new NotImplementedException();
-    public override void Update() => throw new NotImplementedException();
-}
-
-internal sealed class FlyingRockProjectile : TODOProjectile
-{
-    public FlyingRockProjectile(Game game, int x, int y, Direction direction) : base(game, x, y, direction)
-    {
-    }
-}
-
-internal sealed class Fireball2Projectile : TODOProjectile
-{
-    public Fireball2Projectile(Game game, int x, int y, Direction direction) : base(game, x, y, direction)
-    {
-    }
-}
-
-internal sealed class PlayerSwordProjectile : Projectile
-{
-    private int _distance;
-    private readonly SpriteImage _image;
-
-    public PlayerSwordProjectile(Game game, int x, int y, Direction direction) : base(game, x, y, direction)
-    {
-        Facing = direction;
-        Decoration = 0;
-
-        var dirOrd = Facing.GetOrdinal();;
-        var animIndex = PlayerSword.swordAnimMap[dirOrd];
-        _image = new SpriteImage {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animIndex)
-        };
-    }
-
-    public override void Update()
-    {
-        switch (State)
-        {
-            case ProjectileState.Flying: UpdateFlying(); break;
-            case ProjectileState.Spreading: UpdateSpreading(); break;
-            case ProjectileState.Bounce: UpdateBounce(); break;
-        }
-    }
-
-    private void UpdateFlying()
-    {
-        if (Direction.None == CheckWorldMargin(Facing))
-        {
-            if (IsPlayerWeapon)
-                SpreadOut();
-            else
-                IsDeleted = true;
-            return;
-        }
-
-        ShotMove(0xC0);
-        CheckPlayer();
-    }
-
-    private void UpdateSpreading()
-    {
-        if (_distance == 21)
-        {
-            // The original game still drew in this frame, but we won't.
-            IsDeleted = true;
-            return;
-        }
-        _distance++;
-    }
-
-    public override void Draw()
-    {
-        var palOffset = Game.GetFrameCounter() % Global.ForegroundPalCount;
-        var palette = Palette.Player + palOffset;
-        var yOffset = Facing.IsHorizontal() ? 3 : 0;
-
-        if (State == ProjectileState.Flying)
-        {
-            var xOffset = (16 - _image.Animation.Width) / 2;
-            _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y + yOffset, palette);
-        }
-        else
-        {
-            if (_distance != 0)
-            {
-                var xOffset = 4;
-                var d = _distance - 1;
-                var left = X - 2 - d + xOffset;
-                var right = X + 2 + d + xOffset;
-                var top = Y - 2 - d + yOffset;
-                var bottom = Y + 2 + d + yOffset;
-
-                _image.Draw(TileSheet.PlayerAndItems, left, top, palette, 0);
-                _image.Draw(TileSheet.PlayerAndItems, right, top, palette, DrawingFlags.FlipHorizontal);
-                _image.Draw(TileSheet.PlayerAndItems, left, bottom, palette, DrawingFlags.FlipVertical);
-                _image.Draw(TileSheet.PlayerAndItems, right, bottom, palette,
-                    DrawingFlags.FlipHorizontal | DrawingFlags.FlipVertical);
-            }
-        }
-    }
-
-    public void SpreadOut()
-    {
-        State = ProjectileState.Spreading;
-        _distance = 0;
-        _image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Slash);
-    }
-}
-
-internal sealed class ArrowProjectile : TODOProjectile
-{
-    public ArrowProjectile(Game game, int x, int y, Direction direction) : base(game, x, y, direction)
-    {
-    }
-
-    public void SetSpark(byte frames = 3)
-    {
-        State = ProjectileState.Spark;
-        ObjTimer = frames;
-        // TODO: image.anim = Graphics.GetAnimation(Sheet_PlayerAndItems, Anim_PI_Spark);
-    }
-}
-
-internal enum MagicWaveType { MagicWave1, MagicWave2 }
-
-internal sealed class MagicWaveProjectile : TODOProjectile
-{
-    public MagicWaveProjectile(Game game, MagicWaveType type, int x, int y, Direction direction) : base(game, x, y, direction)
-    {
-    }
-
-    public void AddFire()
-    {
-        // TODO
-    }
-}
 
 internal interface IThrower
 {
     void Catch();
-}
-
-internal sealed class BoomerangProjectile : TODOProjectile, IDisposable
-{
-    private readonly int _startX;
-    private readonly int _startY;
-    private int _distanceTarget;
-    private readonly Actor _owner;
-    private float _x;
-    private float _y;
-    private readonly float _leaveSpeed;
-    private int _state = 1;
-    private int _animTimer;
-    private SpriteAnimator _animator;
-
-    public BoomerangProjectile(Game game, int x, int y, Direction direction, int distance, float speed, Actor owner) : base(game, x, y, direction)
-    {
-        // TODO: animator.anim = Graphics.GetAnimation(Sheet_PlayerAndItems, Anim_PI_Boomerang);
-        // TODO: animator.time = 0;
-        // TODO: animator.durationFrames = animator.anim->length * 2;
-
-        _startX = x;
-        _startY = y;
-        _distanceTarget = distance;
-        _owner = owner;
-        _x = x;
-        _y = y;
-        _leaveSpeed = speed;
-        _state = 1;
-        _animTimer = 3;
-
-        if (!IsPlayerWeapon())
-            ++Game.World.activeShots;
-    }
-
-    public new bool IsPlayerWeapon()
-    {
-        return Game.World.curObjSlot > (int)ObjectSlot.Buffer;
-    }
-
-    public void Dispose()
-    {
-        if (!IsPlayerWeapon())
-            --Game.World.activeShots;
-    }
-
-    new bool IsInShotStartState()
-    {
-        return _state == 1;
-    }
-
-    void SetState(int state)
-    {
-        _state = state;
-    }
-
-    public override void Update()
-    {
-        switch (_state)
-        {
-            case 1: UpdateLeaveFast(); break;
-            case 2: UpdateSpark(); break;
-            case 3: UpdateLeaveSlow(); break;
-            case 4:
-            case 5: UpdateReturn(); break;
-        }
-    }
-
-    void UpdateLeaveFast()
-    {
-        // TODO: This is all screwed up. Refer to the orignial source. Need to ref _x, _y
-        Position += MoveSimple8(Facing, _leaveSpeed).ToSize();
-
-        if (Direction.None == CheckWorldMargin(Facing))
-        {
-            _state = 2;
-            _animTimer = 3;
-            CheckCollision();
-        }
-        else
-        {
-            if (Math.Abs(_startX - X) < _distanceTarget  && Math.Abs(_startY - Y) < _distanceTarget)
-            {
-                AdvanceAnimAndCheckCollision();
-            }
-            else
-            {
-                _distanceTarget = 0x10;
-                _state = 3;
-                _animTimer = 3;
-                _animator.Time = 0;
-                CheckCollision();
-            }
-        }
-    }
-
-    void UpdateLeaveSlow()
-    {
-        var gotoNextState = true;
-
-        if ((Facing & Direction.Left) == 0 || _x >= 2)
-        {
-            if (((Direction)Moving & Direction.Left) != 0)
-                Facing = Direction.Left;
-            else if (((Direction)Moving & Direction.Right) != 0)
-                Facing = Direction.Right;
-
-            Position += MoveSimple8(Facing, 1);
-
-            _distanceTarget--;
-            if (_distanceTarget != 0)
-                gotoNextState = false;
-        }
-
-        if (gotoNextState)
-        {
-            _distanceTarget = 0x20;
-            _state = 4;
-            _animator.Time = 0;
-        }
-
-        AdvanceAnimAndCheckCollision();
-    }
-
-    void UpdateReturn()
-    {
-        if (_owner == null || _owner.Decoration != 0)
-        {
-            IsDeleted = true;
-            return;
-        }
-
-        var thrower = _owner as IThrower;
-        if (thrower == null)
-        {
-            IsDeleted = true;
-            return;
-        }
-
-        var yDist = _owner.Y - (int)Math.Floor(_y);
-        var xDist = _owner.X - (int)Math.Floor(_x);
-
-        if (Math.Abs(xDist) < 9 && Math.Abs(yDist) < 9)
-        {
-            thrower.Catch();
-            IsDeleted = true;
-        }
-        else
-        {
-            var angle = (float)Math.Atan2(yDist, xDist);
-            float speed = 2;
-
-            if (_state == 4)
-            {
-                speed = 1;
-                _distanceTarget--;
-                if (_distanceTarget == 0)
-                {
-                    _state = 5;
-                    _animator.Time = 0;
-                }
-            }
-
-            Maffs.PolarToCart(angle, speed, out var xSpeed, out var ySpeed);
-
-            _x += xSpeed;
-            _y += ySpeed;
-            X = (int)_x;
-            Y = (int)_y;
-
-            AdvanceAnimAndCheckCollision();
-        }
-    }
-
-    void UpdateSpark()
-    {
-        _animTimer--;
-        if (_animTimer == 0)
-        {
-            _state = 5;
-            _animTimer = 3;
-            _animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Boomerang);
-            _animator.Time = 0;
-        }
-        else
-        {
-            _animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Spark);
-            _animator.Time = 0;
-        }
-    }
-
-    void AdvanceAnimAndCheckCollision()
-    {
-        _animTimer--;
-        if (_animTimer == 0)
-        {
-            // The original game sets animTimer to 2.
-            // But the sound from the NSF doesn't sound right at that speed.
-            _animTimer = 11;
-            if (_owner != null && _owner.IsPlayer)
-                Game.Sound.PlayEffect(SoundEffect.Boomerang);
-        }
-
-        _animator.Advance();
-
-        CheckCollision();
-    }
-
-    void CheckCollision()
-    {
-        if (!IsPlayerWeapon())
-        {
-            var collision = CheckPlayerCollision();
-            if (collision.ShotCollides)
-            {
-                _state = 2;
-                _animTimer = 3;
-            }
-        }
-    }
-
-    public override void Draw()
-    {
-        var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
-        if (itemValue == 0)
-            itemValue = 1;
-        var pal = (_state == 2) ? Palette.RedFgPalette : (Palette.Player + itemValue - 1);
-        var xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
-        _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal);
-    }
 }
 
 internal readonly record struct WalkerSpec(AnimationId[]? AnimationMap, int AnimationTime, Palette Palette, int Speed = 0, ObjType ShotType = ObjType.None);
@@ -533,15 +94,17 @@ internal abstract class WalkerActor : Actor
             return;
         }
 
-        // TODO if (WantToShoot && Game.AddProjectile(CreateProjectile()))
-        // TODO {
-        // TODO     CurrentSpeed = 0;
-        // TODO     WantToShoot = false;
-        // TODO }
-        // TODO else
-        // TODO {
-        // TODO     CurrentSpeed = Speed;
-        // TODO }
+        var shot = Shoot(Spec.ShotType);
+        if (shot >= 0)
+        {
+            ObjTimer = 0x80;
+            CurrentSpeed = 0;
+            WantToShoot = false;
+        }
+        else
+        {
+            CurrentSpeed = Speed;
+        }
     }
 
     protected ObjectSlot Shoot(ObjType shotType)
@@ -804,28 +367,6 @@ internal sealed class OctorokActor : DelayedWanderer
     {
         return new FlyingRockProjectile(Game, X, Y, Facing);
     }
-}
-
-internal abstract class TODOActor : Actor
-{
-    protected TODOActor(Game game, int x, int y) : base(game, x, y)
-    {
-    }
-    protected TODOActor(Game game, ObjType type, int x, int y) : base(game, type, x, y)
-    {
-    }
-
-    protected TODOActor(Game game, ActorColor color, int x, int y) : base(game, x, y)
-    {
-        Color = color;
-    }
-    protected TODOActor(Game game, ActorColor color, ObjType type, int x, int y) : base(game, type, x, y)
-    {
-        Color = color;
-    }
-
-    public override void Draw() => throw new NotImplementedException();
-    public override void Update() => throw new NotImplementedException();
 }
 
 internal sealed class GleeokHeadActor : FlyingActor
@@ -1814,7 +1355,7 @@ internal sealed class ZeldaActor : Actor
     }
 }
 
-internal sealed class StandingFireActor : FireActor
+internal sealed class StandingFireActor : Actor
 {
     public override bool IsReoccuring => false;
     private readonly SpriteAnimator _animator;
@@ -1841,7 +1382,7 @@ internal sealed class StandingFireActor : FireActor
     }
 }
 
-internal sealed class GuardFireActor : FireActor
+internal sealed class GuardFireActor : Actor
 {
     public override bool IsReoccuring => false;
     SpriteAnimator animator;
@@ -2118,88 +1659,6 @@ internal sealed class DeadDummyActor : Actor
     }
 
     public override void Draw() { }
-}
-
-internal sealed class WhirlwindActor : Actor
-{
-    private byte _prevRoomId;
-    private readonly SpriteAnimator _animator = new();
-
-    public WhirlwindActor(Game game, int x, int y) : base(game, ObjType.Whirlwind, x, y) {
-        Facing = Direction.Right;
-
-       _animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.OW_Whirlwind);
-       _animator.DurationFrames = 2;
-       _animator.Time = 0;
-    }
-
-    public void SetTeleportPrevRoomId(byte roomId)
-    {
-        _prevRoomId = roomId;
-    }
-
-    public override void Update()
-    {
-        X += 2;
-
-        var player = Game.Link;
-
-        if (player.GetState() != PlayerState.Paused || Game.World.WhirlwindTeleporting == 0)
-        {
-            var thisMiddle = new Point(X + 8, Y + 5);
-            var playerMiddle = player.GetMiddle();
-
-            if (Math.Abs(thisMiddle.X - playerMiddle.X) < 14
-                && Math.Abs(thisMiddle.Y - playerMiddle.Y) < 14)
-            {
-                player.Facing = Direction.Right;
-                player.Stop();
-                player.SetState(PlayerState.Paused);
-                Game.World.WhirlwindTeleporting = 1;
-
-                player.Y = 0xF8;
-            }
-        }
-        else
-        {
-            player.X = X;
-
-            if (Game.World.WhirlwindTeleporting == 2 && X == 0x80)
-            {
-                player.SetState(PlayerState.Idle);
-                player.Y = Y;
-                Game.World.WhirlwindTeleporting = 0;
-                IsDeleted = true;
-            }
-        }
-
-        if (X >= 0xF0)
-        {
-            IsDeleted = true;
-            if (Game.World.WhirlwindTeleporting != 0)
-            {
-                Game.World.LeaveRoom(Direction.Right, _prevRoomId);
-            }
-        }
-
-        _animator.Advance();
-    }
-
-    public override void Draw()
-    {
-        var pal = Palette.Player + (Game.GetFrameCounter() & 3);
-        _animator.Draw(TileSheet.Npcs, X, Y, pal);
-    }
-}
-
-
-internal sealed class GrumbleActor : TODOActor
-{
-    public override bool ShouldStopAtPersonWall => true;
-    public override bool IsReoccuring => false;
-    public override bool IsUnderworldPerson => true;
-
-    public GrumbleActor(Game game, int x, int y) : base(game, ObjType.Grumble, x, y) { }
 }
 
 internal abstract class StdWanderer : WandererWalkerActor
@@ -3400,13 +2859,13 @@ internal sealed class FlyingGhiniActor : FlyingActor
     protected override void UpdateFullSpeedImpl()
     {
         int r = Random.Shared.GetByte();
+        var newState = r switch {
+            >= 0xA0 => 2,
+            >= 8 => 3,
+            _ => 4
+        };
 
-        if (r >= 0xA0)
-            GoToState(2, 6);
-        else if (r >= 8)
-            GoToState(3, 6);
-        else
-            GoToState(4, 6);
+        GoToState(newState, 6);
     }
 
     protected override int GetFrame()
@@ -5613,7 +5072,7 @@ internal sealed class AquamentusActor : Actor
             {
                 var obj = Game.World.GetObject((ObjectSlot)i);
 
-                if (obj == null || obj is not Fireball fireball)
+                if (obj == null || obj is not FireballProjectile fireball)
                     continue;
                 if ((Game.GetFrameCounter() & 1) == 1)
                     continue;
@@ -5630,10 +5089,6 @@ internal sealed class AquamentusActor : Actor
         mouthImage.Animation = Graphics.GetAnimation(TileSheet.Boss, mouthAnimIndex);
         Animator.Advance();
     }
-}
-
-internal sealed class Fireball : TODOActor { // JOE: TODO
-    public Fireball(Game game, ObjType type, int x, int y, float whoknows) : base(game, type, x, y) { }
 }
 
 internal sealed class DodongoActor : WandererWalkerActor
@@ -6628,53 +6083,79 @@ internal sealed class GohmaActor : Actor
     }
 }
 
-internal enum BombState { Initing, Ticking, Blasting, Fading }
-
-internal sealed class BombActor : TODOActor
+internal sealed class ArmosActor : ChaseWalkerActor
 {
-    public BombState BombState;
-
-    public BombActor(Game game, int x, int y) : base(game, ObjType.Bomb, x, y) { }
-}
-
-internal enum FireState { Moving, Standing }
-
-internal class FireActor : TODOActor
-{
-    public FireState FireState;
-
-    protected FireActor(Game game, ObjType type, int x, int y) : base(game, type, x, y) { }
-    public FireActor(Game game, int x, int y) : this(game, ObjType.Fire, x, y) { }
-}
-
-internal abstract class PlayerWeapon : TODOActor
-{
-    public int State;
-    public int Timer;
-
-    public PlayerWeapon(Game game, int x, int y, Actor source) : base(game, x, y)
+    private static readonly AnimationId[] armosAnimMap = new[]
     {
+        AnimationId.OW_Armos_Right,
+        AnimationId.OW_Armos_Left,
+        AnimationId.OW_Armos_Down,
+        AnimationId.OW_Armos_Up
+    };
+
+    private static readonly WalkerSpec armosSpec = new(armosAnimMap, 12, Palette.Red, Global.StdSpeed);
+
+    int state;
+
+    public ArmosActor(Game game, int x, int y) : base(game, ObjType.Armos, armosSpec, x, y)
+    {
+        Decoration = 0;
+        Facing = Direction.Down;
+        SetFacingAnimation();
+
+        // Set this to make up for the fact that this armos begins completely aligned with tile.
+        TileOffset = 3;
+
+        int r = Random.Shared.Next(2);
+        if (r == 0)
+            CurrentSpeed = 0x20;
+        else
+            CurrentSpeed = 0x60;
     }
-}
 
-internal sealed class SwordPlayerWeapon : PlayerWeapon
-{
-    public SwordPlayerWeapon(Game game, int x, int y, Actor source) : base(game, x, y, source)
+    public override void Update()
     {
+        var slot = Game.World.curObjectSlot;
+
+        if (state == 0)
+        {
+            // ORIGINAL: Can hit the player, but not get hit.
+            if (ObjTimer == 0)
+            {
+                state++;
+                Game.World.OnActivatedArmos(X, Y);
+            }
+        }
+        else
+        {
+            UpdateNoAnimation();
+
+            if (ShoveDirection == 0)
+            {
+                Animator.Advance();
+                CheckCollisions();
+                if (Decoration != 0)
+                {
+                    var dummy = new DeadDummyActor(Game, X, Y) {
+                        Decoration = Decoration
+                    };
+                    Game.World.SetObject(slot, dummy);
+                }
+            }
+        }
     }
-}
 
-internal sealed class RodPlayerWeapon : PlayerWeapon
-{
-    public RodPlayerWeapon(Game game, int x, int y, Actor source) : base(game, x, y, source)
+    public override void Draw()
     {
-    }
-}
-
-internal sealed class ArmosActor : TODOActor
-{
-    public ArmosActor(Game game, int x, int y) : base(game, x, y)
-    {
+        if (state == 0)
+        {
+            if ((ObjTimer & 1) == 1)
+                base.Draw();
+        }
+        else
+        {
+            base.Draw();
+        }
     }
 }
 
@@ -6767,7 +6248,6 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
     }
 }
 
-
 internal static class Statues
 {
     public enum PatternType
@@ -6826,14 +6306,6 @@ internal static class Statues
                 game.ShootFireball(ObjType.Fireball, x, y);
             }
         }
-    }
-}
-
-internal sealed class RupieStashActor : TODOActor
-{
-    public override bool IsReoccuring => false;
-    public RupieStashActor(Game game, int x, int y) : base(game, x, y)
-    {
     }
 }
 
@@ -6911,13 +6383,6 @@ internal sealed class MoblinActor : StdWanderer
             ActorColor.Red => new MoblinActor(game, ObjType.RedMoblin, redMoblinSpec, x, y),
             _ => throw new ArgumentOutOfRangeException(),
         };
-    }
-}
-
-internal sealed class WizzrobeActor : TODOActor
-{
-    public WizzrobeActor(Game game, ActorColor color, int x, int y) : base(game, x, y)
-    {
     }
 }
 

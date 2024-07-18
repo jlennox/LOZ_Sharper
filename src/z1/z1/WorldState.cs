@@ -2,17 +2,8 @@
 
 internal struct PlayState
 {
-    public enum Substates
-    {
-        Active,
-    }
-
-    public enum RoomType
-    {
-        Regular,
-        Cellar,
-        Cave,
-    }
+    public enum Substates { Active }
+    public enum RoomType { Regular, Cellar, Cave }
 
     public Substates substate;
     public int timer;

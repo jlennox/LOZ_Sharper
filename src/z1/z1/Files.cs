@@ -1,0 +1,463 @@
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
+using z1.Actors;
+
+namespace z1;
+
+internal readonly struct TableResource<T>
+    where T : struct
+{
+    public readonly string Filename; // for debugging purposes.
+    public readonly int Length;
+    public readonly short[] Offsets;
+    public readonly byte[] Heap;
+
+    public TableResource(string filename, int length, short[] offsets, byte[] heap)
+    {
+        Filename = filename;
+        Length = length;
+        Offsets = offsets;
+        Heap = heap;
+    }
+
+    public static TableResource<T> Load(string file)
+    {
+        Span<byte> bytes = File.ReadAllBytes(Assets.Root.GetPath("out", file));
+
+        var length = BitConverter.ToInt16(bytes);
+        bytes = bytes[sizeof(short)..];
+
+        var offsetLength = length * sizeof(short);
+        var offsets = MemoryMarshal.Cast<byte, short>(bytes[..offsetLength]);
+
+        var heap = bytes[offsetLength..];
+        return new TableResource<T>(file, length, offsets.ToArray(), heap.ToArray());
+    }
+
+    public ReadOnlySpan<T> GetItem(int index)
+    {
+        if (index >= Length) return null;
+        if (Heap == null || index >= Offsets.Length) throw new Exception();
+
+        var offset = Offsets[index];
+        if (Heap.Length <= offset) throw new Exception();
+
+        return MemoryMarshal.Cast<byte, T>(Heap.AsSpan()[offset..]);
+    }
+
+    // JOE: TODO: Make this use LoadVariableLengthData?
+    public ReadOnlySpan<T> ReadLengthPrefixedItem(int index)
+    {
+        var offset = Offsets[index];
+        var offsetHeap = Heap.AsSpan()[offset..];
+        var length = MemoryMarshal.Read<int>(offsetHeap);
+        return MemoryMarshal.Cast<byte, T>(offsetHeap[sizeof(int)..length]);
+    }
+
+    // JOE: TODO: Put this into its own class so `ILoadVariableLengthData` does not need to return object.
+    public TAs LoadVariableLengthData<TAs>(int index)
+    {
+        var offset = Offsets[index];
+        if (Heap.Length <= offset) throw new Exception();
+
+        var localHeap = Heap.AsSpan()[offset..];
+        var item = MemoryMarshal.Read<T>(localHeap);
+
+        if (item is not ILoadVariableLengthData<TAs> more) throw new ArgumentOutOfRangeException();
+        return more.LoadVariableData(localHeap[Unsafe.SizeOf<T>()..]);
+    }
+
+    public TAs LoadVariableLengthData<TIn, TAs>(int index)
+        where TIn : struct, ILoadVariableLengthData<TAs>
+    {
+        var offset = Offsets[index];
+        if (Heap.Length <= offset) throw new Exception();
+
+        var localHeap = Heap.AsSpan()[offset..];
+        var item = MemoryMarshal.Read<TIn>(localHeap);
+
+        return item.LoadVariableData(localHeap[Unsafe.SizeOf<TIn>()..]);
+    }
+
+    public TAs GetItem<TAs>(Extra extra) where TAs : struct => GetItem<TAs>((int)extra);
+    public ReadOnlySpan<TAs> GetItems<TAs>(Extra extra) where TAs : struct => GetItems<TAs>((int)extra);
+    public TAs GetItem<TAs>(Sparse extra) where TAs : struct => GetItem<TAs>((int)extra);
+    public ReadOnlySpan<TAs> GetItems<TAs>(Sparse extra) where TAs : struct => GetItems<TAs>((int)extra);
+
+    public ReadOnlySpan<TAs> GetItems<TAs>(int index) where TAs : struct => MemoryMarshal.Cast<T, TAs>(GetItem(index));
+    public TAs GetItem<TAs>(int index) where TAs : struct => GetItems<TAs>(index)[0];
+
+    public TSparse? FindSparseAttr<TSparse>(Sparse attrId, int elemId)
+        where TSparse : struct
+    {
+        if (Heap == null) return null;
+        var valueArray = GetItems<byte>(attrId);
+
+        var count = valueArray[0];
+        var elemSize = valueArray[1];
+        var elem = valueArray[2..];
+
+        for (var i = 0; i < count; i++, elem = elem[elemSize..])
+        {
+            if (elem[0] == elemId)
+            {
+                return MemoryMarshal.Cast<byte, TSparse>(elem)[0];
+            }
+        }
+
+        return null;
+    }
+}
+
+internal readonly struct ListResource<T>
+    where T : struct
+{
+    public T this[int i]
+    {
+        get => _backing[i];
+        set => _backing[i] = value;
+    }
+
+    private readonly T[] _backing;
+
+    public ListResource(T[] backing)
+    {
+        _backing = backing;
+    }
+
+    public static ListResource<T> Load(string file)
+    {
+        file = Assets.Root.GetPath("out", file);
+        Span<byte> bytes = File.ReadAllBytes(file);
+        var length = BitConverter.ToInt16(bytes);
+        bytes = bytes[sizeof(short)..];
+        if (bytes.Length != length) throw new InvalidOperationException();
+        return new ListResource<T>(MemoryMarshal.Cast<byte, T>(bytes).ToArray());
+    }
+
+    public static ReadOnlySpan<T> LoadList(string file, int amount)
+    {
+        file = Assets.Root.GetPath("out", file);
+        Span<byte> bytes = File.ReadAllBytes(file);
+        return MemoryMarshal.Cast<byte, T>(bytes)[..amount];
+    }
+
+    public static T LoadSingle(string file) => LoadList(file, 1)[0];
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1, Size = Length)]
+internal unsafe struct FixedString
+{
+    private const int Length = 32;
+
+    public fixed byte Str[Length];
+
+    public bool IsNull => Str[0] == 0;
+
+    // public static implicit operator string(FixedString b) => b.ToString();
+
+    public override string ToString()
+    {
+        fixed (byte* p = Str)
+        {
+            var span = new Span<byte>(p, 32);
+            var end = span.IndexOf((byte)0);
+            return Encoding.ASCII.GetString(p, end == -1 ? Length : end);
+        }
+    }
+
+    public string FullPath()
+    {
+        return Assets.Root.GetPath("out", ToString());
+    }
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct LevelDirectory
+{
+    public FixedString LevelInfoBlock;
+    public FixedString RoomCols;
+    public FixedString ColTables;
+    public FixedString TileAttrs;
+    public FixedString TilesImage;
+    public FixedString PlayerImage;
+    public FixedString PlayerSheet;
+    public FixedString NpcImage;
+    public FixedString NpcSheet;
+    public FixedString BossImage;
+    public FixedString BossSheet;
+    public FixedString RoomAttrs;
+    public FixedString LevelInfoEx;
+    public FixedString ObjLists;
+    public FixedString Extra1;
+    public FixedString Extra2;
+    public FixedString Extra3;
+    public FixedString Extra4;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal unsafe struct RoomCols
+{
+    public fixed byte ColumnDesc[World.MobColumns];
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct HPAttr
+{
+    public byte Data;
+
+    public readonly int GetHP(int type)
+    {
+        return (type & 1) switch
+        {
+            0 => Data & 0xF0,
+            _ => Data << 4
+        };
+    }
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct SparsePos
+{
+    public byte roomId;
+    public byte pos;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct SparsePos2
+{
+    public byte roomId;
+    public byte x;
+    public byte y;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal unsafe struct LevelInfoBlock
+{
+    public const int LevelPaletteCount = 8;
+    public const int LevelShortcutCount = 4;
+    public const int LevelCellarCount = 10;
+    public const int FadeLength = 4;
+    public const int FadePals = 2;
+    public const int MapLength = 16;
+    public const int PaletteCount = 8;
+    public const int PaletteLength = Global.PaletteLength;
+    public const int ForegroundPalCount = 4;
+    public const int BackgroundPalCount = 4;
+
+    public fixed byte Palettes[LevelPaletteCount * PaletteLength];
+    public byte StartY;
+    public byte StartRoomId;
+    public byte TriforceRoomId;
+    public byte BossRoomId;
+    public byte Song;
+    public byte LevelNumber;
+    public byte EffectiveLevelNumber;
+    public byte DrawnMapOffset;
+    public fixed byte CellarRoomIds[LevelCellarCount];
+    public fixed byte ShortcutPosition[LevelShortcutCount];
+    public fixed byte DrawnMap[MapLength];
+    public fixed byte Padding[2];
+    public fixed byte OutOfCellarPaletteSeq[FadeLength * FadePals * PaletteLength];
+    public fixed byte InCellarPaletteSeq[FadeLength * FadePals * PaletteLength];
+    public fixed byte DarkPaletteSeq[FadeLength * FadePals * PaletteLength];
+    public fixed byte DeathPaletteSeq[FadeLength * FadePals * PaletteLength];
+
+    public SongId SongId => (SongId)Song;
+
+    public ReadOnlySpan<byte> GetPalette(int index)
+    {
+        fixed (byte* p = Palettes)
+        {
+            return new ReadOnlySpan<byte>(p + index * PaletteLength, PaletteLength);
+        }
+    }
+
+    public ReadOnlySpan<byte> OutOfCellarPalette(int index, int fade)
+    {
+        var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
+        fixed (byte* p = &OutOfCellarPaletteSeq[i])
+        {
+            return new ReadOnlySpan<byte>(p, PaletteLength);
+        }
+    }
+
+    public ReadOnlySpan<byte> InCellarPalette(int index, int fade)
+    {
+        var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
+        fixed (byte* p = &InCellarPaletteSeq[i])
+        {
+            return new ReadOnlySpan<byte>(p, PaletteLength);
+        }
+    }
+
+    public ReadOnlySpan<byte> DarkPalette(int index, int fade)
+    {
+        var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
+        fixed (byte* p = &DarkPaletteSeq[i])
+        {
+            return new ReadOnlySpan<byte>(p, PaletteLength);
+        }
+    }
+
+    public ReadOnlySpan<byte> DeathPalette(int index, int fade)
+    {
+        var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
+        fixed (byte* p = &DeathPaletteSeq[i])
+        {
+            return new ReadOnlySpan<byte>(p, PaletteLength);
+        }
+    }
+
+    public byte[][] DeathPalettes(int index)
+    {
+        // JOE: I dislike this.
+        var result = new byte[FadePals][];
+        for (var i = 0; i < FadePals; i++)
+        {
+            result[i] = DeathPalette(index, i).ToArray();
+        }
+
+        return result;
+    }
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct ObjectAttr
+{
+    [Flags]
+    public enum Type
+    {
+        CustomCollision = 1,
+        CustomDraw = 4,
+        Unknown10__ = 0x10,
+        InvincibleToWeapons = 0x20,
+        HalfWidth = 0x40,
+        Unknown80__ = 0x80,
+        WorldCollision = 0x100,
+    }
+
+    public short Data;
+
+    public readonly Type Typed => (Type)Data;
+
+    public readonly bool GetCustomCollision() => Typed.HasFlag(Type.CustomCollision);
+    public readonly bool GetUnknown10__() => Typed.HasFlag(Type.Unknown10__);
+    public readonly bool GetInvincibleToWeapons() => Typed.HasFlag(Type.InvincibleToWeapons);
+    public readonly bool GetHalfWidth() => Typed.HasFlag(Type.HalfWidth);
+    public readonly bool GetUnknown80__() => Typed.HasFlag(Type.Unknown80__);
+    public readonly bool GetWorldCollision() => Typed.HasFlag(Type.WorldCollision);
+    public readonly int GetItemDropClass() => (Data >> 9) & 7;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct SparseRoomAttr
+{
+    public readonly byte roomId;
+    public readonly RoomAttrs attrs;
+
+    public readonly OWRoomAttrs OWRoomAttrs => attrs;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal unsafe struct SparseMaze
+{
+    public readonly byte roomId;
+    public readonly byte exitDir;
+    public fixed byte path[4];
+
+    public readonly Direction ExitDirection => (Direction)exitDir;
+    public readonly ReadOnlySpan<Direction> Paths => new[] { (Direction)path[0], (Direction)path[1], (Direction)path[2], (Direction)path[3], };
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct SparseRoomItem
+{
+    public readonly byte roomId;
+    public readonly byte x;
+    public readonly byte y;
+    public readonly byte itemId;
+
+    public ItemId AsItemId => (ItemId)itemId;
+}
+
+public enum Sparse
+{
+    ArmosStairs,
+    ArmosItem,
+    Dock,
+    Item,
+    Shortcut,
+    Maze,
+    SecretScroll,
+    Ladder,
+    Recorder,
+    Fairy,
+    RoomReplacement,
+}
+
+public enum Extra
+{
+    PondColors,
+    SpawnSpots,
+    ObjAttrs,
+    CavePalettes,
+    Caves,
+    LevelPersonStringIds,
+    HitPoints,
+    PlayerDamage,
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal unsafe struct PaletteSet
+{
+    public readonly int Length;
+    public readonly int Start;
+    public fixed byte PaletteA[LevelInfoBlock.PaletteLength];
+    public fixed byte PaletteB[LevelInfoBlock.PaletteLength];
+
+    public ReadOnlySpan<byte> GetPalette(int i)
+    {
+        // JOE: NOTE: This appears to be fixed at 2?! If so, why the length property.
+        if (Length != 2) throw new ArgumentOutOfRangeException();
+
+        fixed (byte* p = PaletteA)
+        fixed (byte* p2 = PaletteB)
+        {
+            return new ReadOnlySpan<byte>(i == 0 ? p : p2, LevelInfoBlock.PaletteLength);
+        }
+    }
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct CaveSpecListStruct : ILoadVariableLengthData<CaveSpecList>
+{
+    public readonly int Count;
+
+    public CaveSpecList LoadVariableData(ReadOnlySpan<byte> buf)
+    {
+        var frames = MemoryMarshal.Cast<byte, CaveSpec>(buf)[..Count].ToArray();
+        return new CaveSpecList(this, frames);
+    }
+}
+
+internal record CaveSpecList(CaveSpecListStruct Spec, CaveSpec[] Frames)
+{
+    public int Count => Spec.Count;
+    public CaveSpec this[int i] => Frames[i];
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal unsafe struct LevelPersonStrings
+{
+    public fixed byte StringIds[World.LevelGroups * (int)ObjType.PersonTypes];
+
+    public ReadOnlySpan<byte> GetStringIds(int levelTableIndex)
+    {
+        fixed (byte* p = StringIds)
+        {
+            return new ReadOnlySpan<byte>(p + levelTableIndex * (int)ObjType.PersonTypes, (int)ObjType.PersonTypes);
+        }
+    }
+}

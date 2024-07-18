@@ -3,13 +3,39 @@ using z1.Actors;
 
 namespace z1;
 
-internal sealed class LadderActor : TODOActor
+internal sealed class LadderActor : Actor
 {
-    public int state;
-    public Direction origDir;
-    // TODO SpriteImage image;
+    public int state = 1;
+    public Direction origDir = Direction.Down; // JOE: NOTE: This is unused in the original?
+    SpriteImage image;
 
-    public LadderActor(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+    public LadderActor(Game game, int x = 0, int y = 0) : base(game, x, y) {
+        Facing = Game.Link.Facing;
+        Decoration = 0;
+
+        image = new() {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Ladder)
+        };
+    }
+
+    int GetState()
+    {
+        return state;
+    }
+
+    private void SetState(int state)
+    {
+        this.state = state;
+    }
+
+    public override void Update()
+    {
+    }
+
+    public override void Draw()
+    {
+        image.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Player);
+    }
 }
 
 internal enum BlockObjType
@@ -30,42 +56,6 @@ internal enum BlockObjType
     Tile_WallEdge = 0xF6,
 }
 
-internal sealed class RockObj : BlockObjBase
-{
-    public RockObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
-
-    protected override byte BlockTile => (byte)BlockObjType.Tile_Rock;
-    protected override BlockObjType BlockMob => BlockObjType.Mob_Rock;
-    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Ground;
-    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Ground;
-    protected override int TimerLimit => 1;
-    protected override bool AllowHorizontal => false;
-}
-
-internal sealed class HeadstoneObj : BlockObjBase
-{
-    public HeadstoneObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
-
-    protected override byte BlockTile => (byte)BlockObjType.Tile_Headstone;
-    protected override BlockObjType BlockMob => BlockObjType.Mob_Headstone;
-    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Ground;
-    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Stairs;
-    protected override int TimerLimit => 1;
-    protected override bool AllowHorizontal => false;
-}
-
-internal sealed class BlockObj : BlockObjBase
-{
-    public BlockObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
-
-    protected override byte BlockTile => (byte)BlockObjType.Tile_Block;
-    protected override BlockObjType BlockMob => (byte)BlockObjType.Mob_Block;
-    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Tile;
-    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Tile;
-    protected override int TimerLimit => 17;
-    protected override bool AllowHorizontal => true;
-}
-
 internal abstract class BlockObjBase : Actor, IBlocksPlayer
 {
     public int timer;
@@ -74,12 +64,12 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
     public int origX;
     public int origY;
 
-    Action? CurUpdate;
+    Action? curUpdate;
 
     protected BlockObjBase(Game game, int x = 0, int y = 0) : base(game, x, y)
     {
         Decoration = 0;
-        CurUpdate = UpdateIdle;
+        curUpdate = UpdateIdle;
     }
 
     protected abstract byte BlockTile { get; }
@@ -91,7 +81,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
     public override void Draw()
     {
-        if (CurUpdate == UpdateMoving)
+        if (curUpdate == UpdateMoving)
         {
             Graphics.DrawStripSprite16X16(TileSheet.Background, BlockTile, X, Y, Game.World.GetInnerPalette());
         }
@@ -99,7 +89,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
     public CollisionResponse CheckCollision()
     {
-        if (CurUpdate != UpdateMoving) return CollisionResponse.Unknown;
+        if (curUpdate != UpdateMoving) return CollisionResponse.Unknown;
 
         var player = Game.Link;
         if (player == null) return CollisionResponse.Unknown;
@@ -117,7 +107,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
     public override void Update()
     {
-        var fun = CurUpdate ?? throw new Exception("CurUpdate is null");
+        var fun = curUpdate ?? throw new Exception("CurUpdate is null");
         fun();
     }
 
@@ -178,7 +168,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
                 Facing = dir;
                 origX = X;
                 origY = Y;
-                CurUpdate = UpdateMoving;
+                curUpdate = UpdateMoving;
             }
         }
         else
@@ -210,6 +200,461 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
             Game.World.SetMobXY(X, Y, BlockMob);
             Game.World.SetMobXY(origX, origY, FloorMob2);
             IsDeleted = true;
+        }
+    }
+}
+
+internal sealed class RockObj : BlockObjBase
+{
+    public RockObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+
+    protected override byte BlockTile => (byte)BlockObjType.Tile_Rock;
+    protected override BlockObjType BlockMob => BlockObjType.Mob_Rock;
+    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Ground;
+    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Ground;
+    protected override int TimerLimit => 1;
+    protected override bool AllowHorizontal => false;
+}
+
+internal sealed class HeadstoneObj : BlockObjBase
+{
+    public HeadstoneObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+
+    protected override byte BlockTile => (byte)BlockObjType.Tile_Headstone;
+    protected override BlockObjType BlockMob => BlockObjType.Mob_Headstone;
+    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Ground;
+    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Stairs;
+    protected override int TimerLimit => 1;
+    protected override bool AllowHorizontal => false;
+}
+
+internal sealed class BlockObj : BlockObjBase
+{
+    public BlockObj(Game game, int x = 0, int y = 0) : base(game, x, y) { }
+
+    protected override byte BlockTile => (byte)BlockObjType.Tile_Block;
+    protected override BlockObjType BlockMob => (byte)BlockObjType.Mob_Block;
+    protected override BlockObjType FloorMob1 => BlockObjType.Mob_Tile;
+    protected override BlockObjType FloorMob2 => BlockObjType.Mob_Tile;
+    protected override int TimerLimit => 17;
+    protected override bool AllowHorizontal => true;
+}
+
+internal enum FireState { Moving, Standing }
+
+internal class FireActor : Actor
+{
+    public FireState state;
+    SpriteAnimator animator;
+
+    public FireActor(Game game, int x, int y) : base(game, ObjType.Fire, x, y)
+    {
+        animator = new() {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire),
+            Time = 0,
+            DurationFrames = 8
+        };
+
+        Decoration = 0;
+    }
+
+    private void SetMoving(Direction dir)
+    {
+        Facing = dir;
+    }
+
+    FireState GetLifetimeState()
+    {
+        return state;
+    }
+
+    public void SetLifetimeState(FireState state)
+    {
+        this.state = state;
+
+        if (state == FireState.Standing)
+        {
+            Game.World.BeginFadeIn();
+        }
+    }
+
+    Point GetMiddle()
+    {
+        return new Point(X + 8, Y + 8);
+    }
+
+    public override void Update()
+    {
+        if (state == FireState.Moving)
+        {
+            var origOffset = TileOffset;
+            TileOffset = 0;
+            MoveDirection(0x20, Facing);
+            TileOffset += origOffset;
+
+            if (Math.Abs(TileOffset) == 0x10)
+            {
+                ObjTimer = 0x3F;
+                state = FireState.Standing;
+                Game.World.BeginFadeIn();
+            }
+        }
+        else
+        {
+            if (ObjTimer == 0)
+            {
+                IsDeleted = true;
+                return;
+            }
+        }
+
+        animator.Advance();
+
+        CheckCollisionWithPlayer();
+    }
+
+    // F8D9
+    private void CheckCollisionWithPlayer()
+    {
+        var player = Game.Link;
+
+        if (player.InvincibilityTimer == 0)
+        {
+            Point objCenter = GetMiddle();
+            Point playerCenter = player.GetMiddle();
+            Point box = new Point(0xE, 0xE);
+
+            if (!DoObjectsCollide(objCenter, playerCenter, box, out var distance))
+                return;
+
+            // JOE: NOTE: This came out pretty different.
+            CollisionContext context = new(ObjectSlot.NoneFound, DamageType.Fire, 0, distance);
+
+            Shove(context);
+            player.BeHarmed(this, 0x0080);
+        }
+    }
+
+    public override void Draw()
+    {
+        animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.RedFgPalette);
+    }
+}
+
+internal sealed class TreeActor : Actor
+{
+    public TreeActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Tree, x, y)
+    {
+    }
+
+    public override void Update()
+    {
+        for (var i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
+        {
+            var gameObj = Game.World.GetObject((ObjectSlot)i);
+            if (gameObj is not FireActor fire) continue;
+            if (fire.IsDeleted || fire.state != FireState.Standing || fire.ObjTimer != 2) continue;
+
+            // TODO: This is repeated a lot. Make generic.
+            if (Math.Abs(fire.X - X) >= 16 || Math.Abs(fire.Y - Y) >= 16) continue;
+
+            Game.World.SetMobXY(X, Y, BlockObjType.Mob_Stairs);
+            Game.World.TakeSecret();
+            Game.Sound.PlayEffect(SoundEffect.Secret);
+            IsDeleted = true;
+            return;
+        }
+    }
+
+    public override void Draw() { }
+}
+
+internal enum BombState { Initing, Ticking, Blasting, Fading }
+
+internal sealed class BombActor : Actor
+{
+    private const int Clouds = 4;
+    private const int CloudFrames = 2;
+
+    private static readonly Point[][] cloudPositions = new[]
+    {
+        new[] {
+            new Point(0, 0 ),
+            new Point(-13, 0 ),
+            new Point(7, -13 ),
+            new Point(-7, 14),
+        },
+
+        new[] {
+            new Point(0, 0 ),
+            new Point(13, 0 ),
+            new Point(-7, -13 ),
+            new Point(7, 14),
+        }
+    };
+
+    public BombState BombState = BombState.Initing;
+
+    SpriteAnimator animator;
+
+    public BombActor(Game game, int x, int y) : base(game, ObjType.Bomb, x, y)
+    {
+        Facing = Game.Link.Facing;
+        Decoration = 0;
+        animator = new() {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.BombItem),
+            Time = 0,
+            DurationFrames = 1
+        };
+    }
+
+    private static readonly byte[] times = new byte[] { 0x30, 0x18, 0xC, 0 };
+
+    public override void Update()
+    {
+
+        if ( ObjTimer == 0 )
+        {
+            ObjTimer = times[(int)BombState];
+            BombState++;
+
+            if (BombState == BombState.Blasting )
+            {
+                animator.Animation = Graphics.GetAnimation( TileSheet.PlayerAndItems, AnimationId.Cloud );
+                animator.Time = 0;
+                animator.DurationFrames = animator.Animation.Length;
+                Game.Sound.PlayEffect( SoundEffect.Bomb );
+            }
+            else if (BombState == BombState.Fading )
+            {
+                animator.AdvanceFrame();
+            }
+            else if (BombState > BombState.Fading )
+            {
+                IsDeleted = true;
+                ObjTimer = 0;
+                return;
+            }
+        }
+
+        if (BombState == BombState.Blasting)
+        {
+            switch (ObjTimer)
+            {
+                case 0x16: Graphics.EnableGrayscale(); break;
+                case 0x12: Graphics.DisableGrayscale(); break;
+                case 0x11: Graphics.EnableGrayscale(); break;
+                case 0x0D: Graphics.DisableGrayscale(); break;
+            }
+        }
+    }
+
+    public override void Draw()
+    {
+        if (BombState == BombState.Ticking )
+        {
+            int offset = (16 - animator.Animation.Width) / 2;
+            animator.Draw( TileSheet.PlayerAndItems, X + offset, Y, Palette.BlueFgPalette );
+        }
+        else
+        {
+            var positions = cloudPositions[ObjTimer % CloudFrames];
+
+            for ( int i = 0; i < Clouds; i++ )
+            {
+                animator.Draw(
+                    TileSheet.PlayerAndItems, X + positions[i].X, Y + positions[i].Y, Palette.BlueFgPalette );
+            }
+        }
+    }
+}
+
+internal sealed class RockWallActor : Actor
+{
+    public RockWallActor(Game game, int x = 0, int y = 0) : base(game, x, y)
+    {
+    }
+
+    public override void Update()
+    {
+        for (var i = (int)ObjectSlot.FirstBomb; i < (int)ObjectSlot.LastBomb; i++)
+        {
+            var gameObj = Game.World.GetObject((ObjectSlot)i);
+            if (gameObj is not BombActor bomb) continue;
+            if (bomb.IsDeleted || bomb.BombState != BombState.Blasting) continue;
+
+            // TODO: This is repeated a lot. Make generic.
+            if (Math.Abs(bomb.X - X) >= 16 || Math.Abs(bomb.Y - Y) >= 16) continue;
+
+            Game.World.SetMobXY(X, Y, BlockObjType.Mob_Cave);
+            Game.World.TakeSecret();
+            Game.Sound.PlayEffect(SoundEffect.Secret);
+            IsDeleted = true;
+            return;
+        }
+    }
+
+    public override void Draw() { }
+}
+
+internal sealed class PlayerSwordActor : Actor
+{
+    private const int DirCount = 4;
+    private const int SwordStates = 5;
+    private const int LastSwordState = SwordStates - 1;
+
+    private static readonly Point[][] swordOffsets = new Point[][]
+    {
+        new[] { new Point(-8, -11), new Point(0, -11), new Point(1, -14), new Point(-1, -9) },
+        new[] { new Point(11, 3), new Point(-11, 3), new Point(1, 13), new Point(-1, -10) },
+        new[] { new Point(7, 3), new Point(-7, 3), new Point(1, 9), new Point(-1, -9) },
+        new[] { new Point(3, 3), new Point(-3, 3), new Point(1, 5), new Point(-1, -1) }
+    };
+
+    public static readonly AnimationId[] swordAnimMap =
+    {
+        AnimationId.Sword_Right,
+        AnimationId.Sword_Left,
+        AnimationId.Sword_Down,
+        AnimationId.Sword_Up
+    };
+
+    private static readonly AnimationId[] rodAnimMap =
+    {
+        AnimationId.Wand_Right,
+        AnimationId.Wand_Left,
+        AnimationId.Wand_Down,
+        AnimationId.Wand_Up,
+    };
+
+    private static readonly byte[] swordStateDurations = new byte[] { 5, 8, 1, 1, 1 };
+
+    public int state;
+    private int timer;
+    private SpriteImage image = new();
+
+    public PlayerSwordActor(Game game, ObjType type, int x = 0, int y = 0) : base(game, x, y)
+    {
+        ObjType = type;
+
+        Put();
+        timer = swordStateDurations[state];
+        Decoration = 0;
+    }
+
+    int GetState()
+    {
+        return state;
+    }
+
+    void Put()
+    {
+        var player = Game.Link;
+        var facingDir = player.Facing;
+        X = player.X;
+        Y = player.Y;
+
+        var dirOrd = facingDir.GetOrdinal();
+        var offset = swordOffsets[state][dirOrd];
+        X += offset.X;
+        Y += offset.Y;
+        Facing = facingDir;
+
+        var animMap = ObjType == ObjType.Rod ? rodAnimMap : swordAnimMap;
+
+        var animIndex = animMap[dirOrd];
+        image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animIndex);
+    }
+
+    void TryMakeWave()
+    {
+        if (state == 2)
+        {
+            var makeWave = false;
+            var wave = Game.World.GetObject(ObjectSlot.PlayerSwordShot);
+
+            if (ObjType == ObjType.Rod)
+            {
+                if (wave == null || wave.ObjType != ObjType.MagicWave)
+                {
+                    makeWave = true;
+                    Game.Sound.PlayEffect(SoundEffect.MagicWave);
+                }
+            }
+            else
+            {
+                if (wave == null)
+                {
+                    // The original game skips checking hearts, and shoots, if [$529] is set.
+                    // But, I haven't found any code that sets it.
+
+                    var profile = Game.World.GetProfile();
+                    var neededHeartsValue = (profile.Items[ItemSlot.HeartContainers] << 8) - 0x80;
+
+                    if (profile.Hearts >= neededHeartsValue)
+                    {
+                        makeWave = true;
+                        Game.Sound.PlayEffect(SoundEffect.SwordWave);
+                    }
+                }
+            }
+
+            if (makeWave)
+                MakeWave();
+        }
+    }
+
+    void MakeWave()
+    {
+        var player = Game.Link;
+        var x = player.X;
+        var y = player.Y;
+        var dir = player.Facing;
+
+        MoveSimple(ref x, ref y, dir, 0x10);
+
+        if (dir.IsVertical() || (x >= 0x14 && x < 0xEC))
+        {
+            var type = ObjType == ObjType.Rod ? ObjType.MagicWave : ObjType.PlayerSwordShot;
+            var wave = GlobalFunctions.MakeProjectile(Game.World, type, x, y, dir, ObjectSlot.PlayerSwordShot);
+
+            Game.World.SetObject(ObjectSlot.PlayerSwordShot, wave);
+            wave.TileOffset = player.TileOffset;
+        }
+    }
+
+    public override void Update()
+    {
+        timer--;
+
+        if (timer == 0)
+        {
+            if (state == LastSwordState)
+            {
+                IsDeleted = true;
+                return;
+            }
+            state++;
+            timer = swordStateDurations[state];
+            // The original game does this: player.animTimer := timer
+            // But, we do it differently. The player handles all of its animation.
+        }
+
+        if (state < LastSwordState)
+        {
+            Put();
+            TryMakeWave();
+        }
+    }
+
+    public override void Draw()
+    {
+        if (state > 0 && state < LastSwordState)
+        {
+            var weaponValue = Game.World.GetItem(ItemSlot.Sword);
+            var palette = (ObjType == ObjType.Rod) ? Palette.BlueFgPalette : (Palette.Player + weaponValue - 1);
+            var xOffset = (16 - image.Animation.Width) / 2;
+            image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y, palette);
         }
     }
 }
@@ -271,109 +716,181 @@ internal struct CaveSpec
     public void SetShowItems() { ItemC |= 0x40; }
 }
 
-internal sealed class TextBox
+internal sealed class ItemObjActor : Actor
 {
-    public const int StartX = 0x20;
-    public const int StartY = 0x68;
-    public const int CharDelay = 6;
+    private static readonly ObjectSlot[] weaponSlots = new[] { ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow };
 
-    private int _left = StartX;
-    private int _top = StartY;
-    private int _height = 8;
-    private readonly int _charDelay;
-    private int _charTimer = 0;
-    private bool _drawingDialog = true;
-    private readonly Game _game;
-    private string _text;
-    public int _currentIndex = 0;
-    private byte[] startCharPtr;
-    private int curCharIndex;
+    ItemId itemId;
+    bool isRoomItem;
+    int timer;
 
-    public TextBox(Game game, byte[] text, int delay = CharDelay)
+    public ItemObjActor(Game game, ItemId itemId, bool isRoomItem, int x = 0, int y = 0) : base(game, ObjType.Item, x, y)
     {
-        _game = game;
-        startCharPtr = text;
-        _charDelay = Game.SpeedUp ? 1 : delay;
+        this.itemId = itemId;
+        this.isRoomItem = isRoomItem;
+
+        if (!isRoomItem)
+            timer = 0x1FF;
     }
 
-    public void Reset(byte[] text)
+    bool TouchesObject(Actor obj)
     {
-        _drawingDialog = true;
-        _charTimer = 0;
-        startCharPtr = text;
-        _currentIndex = 0;
+        int distanceX = Math.Abs(obj.X + 0 - X);
+        int distanceY = Math.Abs(obj.Y + 3 - Y);
+
+        return distanceX <= 8
+            && distanceY <= 8;
     }
 
-    public bool IsDone() => !_drawingDialog;
-    public int GetHeight() => _height;
-    public int GetX() => _left;
-    public int GetY() => _top;
-    public void SetX(int x) => _left = x;
-    public void SetY(int y) => _top = y;
-
-    public void Update()
+    public override void Update()
     {
-        if (!_drawingDialog)
-            return;
-
-        if (_charTimer == 0)
+        if (!isRoomItem)
         {
-            byte ch;
-
-            do
+            timer--;
+            if (timer == 0)
             {
-                var curCharPtr = startCharPtr[curCharIndex];
-                ch = (byte)(curCharPtr & 0x3F);
-                var attr = (byte)(curCharPtr & 0xC0);
-                if (attr == 0xC0)
-                {
-                    _drawingDialog = false;
-                }
-                else if (attr != 0)
-                {
-                    _height += 8;
-                }
-
-                curCharIndex++;
-                if (ch != (int)Char.JustSpace)
-                {
-                    _game.Sound.PlayEffect(SoundEffect.Character);
-                }
-            } while (_drawingDialog && ch == (int)Char.JustSpace);
-            _charTimer = _charDelay - 1;
-        }
-        else
-        {
-            _charTimer--;
-        }
-    }
-
-    public void Draw()
-    {
-        var x = _left;
-        var y = _top;
-
-        for (var i = 0; i < curCharIndex; i++ )
-        {
-            var chr = startCharPtr[i];
-            var attr = chr & 0xC0;
-            var ch = chr & 0x3F;
-
-            if (ch != (int)Char.JustSpace)
-            {
-                GlobalFunctions.DrawChar((byte)ch, x, y, 0);
+                IsDeleted = true;
+                return;
             }
-
-            if (attr == 0)
+            else if (timer >= 0x1E0)
             {
-                x += 8;
+                return;
+            }
+        }
+
+        bool touchedItem = false;
+
+        if (TouchesObject(Game.Link))
+        {
+            touchedItem = true;
+        }
+        else if (!isRoomItem)
+        {
+
+            for (int i = 0; i < weaponSlots.Length; i++)
+            {
+                var slot = weaponSlots[i];
+                var obj = Game.World.GetObject(slot);
+                if (obj != null && !obj.IsDeleted && TouchesObject(obj))
+                {
+                    touchedItem = true;
+                    break;
+                }
+            }
+        }
+
+        if (touchedItem)
+        {
+            if (isRoomItem)
+                Game.World.MarkItem();
+
+            IsDeleted = true;
+
+            if (itemId == ItemId.PowerTriforce)
+            {
+                Game.World.OnTouchedPowerTriforce();
+                Game.Sound.PlayEffect(SoundEffect.RoomItem);
             }
             else
             {
-                x = StartX;
-                y += 8;
+                Game.World.AddItem(itemId);
+
+                if (itemId == ItemId.TriforcePiece)
+                {
+                    Game.World.EndLevel();
+                }
+                else if (Game.World.IsUWCellar())
+                {
+                    Game.World.LiftItem(itemId);
+                    Game.Sound.PushSong(SongId.ItemLift);
+                }
             }
         }
+    }
+
+    public override void Draw()
+    {
+        if (isRoomItem
+            || timer < 0x1E0
+            || (timer & 2) != 0)
+        {
+            GlobalFunctions.DrawItemWide(Game, itemId, X, Y);
+        }
+    }
+}
+
+internal sealed class WhirlwindActor : Actor
+{
+    private byte _prevRoomId;
+    private readonly SpriteAnimator _animator;
+
+    public WhirlwindActor(Game game, int x, int y) : base(game, ObjType.Whirlwind, x, y)
+    {
+        Facing = Direction.Right;
+
+        _animator = new() {
+            Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.OW_Whirlwind),
+            DurationFrames = 2,
+            Time = 0
+        };
+    }
+
+    public void SetTeleportPrevRoomId(byte roomId)
+    {
+        _prevRoomId = roomId;
+    }
+
+    public override void Update()
+    {
+        X += 2;
+
+        var player = Game.Link;
+
+        if (player.GetState() != PlayerState.Paused || Game.World.WhirlwindTeleporting == 0)
+        {
+            var thisMiddle = new Point(X + 8, Y + 5);
+            var playerMiddle = player.GetMiddle();
+
+            if (Math.Abs(thisMiddle.X - playerMiddle.X) < 14
+                && Math.Abs(thisMiddle.Y - playerMiddle.Y) < 14)
+            {
+                player.Facing = Direction.Right;
+                player.Stop();
+                player.SetState(PlayerState.Paused);
+                Game.World.WhirlwindTeleporting = 1;
+
+                player.Y = 0xF8;
+            }
+        }
+        else
+        {
+            player.X = X;
+
+            if (Game.World.WhirlwindTeleporting == 2 && X == 0x80)
+            {
+                player.SetState(PlayerState.Idle);
+                player.Y = Y;
+                Game.World.WhirlwindTeleporting = 0;
+                IsDeleted = true;
+            }
+        }
+
+        if (X >= 0xF0)
+        {
+            IsDeleted = true;
+            if (Game.World.WhirlwindTeleporting != 0)
+            {
+                Game.World.LeaveRoom(Direction.Right, _prevRoomId);
+            }
+        }
+
+        _animator.Advance();
+    }
+
+    public override void Draw()
+    {
+        var pal = Palette.Player + (Game.GetFrameCounter() & 3);
+        _animator.Draw(TileSheet.Npcs, X, Y, pal);
     }
 }
 
@@ -463,60 +980,4 @@ internal sealed class DockActor : Actor
             _raftImage.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Player);
         }
     }
-}
-
-internal sealed class TreeActor : Actor
-{
-    public TreeActor(Game game, int x = 0, int y = 0) : base(game, x, y)
-    {
-    }
-
-    public override void Update()
-    {
-        for (var i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
-        {
-            var gameObj = Game.World.GetObject((ObjectSlot)i);
-            if (gameObj is not FireActor fire) continue;
-            if (fire.IsDeleted || fire.FireState != FireState.Standing || fire.ObjTimer != 2) continue;
-
-            // TODO: This is repeated a lot. Make generic.
-            if (Math.Abs(fire.X - X) >= 16 || Math.Abs(fire.Y - Y) >= 16) continue;
-
-            Game.World.SetMobXY(X, Y, BlockObjType.Mob_Stairs);
-            Game.World.TakeSecret();
-            Game.Sound.PlayEffect(SoundEffect.Secret);
-            IsDeleted = true;
-            return;
-        }
-    }
-
-    public override void Draw() { }
-}
-
-internal sealed class RockWallActor : Actor
-{
-    public RockWallActor(Game game, int x = 0, int y = 0) : base(game, x, y)
-    {
-    }
-
-    public override void Update()
-    {
-        for (var i = (int)ObjectSlot.FirstBomb; i < (int)ObjectSlot.LastBomb; i++)
-        {
-            var gameObj = Game.World.GetObject((ObjectSlot)i);
-            if (gameObj is not BombActor bomb) continue;
-            if (bomb.IsDeleted || bomb.BombState != BombState.Blasting) continue;
-
-            // TODO: This is repeated a lot. Make generic.
-            if (Math.Abs(bomb.X - X) >= 16 || Math.Abs(bomb.Y - Y) >= 16) continue;
-
-            Game.World.SetMobXY(X, Y, BlockObjType.Mob_Cave);
-            Game.World.TakeSecret();
-            Game.Sound.PlayEffect(SoundEffect.Secret);
-            IsDeleted = true;
-            return;
-        }
-    }
-
-    public override void Draw() { }
 }

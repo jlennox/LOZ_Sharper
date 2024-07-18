@@ -1,7 +1,6 @@
-﻿using z1.Actors;
-using z1.Player;
+﻿using z1.Player;
 
-namespace z1;
+namespace z1.Actors;
 
 internal sealed class PersonActor : Actor
 {
@@ -14,21 +13,22 @@ internal sealed class PersonActor : Actor
         WaitingForStairs,
     };
 
-    const int ItemY = 0x98;
-    const int PriceY = 0xB0;
+    private const int ItemY = 0x98;
+    private const int PriceY = 0xB0;
+
     private static readonly byte[] itemXs = new byte[] { 0x58, 0x78, 0x98 };
     private static readonly byte[] priceXs = new byte[] { 0x48, 0x68, 0x88 };
 
     private static readonly ItemGraphics[] sPersonGraphics = new ItemGraphics[]
     {
-        new ItemGraphics(AnimationId.OldMan,       Palette.Red),
-        new ItemGraphics(AnimationId.OldWoman,     Palette.Red),
-        new ItemGraphics(AnimationId.Merchant,     Palette.Player),
-        new ItemGraphics(AnimationId.Moblin,       Palette.Red),
+        new(AnimationId.OldMan,       Palette.Red),
+        new(AnimationId.OldWoman,     Palette.Red),
+        new(AnimationId.Merchant,     Palette.Player),
+        new(AnimationId.Moblin,       Palette.Red),
     };
 
     public PersonState _state = PersonState.Idle;
-    SpriteImage image = new SpriteImage();
+    SpriteImage image;
 
     public CaveSpec spec;
     public TextBox textBox;
@@ -102,7 +102,10 @@ internal sealed class PersonActor : Actor
 
         var animIndex = spec.DwellerType - ObjType.OldMan;
         var animId = sPersonGraphics[animIndex].AnimId;
-        image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animId);
+        image = new()
+        {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animId)
+        };
 
         textBox = new TextBox(Game, Game.World.GetString(stringId).ToArray());
 
@@ -125,23 +128,15 @@ internal sealed class PersonActor : Actor
         if (type == ObjType.CaveMedicineShop)
         {
             var itemValue = Game.World.GetItem(ItemSlot.Letter);
-            if (itemValue == 2)
-                _state = PersonState.Idle;
-            else
-                _state = PersonState.WaitingForLetter;
+            _state = itemValue == 2 ? PersonState.Idle : PersonState.WaitingForLetter;
         }
 
-        if (stringId == StringId.MoreBombs)
-        {
-            showNumbers = true;
-        }
-        else if (stringId == StringId.MoneyOrLife)
-        {
-            showNumbers = true;
-        }
+        showNumbers = stringId is StringId.MoreBombs or StringId.MoneyOrLife;
 
         if (_state == PersonState.Idle)
+        {
             Game.Link.SetState(PlayerState.Paused);
+        }
     }
 
     public override void Update()
@@ -234,7 +229,8 @@ internal sealed class PersonActor : Actor
     {
         if (spec.GetCheckHearts())
         {
-            var expectedCount = ObjType switch {
+            var expectedCount = ObjType switch
+            {
                 ObjType.Cave3 => 5,
                 ObjType.Cave4 => 12,
                 _ => throw new Exception()
@@ -281,7 +277,8 @@ internal sealed class PersonActor : Actor
 
         if (index == 2)
         {
-            stringId = ObjType switch {
+            stringId = ObjType switch
+            {
                 ObjType.Cave12 => StringId.LostHillsHint,
                 ObjType.Cave13 => StringId.LostWoodsHint,
                 _ => throw new Exception()
@@ -393,9 +390,9 @@ internal sealed class PersonActor : Actor
         for (var i = 0; i < gamblingIndexes.Length; i++)
             gamblingIndexes[i] = (byte)i;
 
-        gamblingAmounts[0] = (byte)((Random.Shared.Next(2) == 0) ? 10 : 40);
+        gamblingAmounts[0] = (byte)(Random.Shared.Next(2) == 0 ? 10 : 40);
         gamblingAmounts[1] = 10;
-        gamblingAmounts[2] = (byte)((Random.Shared.Next(2) == 0) ? 20 : 50);
+        gamblingAmounts[2] = (byte)(Random.Shared.Next(2) == 0 ? 20 : 50);
 
         gamblingIndexes.Shuffle();
     }
@@ -442,9 +439,10 @@ internal sealed class PersonActor : Actor
         }
     }
 
+    private static readonly byte[] stairsXs = new byte[] { 0x50, 0x80, 0xB0 };
+
     void CheckStairsHit()
     {
-        var stairsXs = new byte[] { 0x50, 0x80, 0xB0 };
 
         if (Game.Link.Y != 0x9D)
             return;
@@ -505,7 +503,7 @@ internal sealed class PersonActor : Actor
         {
             var itemId = spec.GetItemId(i);
 
-            if ((itemId < ItemId.MAX) && (_state != PersonState.PickedUp || i != chosenIndex))
+            if (itemId < ItemId.MAX && (_state != PersonState.PickedUp || i != chosenIndex))
             {
                 if (spec.GetShowItems())
                     GlobalFunctions.DrawItemWide(Game, itemId, itemXs[i], ItemY);

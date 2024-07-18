@@ -60,7 +60,6 @@ internal enum GameMode
 internal sealed class Game
 {
     const float AspectRatio = 16 / 9;
-    const int MaxProjectiles = 11;
 
     public Link Link;
 
@@ -74,6 +73,7 @@ internal sealed class Game
     public readonly PlayerProfile Profile = new();
 
     public static bool SpeedUp = true;
+    public static bool GodMode = true;
 
     // TODO:
     public Actor ObservedPlayer => Link;
@@ -107,7 +107,7 @@ internal sealed class Game
         var newSlot = World.FindEmptyMonsterSlot();
         if (newSlot >= 0)
         {
-            var fireball = new Fireball(this, type, x + 4, y, 1.75f);
+            var fireball = new FireballProjectile(this, type, x + 4, y, 1.75f);
             World.SetObject(newSlot, fireball);
         }
     }
