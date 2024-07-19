@@ -9,11 +9,13 @@ internal sealed class LadderActor : Actor
     public Direction origDir = Direction.Down; // JOE: NOTE: This is unused in the original?
     SpriteImage image;
 
-    public LadderActor(Game game, int x, int y) : base(game, ObjType.Ladder, x, y) {
+    public LadderActor(Game game, int x, int y) : base(game, ObjType.Ladder, x, y)
+    {
         Facing = Game.Link.Facing;
         Decoration = 0;
 
-        image = new() {
+        image = new()
+        {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Ladder)
         };
     }
@@ -150,7 +152,8 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
             pushed = Y == playerY && Math.Abs(X - playerX) <= World.MobTileWidth;
         }
 
-        if (!pushed) {
+        if (!pushed)
+        {
             timer = 0;
             return;
         }
@@ -158,7 +161,8 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
         timer++;
         if (timer == TimerLimit)
         {
-            targetPos = dir switch {
+            targetPos = dir switch
+            {
                 Direction.Right => X + World.MobTileWidth,
                 Direction.Left => X - World.MobTileWidth,
                 Direction.Down => Y + World.MobTileHeight,
@@ -245,7 +249,8 @@ internal class FireActor : Actor
 
     public FireActor(Game game, int x, int y) : base(game, ObjType.Fire, x, y)
     {
-        animator = new() {
+        animator = new()
+        {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire),
             Time = 0,
             DurationFrames = 8
@@ -399,7 +404,8 @@ internal sealed class BombActor : Actor
     {
         Facing = Game.Link.Facing;
         Decoration = 0;
-        animator = new() {
+        animator = new()
+        {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.BombItem),
             Time = 0,
             DurationFrames = 1
@@ -821,7 +827,8 @@ internal sealed class WhirlwindActor : Actor
     {
         Facing = Direction.Right;
 
-        _animator = new() {
+        _animator = new()
+        {
             Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.OW_Whirlwind),
             DurationFrames = 2,
             Time = 0

@@ -46,7 +46,7 @@ internal sealed class GameMenu : Menu
 
     void StartWorld(int fileIndex)
     {
-        var  profile = SaveFolder.ReadProfile(fileIndex);
+        var profile = SaveFolder.ReadProfile(fileIndex);
         game.World.Start(fileIndex, profile);
     }
 

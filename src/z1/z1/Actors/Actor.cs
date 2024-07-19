@@ -28,6 +28,11 @@ internal enum ActorAttributes
     WorldCollision = 0x100,
 }
 
+internal interface IDeleteEvent
+{
+    void OnDelete();
+}
+
 internal abstract class Actor
 {
     public Game Game { get; }
@@ -44,32 +49,37 @@ internal abstract class Actor
     private int _x;
     private int _y;
 
-    public int X {
+    public int X
+    {
         get => Position.X;
-        set
-        {
-            if (this is Link && value != _x)
-            {
-                Debug.Print($"X: {Position.X} + {value}");
-            }
-
-            _x = value;
-        }
+        set => _x = value;
     }
     public int Y
     {
         get => Position.Y;
-        set {
-            if (this is Link && value != _y)
-            {
-                Debug.Print($"Y: {Position.Y} + {value}");
-            }
+        set => _y = value;
+    }
 
-            _y = value;
+    public bool IsDeleted
+    {
+        get => _isDeleted;
+        set
+        {
+            _isDeleted = value;
+
+            // JOE: I don't like properties that have side effects but here we are :)
+            if (value && this is IDeleteEvent deleteEvent && !_ranDeletedEvent)
+            {
+                deleteEvent.OnDelete();
+                // JOE: _Presumably_ we only want these to run once.
+                _ranDeletedEvent = true;
+            }
         }
     }
 
-    public bool IsDeleted;
+    private bool _isDeleted;
+    private bool _ranDeletedEvent = false;
+
     public byte Decoration;
     protected byte HP;
     public byte InvincibilityTimer;
@@ -79,7 +89,8 @@ internal abstract class Actor
     public Direction Facing
     {
         get => _facing;
-        set {
+        set
+        {
             if (this is Link && value == Direction.None)
             {
                 Debugger.Break();
@@ -133,7 +144,8 @@ internal abstract class Actor
 
     public static Actor FromType(ObjType type, Game game, int x, int y)
     {
-        return type switch {
+        return type switch
+        {
             ObjType.BlueLynel => LynelActor.Make(game, ActorColor.Blue, x, y),
             ObjType.RedLynel => LynelActor.Make(game, ActorColor.Red, x, y),
             ObjType.BlueMoblin => MoblinActor.Make(game, ActorColor.Blue, x, y),
@@ -227,7 +239,7 @@ internal abstract class Actor
         Y += y;
     }
 
-    public static void MoveSimple8(ref float x, ref float y, Direction dir, int speed)
+    public static void MoveSimple8(ref float x, ref float y, Direction dir, float speed)
     {
         switch (dir & (Direction.Right | Direction.Left))
         {
@@ -259,13 +271,15 @@ internal abstract class Actor
 
     public static Size MoveSimple8(Direction dir, int speed)
     {
-        var x = (dir & (Direction.Right | Direction.Left)) switch {
+        var x = (dir & (Direction.Right | Direction.Left)) switch
+        {
             Direction.Right => speed,
             Direction.Left => -speed,
             _ => 0
         };
 
-        var y = (dir & (Direction.Down | Direction.Up)) switch {
+        var y = (dir & (Direction.Down | Direction.Up)) switch
+        {
             Direction.Down => speed,
             Direction.Up => -speed,
             _ => 0
@@ -635,7 +649,7 @@ internal abstract class Actor
 
         if (weaponObj is BoomerangProjectile boomerang)
         {
-            boomerang.state = ProjectileState.Unknown5;
+            boomerang.SetState(BoomerangState.Unknown5);
 
             if ((InvincibilityMask & (int)context.DamageType) != 0)
             {
@@ -887,13 +901,12 @@ internal abstract class Actor
     {
         var player = Game.Link;
 
-        if (player.GetState() == PlayerState.Paused
-            || player.IsParalyzed)
+        if (player.GetState() == PlayerState.Paused || player.IsParalyzed)
         {
             return new PlayerCollision(false, false);
         }
 
-        if (this is Projectile shot && !shot.IsInShotStartState())
+        if (this is IProjectile shot && !shot.IsInShotStartState())
         {
             return new PlayerCollision(false, false);
         }

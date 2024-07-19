@@ -2,10 +2,18 @@
 
 namespace z1;
 
-internal enum ProjectileState { Flying, Spark, Bounce, Spreading, Unknown5 = 5 }
-
-internal abstract class Projectile : Actor
+internal interface IProjectile
 {
+    bool IsInShotStartState();
+}
+
+internal enum ProjectileState { Flying, Spark, Bounce, Spreading }
+
+internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
+{
+    private static readonly int[] xSpeeds = new[] { 2, -2, -1, 1 };
+    private static readonly int[] ySpeeds = new[] { -1, -1, 2, -2 };
+
     public Direction bounceDir = Direction.None;
     public ProjectileState state = ProjectileState.Flying;
 
@@ -13,17 +21,21 @@ internal abstract class Projectile : Actor
 
     public virtual bool IsBlockedByMagicSheild => true;
 
-    public Projectile(Game game, ObjType type, int x, int y) : base(game, type, x, y)
+    protected Projectile(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
         if (!IsPlayerWeapon)
+        {
             ++Game.World.activeShots;
+        }
     }
 
-    // JOE: TODO: Shot.~Shot()
-    // JOE: TODO: {
-    // JOE: TODO:     if (!IsPlayerWeapon)
-    // JOE: TODO:         Game.World.SetActiveShots(Game.World.GetActiveShots() - 1);
-    // JOE: TODO: }
+    public void OnDelete()
+    {
+        if (!IsPlayerWeapon)
+        {
+            --Game.World.activeShots;
+        }
+    }
 
     public virtual bool IsInShotStartState() => state == ProjectileState.Flying;
 
@@ -39,7 +51,7 @@ internal abstract class Projectile : Actor
     {
         if (!IsPlayerWeapon)
         {
-            PlayerCollision collision = CheckPlayerCollision();
+            var collision = CheckPlayerCollision();
             if (collision.Collides)
             {
                 IsDeleted = true;
@@ -52,8 +64,6 @@ internal abstract class Projectile : Actor
             }
         }
     }
-    private static readonly int[] xSpeeds = new[] { 2, -2, -1, 1 };
-    private static readonly int[] ySpeeds = new[] { -1, -1, 2, -2 };
 
     protected void UpdateBounce()
     {
@@ -164,7 +174,7 @@ internal sealed class PlayerSwordProjectile : Projectile
 
 internal sealed class FlyingRockProjectile : Projectile
 {
-    SpriteImage image;
+    private readonly SpriteImage image;
 
     public FlyingRockProjectile(Game game, int x, int y, Direction moving) : base(game, ObjType.FlyingRock, x, y)
     {
@@ -215,7 +225,9 @@ internal sealed class FlyingRockProjectile : Projectile
     }
 }
 
-internal sealed class FireballProjectile : Projectile
+internal enum FireballState { Unknown0, Unknown1 }
+
+internal sealed class FireballProjectile : Actor
 {
     private static readonly Direction[] sector16Dirs = new[]
     {
@@ -237,11 +249,12 @@ internal sealed class FireballProjectile : Projectile
         Direction.Up | Direction.Right,
     };
 
-    float x;
-    float y;
-    float speedX;
-    float speedY;
-    SpriteImage image;
+    private float x;
+    private float y;
+    private readonly float speedX;
+    private readonly float speedY;
+    private readonly SpriteImage image;
+    private FireballState state;
 
     public FireballProjectile(Game game, ObjType type, int x, int y, float speed) : base(game, type, x, y)
     {
@@ -250,6 +263,7 @@ internal sealed class FireballProjectile : Projectile
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fireball)
         };
 
+        state = FireballState.Unknown0;
         var player = Game.Link;
         var xDist = player.X - x;
         var yDist = player.Y - y;
@@ -268,7 +282,7 @@ internal sealed class FireballProjectile : Projectile
         if (state == 0)
         {
             ObjTimer = 0x10;
-            state = (ProjectileState)1;
+            state = FireballState.Unknown1;
             return;
         }
 
@@ -302,28 +316,23 @@ internal sealed class FireballProjectile : Projectile
     }
 }
 
-internal sealed class BoomerangProjectile : Projectile, IDisposable
+internal enum BoomerangState { Unknown1, Unknown2, Unknown3, Unknown4, Unknown5 }
+
+internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
 {
     private readonly int _startX;
     private readonly int _startY;
     private int _distanceTarget;
-    private readonly Actor _owner;
+    private readonly Actor? _owner; // JOE: TODO: Can this be null?
     private float _x;
     private float _y;
     private readonly float _leaveSpeed;
-    private int _state = 1;
+    private BoomerangState _state;
     private int _animTimer;
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
-    public BoomerangProjectile(Game game, int x, int y, Direction direction, int distance, float speed, Actor owner) : base(game, ObjType.Boomerang, x, y)
+    public BoomerangProjectile(Game game, int x, int y, Direction moving, int distance, float speed, Actor? owner) : base(game, ObjType.Boomerang, x, y)
     {
-        _animator = new()
-        {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Boomerang),
-            Time = 0
-        };
-        _animator.DurationFrames = _animator.Animation.Length * 2;
-
         _startX = x;
         _startY = y;
         _distanceTarget = distance;
@@ -331,30 +340,44 @@ internal sealed class BoomerangProjectile : Projectile, IDisposable
         _x = x;
         _y = y;
         _leaveSpeed = speed;
-        _state = 1;
+        _state = BoomerangState.Unknown1;
         _animTimer = 3;
 
+        Facing = moving;
+
+        _animator = new()
+        {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Boomerang),
+            Time = 0
+        };
+        _animator.DurationFrames = _animator.Animation.Length * 2;
+
         if (!IsPlayerWeapon())
+        {
             ++Game.World.activeShots;
+        }
     }
 
-    public new bool IsPlayerWeapon()
+    // JOE: TODO: This is a global function in the original code and feels a bit off being repeated a few times.
+    public bool IsPlayerWeapon()
     {
         return Game.World.curObjSlot > (int)ObjectSlot.Buffer;
     }
 
-    public void Dispose()
+    public void OnDelete()
     {
         if (!IsPlayerWeapon())
+        {
             --Game.World.activeShots;
+        }
     }
 
-    public override bool IsInShotStartState()
+    public bool IsInShotStartState()
     {
-        return _state == 1;
+        return _state == BoomerangState.Unknown2;
     }
 
-    void SetState(int state)
+    public void SetState(BoomerangState state)
     {
         _state = state;
     }
@@ -363,71 +386,78 @@ internal sealed class BoomerangProjectile : Projectile, IDisposable
     {
         switch (_state)
         {
-            case 1: UpdateLeaveFast(); break;
-            case 2: UpdateSpark(); break;
-            case 3: UpdateLeaveSlow(); break;
-            case 4:
-            case 5: UpdateReturn(); break;
+            case BoomerangState.Unknown1: UpdateLeaveFast(); break;
+            case BoomerangState.Unknown2: UpdateSpark(); break;
+            case BoomerangState.Unknown3: UpdateLeaveSlow(); break;
+            case BoomerangState.Unknown4:
+            case BoomerangState.Unknown5: UpdateReturn(); break;
         }
     }
 
-    void UpdateLeaveFast()
+    private void UpdateLeaveFast()
     {
-        // TODO: This is all screwed up. Refer to the orignial source. Need to ref _x, _y
-        Position += MoveSimple8(Facing, _leaveSpeed).ToSize();
+        MoveSimple8(ref _x, ref _y, Facing, _leaveSpeed);
+        X = (int)_x;
+        Y = (int)_y;
 
-        if (Direction.None == CheckWorldMargin(Facing))
+        if (CheckWorldMargin(Facing) == Direction.None)
         {
-            _state = 2;
+            _state = BoomerangState.Unknown2;
             _animTimer = 3;
             CheckCollision();
+            return;
         }
-        else
+
+        if (Math.Abs(_startX - X) < _distanceTarget && Math.Abs(_startY - Y) < _distanceTarget)
         {
-            if (Math.Abs(_startX - X) < _distanceTarget && Math.Abs(_startY - Y) < _distanceTarget)
-            {
-                AdvanceAnimAndCheckCollision();
-            }
-            else
-            {
-                _distanceTarget = 0x10;
-                _state = 3;
-                _animTimer = 3;
-                _animator.Time = 0;
-                CheckCollision();
-            }
+            AdvanceAnimAndCheckCollision();
+            return;
         }
+
+        _distanceTarget = 0x10;
+        _state = BoomerangState.Unknown3;
+        _animTimer = 3;
+        _animator.Time = 0;
+        CheckCollision();
     }
 
-    void UpdateLeaveSlow()
+    private void UpdateLeaveSlow()
     {
         var gotoNextState = true;
 
         if ((Facing & Direction.Left) == 0 || _x >= 2)
         {
-            if (((Direction)Moving & Direction.Left) != 0)
+            if (MovingDirection.HasFlag(Direction.Left))
+            {
                 Facing = Direction.Left;
-            else if (((Direction)Moving & Direction.Right) != 0)
+            }
+            else if (MovingDirection.HasFlag(Direction.Right))
+            {
                 Facing = Direction.Right;
+            }
 
-            Position += MoveSimple8(Facing, 1);
+            MoveSimple8(ref _x, ref _y, Facing, 1);
+            X = (int)_x;
+            Y = (int)_y;
 
             _distanceTarget--;
             if (_distanceTarget != 0)
+            {
                 gotoNextState = false;
+            }
         }
 
         if (gotoNextState)
         {
             _distanceTarget = 0x20;
-            _state = 4;
+            _state = BoomerangState.Unknown4;
             _animator.Time = 0;
         }
 
         AdvanceAnimAndCheckCollision();
     }
 
-    void UpdateReturn()
+    private void UpdateReturn()
     {
         if (_owner == null || _owner.Decoration != 0)
         {
@@ -435,8 +465,7 @@ internal sealed class BoomerangProjectile : Projectile, IDisposable
             return;
         }
 
-        var thrower = _owner as IThrower;
-        if (thrower == null)
+        if (_owner is not IThrower thrower)
         {
             IsDeleted = true;
             return;
@@ -449,40 +478,39 @@ internal sealed class BoomerangProjectile : Projectile, IDisposable
         {
             thrower.Catch();
             IsDeleted = true;
+            return;
         }
-        else
+
+        var angle = (float)Math.Atan2(yDist, xDist);
+        float speed = 2;
+
+        if (_state == BoomerangState.Unknown4)
         {
-            var angle = (float)Math.Atan2(yDist, xDist);
-            float speed = 2;
-
-            if (_state == 4)
+            speed = 1;
+            _distanceTarget--;
+            if (_distanceTarget == 0)
             {
-                speed = 1;
-                _distanceTarget--;
-                if (_distanceTarget == 0)
-                {
-                    _state = 5;
-                    _animator.Time = 0;
-                }
+                _state = BoomerangState.Unknown5;
+                _animator.Time = 0;
             }
-
-            Maffs.PolarToCart(angle, speed, out var xSpeed, out var ySpeed);
-
-            _x += xSpeed;
-            _y += ySpeed;
-            X = (int)_x;
-            Y = (int)_y;
-
-            AdvanceAnimAndCheckCollision();
         }
+
+        Maffs.PolarToCart(angle, speed, out var xSpeed, out var ySpeed);
+
+        _x += xSpeed;
+        _y += ySpeed;
+        X = (int)_x;
+        Y = (int)_y;
+
+        AdvanceAnimAndCheckCollision();
     }
 
-    void UpdateSpark()
+    private void UpdateSpark()
     {
         _animTimer--;
         if (_animTimer == 0)
         {
-            _state = 5;
+            _state = BoomerangState.Unknown5;
             _animTimer = 3;
             _animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Boomerang);
             _animator.Time = 0;
@@ -494,7 +522,7 @@ internal sealed class BoomerangProjectile : Projectile, IDisposable
         }
     }
 
-    void AdvanceAnimAndCheckCollision()
+    private void AdvanceAnimAndCheckCollision()
     {
         _animTimer--;
         if (_animTimer == 0)
@@ -511,14 +539,14 @@ internal sealed class BoomerangProjectile : Projectile, IDisposable
         CheckCollision();
     }
 
-    void CheckCollision()
+    private void CheckCollision()
     {
         if (!IsPlayerWeapon())
         {
             var collision = CheckPlayerCollision();
             if (collision.ShotCollides)
             {
-                _state = 2;
+                _state = BoomerangState.Unknown2;
                 _animTimer = 3;
             }
         }
@@ -529,7 +557,7 @@ internal sealed class BoomerangProjectile : Projectile, IDisposable
         var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
         if (itemValue == 0)
             itemValue = 1;
-        var pal = (_state == 2) ? Palette.RedFgPalette : (Palette.Player + itemValue - 1);
+        var pal = (_state == BoomerangState.Unknown2) ? Palette.RedFgPalette : (Palette.Player + itemValue - 1);
         var xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
         _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal);
     }
@@ -545,7 +573,7 @@ internal sealed class MagicWaveProjectile : Projectile
         AnimationId.Wave_Up,
     };
 
-    SpriteImage image;
+    private readonly SpriteImage image;
 
     public MagicWaveProjectile(Game game, ObjType type, int x, int y, Direction direction) : base(game, type, x, y)
     {
@@ -625,8 +653,8 @@ internal sealed class ArrowProjectile : Projectile
 
     private static readonly int[] yOffsets = new[] { 3, 3, 0, 0 };
 
-    int timer;
-    SpriteImage image;
+    private int timer;
+    private readonly SpriteImage image;
 
     public ArrowProjectile(Game game, int x, int y, Direction direction) : base(game, ObjType.Arrow, x, y)
     {

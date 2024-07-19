@@ -4,7 +4,7 @@ namespace z1.Actors;
 
 internal enum PlayerState { Idle, Wielding, Paused }
 
-internal sealed class Link : Actor
+internal sealed class Link : Actor, IThrower
 {
     public override bool IsPlayer => true;
 
@@ -708,16 +708,13 @@ internal sealed class Link : Actor
             return 0;
 
         var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
-        var distance = 0x31;
 
         MoveSimple(ref x, ref y, facingDir, 0x10);
-
-        if (itemValue == 2)
-            distance = 0xFF;
 
         if (MovingDirection != Direction.None)
             facingDir = MovingDirection;
 
+        var distance = itemValue == 2 ? 0xFF : 0x31;
         var boomerang = GlobalFunctions.MakeBoomerang(Game, x, y, facingDir, distance, 3.0f, this, ObjectSlot.Boomerang);
         Game.World.SetObject(ObjectSlot.Boomerang, boomerang);
         return 6;

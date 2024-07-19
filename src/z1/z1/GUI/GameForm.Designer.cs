@@ -1,4 +1,4 @@
-﻿namespace z1
+﻿namespace z1.GUI
 {
     partial class GameForm
     {
@@ -23,10 +23,18 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1200, 900);
-            this.Text = "The Legend of Form 1";
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(GameForm));
+            SuspendLayout();
+            // 
+            // GameForm
+            // 
+            AutoScaleDimensions = new SizeF(10F, 25F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(1200, 900);
+            Icon = (Icon)resources.GetObject("$this.Icon");
+            Name = "GameForm";
+            Text = "The Legend of Form 1";
+            ResumeLayout(false);
         }
 
         #endregion

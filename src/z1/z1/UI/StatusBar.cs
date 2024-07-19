@@ -32,18 +32,18 @@ internal sealed class StatusBar
     public const int MiniMapY = 24;
     public const int MiniMapColumnOffset = 4;
 
-    public const int OWMapTileWidth  = 4;
+    public const int OWMapTileWidth = 4;
     public const int OWMapTileHeight = 4;
-    public const int UWMapTileWidth  = 8;
+    public const int UWMapTileWidth = 8;
     public const int UWMapTileHeight = 4;
 
-    public const int CountersX       = 0x60;
-    public const int EquipmentY      = 0x20;
-    public const int HeartsX         = 0xB8;
-    public const int HeartsY         = 0x30;
+    public const int CountersX = 0x60;
+    public const int EquipmentY = 0x20;
+    public const int HeartsX = 0xB8;
+    public const int HeartsY = 0x30;
 
-    public const int Tile_FullHeart  = 0xF2;
-    public const int Tile_HalfHeart  = 0x65;
+    public const int Tile_FullHeart = 0xF2;
+    public const int Tile_HalfHeart = 0x65;
     public const int Tile_EmptyHeart = 0x66;
 
 

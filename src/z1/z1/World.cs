@@ -228,6 +228,8 @@ internal sealed unsafe partial class World
     public int triggeredDoorCmd;   // 54
     public Direction triggeredDoorDir;   // 55
     public int fromUnderground;    // 5A
+    // JOE: TODO: This doesn't need to be reference counted anymore and should be based on the object table.
+    // Though note that ones owned by Link should be excluded.
     public int activeShots;        // 34C
     public bool triggerShutters;    // 4CE
     public bool summonedWhirlwind;  // 508
@@ -433,7 +435,7 @@ internal sealed unsafe partial class World
 
     public void Update()
     {
-         var mode = GetMode();
+        var mode = GetMode();
 
         if (lastMode != mode)
         {
@@ -757,7 +759,8 @@ internal sealed unsafe partial class World
 
     public TileCollision CollidesWithTileMoving(int x, int y, Direction dir, bool isPlayer)
     {
-        var offset = dir switch {
+        var offset = dir switch
+        {
             Direction.Right => 0x10,
             Direction.Down => 8,
             _ => isPlayer ? -8 : -0x10,
@@ -1070,7 +1073,7 @@ internal sealed unsafe partial class World
         var innerPalette = roomAttrs[roomId].GetInnerPalette();
         var map = tileMaps[mapIndex];
 
-        if (IsUWCellar(roomId)  || IsPlayingCave())
+        if (IsUWCellar(roomId) || IsPlayingCave())
         {
             outerPalette = (Palette)3;
             innerPalette = (Palette)2;
@@ -1134,7 +1137,7 @@ internal sealed unsafe partial class World
                 var srcX = (tileRef & 0x0F) * TileWidth;
                 var srcY = ((tileRef & 0xF0) >> 4) * TileHeight;
 
-                var palette = (r is < 4 or >= 18 || c is < 4 or >= 28)  ? outerPalette : innerPalette;
+                var palette = (r is < 4 or >= 18 || c is < 4 or >= 28) ? outerPalette : innerPalette;
 
                 Graphics.DrawTile(TileSheet.Background, srcX, srcY, TileWidth, TileHeight, x, y, palette, 0);
             }
@@ -1772,7 +1775,8 @@ internal sealed unsafe partial class World
 
         var owLayoutFormat = tileScheme is TileScheme.Overworld or TileScheme.UnderworldCellar;
 
-        loadMobFunc = tileScheme switch {
+        loadMobFunc = tileScheme switch
+        {
             TileScheme.Overworld => LoadOWMob,
             TileScheme.UnderworldMain => LoadUWMob,
             TileScheme.UnderworldCellar => LoadOWMob,
@@ -2355,7 +2359,7 @@ internal sealed unsafe partial class World
         switch (secret)
         {
             case Secret.Ringleader:
-                if (GetObject(ObjectSlot.Monster1) == null  || GetObject(ObjectSlot.Monster1) is PersonActor)
+                if (GetObject(ObjectSlot.Monster1) == null || GetObject(ObjectSlot.Monster1) is PersonActor)
                 {
                     KillAllObjects();
                 }
@@ -2509,7 +2513,7 @@ internal sealed unsafe partial class World
 
             if (RoomObjCount != 0)
             {
-                if (RoomKillCount == 0  || (RoomObj != null && RoomObj.IsReoccuring))
+                if (RoomKillCount == 0 || (RoomObj != null && RoomObj.IsReoccuring))
                 {
                     if (RoomKillCount < RoomObjCount)
                     {
@@ -2898,7 +2902,8 @@ internal sealed unsafe partial class World
     private void MakeUnderworldPerson(ObjType type)
     {
         // JOE: TODO: Make all of these private and make a MoneyOrLife/etc constructor on CaveSpec.
-        var cave = new CaveSpec {
+        var cave = new CaveSpec
+        {
             ItemA = (byte)ItemId.None,
             ItemB = (byte)ItemId.None,
             ItemC = (byte)ItemId.None
@@ -2967,7 +2972,7 @@ internal sealed unsafe partial class World
         {
             curObjSlot++;
             var fire = new StandingFireActor(Game, fireXs()[i], 0x80);
-            Game.World.SetObject((ObjectSlot)curObjSlot, fire );
+            Game.World.SetObject((ObjectSlot)curObjSlot, fire);
         }
     }
 
@@ -4042,7 +4047,7 @@ internal sealed unsafe partial class World
         0x18, 0x1b, 0x22, 0x2c, 0xe5
     };
 
-private void UpdateWinGame_Hold2()
+    private void UpdateWinGame_Hold2()
     {
         State.WinGame.timer--;
         if (State.WinGame.timer == 0)

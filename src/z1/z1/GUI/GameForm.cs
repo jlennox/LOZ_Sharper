@@ -4,31 +4,11 @@ using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 using Timer = System.Windows.Forms.Timer;
 
-namespace z1;
-
-internal sealed class FpsCalculator
-{
-    public double FramesPerSecond { get; private set; }
-
-    private int _tickindex = 0;
-    private long _ticksum = 0;
-    private readonly long[] _ticklist = new long[100];
-
-    public bool Add(long newtick)
-    {
-        _ticksum -= _ticklist[_tickindex];
-        _ticksum += newtick;
-        _ticklist[_tickindex] = newtick;
-        _tickindex = (_tickindex + 1) % _ticklist.Length;
-
-        FramesPerSecond = (double)_ticksum / _ticklist.Length;
-        return _tickindex == 0;
-    }
-}
+namespace z1.GUI;
 
 // TODO:
 // * Lanmola is busted. Easy path to one in 9 from bombhole.
-// * Look up interfaces and fix all that are not properly applied.
+// * Gleeok is borked.
 // * celler pushblocks dont work.
 
 public partial class GameForm : Form
