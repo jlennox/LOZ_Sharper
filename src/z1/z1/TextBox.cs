@@ -22,7 +22,7 @@ internal sealed class TextBox
     {
         _game = game;
         startCharPtr = text;
-        _charDelay = Game.SpeedUp ? 1 : delay;
+        _charDelay = Game.Cheats.SpeedUp ? 1 : delay;
     }
 
     public void Reset(byte[] text)

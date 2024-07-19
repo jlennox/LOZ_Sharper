@@ -310,17 +310,11 @@ internal abstract class Actor
         if (xDist <= yDist)
         {
             // Why is this away from the player, while for Y it's toward the player?
-            if (playerPos.X > x)
-                facing = Direction.Left;
-            else
-                facing = Direction.Right;
+            facing = playerPos.X > x ? Direction.Left : Direction.Right;
         }
         else
         {
-            if (playerPos.Y > y)
-                facing = Direction.Down;
-            else
-                facing = Direction.Up;
+            facing = playerPos.Y > y ? Direction.Down : Direction.Up;
         }
     }
 
@@ -1390,26 +1384,22 @@ internal abstract class Actor
     {
         var slot = Game.World.FindEmptyMonsterSlot();
         if (slot < 0)
-            return (ObjectSlot)(-1);
+        {
+            return ObjectSlot.NoneFound;
+        }
 
-        Actor? shot = null;
         var thisSlot = Game.World.curObjectSlot;
         var oldActiveShots = Game.World.activeShots;
         var thisPtr = Game.World.GetObject(thisSlot);
 
-        shot = shotType == ObjType.Boomerang
+        var shot = shotType == ObjType.Boomerang
             ? GlobalFunctions.MakeBoomerang(Game, x, y, facing, 0x51, 2.5f, thisPtr, slot)
             : GlobalFunctions.MakeProjectile(Game.World, shotType, x, y, facing, slot);
-
-        if (shot == null)
-        {
-            return (ObjectSlot)(-1);
-        }
 
         var newActiveShots = Game.World.activeShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)
         {
-            return (ObjectSlot)(-1);
+            return ObjectSlot.NoneFound;
         }
 
         Game.World.SetObject(slot, shot);
@@ -1420,12 +1410,7 @@ internal abstract class Actor
 
     protected void ShootFireball(ObjType type, int x, int y)
     {
-        var newSlot = Game.World.FindEmptyMonsterSlot();
-        if (newSlot >= 0)
-        {
-            var fireball = new FireballProjectile(Game, type, x + 4, y, 1.75f);
-            Game.World.SetObject(newSlot, fireball);
-        }
+        Game.ShootFireball(type, x, y);
     }
 }
 

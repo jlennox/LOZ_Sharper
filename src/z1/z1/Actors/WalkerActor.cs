@@ -95,7 +95,7 @@ internal abstract class WalkerActor : Actor
         }
 
         var shot = Shoot(Spec.ShotType);
-        if (shot >= 0)
+        if (shot != ObjectSlot.NoneFound)
         {
             ObjTimer = 0x80;
             CurrentSpeed = 0;
@@ -109,10 +109,9 @@ internal abstract class WalkerActor : Actor
 
     protected ObjectSlot Shoot(ObjType shotType)
     {
-        if (!WantToShoot)
-            return (ObjectSlot)(-1);
-
-        return Shoot(shotType, X, Y, Facing);
+        return WantToShoot
+            ? Shoot(shotType, X, Y, Facing)
+            : ObjectSlot.NoneFound;
     }
 
     public bool TryBigShove()
@@ -210,6 +209,11 @@ internal abstract class DelayedWanderer : WandererWalkerActor
         InitCommonFacing();
         InitCommonStateTimer(ref ObjTimer);
         SetFacingAnimation();
+
+        if (type is ObjType.BlueFastOctorock or ObjType.RedFastOctorock)
+        {
+            CurrentSpeed = 0x30;
+        }
     }
 }
 
@@ -1459,7 +1463,7 @@ internal sealed class RupeeStashActor : Actor
 
 internal sealed class FairyActor : FlyingActor
 {
-    private static readonly AnimationId[] fairyAnimMap = new AnimationId[]
+    private static readonly AnimationId[] fairyAnimMap = new[]
     {
         AnimationId.Fairy,
         AnimationId.Fairy,
@@ -1469,11 +1473,13 @@ internal sealed class FairyActor : FlyingActor
 
     private static readonly FlyerSpec fairySpec = new(fairyAnimMap, TileSheet.PlayerAndItems, Palette.Red, 0xA0);
 
-    int timer;
+    int timer = 0xFF;
 
     // JOE: TODO: Fairy is an "item," not an actor. IS this a problem?
     public FairyActor(Game game, int x, int y) : base(game, ObjType.None, fairySpec, x, y)
     {
+        Facing = Direction.Up;
+        curSpeed = 0x7F;
     }
 
     public override void Update()
@@ -1489,13 +1495,13 @@ internal sealed class FairyActor : FlyingActor
 
         UpdateStateAndMove();
 
-        var objSlots = new[] { ObjectSlot.Player, ObjectSlot .Boomerang};
+        var objSlots = new[] { ObjectSlot.Player, ObjectSlot.Boomerang };
         var touchedItem = false;
 
         foreach (var slot in objSlots)
         {
             var obj = Game.World.GetObject(slot);
-            if (obj != null && !obj.IsDeleted && TouchesObject(obj ) )
+            if (obj != null && !obj.IsDeleted && TouchesObject(obj))
             {
                 touchedItem = true;
                 break;
@@ -1524,8 +1530,7 @@ internal sealed class FairyActor : FlyingActor
         var distanceX = Math.Abs(obj.X - X);
         var distanceY = Math.Abs(obj.Y - Y);
 
-        return distanceX <= 8
-            && distanceY <= 8;
+        return distanceX <= 8 && distanceY <= 8;
     }
 }
 
@@ -1539,14 +1544,14 @@ internal sealed class PondFairyActor : Actor
     private const int PondFairyRingCenterX = 0x80;
     private const int PondFairyRingCenterY = 0x98;
 
-    enum State
+    enum PondFairyState
     {
         Idle,
         Healing,
         Healed,
     };
 
-    State state;
+    PondFairyState _pondFairyState;
     SpriteAnimator Animator;
     readonly byte[] heartState = new byte[8];
     readonly byte[] heartAngle = new byte[8];
@@ -1566,9 +1571,9 @@ internal sealed class PondFairyActor : Actor
     {
         Animator.Advance();
 
-        if (state == State.Idle)
+        if (_pondFairyState == PondFairyState.Idle)
             UpdateIdle();
-        else if (state == State.Healing)
+        else if (_pondFairyState == PondFairyState.Healing)
             UpdateHealing();
     }
 
@@ -1583,7 +1588,7 @@ internal sealed class PondFairyActor : Actor
             || playerX > PondFairyLineX2)
             return;
 
-        state = State.Healing;
+        _pondFairyState = PondFairyState.Healing;
         player.SetState(PlayerState.Paused);
     }
 
@@ -1616,7 +1621,7 @@ internal sealed class PondFairyActor : Actor
         }
         else if (heartState[7] != 0)
         {
-            state = State.Healed;
+            _pondFairyState = PondFairyState.Healed;
             var player = Game.Link;
             player.SetState(PlayerState.Idle);
             Game.World.SwordBlocked = false;
@@ -1628,7 +1633,7 @@ internal sealed class PondFairyActor : Actor
         var xOffset = (16 - Animator.Animation.Width) / 2;
         Animator.Draw(TileSheet.PlayerAndItems, PondFairyX + xOffset, PondFairyY, Palette.RedFgPalette);
 
-        if (state != State.Healing)
+        if (_pondFairyState != PondFairyState.Healing)
             return;
 
         const float Radius = 0x36;
@@ -6237,23 +6242,29 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
     private void TryThrowingBoomerang()
     {
         if (ObjTimer != 0)
+        {
             return;
+        }
 
         if (ObjType == ObjType.RedGoriya)
         {
             int r = Random.Shared.GetByte();
             if (r != 0x23 && r != 0x77)
+            {
                 return;
+            }
         }
 
         if (Game.World.GetItem(ItemSlot.Clock) != 0)
+        {
             return;
+        }
 
-        var slot = Shoot(ObjType.Boomerang);
-        if (slot >= 0)
+        var shot = Shoot(ObjType.Boomerang);
+        if (shot != ObjectSlot.NoneFound)
         {
             WantToShoot = false;
-            shotRef = Game.World.GetObject(slot);
+            shotRef = Game.World.GetObject(shot);
             ObjTimer = (byte)Random.Shared.Next(0x40);
         }
     }
@@ -6283,11 +6294,15 @@ internal static class Statues
     public static void Update(Game game, PatternType pattern)
     {
         if (pattern < 0 || pattern >= PatternType.Patterns)
+        {
             return;
+        }
 
         var slot = game.World.FindEmptyMonsterSlot();
         if (slot < ObjectSlot.Monster1 + 5)
+        {
             return;
+        }
 
         var player = game.Link;
         int statueCount = statueCounts[(int)pattern];
@@ -6399,26 +6414,6 @@ internal sealed class MoblinActor : StdWanderer
 
 internal abstract class WizzrobeBase : Actor
 {
-    private static Direction[] wizzrobeDirs = new[]
-    {
-        Direction.Down,
-        Direction.Up,
-        Direction.Right,
-        Direction.Left
-    };
-
-    private static int[] wizzrobeXOffsets = new int[]
-    {
-        0x00, 0x00, -0x20, 0x20, 0x00, 0x00, -0x40, 0x40,
-        0x00, 0x00, -0x30, 0x30, 0x00, 0x00, -0x50, 0x50
-    };
-
-    private static int[] wizzrobeYOffsets = new int[]
-    {
-        -0x20, 0x20, 0x00, 0x00, -0x40, 0x40, 0x00, 0x00,
-        -0x30, 0x30, 0x00, 0x00, -0x50, 0x50, 0x00, 0x00
-    };
-
     private static readonly int[] allWizzrobeCollisionXOffsets = new[] { 0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0 };
     private static readonly int[] allWizzrobeCollisionYOffsets = new[] { 4, 4, 0, 8, 8, 8, 0, -8, 0, 0 };
 
@@ -6434,11 +6429,7 @@ internal abstract class WizzrobeBase : Actor
 
         // This isn't quite the same as the original game, because the original contrasted
         // blocks and water together with everything else.
-
-        if (World.CollidesWall(collision.TileBehavior))
-            return 1;
-
-        return 2;
+        return World.CollidesWall(collision.TileBehavior) ? 1 : 2;
     }
 
     protected WizzrobeBase(Game game, ObjType type, int x, int y) : base(game, type, x, y) { }

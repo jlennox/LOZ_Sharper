@@ -53,16 +53,16 @@ internal class GameCheats
         protected override Regex FullMatch { get; }
         protected override Regex PartialMatch { get; }
 
-        protected SingleWordCheat(string cheat)
+        protected SingleWordCheat(string cheat, bool noTerminator = false)
         {
             if (cheat != Regex.Escape(cheat))
             {
                 throw new ArgumentException("SingleWordCheat does not support characters that need to be escaped.");
             }
 
-            FullMatch = new Regex($"^{cheat};$", DefaultRegexOptions);
+            FullMatch = new Regex($"^{cheat}{(noTerminator ? "" : ";")}$", DefaultRegexOptions);
             var cheatRest = string.Concat(cheat.Skip(1).Select(t => $"{t}?"));
-            PartialMatch = new Regex($"^{cheat[0] + cheatRest};?$", DefaultRegexOptions);
+            PartialMatch = new Regex($"^{cheat[0] + cheatRest}{(noTerminator ? "" : ";?")}$", DefaultRegexOptions);
         }
     }
 
@@ -88,15 +88,23 @@ internal class GameCheats
 
     private sealed class DungeonWarpCheat : RegexCheat
     {
-        private static readonly Regex _full = new(@"^w(\d+);$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^w(\d*);?$", DefaultRegexOptions);
+        private static readonly Regex _full = new(@"^w(w|\d+);$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^w(w?|\d*);?$", DefaultRegexOptions);
 
         protected override Regex FullMatch => _full;
         protected override Regex PartialMatch => _partial;
 
         public override void RunPayload(Game game, string[] args)
         {
-            if (!int.TryParse(args[0], out var levelNumber))
+            var target = args[0];
+            switch (target)
+            {
+                case "w":
+                    game.World.ShowShortcutStairs(7 * 16 + 9, 1);
+                    return;
+            }
+
+            if (!int.TryParse(target, out var levelNumber))
             {
                 Debug.WriteLine("Invalid warp coordinates. " + string.Join(", ", args));
                 return;
@@ -108,25 +116,36 @@ internal class GameCheats
 
     private sealed class GodModeCheat : SingleWordCheat
     {
-        public GodModeCheat() : base("iddqd") { }
+        public GodModeCheat() : base("iddqd", true) { }
+        public override void RunPayload(Game game, string[] args) => Game.Cheats.GodMode = !Game.Cheats.GodMode;
+    }
 
-        public override void RunPayload(Game game, string[] args)
-        {
-            Game.GodMode = !Game.GodMode;
-        }
+    private sealed class KillAllCheat : SingleWordCheat
+    {
+        public KillAllCheat() : base("ka", true) { }
+        public override void RunPayload(Game game, string[] args) => game.World.KillAllObjects();
+    }
+
+    private sealed class SpeedUpCheat : SingleWordCheat
+    {
+        public SpeedUpCheat() : base("su", true) { }
+        public override void RunPayload(Game game, string[] args) => Game.Cheats.SpeedUp = !Game.Cheats.SpeedUp;
+    }
+
+    private sealed class WalkThroughWallsCheat : SingleWordCheat
+    {
+        public WalkThroughWallsCheat() : base("idclip", true) { }
+        public override void RunPayload(Game game, string[] args) => Game.Cheats.WalkThroughWalls = !Game.Cheats.WalkThroughWalls;
     }
 
     private sealed class ItemsCheat : SingleWordCheat
     {
-        public ItemsCheat() : base("idkfa") { }
+        public ItemsCheat() : base("idkfa", true) { }
 
         public override void RunPayload(Game game, string[] args)
         {
             var profile = game.World.profile;
             if (profile == null) return;
-            profile.Items[ItemSlot.Bombs] = 0x98;
-            profile.Items[ItemSlot.Keys] = 0x98;
-            profile.Items[ItemSlot.HeartContainers] = 0x16;
             game.World.AddItem(ItemId.MagicShield);
             game.World.AddItem(ItemId.MagicShield);
             game.World.AddItem(ItemId.Food);
@@ -136,6 +155,10 @@ internal class GameCheats
             game.World.AddItem(ItemId.Bow);
             game.World.AddItem(ItemId.SilverArrow);
             game.World.AddItem(ItemId.Bracelet);
+            game.World.AddItem(ItemId.Letter);
+            game.World.AddItem(ItemId.Recorder);
+            game.World.AddItem(ItemId.WoodBoomerang);
+            game.World.AddItem(ItemId.Book);
             game.World.AddItem(ItemId.RedCandle);
             game.World.AddItem(ItemId.Rod);
             game.World.AddItem(ItemId.MagicSword);
@@ -144,6 +167,10 @@ internal class GameCheats
             game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
             game.World.PostRupeeWin(0xFF);
+            profile.Items[ItemSlot.Bombs] = 98;
+            profile.Items[ItemSlot.Keys] = 98;
+            profile.Items[ItemSlot.HeartContainers] = 16;
+            profile.Hearts = profile.Items[ItemSlot.HeartContainers];
             profile.SelectedItem = ItemSlot.Bombs;
         }
     }
@@ -155,6 +182,9 @@ internal class GameCheats
         new DungeonWarpCheat(),
         new GodModeCheat(),
         new ItemsCheat(),
+        new KillAllCheat(),
+        new SpeedUpCheat(),
+        new WalkThroughWallsCheat(),
     };
 
     public GameCheats(Game game)

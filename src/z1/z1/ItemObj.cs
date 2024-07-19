@@ -130,50 +130,46 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
         var bounds = player.GetBounds(); // JOE: IS this a bug that this is unused?
         var dir = player.MovingDirection;
-        var pushed = false;
 
-        if (!AllowHorizontal && (dir == Direction.Left || dir == Direction.Right))
-            dir = Direction.None;
-
-        if (dir != Direction.None)
+        if (!AllowHorizontal && dir.IsHorizontal())
         {
-            var playerX = player.X;
-            var playerY = player.Y + 3;
-
-            if (dir.IsVertical())
-            {
-                if (X == playerX && Math.Abs(Y - playerY) <= World.MobTileHeight)
-                    pushed = true;
-            }
-            else
-            {
-                if (Y == playerY && Math.Abs(X - playerX) <= World.MobTileWidth)
-                    pushed = true;
-            }
+            timer = 0;
+            return;
         }
 
-        if (pushed)
+        var playerX = player.X;
+        var playerY = player.Y + 3;
+
+        var pushed = false;
+        if (dir.IsVertical())
         {
-            timer++;
-            if (timer == TimerLimit)
-            {
-                switch (dir)
-                {
-                    case Direction.Right: targetPos = X + World.MobTileWidth; break;
-                    case Direction.Left: targetPos = X - World.MobTileWidth; break;
-                    case Direction.Down: targetPos = Y + World.MobTileHeight; break;
-                    case Direction.Up: targetPos = Y - World.MobTileHeight; break;
-                }
-                Game.World.SetMobXY(X, Y, FloorMob1);
-                Facing = dir;
-                origX = X;
-                origY = Y;
-                curUpdate = UpdateMoving;
-            }
+            pushed = X == playerX && Math.Abs(Y - playerY) <= World.MobTileHeight;
         }
         else
         {
+            pushed = Y == playerY && Math.Abs(X - playerX) <= World.MobTileWidth;
+        }
+
+        if (!pushed) {
             timer = 0;
+            return;
+        }
+
+        timer++;
+        if (timer == TimerLimit)
+        {
+            targetPos = dir switch {
+                Direction.Right => X + World.MobTileWidth,
+                Direction.Left => X - World.MobTileWidth,
+                Direction.Down => Y + World.MobTileHeight,
+                Direction.Up => Y - World.MobTileHeight,
+                _ => targetPos
+            };
+            Game.World.SetMobXY(X, Y, FloorMob1);
+            Facing = dir;
+            origX = X;
+            origY = Y;
+            curUpdate = UpdateMoving;
         }
     }
 

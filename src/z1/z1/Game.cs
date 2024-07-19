@@ -72,8 +72,12 @@ internal sealed class Game
     public readonly Sound Sound = new();
     public readonly PlayerProfile Profile = new();
 
-    public static bool SpeedUp = true;
-    public static bool GodMode = true;
+    public static class Cheats
+    {
+        public static bool SpeedUp = true;
+        public static bool GodMode = true;
+        public static bool WalkThroughWalls = false;
+    }
 
     // TODO:
     public Actor ObservedPlayer => Link;

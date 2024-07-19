@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using z1.Player;
+﻿using z1.Player;
 
 namespace z1.Actors;
 
@@ -83,8 +82,6 @@ internal sealed class Link : Actor
         // The original game hides part of the player if it's under an underworld doorway.
         // But, we do it differently.
 
-
-        Debug.WriteLine($"Link {{ X: {X}, Y: {Y}, Moving: {Moving}, Facing: {Facing}, TileOffset: {TileOffset} }}");
         if (TileOffset == 0)
         {
             X = (X & 0xF8);
@@ -274,10 +271,8 @@ internal sealed class Link : Actor
             _curButtons.Buttons = 0;
             if (!Game.World.IsOverworld())
             {
-                if (Facing.IsVertical())
-                    Moving = (byte)(Moving & (byte)Direction.VerticalMask);
-                else
-                    Moving = (byte)(Moving & (byte)Direction.HorizontalMask);
+                var mask = Facing.IsVertical() ? Direction.VerticalMask : Direction.HorizontalMask;
+                Moving = (byte)(Moving & (byte)mask);
             }
         }
         else if (IsInBorder(coord, Facing, innerBorder()))
@@ -599,7 +594,7 @@ internal sealed class Link : Actor
     // JOE: NOTE: This used to have a `Point& otherMiddle` argument that was unused?
     public void BeHarmed(Actor collider, int damage)
     {
-        if (Game.GodMode) return;
+        if (Game.Cheats.GodMode) return;
 
         if (collider is not WhirlwindActor)
         {
@@ -672,26 +667,26 @@ internal sealed class Link : Actor
 
     private int UseBomb(int x, int y, Direction facingDir)
     {
-        int i;
+        ObjectSlot i;
 
-        for (i = (int)ObjectSlot.FirstBomb; i < (int)ObjectSlot.LastBomb; i++)
+        for (i = ObjectSlot.FirstBomb; i < ObjectSlot.LastBomb; i++)
         {
-            var obj = Game.World.GetObject((ObjectSlot)i);
-            if (obj == null || obj is BombActor)
+            var obj = Game.World.GetObject(i);
+            if (obj == null || obj is not BombActor)
                 break;
         }
 
-        if (i == (int)ObjectSlot.LastBomb)
+        if (i == ObjectSlot.LastBomb)
             return 0;
 
-        var freeSlot = (ObjectSlot)i;
+        var freeSlot = i;
         var otherSlot = ObjectSlot.FirstBomb;
 
         if (freeSlot == ObjectSlot.FirstBomb)
             otherSlot++;
 
-        var otherObj = Game.World.GetObject(otherSlot);
-        if (otherObj is BombActor otherBomb && otherBomb.BombState < BombState.Blasting)
+        var otherBomb = Game.World.GetObject<BombActor>(otherSlot);
+        if (otherBomb != null && otherBomb.BombState < BombState.Blasting)
         {
             return 0;
         }
@@ -906,7 +901,7 @@ internal sealed class Link : Actor
         dir = CheckTileCollision(dir);
         dir = HandleLadder(dir);
 
-        MoveDirection(_speed * (Game.SpeedUp ? 3 : 1), dir);
+        MoveDirection(_speed * (Game.Cheats.SpeedUp ? 3 : 1), dir);
     }
 
     // 8ED7

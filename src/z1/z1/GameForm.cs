@@ -27,9 +27,9 @@ internal sealed class FpsCalculator
 }
 
 // TODO:
-// * The refactor to CurrentUWRoomAttrs (and maybe the other?) screwed up a bunch of stuff that used
-//   an argument not curRoomId.
+// * Lanmola is busted. Easy path to one in 9 from bombhole.
 // * Look up interfaces and fix all that are not properly applied.
+// * celler pushblocks dont work.
 
 public partial class GameForm : Form
 {

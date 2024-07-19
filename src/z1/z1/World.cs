@@ -23,7 +23,7 @@ internal sealed class TileMap
     public const int Size = World.Rows * World.Columns;
 
     private readonly byte[] _tileRefs = new byte[Size];
-    private readonly byte[] _tileBehaviors = new byte[Size];
+    private readonly byte[] _tileBehaviors = new byte[World.Rows * World.Columns];
 
     public ref byte Refs(int index) => ref _tileRefs[index];
     public ref byte Refs(int row, int col) => ref _tileRefs[row * World.Columns + col];
@@ -704,6 +704,17 @@ internal sealed unsafe partial class World
         }
     }
 
+    public T? GetFirstObject<T>(ObjectSlot start, ObjectSlot end) where T : Actor
+    {
+        for (var slot = start; slot < end; slot++)
+        {
+            var obj = GetObject<T>(slot);
+            if (obj != null) return obj;
+        }
+
+        return null;
+    }
+
     public void SetObject(ObjectSlot slot, Actor obj)
     {
         SetOnlyObject(slot, obj);
@@ -716,7 +727,7 @@ internal sealed unsafe partial class World
             if (objects[(int)i] == null)
                 return i;
         }
-        return (ObjectSlot)(-1);
+        return ObjectSlot.NoneFound;
     }
 
     public ref int GetObjectTimer(ObjectSlot slot) => ref objectTimers[(int)slot];
@@ -765,6 +776,11 @@ internal sealed unsafe partial class World
             collision.Collides = false;
         }
 
+        if (Game.Cheats.WalkThroughWalls && isPlayer)
+        {
+            collision.Collides = false;
+        }
+
         return collision;
     }
 
@@ -789,7 +805,13 @@ internal sealed unsafe partial class World
 
         if (y < TileMapBaseY)
         {
-            throw new Exception("I think this bad.");
+            // JOE: FIXME: Arg. This is a bug in the original C++ but the oringal C++ is a proper translation
+            // from the assembly. I was unable to reproduce this issue in the original game, so it's either a
+            // logic change or an issue higher up.
+            y = TileMapBaseY;
+
+            // throw new Exception("I think this bad.");
+            // Debugger.Break();
         }
 
         var behavior = TileBehavior.FirstWalkable;
@@ -815,7 +837,7 @@ internal sealed unsafe partial class World
             }
         }
 
-        return new(CollidesTile(behavior), behavior, hitFineCol, fineRow);
+        return new TileCollision(CollidesTile(behavior), behavior, hitFineCol, fineRow);
     }
 
     public TileCollision PlayerCoversTile(int x, int y)
@@ -1031,7 +1053,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void ShowShortcutStairs(int roomId, int _tileMapIndex) // JOE: TODO: Is _tileMapIndex not being used a mistake?
+    public void ShowShortcutStairs(int roomId, int _tileMapIndex) // JOE: TODO: Is _tileMapIndex not being used a mistake?
     {
         OWRoomAttrs owRoomAttrs = roomAttrs[roomId];
         var index = owRoomAttrs.GetShortcutStairsIndex();
@@ -1366,7 +1388,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        State.Play.liftItemTimer = Game.SpeedUp ? (byte)1 : timer;
+        State.Play.liftItemTimer = Game.Cheats.SpeedUp ? (byte)1 : timer;
         State.Play.liftItemId = itemId;
 
         Game.Link.SetState(PlayerState.Paused);
@@ -1576,7 +1598,7 @@ internal sealed unsafe partial class World
         return ((damageByte & 0xF) << 8) | (damageByte & 0xF0);
     }
 
-    public void LoadOverworldRoom(int x, int y) => LoadRoom(x + y * 16, 0);
+    public void LoadOverworldRoom(int x, int y) => LoadRoom(x + y * 16, curTileMapIndex);
 
     private void LoadRoom(int roomId, int tileMapIndex)
     {
@@ -2299,17 +2321,15 @@ internal sealed unsafe partial class World
 
     private bool CalcHasLivingObjects()
     {
-        for (var i = (int)ObjectSlot.Monster1 ; i < (int)ObjectSlot.MonsterEnd; i++)
+        foreach (var monster in GetMonsters<Actor>())
         {
-            var obj = objects[i];
-            // if (obj != null)
-            // {
-            //     ObjType type = obj.GetType();
-            //     if (type < Obj_Bubble1
-            //         || (type > Obj_Bubble3 && type < Obj_Trap))
-            //         return true;
-            // }
-            if (obj != null && obj.CountsAsLiving) return true;
+            // JOE: TODO: Offload this to the monster's classes.
+            var type = monster.ObjType;
+            if (type < ObjType.Bubble1
+                || (type > ObjType.Bubble3 && type < ObjType.Trap))
+            {
+                return true;
+            }
         }
 
         return false;
@@ -2370,7 +2390,7 @@ internal sealed unsafe partial class World
         SetMobXY(0xD0, 0x60, BlockObjType.Mob_UW_Stairs);
     }
 
-    private void KillAllObjects()
+    public void KillAllObjects()
     {
         for (var i = (int)ObjectSlot.Monster1; i < (int)ObjectSlot.MonsterEnd; i++)
         {
@@ -3313,7 +3333,7 @@ internal sealed unsafe partial class World
         else
         {
             State.Scroll.substate = ScrollState.Substates.Scroll;
-            State.Scroll.timer = Game.SpeedUp ? 5 : ScrollState.StateTime;
+            State.Scroll.timer = Game.Cheats.SpeedUp ? 5 : ScrollState.StateTime;
         }
     }
 
@@ -3750,11 +3770,13 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if (State.Unfurl.left == 0 || Game.SpeedUp)
+        if (State.Unfurl.left == 0 || Game.Cheats.SpeedUp)
         {
             statusBar.EnableFeatures(StatusBarFeatures.EquipmentAndMap, true);
             if (!IsOverworld())
+            {
                 Game.Sound.PlaySong(infoBlock.SongId, SongStream.MainSong, true);
+            }
             GotoEnter(Direction.Up);
             return;
         }
