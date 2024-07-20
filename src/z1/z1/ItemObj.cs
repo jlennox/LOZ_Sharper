@@ -251,10 +251,10 @@ internal class FireActor : Actor
 
     public FireActor(Game game, int x, int y, Direction facing) : base(game, ObjType.Fire, x, y)
     {
-        _state = FireState.Moving;
+        state = FireState.Moving;
         Facing = facing;
 
-        animator = new()
+        animator = new SpriteAnimator
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire),
             Time = 0,

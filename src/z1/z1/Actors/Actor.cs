@@ -124,9 +124,11 @@ internal abstract class Actor
 
     protected Actor(Game game, ObjType type, int x = 0, int y = 0)
     {
+        if (type == ObjType.None) throw new ArgumentOutOfRangeException(nameof(type));
+
         Game = game;
         ObjType = type;
-        Position = new(x, y);
+        Position = new Point(x, y);
 
         if (type < ObjType.PersonEnd
             && type != ObjType.Armos && type != ObjType.FlyingGhini)

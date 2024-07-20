@@ -6,7 +6,6 @@ internal enum PlayerState { Idle, Wielding, Paused }
 
 internal sealed class Link : Actor, IThrower
 {
-    public override bool IsPlayer => true;
 
     public const int WalkSpeed = 0x60;
     public const int StairsSpeed = 0x30;
@@ -18,8 +17,12 @@ internal sealed class Link : Actor, IThrower
     private const int GridAlignMask = ~(GridAlign - 1);
     private const int HalfGridAlign = GridAlign / 2;
 
+    public static ReadOnlySpan<byte> PlayerLimits => new byte[] { 0xF0, 0x00, 0xDD, 0x3D };
+
+    public override bool IsPlayer => true;
+
     private int _walkFrame = 0;
-    private int _state = 0;
+    private int _state = 0; // JOE: TODO: Enumify this.
     private byte _speed;
     private TileBehavior _tileBehavior;
     public bool Paralyzed;
@@ -28,20 +31,24 @@ internal sealed class Link : Actor, IThrower
     private byte _keepGoingStraight;      // 57
     private InputButtons _curButtons;
 
-    public SpriteAnimator Animator = new() { Time = 0, DurationFrames = WalkDurationFrames };
+    public readonly SpriteAnimator Animator;
 
-    public static ReadOnlySpan<byte> PlayerLimits => new byte[] { 0xF0, 0x00, 0xDD, 0x3D };
 
     public Link(Game game, Direction facing = Direction.Up) : base(game, ObjType.Player)
     {
+        _speed = WalkSpeed;
         Facing = facing;
         Decoration = 0;
+
+        Animator = new SpriteAnimator() { Time = 0, DurationFrames = WalkDurationFrames };
     }
 
     public void DecInvincibleTimer()
     {
         if (InvincibilityTimer > 0 && (Game.GetFrameCounter() & 1) == 0)
+        {
             InvincibilityTimer--;
+        }
     }
 
     public override void Update()

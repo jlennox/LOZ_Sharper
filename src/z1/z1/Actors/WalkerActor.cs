@@ -24,13 +24,10 @@ internal abstract class WalkerActor : Actor
     protected virtual Palette Palette => Spec.Palette;
 
     protected virtual bool HasProjectile => false;
-    protected virtual Projectile CreateProjectile() => throw new NotImplementedException();
 
     protected int CurrentSpeed;
     protected int ShootTimer = 0;
     protected bool WantToShoot = false;
-
-    protected static SKBitmap SpriteFromIndex(int index, int y) => Sprites.FromSheet(Sprites.BadguysOverworld, 8 + index * 17, y);
 
     public WalkerActor(Game game, ObjType type, WalkerSpec spec, int x, int y) : base(game, type, x, y)
     {
@@ -367,11 +364,6 @@ internal sealed class OctorokActor : DelayedWanderer
             (ActorColor.Red, true) => new OctorokActor(game, ObjType.RedFastOctorock, redFastOctorockSpec, 0x70, x, y),
             _ => throw new ArgumentOutOfRangeException(),
         };
-    }
-
-    protected override Projectile CreateProjectile()
-    {
-        return new FlyingRockProjectile(Game, X, Y, Facing);
     }
 }
 
@@ -779,6 +771,7 @@ internal sealed class GleeokActor : Actor
     readonly GleeokNeck[] necks = new GleeokNeck[MaxNecks];
 
     public override bool IsReoccuring => false;
+
     private GleeokActor(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
         neckCount = type - ObjType.Gleeok1 + 1;
@@ -939,7 +932,7 @@ internal sealed class GleeokActor : Actor
 
 internal sealed class GanonActor : BlueWizzrobeBase
 {
-    public override bool IsReoccuring => false;
+    private readonly record struct SlashSpec(TileSheet Sheet, AnimationId AnimIndex, byte Flags);
 
     [Flags]
     private enum Visual
@@ -948,7 +941,24 @@ internal sealed class GanonActor : BlueWizzrobeBase
         Ganon = 1,
         Pile = 2,
         Pieces = 4,
+    }
+
+    private static readonly byte[] ganonNormalPalette = new byte[] { 0x16, 0x2C, 0x3C };
+    private static readonly byte[] ganonRedPalette = new byte[] { 0x07, 0x17, 0x30 };
+
+    private readonly SlashSpec[] slashSpecs = new[]
+    {
+        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_U,    0),
+        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      1),
+        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_L,    1),
+        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      3),
+        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_U,    2),
+        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      2),
+        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_L,    0),
+        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      0),
     };
+
+    public override bool IsReoccuring => false;
 
     Visual visual;
     int state;
@@ -964,9 +974,6 @@ internal sealed class GanonActor : BlueWizzrobeBase
     SpriteAnimator Animator;
     SpriteAnimator cloudAnimator;
     SpriteImage pileImage;
-
-    private static readonly byte[] ganonNormalPalette = new byte[] { 0x16, 0x2C, 0x3C };
-    private static readonly byte[] ganonRedPalette = new byte[] { 0x07, 0x17, 0x30 };
 
     public GanonActor(Game game, int x, int y) : base(game, ObjType.Ganon, x, y)
     {
@@ -1007,21 +1014,6 @@ internal sealed class GanonActor : BlueWizzrobeBase
             case 2: UpdateActive(); break;
         }
     }
-
-
-    private readonly record struct SlashSpec(TileSheet Sheet, AnimationId AnimIndex, byte Flags);
-
-    private readonly SlashSpec[] slashSpecs = new[]
-    {
-        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_U,    0),
-        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      1),
-        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_L,    1),
-        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      3),
-        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_U,    2),
-        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      2),
-        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_L,    0),
-        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      0),
-    };
 
     public override void Draw()
     {
@@ -1321,7 +1313,7 @@ internal sealed class ZeldaActor : Actor
 
     private ZeldaActor(Game game, int x = ZeldaX, int y = ZeldaY) : base(game, ObjType.Zelda, x, y)
     {
-        image.Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Zelda_Stand);
+        image = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Zelda_Stand));
     }
 
     public static ZeldaActor Make(Game game)
@@ -1410,9 +1402,12 @@ internal sealed class GuardFireActor : Actor
 
     public GuardFireActor(Game game, int x, int y) : base(game, ObjType.GuardFire, x, y)
     {
-        animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire);
-        animator.DurationFrames = 12;
-        animator.Time = 0;
+        animator = new SpriteAnimator()
+        {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire),
+            DurationFrames = 12,
+            Time = 0
+        };
     }
 
     public override void Update()
@@ -1484,11 +1479,13 @@ internal sealed class FairyActor : FlyingActor
 
     private static readonly FlyerSpec fairySpec = new(fairyAnimMap, TileSheet.PlayerAndItems, Palette.Red, 0xA0);
 
-    int timer = 0xFF;
+    int timer;
 
     // JOE: TODO: Fairy is an "item," not an actor. IS this a problem?
-    public FairyActor(Game game, int x, int y) : base(game, ObjType.None, fairySpec, x, y)
+    public FairyActor(Game game, int x, int y) : base(game, ObjType.Item, fairySpec, x, y)
     {
+        timer = 0xFF;
+
         Decoration = 0;
         Facing = Direction.Up;
         curSpeed = 0x7F;
@@ -1556,21 +1553,19 @@ internal sealed class PondFairyActor : Actor
     private const int PondFairyRingCenterX = 0x80;
     private const int PondFairyRingCenterY = 0x98;
 
-    enum PondFairyState
-    {
-        Idle,
-        Healing,
-        Healed,
-    };
+    enum PondFairyState { Idle, Healing, Healed }
 
-    PondFairyState _pondFairyState;
-    SpriteAnimator Animator;
+    private static readonly byte[] entryAngles = new byte[] { 0, 11, 22, 33, 44, 55, 66, 77 };
+
     readonly byte[] heartState = new byte[8];
     readonly byte[] heartAngle = new byte[8];
 
-    public PondFairyActor(Game game) : base(game, ObjType.PondFairy, PondFairyX, PondFairyY)
+    PondFairyState _pondFairyState;
+    SpriteAnimator Animator;
+
+    public PondFairyActor(Game game, int x = PondFairyX, int y = PondFairyY) : base(game, ObjType.PondFairy, x, y)
     {
-        Animator = new()
+        Animator = new SpriteAnimator
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fairy),
             Time = 0,
@@ -1584,10 +1579,11 @@ internal sealed class PondFairyActor : Actor
     {
         Animator.Advance();
 
-        if (_pondFairyState == PondFairyState.Idle)
-            UpdateIdle();
-        else if (_pondFairyState == PondFairyState.Healing)
-            UpdateHealing();
+        switch (_pondFairyState)
+        {
+            case PondFairyState.Idle: UpdateIdle(); break;
+            case PondFairyState.Healing: UpdateHealing(); break;
+        }
     }
 
     void UpdateIdle()
@@ -1599,13 +1595,14 @@ internal sealed class PondFairyActor : Actor
         if (playerY != PondFairyLineY
             || playerX < PondFairyLineX1
             || playerX > PondFairyLineX2)
+        {
             return;
+        }
 
         _pondFairyState = PondFairyState.Healing;
         player.SetState(PlayerState.Paused);
     }
 
-    private static readonly byte[] entryAngles = new byte[] { 0, 11, 22, 33, 44, 55, 66, 77 };
     void UpdateHealing()
     {
         for (var i = 0; i < heartState.Length; i++)
@@ -1643,17 +1640,18 @@ internal sealed class PondFairyActor : Actor
 
     public override void Draw()
     {
+        const float Radius = 0x36;
+        const float Angle = -Global.TWO_PI / 85.0f;
+
         var xOffset = (16 - Animator.Animation.Width) / 2;
         Animator.Draw(TileSheet.PlayerAndItems, PondFairyX + xOffset, PondFairyY, Palette.RedFgPalette);
 
         if (_pondFairyState != PondFairyState.Healing)
             return;
 
-        const float Radius = 0x36;
-        const float Angle = -Global.TWO_PI / 85.0f;
-        var heart = new SpriteImage();
-
-        heart.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Heart);
+        var heart = new SpriteImage {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Heart)
+        };
 
         for (var i = 0; i < heartState.Length; i++)
         {
@@ -1688,11 +1686,8 @@ internal sealed class DeadDummyActor : Actor
 
 internal abstract class StdWanderer : WandererWalkerActor
 {
-    private readonly WalkerSpec _spec;
-
     protected StdWanderer(Game game, ObjType type, WalkerSpec spec, int turnRate, int x, int y) : base(game, type, spec, turnRate, x, y)
     {
-        _spec = spec;
     }
 }
 
@@ -1744,6 +1739,7 @@ internal sealed class GibdoActor : StdWanderer
     private static readonly WalkerSpec gibdoSpec = new(gibdoAnimMap, 16, Palette.Blue, Global.StdSpeed);
 
     public override bool CanHoldRoomItem => true;
+
     public GibdoActor(Game game, int x, int y) : base(game, ObjType.Gibdo, gibdoSpec, 0x80, x, y)
     {
     }
@@ -1794,8 +1790,6 @@ internal sealed class DarknutActor : StdWanderer
 
 internal sealed class StalfosActor : StdWanderer
 {
-    public override bool CanHoldRoomItem => true;
-
     private static readonly AnimationId[] stalfosAnimMap = new[]
     {
         AnimationId.UW_Stalfos,
@@ -1805,6 +1799,8 @@ internal sealed class StalfosActor : StdWanderer
     };
 
     private static readonly WalkerSpec stalfosSpec = new(stalfosAnimMap, 16, Palette.Red, Global.StdSpeed, ObjType.PlayerSwordShot);
+
+    public override bool CanHoldRoomItem => true;
 
     public StalfosActor(Game game, int x, int y) : base(game, ObjType.Stalfos, stalfosSpec, 0x80, x, y)
     {
@@ -1837,7 +1833,7 @@ internal sealed class GelActor : WandererWalkerActor
 
     private static readonly WalkerSpec gelSpec = new(gelAnimMap, 4, Palette.SeaPal, 0x40);
 
-    int state;
+    int state; // JOE: TODO: Enumify this.
 
     public GelActor(Game game, ObjType type, int x, int y, Direction dir, byte fraction) : base(game, type, gelSpec, 0x20, x, y)
     {
@@ -2155,9 +2151,10 @@ internal sealed class LikeLikeActor : WandererWalkerActor
 
     private static readonly WalkerSpec likeLikeSpec = new(likeLikeAnimMap, 24, Palette.Red, Global.StdSpeed);
 
+    public override bool CanHoldRoomItem => true;
+
     int framesHeld;
 
-    public override bool CanHoldRoomItem => true;
     public LikeLikeActor(Game game, int x, int y) : base(game, ObjType.LikeLike, likeLikeSpec, 0x80, x, y)
     {
         InitCommonFacing();

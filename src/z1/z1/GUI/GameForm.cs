@@ -16,6 +16,8 @@ namespace z1.GUI;
 // * Power bracelet does not work. At least in NE location.
 
 // To check:
+// * Check `IsReoccuring` is proper.
+// * Consider refactoring monster projectile creation into generic CreateProjectile?
 // * Do bubbles work properly?
 
 // TODO:
