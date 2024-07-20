@@ -16,7 +16,7 @@ internal enum DrawingFlags
 
 internal static class Graphics
 {
-    private static SKSurface _surface;
+    private static SKSurface? _surface;
     private static SKImageInfo _info;
 
     private static readonly int _paletteBmpWidth = Math.Max(Global.PaletteLength, 16);
@@ -204,6 +204,7 @@ internal static class Graphics
     )
     {
         ArgumentNullException.ThrowIfNull(bitmap);
+        ArgumentNullException.ThrowIfNull(_surface);
 
         var sourceRect = new SKRect(srcX, srcY, srcX + width, srcY + height);
         var destRect = new SKRect(destX, destY, destX + width, destY + height);
@@ -249,6 +250,7 @@ internal static class Graphics
         DrawingFlags flags
     )
     {
+        ArgumentNullException.ThrowIfNull(_surface);
         Debug.Assert(slot < TileSheet.Max);
 
         var cacheKey = new TileCache(slot, _activeSystemPalette, srcX, srcY, palette, flags);
@@ -300,25 +302,22 @@ internal static class Graphics
             tileRef++;
 
             DrawTile(
-                slot,
-                srcX,
-                srcY,
-                World.TileWidth,
-                World.TileHeight,
-                destX + OffsetsX()[i],
-                destY + OffsetsY()[i],
-                palette,
-                0);
+                slot, srcX, srcY,
+                World.TileWidth, World.TileHeight,
+                destX + OffsetsX()[i], destY + OffsetsY()[i],
+                palette, 0);
         }
     }
 
     public static void Clear(SKColor color)
     {
+        ArgumentNullException.ThrowIfNull(_surface);
         _surface.Canvas.Clear(color);
     }
 
     public static void Clear(SKColor color, int x, int y, int width, int height)
     {
+        ArgumentNullException.ThrowIfNull(_surface);
         _surface.Canvas.Clear(color);
     }
 
@@ -329,6 +328,7 @@ internal static class Graphics
 
     public static UnclipScope SetClip(int x, int y, int width, int height)
     {
+        ArgumentNullException.ThrowIfNull(_surface);
         var y2 = y + height;
 
         if (y2 < 0)
@@ -362,6 +362,7 @@ internal static class Graphics
 
     public static void ResetClip()
     {
+        ArgumentNullException.ThrowIfNull(_surface);
         _surface.Canvas.Restore();
     }
 }

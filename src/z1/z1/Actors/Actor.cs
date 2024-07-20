@@ -813,59 +813,59 @@ internal abstract class Actor
         if (context.WeaponSlot != 0)
         {
             ShoveObject(context);
+            return;
+        }
+
+        var player = Game.Link;
+        if (player.InvincibilityTimer != 0) return;
+
+        var useY = false;
+        if (player.TileOffset == 0)
+        {
+            if (context.Distance.Y >= 4)
+                useY = true;
         }
         else
         {
-            var player = Game.Link;
-            if (player.InvincibilityTimer != 0) return;
-
-            var useY = false;
-            if (player.TileOffset == 0)
-            {
-                if (context.Distance.Y >= 4)
-                    useY = true;
-            }
-            else
-            {
-                if (player.Facing.IsVertical())
-                    useY = true;
-            }
-
-            Direction dir;
-            if (useY)
-            {
-                dir = Y < player.Y ? Direction.Down : Direction.Up;
-            }
-            else
-            {
-                dir = X < player.X ? Direction.Right : Direction.Left;
-            }
-
-            player.ShoveDirection = (Direction)((int)dir | 0x80);
-            player.InvincibilityTimer = 0x18;
-            player.ShoveDistance = 0x20;
-
-            if (Game.World.curObjectSlot >= ObjectSlot.Buffer) return;
-            if (Attributes.GetUnknown80__() || this is VireActor) return;
-
-            Facing = Facing.GetOppositeDirection();
+            if (player.Facing.IsVertical())
+                useY = true;
         }
-    }
+
+        Direction dir;
+        if (useY)
+        {
+            dir = Y < player.Y ? Direction.Down : Direction.Up;
+        }
+        else
+        {
+            dir = X < player.X ? Direction.Right : Direction.Left;
+        }
+
+        player.ShoveDirection = (Direction)((int)dir | 0x80);
+        player.InvincibilityTimer = 0x18;
+        player.ShoveDistance = 0x20;
+
+        if (Game.World.curObjectSlot >= ObjectSlot.Buffer) return;
+        if (Attributes.GetUnknown80__() || this is VireActor) return;
+
+        Facing = Facing.GetOppositeDirection();
+}
 
     public void ShoveObject(CollisionContext context)
     {
-        if (InvincibilityTimer != 0)
-            return;
+        if (InvincibilityTimer != 0) return;
 
         var weaponObj = Game.World.GetObject(context.WeaponSlot) ?? throw new InvalidOperationException("Weapon was null.");
         var dir = weaponObj.Facing;
 
         if (Attributes.GetUnknown80__())
+        {
             dir |= (Direction)0x40;
+        }
 
         if (this is GohmaActor gohma)
         {
-            if (((gohma.GetCurrentCheckPart() != 3) && (gohma.GetCurrentCheckPart() != 4))
+            if (gohma.GetCurrentCheckPart() is not (3 or 4)
                 || gohma.GetEyeFrame() != 3
                 || weaponObj.Facing != Direction.Up)
             {

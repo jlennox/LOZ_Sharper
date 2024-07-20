@@ -609,7 +609,9 @@ internal sealed class MagicWaveProjectile : Projectile
         if (Direction.None == CheckWorldMargin(Facing))
         {
             if (IsPlayerWeapon && !Game.World.IsOverworld())
+            {
                 AddFire();
+            }
 
             IsDeleted = true;
             return;
@@ -627,18 +629,17 @@ internal sealed class MagicWaveProjectile : Projectile
 
     public void AddFire()
     {
-        if (Game.World.GetItem(ItemSlot.Book) != 0)
+        if (Game.World.GetItem(ItemSlot.Book) == 0) return;
+
+        var fireSlot = Game.World.FindEmptyFireSlot();
+        if (fireSlot >= 0)
         {
-            var fireSlot = Game.World.FindEmptyFireSlot();
-            if (fireSlot >= 0)
+            var fire = new FireActor(Game, X, Y, Facing)
             {
-                var fire = new FireActor(Game, X, Y, Facing)
-                {
-                    ObjTimer = 0x4F,
-                    state = FireState.Standing
-                };
-                Game.World.SetObject(fireSlot, fire);
-            }
+                ObjTimer = 0x4F,
+                state = FireState.Standing
+            };
+            Game.World.SetObject(fireSlot, fire);
         }
     }
 }
@@ -722,7 +723,7 @@ internal sealed class ArrowProjectile : Projectile
         {
             if (IsPlayerWeapon)
             {
-                int itemValue = Game.World.GetItem(ItemSlot.Arrow);
+                var itemValue = Game.World.GetItem(ItemSlot.Arrow);
                 pal = Palette.Player + itemValue - 1;
             }
             else
@@ -732,11 +733,11 @@ internal sealed class ArrowProjectile : Projectile
         }
 
 
-        int dirOrd = Facing.GetOrdinal();
-        int yOffset = yOffsets[dirOrd];
+        var dirOrd = Facing.GetOrdinal();
+        var yOffset = yOffsets[dirOrd];
 
-        int x = X;
-        int y = Y + yOffset;
+        var x = X;
+        var y = Y + yOffset;
 
         if (state == ProjectileState.Spark && Facing.IsHorizontal())
             x += 4;

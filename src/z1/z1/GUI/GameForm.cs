@@ -6,19 +6,26 @@ using Timer = System.Windows.Forms.Timer;
 
 namespace z1.GUI;
 
-// TODO:
-// * Lanmola is busted. Easy path to one in 9 from bombhole.
+// Bugs:
+// * Touching fire crashes.
 // * Can't hit wizzrobes with sword.
 // * Celler pushblocks dont work.
 // * Traps move slow?
 // * No spawn clouds?
 // * Doors in dungeons and drawing priority.
 // * Likelike's don't hold correctly.
-// * Power bracelet does not work.
+// * Power bracelet does not work. At least in NE location.
+
+// To check:
+// * Do bubbles work properly?
+
+// TODO:
 // * SIMD the palettes?
+// * Eliminate paramterless SpriteImage constructor?
 
 // Enhancements:
-// * Allow names to be typed in.
+// * Having the red candle causes dark rooms to auto fade in.
+//   Blue candle does not because it can only be used once per room, this would be too strong of a buf as a weapon for it.
 
 // Monsters:
 // * Manhandla:              W8, u1

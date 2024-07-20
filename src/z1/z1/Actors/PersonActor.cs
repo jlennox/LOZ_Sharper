@@ -103,11 +103,7 @@ internal sealed class PersonActor : Actor
 
         var animIndex = spec.DwellerType - ObjType.OldMan;
         var animId = sPersonGraphics[animIndex].AnimId;
-        image = new()
-        {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animId)
-        };
-
+        image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, animId));
         textBox = new TextBox(Game, Game.World.GetString(stringId).ToArray());
 
         Array.Fill(priceStrs, (byte)Char.Space);

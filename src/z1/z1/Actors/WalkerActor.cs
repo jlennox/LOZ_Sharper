@@ -4820,7 +4820,7 @@ internal sealed class LamnolaActor : Actor
                 break;
         }
 
-        if (slot == HeadSlot1 || slot == HeadSlot2)
+        if (slot is HeadSlot1 or HeadSlot2)
             return;
 
         HP = 0x20;
