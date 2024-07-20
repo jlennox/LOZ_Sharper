@@ -7,7 +7,7 @@ using Timer = System.Windows.Forms.Timer;
 namespace z1.GUI;
 
 // Bugs:
-// * Touching fire crashes.
+// * Boomerang disappears when hitting a wall.
 // * Can't hit wizzrobes with sword.
 // * Celler pushblocks dont work.
 // * Traps move slow?

@@ -810,7 +810,9 @@ internal abstract class Actor
     {
         if ((InvincibilityMask & (int)context.DamageType) != 0) return;
 
-        if (context.WeaponSlot != 0)
+        // JOE: NOTE: This should irl be `> ObjectSlot.NoneFound` but verifying that becomes a bit difficult.
+        if (context.WeaponSlot == 0) Debugger.Break();
+        if (context.WeaponSlot > 0)
         {
             ShoveObject(context);
             return;
@@ -917,7 +919,7 @@ internal abstract class Actor
         }
 
         // JOE: NOTE: Is this right? Original code did: CollisionContext context = { 0 };
-        var context = new CollisionContext(0, 0, 0, distance);
+        var context = new CollisionContext(ObjectSlot.NoneFound, 0, 0, distance);
 
         if (this is PersonActor)
         {
