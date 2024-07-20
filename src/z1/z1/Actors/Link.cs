@@ -35,6 +35,7 @@ internal sealed class Link : Actor, IThrower
     public Link(Game game, Direction facing = Direction.Up) : base(game, ObjType.Player)
     {
         Facing = facing;
+        Decoration = 0;
     }
 
     public void DecInvincibleTimer()
@@ -703,8 +704,7 @@ internal sealed class Link : Actor, IThrower
     {
         // ORIGINAL: Trumps food. Look at $05:8E40. The behavior is tied to the statement below.
         //           Skip throw, if there's already a boomerang in the slot. But overwrite Food.
-        if (Game.World.GetObject(ObjectSlot.Boomerang) != null)
-            return 0;
+        if (Game.World.HasObject(ObjectSlot.Boomerang)) return 0;
 
         var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
 
@@ -713,7 +713,7 @@ internal sealed class Link : Actor, IThrower
         if (MovingDirection != Direction.None)
             facingDir = MovingDirection;
 
-        var distance = itemValue == 2 ? 0xFF : 0x31;
+        var distance = itemValue == 2 ? BoomerangProjectile.RedsDistance : BoomerangProjectile.YellowsDistance;
         var boomerang = GlobalFunctions.MakeBoomerang(Game, x, y, facingDir, distance, 3.0f, this, ObjectSlot.Boomerang);
         Game.World.SetObject(ObjectSlot.Boomerang, boomerang);
         return 6;

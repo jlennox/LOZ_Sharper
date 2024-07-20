@@ -322,6 +322,9 @@ internal enum BoomerangState { Unknown1, Unknown2, Unknown3, Unknown4, Unknown5 
 
 internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
 {
+    public const int YellowsDistance = 0x31;
+    public const int RedsDistance = 0xFF;
+
     private readonly int _startX;
     private readonly int _startY;
     private int _distanceTarget;
@@ -517,12 +520,11 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
             _animTimer = 3;
             _animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Boomerang);
             _animator.Time = 0;
+            return;
         }
-        else
-        {
-            _animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Spark);
-            _animator.Time = 0;
-        }
+
+        _animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Spark);
+        _animator.Time = 0;
     }
 
     private void AdvanceAnimAndCheckCollision()
