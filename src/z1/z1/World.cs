@@ -678,7 +678,7 @@ internal sealed unsafe partial class World
     public IEnumerable<T> GetMonsters<T>(bool skipStart = false) where T : Actor
     {
         var start = skipStart ? ObjectSlot.Monster1 + 1 : ObjectSlot.Monster1;
-        var end = skipStart ? ObjectSlot.Monster1 + 9 : ObjectSlot.LastMonster;
+        var end = skipStart ? ObjectSlot.Monster1 + 9 : ObjectSlot.MonsterEnd;
         for (var slot = start; slot < end; slot++)
         {
             var obj = Game.World.GetObject(slot);
@@ -1839,7 +1839,7 @@ internal sealed unsafe partial class World
             {
                 for (var c = startCol; c < startCol + colCount; c += 2)
                 {
-                    var tileRef = tileMaps[curTileMapIndex].Refs(UWBlockRow * c);
+                    var tileRef = tileMaps[curTileMapIndex].Refs(UWBlockRow, c);
                     if (tileRef == (byte)BlockObjType.Tile_Block)
                     {
                         sActionFuncs[(int)TileAction.Block](UWBlockRow, c, TileInteraction.Load);
@@ -2416,17 +2416,13 @@ internal sealed unsafe partial class World
     private void MoveRoomItem()
     {
         var foe = GetObject(ObjectSlot.Monster1);
-        if (foe == null)
-            return;
+        if (foe == null || !foe.CanHoldRoomItem) return;
 
         var item = GetObject(ObjectSlot.Item);
+        if (item == null) return;
 
-
-        if (item != null && foe.CanHoldRoomItem)
-        {
-            item.X = foe.X;
-            item.Y = foe.Y;
-        }
+        item.X = foe.X;
+        item.Y = foe.Y;
     }
 
     private static ReadOnlySpan<int> _fireballLayouts => new[] { 0x24, 0x23 };
