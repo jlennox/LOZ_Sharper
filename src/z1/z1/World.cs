@@ -686,9 +686,10 @@ internal sealed unsafe partial class World
 
         var waterRandom = Random.Shared.Next(0, waterCount);
         var cell = waterList[waterRandom];
-        return new((byte)(cell.Row + BaseRows), cell.Col);
+        return new Cell((byte)(cell.Row + BaseRows), cell.Col);
     }
 
+    public bool HasObject(ObjectSlot slot) => GetObject(slot) != null;
     public T? GetObject<T>(ObjectSlot slot) where T : Actor => GetObject(slot) as T;
 
     public Actor? GetObject(ObjectSlot slot)

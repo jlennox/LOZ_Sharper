@@ -647,21 +647,20 @@ internal sealed class Link : Actor, IThrower
 
         Game.World.candleUsed = true;
 
-        for (var i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
+        // Rewrite findfreeslot to allow this to work.
+        for (var i = ObjectSlot.FirstFire; i < ObjectSlot.LastFire; i++)
         {
-            if (Game.World.GetObject((ObjectSlot)i) != null) continue;
+            if (Game.World.HasObject(i)) continue;
 
             MoveSimple(ref x, ref y, facingDir, 0x10);
 
             Game.Sound.PlayEffect(SoundEffect.Fire);
 
-            var fire = new FireActor(Game, x, y)
-            {
-                Moving = (byte)facingDir
-            };
-            Game.World.SetObject((ObjectSlot)i, fire);
+            var fire = new FireActor(Game, x, y, facingDir);
+            Game.World.SetObject(i, fire);
             return 12;
         }
+
         return 0;
     }
 
@@ -780,6 +779,7 @@ internal sealed class Link : Actor, IThrower
         return 0;
     }
 
+    // JOE: NOTE: Return value is properly unused?
     private int UseItem()
     {
         var profile = Game.World.GetProfile();
@@ -818,7 +818,10 @@ internal sealed class Link : Actor, IThrower
     private int UseWeapon()
     {
         if (Game.World.SwordBlocked || Game.World.GetStunTimer(ObjectSlot.NoSwordTimer) != 0)
+        {
             return 0;
+        }
+
         return UseWeapon(ObjType.PlayerSword, ItemSlot.Sword);
     }
 

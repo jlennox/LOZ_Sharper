@@ -236,11 +236,24 @@ internal enum FireState { Moving, Standing }
 
 internal class FireActor : Actor
 {
-    public FireState state;
+    public FireState state
+    {
+        get => _state;
+        set
+        {
+            _state = value;
+            if (state == FireState.Standing) Game.World.BeginFadeIn();
+        }
+    }
     SpriteAnimator animator;
 
-    public FireActor(Game game, int x, int y) : base(game, ObjType.Fire, x, y)
+    private FireState _state;
+
+    public FireActor(Game game, int x, int y, Direction facing) : base(game, ObjType.Fire, x, y)
     {
+        _state = FireState.Moving;
+        Facing = facing;
+
         animator = new()
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire),
@@ -251,27 +264,7 @@ internal class FireActor : Actor
         Decoration = 0;
     }
 
-    private void SetMoving(Direction dir)
-    {
-        Facing = dir;
-    }
-
-    FireState GetLifetimeState()
-    {
-        return state;
-    }
-
-    public void SetLifetimeState(FireState state)
-    {
-        this.state = state;
-
-        if (state == FireState.Standing)
-        {
-            Game.World.BeginFadeIn();
-        }
-    }
-
-    Point GetMiddle()
+    private Point GetMiddle()
     {
         return new Point(X + 8, Y + 8);
     }
@@ -313,15 +306,15 @@ internal class FireActor : Actor
 
         if (player.InvincibilityTimer == 0)
         {
-            Point objCenter = GetMiddle();
-            Point playerCenter = player.GetMiddle();
-            Point box = new Point(0xE, 0xE);
+            var objCenter = GetMiddle();
+            var playerCenter = player.GetMiddle();
+            var box = new Point(0xE, 0xE);
 
             if (!DoObjectsCollide(objCenter, playerCenter, box, out var distance))
                 return;
 
             // JOE: NOTE: This came out pretty different.
-            CollisionContext context = new(ObjectSlot.NoneFound, DamageType.Fire, 0, distance);
+            var context = new CollisionContext(ObjectSlot.NoneFound, DamageType.Fire, 0, distance);
 
             Shove(context);
             player.BeHarmed(this, 0x0080);

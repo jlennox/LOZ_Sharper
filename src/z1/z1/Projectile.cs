@@ -632,12 +632,11 @@ internal sealed class MagicWaveProjectile : Projectile
             var fireSlot = Game.World.FindEmptyFireSlot();
             if (fireSlot >= 0)
             {
-                var fire = new FireActor(Game, X, Y)
+                var fire = new FireActor(Game, X, Y, Facing)
                 {
-                    MovingDirection = Facing,
                     ObjTimer = 0x4F,
+                    state = FireState.Standing
                 };
-                fire.SetLifetimeState(FireState.Standing);
                 Game.World.SetObject(fireSlot, fire);
             }
         }
