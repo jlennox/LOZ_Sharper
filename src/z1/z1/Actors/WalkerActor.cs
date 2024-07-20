@@ -972,15 +972,21 @@ internal sealed class GanonActor : BlueWizzrobeBase
     {
         InvincibilityMask = 0xFA;
 
-        Animator.DurationFrames = 1;
-        Animator.Time = 0;
-        Animator.Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Ganon);
+        Animator = new() {
+            DurationFrames = 1,
+            Time = 0,
+            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Ganon)
+        };
 
-        pileImage.Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Pile);
+        pileImage = new() {
+            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Pile)
+        };
 
-        cloudAnimator.DurationFrames = 1;
-        cloudAnimator.Time = 0;
-        cloudAnimator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cloud);
+        cloudAnimator = new() {
+            DurationFrames = 1,
+            Time = 0,
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cloud)
+        };
 
         Game.Link.SetState(PlayerState.Paused);
         Game.Link.ObjTimer = 0x40;
@@ -1483,6 +1489,7 @@ internal sealed class FairyActor : FlyingActor
     // JOE: TODO: Fairy is an "item," not an actor. IS this a problem?
     public FairyActor(Game game, int x, int y) : base(game, ObjType.None, fairySpec, x, y)
     {
+        Decoration = 0;
         Facing = Direction.Up;
         curSpeed = 0x7F;
     }
@@ -1667,6 +1674,7 @@ internal sealed class DeadDummyActor : Actor
 {
     public DeadDummyActor(Game game, int x, int y) : base(game, ObjType.DeadDummy, x, y)
     {
+        Decoration = 0;
     }
 
     public override void Update()
@@ -2224,6 +2232,7 @@ internal abstract class DigWanderer : WandererWalkerActor
     protected DigWanderer(Game game, ObjType type, WalkerSpec[] specs, int[] stateTimes, int x, int y)
         : base(game, type, specs[0], 0xA0, x, y)
     {
+        ObjTimer = 0;
         stateSpecs = specs;
         this.stateTimes = stateTimes;
     }
@@ -2411,6 +2420,7 @@ internal sealed class RedLeeverActor : Actor
     static int count;
     public RedLeeverActor(Game game, int x, int y) : base(game, ObjType.RedLeever, x, y)
     {
+        Decoration = 0;
         Facing = Direction.Right;
 
         Animator = new()
@@ -3012,7 +3022,7 @@ internal sealed class MoldormActor : FlyingActor
     public override bool IsReoccuring => false;
     private MoldormActor(Game game, int x, int y) : base(game, ObjType.Moldorm, moldormSpec, x, y)
     {
-        ObjType = ObjType.Moldorm;
+        Decoration = 0;
         Facing = Direction.None;
         oldFacing = Facing;
 
@@ -3305,6 +3315,9 @@ internal sealed class PatraChildActor : Actor
     private PatraChildActor(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
         InvincibilityMask = 0xFE;
+        Decoration = 0;
+
+        ObjTimer = 0;
 
         Animator = new()
         {
@@ -3651,7 +3664,7 @@ internal abstract class JumperActor : Actor, IDeleteEvent
 
         if (t < 0x20)
             t -= 0x40;
-        if (this is TektiteActor tektite && tektite.Color == ActorColor.Blue)
+        if (ObjType == ObjType.BlueTektite)
         {
             t &= 0x7F;
             if (r >= 0xA0)
@@ -4396,6 +4409,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
     public BlueWizzrobeBase(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
+        Decoration = 0;
     }
 
     void TruncatePosition()
@@ -4448,10 +4462,10 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
         if (collisionResult == 1)
         {
-            if ((Facing & (Direction)0xC) != 0)
-                Facing = (Direction)(Facing ^ (Direction)0xC);
-            if ((Facing & (Direction)3) != 0)
-                Facing = (Direction)(Facing ^ (Direction)3);
+            if (Facing.IsVertical())
+                Facing ^= Direction.VerticalMask;
+            if (Facing.IsHorizontal())
+                Facing ^= Direction.HorizontalMask;
 
             Move();
         }
@@ -4512,16 +4526,9 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
     void Turn()
     {
-        Direction dir;
-
-        if ((turnTimer & 0x40) != 0)
-        {
-            dir = GetYDirToTruePlayer(Y);
-        }
-        else
-        {
-            dir = GetXDirToTruePlayer(X);
-        }
+        var dir = (turnTimer & 0x40) != 0
+            ? GetYDirToTruePlayer(Y)
+            : GetXDirToTruePlayer(X);
 
         if (dir == Facing)
             return;
@@ -4583,13 +4590,15 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
             return;
         }
 
-        var origFacing = Facing;
+        var origFacing = Facing; // JOE: TODO: IS this intentionally unused?
 
         MoveOrTeleport();
         TryShooting();
 
-        if ((flashTimer & 1) == 0)
+        if ((flashTimer & 1) == 0) {
             AnimateAndCheckCollisions();
+        }
+
         SetFacingAnimation();
     }
 
@@ -4640,6 +4649,8 @@ internal sealed class LamnolaActor : Actor
 
     private LamnolaActor(Game game, ObjType type, bool isHead, int x, int y) : base(game, type, x, y)
     {
+        Decoration = 0;
+
         var animationId = isHead ? AnimationId.UW_LanmolaHead : AnimationId.UW_LanmolaBody;
         image = new()
         {
@@ -4848,6 +4859,9 @@ internal sealed class WallmasterActor : Actor
 
     public WallmasterActor(Game game, int x, int y) : base(game, ObjType.Wallmaster, x, y)
     {
+        Decoration = 0;
+        ObjTimer = 0;
+
         Animator = new()
         {
             DurationFrames = 16,
@@ -6352,7 +6366,7 @@ internal static class Statues
 
     public static void Update(Game game, PatternType pattern)
     {
-        if (pattern < 0 || pattern >= PatternType.Patterns)
+        if (pattern is < 0 or >= PatternType.Patterns)
         {
             return;
         }
@@ -6385,8 +6399,7 @@ internal static class Statues
             int x = xs[offset];
             int y = ys[offset];
 
-            if (Math.Abs(x - player.X) >= 0x18
-                || Math.Abs(y - player.Y) >= 0x18)
+            if (Math.Abs(x - player.X) >= 0x18 || Math.Abs(y - player.Y) >= 0x18)
             {
                 game.ShootFireball(ObjType.Fireball, x, y);
             }
@@ -6478,6 +6491,7 @@ internal abstract class WizzrobeBase : Actor
 
     protected int CheckWizzrobeTileCollision(int x, int y, Direction dir)
     {
+        // JOE: TODO: This can crash.
         var ord = dir - 1;
         x += allWizzrobeCollisionXOffsets[(int)ord];
         y += allWizzrobeCollisionYOffsets[(int)ord];

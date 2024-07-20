@@ -47,6 +47,14 @@ internal struct InputButtons
     public Button Buttons;
     public readonly int ButtonsInt => (int)Buttons;
 
+    public HashSet<char> Characters;
+
+    public InputButtons()
+    {
+        Buttons = Button.None;
+        Characters = new();
+    }
+
     public readonly bool Has(Button value) => Buttons.HasFlag(value);
     public void Mask(Button value) => Buttons &= value;
     public void Clear(Button value) => Buttons = (Button)((int)Buttons ^ (int)value);
@@ -54,8 +62,8 @@ internal struct InputButtons
 
 internal sealed class Input
 {
-    private InputButtons oldInputState;
-    private InputButtons inputState;
+    private InputButtons oldInputState = new();
+    private InputButtons inputState = new();
 
     public InputButtons GetButtons()
     {
@@ -63,7 +71,7 @@ internal sealed class Input
             & inputState.ButtonsInt
             | (inputState.ButtonsInt & 0xF);
 
-        return new() { Buttons = (Button)buttons };
+        return new InputButtons { Buttons = (Button)buttons };
     }
 
     private static readonly Dictionary<Keys, Button> _map = new()
@@ -82,8 +90,19 @@ internal sealed class Input
     {
         if (_map.TryGetValue(keys, out var button))
         {
-            oldInputState = new InputButtons { Buttons = inputState.Buttons };
+
             inputState.Buttons |= button;
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool SetLetter(char letter)
+    {
+        if (char.IsLetter(letter))
+        {
+            inputState.Characters.Add(letter);
             return true;
         }
 
@@ -94,9 +113,14 @@ internal sealed class Input
     {
         if (_map.TryGetValue(keys, out var button))
         {
-            oldInputState = new InputButtons { Buttons = inputState.Buttons };
+            // oldInputState = new InputButtons { Buttons = inputState.Buttons };
             inputState.Buttons &= ~button;
         }
+    }
+
+    public void UnsetLetter(char letter)
+    {
+        inputState.Characters.Remove(letter);
     }
 
     public bool IsKeyDown(int keyCode) => throw new NotImplementedException();
@@ -105,6 +129,16 @@ internal sealed class Input
 
     public bool IsButtonDown(Button buttonCode) => inputState.Has(buttonCode);
     public bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
+    public IEnumerable<char> GetCharactersPressing()
+    {
+        foreach (var c in inputState.Characters)
+        {
+            if (!oldInputState.Characters.Contains(c))
+            {
+                yield return c;
+            }
+        }
+    }
 
     private ButtonState GetButton(Button buttonCode)
     {
@@ -119,7 +153,20 @@ internal sealed class Input
         };
     }
 
+    public Direction GetDirectionPressing()
+    {
+        if (IsButtonPressing(Button.Up)) return Direction.Up;
+        if (IsButtonPressing(Button.Down)) return Direction.Down;
+        if (IsButtonPressing(Button.Left)) return Direction.Left;
+        if (IsButtonPressing(Button.Right)) return Direction.Right;
+        return Direction.None;
+    }
+
     public void Update()
     {
+        oldInputState = new InputButtons {
+            Buttons = inputState.Buttons,
+            Characters = inputState.Characters == null ? new() : new(inputState.Characters)
+        };
     }
 }

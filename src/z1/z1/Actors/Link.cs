@@ -967,14 +967,14 @@ internal sealed class Link : Actor, IThrower
 
         if (distance < 0x10)
         {
-            ladder.state = 2;
+            ladder.state = LadderStates.Unknown2;
             dir = MoveOnLadder(dir, distance);
         }
         else if (distance != 0x10 || Facing != ladder.Facing)
         {
             Game.World.SetLadder(null);
         }
-        else if (ladder.state == 1)
+        else if (ladder.state == LadderStates.Unknown1)
         {
             dir = MoveOnLadder(dir, distance);
         }
@@ -1028,15 +1028,12 @@ internal sealed class Link : Actor, IThrower
     // $01:A13E  stop object, if too close to a block
     private Direction StopAtBlock(Direction dir)
     {
-        for (var i = (int)ObjectSlot.Buffer; i >= (int)ObjectSlot.Monster1; i--)
+        for (var i = ObjectSlot.Buffer; i >= ObjectSlot.Monster1; i--)
         {
-            var obj = Game.World.GetObject((ObjectSlot)i);
-            if (obj is IBlocksPlayer block)
+            var obj = Game.World.GetObject(i);
+            if (obj is IBlocksPlayer block && block.CheckCollision() == CollisionResponse.Blocked)
             {
-                if (block.CheckCollision() == CollisionResponse.Blocked)
-                {
-                    return Direction.None;
-                }
+                return Direction.None;
             }
         }
         return dir;

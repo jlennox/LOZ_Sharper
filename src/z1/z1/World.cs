@@ -32,7 +32,7 @@ internal sealed class TileMap
     public TileBehavior AsBehaviors(int row, int col) => (TileBehavior)_tileBehaviors[row * World.Columns + col];
 }
 
-internal enum SpecialRoomIds
+internal enum UniqueRoomIds
 {
     TopRightOverworldSecret = 0x0F,
 }
@@ -214,7 +214,7 @@ internal sealed unsafe partial class World
 
     public Link Player => Game.Link;
     public bool giveFakePlayerPos;
-    public int playerPosTimer; // JOE: TOOD: Unused on purpose?
+    public int playerPosTimer; // JOE: TODO: Unused on purpose?
     public Point fakePlayerPos;
 
     public Actor?[] objects = new Actor[(int)ObjectSlot.MaxObjects];
@@ -400,7 +400,7 @@ internal sealed unsafe partial class World
 
         var facing = Game.Link?.Facing ?? Direction.Up;
 
-        Game.Link = new(Game, facing);
+        Game.Link = new Link(Game, facing);
 
         // Replace room attributes, if in second quest.
 
@@ -1596,7 +1596,7 @@ internal sealed unsafe partial class World
         return GetObjectAttrs()[(int)type];
     }
 
-    private int GetObjectMaxHP(ObjType type)
+    public int GetObjectMaxHP(ObjType type)
     {
         var hpAttrs = extraData.GetItems<HPAttr>(Extra.HitPoints);
         var index = (int)type / 2;
@@ -2024,8 +2024,15 @@ internal sealed unsafe partial class World
             {
                 if (Game.Input.IsButtonPressing(Button.Select))
                 {
-                    Pause = 1;
-                    Game.Sound.Pause();
+                    if (Game.Enhancements)
+                    {
+                        menu.SelectNextItem();
+                    }
+                    else
+                    {
+                        Pause = 1;
+                        Game.Sound.Pause();
+                    }
                     return;
                 }
                 else if (Game.Input.IsButtonPressing(Button.Start))
@@ -2462,7 +2469,9 @@ internal sealed unsafe partial class World
         }
 
         if (pattern >= 0)
+        {
             Statues.Update(Game, (Statues.PatternType)pattern);
+        }
     }
 
     private void OnLeavePlay()
@@ -3370,7 +3379,7 @@ internal sealed unsafe partial class World
         if (State.Scroll.offsetX == 0 && State.Scroll.offsetY == 0)
         {
             GotoEnter(State.Scroll.scrollDir);
-            if (IsOverworld() && State.Scroll.nextRoomId == (int)SpecialRoomIds.TopRightOverworldSecret)
+            if (IsOverworld() && State.Scroll.nextRoomId == (int)UniqueRoomIds.TopRightOverworldSecret)
             {
                 Game.Sound.PlayEffect(SoundEffect.Secret);
             }

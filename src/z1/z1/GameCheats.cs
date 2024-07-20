@@ -153,6 +153,7 @@ internal class GameCheats
             // }
 
             var slot = ObjectSlot.Monster1;
+            game.World.curObjectSlot = slot;
 
             var obj = Actor.FromType(objType, game, 80, 80);
             game.World.SetObject(slot, obj);
@@ -232,6 +233,10 @@ internal class GameCheats
             profile.Items[ItemSlot.Bombs] = 98;
             profile.Items[ItemSlot.Keys] = 98;
             profile.Items[ItemSlot.HeartContainers] = 16;
+            profile.Items[ItemSlot.Map] = 0xFF;
+            profile.Items[ItemSlot.Compass] = 0xFF;
+            profile.Items[ItemSlot.Map9] = 0xFF;
+            profile.Items[ItemSlot.Compass9] = 0xFF;
             profile.Hearts = profile.Items[ItemSlot.HeartContainers];
             profile.SelectedItem = ItemSlot.Bombs;
 

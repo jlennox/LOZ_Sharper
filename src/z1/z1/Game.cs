@@ -79,6 +79,8 @@ internal sealed class Game
         public static bool WalkThroughWalls = false;
     }
 
+    public bool Enhancements = true;
+
     // TODO:
     public Actor ObservedPlayer => Link;
 

@@ -258,6 +258,8 @@ internal sealed class FireballProjectile : Actor
 
     public FireballProjectile(Game game, ObjType type, int x, int y, float speed) : base(game, type, x, y)
     {
+        Decoration = 0;
+
         image = new()
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fireball)
@@ -344,6 +346,7 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
         _animTimer = 3;
 
         Facing = moving;
+        Decoration = 0;
 
         _animator = new()
         {

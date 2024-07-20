@@ -8,11 +8,17 @@ namespace z1.GUI;
 
 // TODO:
 // * Lanmola is busted. Easy path to one in 9 from bombhole.
-// * Patra's child offset is wrong.
 // * Can't hit wizzrobes with sword.
 // * Celler pushblocks dont work.
 // * Traps move slow?
+// * No spawn clouds?
+// * Doors in dungeons and drawing priority.
+// * Likelike's don't hold correctly.
+// * Power bracelet does not work.
+// * SIMD the palettes?
 
+// Enhancements:
+// * Allow names to be typed in.
 
 // Monsters:
 // * Manhandla:              W8, u1
@@ -54,7 +60,7 @@ public partial class GameForm : Form
     {
         _cheats.OnKeyPressed(keyData);
 
-        if (_game.Input.SetKey(keyData))
+        if (_game.Input.SetKey(keyData) || _game.Input.SetLetter(keyData.GetKeyCharacter()))
         {
             return true;
         }
@@ -65,6 +71,7 @@ public partial class GameForm : Form
     private void Form1_KeyUp(object? sender, KeyEventArgs e)
     {
         _game.Input.UnsetKey(e.KeyCode);
+        _game.Input.SetLetter(e.KeyCode.GetKeyCharacter());
     }
 
     private void Timer_Tick(object? sender, EventArgs e)
@@ -96,9 +103,9 @@ public partial class GameForm : Form
         {
             _game.FrameCounter++;
 
-            _game.Input.Update();
             _game.World.Update();
             _game.Sound.Update();
+            _game.Input.Update();
 
             _renderedTime += frameTime;
             updated = true;

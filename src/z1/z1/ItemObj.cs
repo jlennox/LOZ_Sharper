@@ -3,9 +3,11 @@ using z1.Actors;
 
 namespace z1;
 
+internal enum LadderStates { Unknown0, Unknown1, Unknown2 }
+
 internal sealed class LadderActor : Actor
 {
-    public int state = 1;
+    public LadderStates state = LadderStates.Unknown1;
     public Direction origDir = Direction.Down; // JOE: NOTE: This is unused in the original?
     SpriteImage image;
 
@@ -18,16 +20,6 @@ internal sealed class LadderActor : Actor
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Ladder)
         };
-    }
-
-    int GetState()
-    {
-        return state;
-    }
-
-    private void SetState(int state)
-    {
-        this.state = state;
     }
 
     public override void Update()
@@ -346,6 +338,7 @@ internal sealed class TreeActor : Actor
 {
     public TreeActor(Game game, int x, int y) : base(game, ObjType.Tree, x, y)
     {
+        Decoration = 0;
     }
 
     public override void Update()
@@ -476,6 +469,7 @@ internal sealed class RockWallActor : Actor
 {
     public RockWallActor(Game game, int x, int y) : base(game, ObjType.RockWall, x, y)
     {
+        Decoration = 0;
     }
 
     public override void Update()
@@ -725,6 +719,8 @@ internal sealed class ItemObjActor : Actor
 
     public ItemObjActor(Game game, ItemId itemId, bool isRoomItem, int x, int y) : base(game, ObjType.Item, x, y)
     {
+        Decoration = 0;
+
         this.itemId = itemId;
         this.isRoomItem = isRoomItem;
 
@@ -901,6 +897,8 @@ internal sealed class DockActor : Actor
 
     public DockActor(Game game, int x, int y) : base(game, ObjType.Dock, x, y)
     {
+        Decoration = 0;
+
         _raftImage = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.Raft);
     }
 

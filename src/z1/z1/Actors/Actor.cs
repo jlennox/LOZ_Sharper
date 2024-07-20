@@ -36,6 +36,8 @@ internal interface IDeleteEvent
 internal abstract class Actor
 {
     public Game Game { get; }
+
+    // JOE: TODO: Get rid of this.
     public Point Position
     {
         get => new(_x, _y);
@@ -80,7 +82,7 @@ internal abstract class Actor
     private bool _isDeleted;
     private bool _ranDeletedEvent = false;
 
-    public byte Decoration;
+    public byte Decoration = 1;
     protected byte HP;
     public byte InvincibilityTimer;
     protected byte InvincibilityMask;
@@ -112,23 +114,29 @@ internal abstract class Actor
     public ActorFlags Flags;
 
     public ObjType ObjType { get; set; }
-
     public ObjectAttr Attributes => Game.World.GetObjectAttrs(ObjType);
 
     protected bool IsStunned => _isStunned();
     protected bool IsParalyzed { get; set; }
 
-    public ActorColor Color;
+    // JOE: TODO: Consider bringing this back.
+    //public ActorColor Color;
 
-    private Actor(Game game, int x = 0, int y = 0)
+    protected Actor(Game game, ObjType type, int x = 0, int y = 0)
     {
         Game = game;
-        Position = new(x, y);
-    }
-
-    public Actor(Game game, ObjType type, int x = 0, int y = 0) : this(game, x, y)
-    {
         ObjType = type;
+        Position = new(x, y);
+
+        if (type < ObjType.PersonEnd
+            && type != ObjType.Armos && type != ObjType.FlyingGhini)
+        {
+            var slot = game.World.curObjSlot;
+            var time = slot + 1;
+            ObjTimer = (byte)time;
+        }
+
+        HP = (byte)game.World.GetObjectMaxHP(ObjType);
     }
 
     public abstract void Update();
@@ -1269,7 +1277,7 @@ internal abstract class Actor
         {
             if (TileOffset == 0)
             {
-                Position = new Point(Position.X & 0xF8, (Position.Y & 0xF8) | 5);
+                Position = new Point(X & 0xF8, (Y & 0xF8) | 5);
 
                 if (Game.World.CollidesWithTileMoving(X, Y, cleanDir, IsPlayer))
                 {

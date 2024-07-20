@@ -74,7 +74,7 @@ internal struct PlayCaveState
     public Substates substate;
     public int timer;
     public int targetY;
-    public SpritePriority playerPriority;
+    // public SpritePriority playerPriority; // JOE: Unused in the orignal.
 }
 
 internal struct ScrollState

@@ -21,6 +21,8 @@ internal sealed class SubmenuType
     private const int ActiveMapX = 0x80;
     private const int ActiveMapY = 0x58;
 
+    private const int ItemsPerRow = 4;
+
     private readonly record struct PassiveItemSpec(ItemSlot ItemSlot, byte X);
     private readonly record struct TriforcePieceSpec(byte X, byte Y, byte[][] OffTiles, byte[][] OnTiles);
 
@@ -265,28 +267,57 @@ internal sealed class SubmenuType
     public void Update()
     {
         if (!activated)
-            return;
-
-        int dir;
-
-        if (_game.Input.IsButtonPressing(Button.Left))
-        {
-            dir = -1;
-        }
-        else if (_game.Input.IsButtonPressing(Button.Right))
-        {
-            dir = 1;
-        }
-        else
         {
             return;
         }
+
+        var direction = _game.Input.GetDirectionPressing();
+        if (direction == Direction.None) return;
+
+        var xdir = direction switch
+        {
+            Direction.Left => -1,
+            Direction.Right => 1,
+            _ => 0
+        };
+
+        var ydir = direction switch
+        {
+            Direction.Up => -1,
+            Direction.Down => 1,
+            _ => 0
+        };
 
         _game.World.Game.Sound.PlayEffect(SoundEffect.Cursor);
 
+        if (ydir != 0)
+        {
+            if (_game.Enhancements)
+            {
+                var amount = ItemsPerRow * ydir;
+                var target = (activeUISlot + amount) % ActiveItems;
+                if (target < 0) target = activeUISlot - amount;
+
+                if (activeItems[target] != ItemId.None)
+                {
+                    activeUISlot = target;
+                }
+            }
+        }
+        else
+        {
+            SelectNextItem(xdir);
+        }
+
+        var profile = _game.World.GetProfile();
+        profile.SelectedItem = activeSlots[activeUISlot];
+    }
+
+    public void SelectNextItem(int xdir = 1)
+    {
         for (var i = 0; i < ActiveItems; i++)
         {
-            activeUISlot += dir;
+            activeUISlot += xdir;
 
             if (activeUISlot < 0)
                 activeUISlot += ActiveItems;
@@ -298,7 +329,6 @@ internal sealed class SubmenuType
         }
 
         var profile = _game.World.GetProfile();
-
         profile.SelectedItem = activeSlots[activeUISlot];
     }
 
@@ -354,7 +384,9 @@ internal sealed class SubmenuType
                     GlobalFunctions.DrawItemNarrow(_game.World.Game, itemId, x, y);
                 }
                 if (profile.Items[ItemSlot.Bow] != 0)
+                {
                     GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Bow, x + 8, y);
+                }
             }
             else if (itemId != ItemId.None)
             {

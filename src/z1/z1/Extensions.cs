@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using z1.Actors;
+﻿using z1.Actors;
 
 namespace z1;
 
@@ -18,7 +17,19 @@ internal static class Extensions
     /// <summary>Does X or Y increase when walking in this direction?</summary>
     public static bool IsGrowing(this Direction direction) => direction is Direction.Right or Direction.Down;
 
-    public static int GetOrdinal(this Direction direction) => BitOperations.TrailingZeroCount((int)direction);
+    public static int GetOrdinal(this Direction direction)
+    {
+        for (var i = 0; i < 4; i++)
+        {
+            if (((int)direction & 1) != 0)
+            {
+                return i;
+            }
+            direction = (Direction)((int)direction >> 1);
+        }
+
+        return 0;
+    }
 
     public static Direction GetOppositeDirection(this Direction direction)
     {

@@ -10,15 +10,15 @@ internal unsafe struct RoomAttrs
     public byte MonsterListId;
     public fixed byte Specific[4];
 
-    public byte A => Specific[0];
-    public byte B => Specific[1];
-    public byte C => Specific[2];
-    public byte D => Specific[3];
+    public readonly byte A => Specific[0];
+    public readonly byte B => Specific[1];
+    public readonly byte C => Specific[2];
+    public readonly byte D => Specific[3];
 
-    public int GetUniqueRoomId() => UniqueRoomId & 0x7F;
-    public Palette GetOuterPalette() => (Palette)(PalettesAndMonsterCount & 0x03);
-    public Palette GetInnerPalette() => (Palette)((PalettesAndMonsterCount >> 2) & 0x03);
-    public int GetMonsterCount() => (PalettesAndMonsterCount >> 4) & 0xF;
+    public readonly int GetUniqueRoomId() => UniqueRoomId & 0x7F;
+    public readonly Palette GetOuterPalette() => (Palette)(PalettesAndMonsterCount & 0x03);
+    public readonly Palette GetInnerPalette() => (Palette)((PalettesAndMonsterCount >> 2) & 0x03);
+    public readonly int GetMonsterCount() => (PalettesAndMonsterCount >> 4) & 0xF;
 
     public static implicit operator OWRoomAttrs(RoomAttrs b) => new(b);
     public static implicit operator UWRoomAttrs(RoomAttrs b) => new(b);

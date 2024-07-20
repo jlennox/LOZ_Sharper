@@ -227,8 +227,8 @@ internal sealed class RegisterMenu : Menu
 
     public RegisterMenu(Game game, ProfileSummarySnapshot summaries)
     {
-        this._game = game;
-        this._summaries = summaries;
+        _game = game;
+        _summaries = summaries;
     }
 
     void SelectNext()
@@ -340,6 +340,8 @@ internal sealed class RegisterMenu : Menu
 
     public override void Update()
     {
+        var inTextEntry = _selectedIndex < 3;
+
         if (_game.Input.IsButtonPressing(Button.Select))
         {
             SelectNext();
@@ -356,7 +358,7 @@ internal sealed class RegisterMenu : Menu
         }
         else if (_game.Input.IsButtonPressing(Button.A))
         {
-            if (_selectedIndex < 3)
+            if (inTextEntry)
             {
                 AddCharToName(GetSelectedChar());
                 _game.Sound.PlayEffect(SoundEffect.PutBomb);
@@ -364,8 +366,10 @@ internal sealed class RegisterMenu : Menu
         }
         else if (_game.Input.IsButtonPressing(Button.B))
         {
-            if (_selectedIndex < 3)
+            if (inTextEntry)
+            {
                 MoveNextNamePosition();
+            }
         }
         else if (_game.Input.IsButtonPressing(Button.Right))
         {
@@ -387,12 +391,20 @@ internal sealed class RegisterMenu : Menu
             MoveCharSetCursorV(-1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
+
+        if (_game.Enhancements && inTextEntry)
+        {
+            foreach (var c in _game.Input.GetCharactersPressing())
+            {
+                AddCharToName((byte)(char.ToLower(c) - (byte)'a' + 0x0A));
+                _game.Sound.PlayEffect(SoundEffect.PutBomb);
+            }
+        }
     }
 
     public override void Draw()
     {
         Graphics.Begin();
-
         Graphics.Clear(SKColors.Black);
 
         int y;

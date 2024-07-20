@@ -28,4 +28,10 @@ internal static unsafe partial class KeyExtensions
         var result = ToUnicode((uint)key, (uint)scancode, keyboardState, buffer, 64, 0);
         return new string(buffer, 0, result);
     }
+
+    public static char GetKeyCharacter(this Keys key)
+    {
+        var s = GetKeyString(key);
+        return s.Length == 0 ? default : s[0];
+    }
 }
