@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
+using z1.Actors;
 
 namespace z1;
 
@@ -78,11 +79,12 @@ internal class GameCheats
         {
             if (!int.TryParse(args[0], out var x) || !int.TryParse(args[0], out var y))
             {
-                Debug.WriteLine("Invalid warp coordinates. " + string.Join(", ", args));
+                game.Toast("Invalid warp coordinates. " + string.Join(", ", args));
                 return;
             }
 
             game.World.LoadOverworldRoom(x, y);
+            game.Toast($"Warping to room {x}x{y}");
         }
     }
 
@@ -101,41 +103,101 @@ internal class GameCheats
             {
                 case "w":
                     game.World.ShowShortcutStairs(7 * 16 + 9, 1);
+                    game.Toast($"Warping to stairs.");
                     return;
             }
 
             if (!int.TryParse(target, out var levelNumber))
             {
-                Debug.WriteLine("Invalid warp coordinates. " + string.Join(", ", args));
+                game.Toast("Invalid warp coordinates. " + string.Join(", ", args));
                 return;
             }
 
             game.World.GotoLoadLevel(levelNumber);
+            game.Toast($"Warping to dungeon {levelNumber}");
+        }
+    }
+
+    private sealed class SpawnCheat : RegexCheat
+    {
+        private static readonly Regex _full = new(@"^s(\w+);$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^s\w*;?$", DefaultRegexOptions);
+
+        protected override Regex FullMatch => _full;
+        protected override Regex PartialMatch => _partial;
+
+        public override void RunPayload(Game game, string[] args)
+        {
+            var type = Enum.GetNames<ObjType>()
+                .Where(t => !t.Contains("Child"))
+                .FirstOrDefault(x => x.StartsWith(args[0], StringComparison.OrdinalIgnoreCase));
+
+            if (type == null)
+            {
+                type = Enum.GetNames<ObjType>()
+                    .Where(t => !t.Contains("Child"))
+                    .FirstOrDefault(x => x.Contains(args[0], StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (type == null)
+            {
+                game.Toast("Invalid object type. " + string.Join(", ", args));
+                return;
+            }
+
+            var objType = Enum.Parse<ObjType>(type);
+            // if (!game.World.TryFindEmptyMonsterSlot(out var slot))
+            // {
+            //     game.Toast("No empty slots found.");
+            //     return;
+            // }
+
+            var slot = ObjectSlot.Monster1;
+
+            var obj = Actor.FromType(objType, game, 80, 80);
+            game.World.SetObject(slot, obj);
+            game.Toast($"Spawned {objType} at slot {slot}");
         }
     }
 
     private sealed class GodModeCheat : SingleWordCheat
     {
         public GodModeCheat() : base("iddqd", true) { }
-        public override void RunPayload(Game game, string[] args) => Game.Cheats.GodMode = !Game.Cheats.GodMode;
+        public override void RunPayload(Game game, string[] args)
+        {
+            Game.Cheats.GodMode = !Game.Cheats.GodMode;
+            game.Toast("God mode " + (Game.Cheats.GodMode ? "enabled" : "disabled"));
+        }
     }
 
     private sealed class KillAllCheat : SingleWordCheat
     {
         public KillAllCheat() : base("ka", true) { }
-        public override void RunPayload(Game game, string[] args) => game.World.KillAllObjects();
+        public override void RunPayload(Game game, string[] args)
+        {
+            game.World.KillAllObjects();
+            game.Toast("Killed all objects.");
+        }
     }
 
     private sealed class SpeedUpCheat : SingleWordCheat
     {
         public SpeedUpCheat() : base("su", true) { }
-        public override void RunPayload(Game game, string[] args) => Game.Cheats.SpeedUp = !Game.Cheats.SpeedUp;
+        public override void RunPayload(Game game, string[] args)
+        {
+            Game.Cheats.SpeedUp = !Game.Cheats.SpeedUp;
+            game.Toast("Speed up " + (Game.Cheats.SpeedUp ? "enabled" : "disabled"));
+        }
     }
 
     private sealed class WalkThroughWallsCheat : SingleWordCheat
     {
         public WalkThroughWallsCheat() : base("idclip", true) { }
-        public override void RunPayload(Game game, string[] args) => Game.Cheats.WalkThroughWalls = !Game.Cheats.WalkThroughWalls;
+        public override void RunPayload(Game game, string[] args)
+        {
+            Game.Cheats.WalkThroughWalls = !Game.Cheats.WalkThroughWalls;
+            game.Toast("Walk through walls " + (Game.Cheats.WalkThroughWalls ? "enabled" : "disabled"));
+        }
     }
 
     private sealed class ItemsCheat : SingleWordCheat
@@ -172,6 +234,8 @@ internal class GameCheats
             profile.Items[ItemSlot.HeartContainers] = 16;
             profile.Hearts = profile.Items[ItemSlot.HeartContainers];
             profile.SelectedItem = ItemSlot.Bombs;
+
+            game.Toast("All items added.");
         }
     }
 
@@ -185,6 +249,7 @@ internal class GameCheats
         new KillAllCheat(),
         new SpeedUpCheat(),
         new WalkThroughWallsCheat(),
+        new SpawnCheat(),
     };
 
     public GameCheats(Game game)

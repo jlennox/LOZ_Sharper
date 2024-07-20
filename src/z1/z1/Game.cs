@@ -115,4 +115,6 @@ internal sealed class Game
             World.SetObject(newSlot, fireball);
         }
     }
+
+    public void Toast(string text) => World.OnScreenDisplay.Toast(text);
 }

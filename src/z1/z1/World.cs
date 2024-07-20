@@ -32,6 +32,11 @@ internal sealed class TileMap
     public TileBehavior AsBehaviors(int row, int col) => (TileBehavior)_tileBehaviors[row * World.Columns + col];
 }
 
+internal enum SpecialRoomIds
+{
+    TopRightOverworldSecret = 0x0F,
+}
+
 internal sealed unsafe partial class World
 {
     public const int LevelGroups = 3;
@@ -129,6 +134,8 @@ internal sealed unsafe partial class World
     private const int UWBombRadius = 32;
 
     public delegate void LoadMobFunc(ref TileMap map, int row, int col, int mobIndex);
+
+    public readonly OnScreenDisplay OnScreenDisplay = new();
 
     public LevelDirectory directory;
     public LevelInfoBlock infoBlock;
@@ -467,6 +474,8 @@ internal sealed unsafe partial class World
         }
 
         sDrawFuncs[(int)curMode]();
+
+        OnScreenDisplay.Draw();
     }
 
     private void DrawRoom()
@@ -1490,7 +1499,7 @@ internal sealed unsafe partial class World
         if (timer == 0)
         {
             DarkRoomFadeStep--;
-            timer = 10; // TODO: Does this reference still work?
+            timer = 10; // JOE: TODO: Does this reference still work?
 
             for (var i = 0; i < 2; i++)
             {
@@ -2691,19 +2700,23 @@ internal sealed unsafe partial class World
             DrawRoom();
         }
 
-        Actor? objOverPlayer = null;
-
-        DrawObjects(ref objOverPlayer);
+        DrawObjects(out var objOverPlayer);
 
         if (IsLiftingItem())
+        {
             DrawLinkLiftingItem(State.Play.liftItemId);
+        }
         else
+        {
             Game.Link.Draw();
+        }
 
         objOverPlayer?.DecoratedDraw();
 
         if (IsUWMain(curRoomId))
+        {
             DrawDoors(curRoomId, true, 0, 0);
+        }
     }
 
     private void DrawSubmenu()
@@ -2715,18 +2728,22 @@ internal sealed unsafe partial class World
         }
 
         if (IsUWMain(curRoomId))
+        {
             DrawDoors(curRoomId, true, 0, SubmenuOffsetY);
+        }
 
         menu.Draw(SubmenuOffsetY);
     }
 
-    private void DrawObjects(ref Actor? objOverPlayer)
+    private void DrawObjects(out Actor? objOverPlayer)
     {
-        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
-        {
-            curObjSlot = i;
+        objOverPlayer = null;
 
-            var obj = objects[i];
+        for (var i = ObjectSlot.FirstSlot; i < ObjectSlot.MaxObjects; i++)
+        {
+            curObjectSlot = i;
+
+            var obj = objects[(int)i];
             if (obj != null && !obj.IsDeleted)
             {
                 if (!obj.Flags.HasFlag(ActorFlags.DrawAbovePlayer) || objOverPlayer == null)
@@ -3333,12 +3350,12 @@ internal sealed unsafe partial class World
         if (uwRoomAttrs.IsDark() && DarkRoomFadeStep == 0)
         {
             State.Scroll.substate = ScrollState.Substates.FadeOut;
-            State.Scroll.timer = 9;
+            State.Scroll.timer = Game.Cheats.SpeedUp ? 1 : 9;
         }
         else
         {
             State.Scroll.substate = ScrollState.Substates.Scroll;
-            State.Scroll.timer = Game.Cheats.SpeedUp ? 5 : ScrollState.StateTime;
+            State.Scroll.timer = Game.Cheats.SpeedUp ? 1 : ScrollState.StateTime;
         }
     }
 
@@ -3353,9 +3370,16 @@ internal sealed unsafe partial class World
         if (State.Scroll.offsetX == 0 && State.Scroll.offsetY == 0)
         {
             GotoEnter(State.Scroll.scrollDir);
-            if (IsOverworld() && State.Scroll.nextRoomId == 0x0F)
+            if (IsOverworld() && State.Scroll.nextRoomId == (int)SpecialRoomIds.TopRightOverworldSecret)
+            {
                 Game.Sound.PlayEffect(SoundEffect.Secret);
+            }
             return;
+        }
+
+        if (Game.Cheats.SpeedUp)
+        {
+            // JOE: TODO
         }
 
         State.Scroll.offsetX += State.Scroll.speedX;
@@ -3406,7 +3430,9 @@ internal sealed unsafe partial class World
         }
 
         if (IsOverworld())
+        {
             Game.Link.Draw();
+        }
     }
 
     private void GotoLeave(Direction dir)
@@ -3586,7 +3612,9 @@ internal sealed unsafe partial class World
     {
         State.Enter.timer--;
         if (State.Enter.timer == 0)
+        {
             State.Enter.gotoPlay = true;
+        }
     }
 
     private void UpdateEnter_FadeIn()
@@ -3594,24 +3622,23 @@ internal sealed unsafe partial class World
         if (DarkRoomFadeStep == 0)
         {
             State.Enter.substate = EnterState.Substates.Walk;
+            return;
+        }
+
+        if (State.Enter.timer == 0)
+        {
+            DarkRoomFadeStep--;
+            State.Enter.timer = 9;
+
+            for (var i = 0; i < 2; i++)
+            {
+                Graphics.SetPaletteIndexed((Palette)i + 2, infoBlock.DarkPalette(DarkRoomFadeStep, i));
+            }
+            Graphics.UpdatePalettes();
         }
         else
         {
-            if (State.Enter.timer == 0)
-            {
-                DarkRoomFadeStep--;
-                State.Enter.timer = 9;
-
-                for (var i = 0; i < 2; i++)
-                {
-                    Graphics.SetPaletteIndexed((Palette)i + 2, infoBlock.DarkPalette(DarkRoomFadeStep, i));
-                }
-                Graphics.UpdatePalettes();
-            }
-            else
-            {
-                State.Enter.timer--;
-            }
+            State.Enter.timer--;
         }
     }
 

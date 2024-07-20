@@ -8,8 +8,21 @@ namespace z1.GUI;
 
 // TODO:
 // * Lanmola is busted. Easy path to one in 9 from bombhole.
-// * Gleeok is borked.
-// * celler pushblocks dont work.
+// * Patra's child offset is wrong.
+// * Can't hit wizzrobes with sword.
+// * Celler pushblocks dont work.
+// * Traps move slow?
+
+
+// Monsters:
+// * Manhandla:              W8, u1
+// * Gleeok:                 W8, u4, l2
+// * Cellar:                 W8, l2
+// * Ruppee Boss:            W8, u5, l1
+// * Crab:                   W8, u3, l1
+// * Moldorm:                W7, r1
+// * Lamnola:                W9: u2, l1
+// * Patra (expand, type 2): W9: u5, r1
 
 public partial class GameForm : Form
 {

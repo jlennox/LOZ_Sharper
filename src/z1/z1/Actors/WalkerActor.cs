@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using SkiaSharp;
 
 namespace z1.Actors;
@@ -772,7 +773,7 @@ internal sealed class GleeokActor : Actor
 
     private static readonly byte[] palette = new byte[] { 0, 0x2A, 0x1A, 0x0C };
 
-    readonly SpriteAnimator Animator;
+    private readonly SpriteAnimator _animator;
     int writhingTimer;
     int neckCount;
     readonly GleeokNeck[] necks = new GleeokNeck[MaxNecks];
@@ -780,11 +781,12 @@ internal sealed class GleeokActor : Actor
     public override bool IsReoccuring => false;
     private GleeokActor(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
+        neckCount = type - ObjType.Gleeok1 + 1;
 
         Decoration = 0;
         InvincibilityMask = 0xFE;
 
-        Animator = new SpriteAnimator
+        _animator = new SpriteAnimator
         {
             DurationFrames = NormalAnimFrames,
             Time = 0,
@@ -835,7 +837,7 @@ internal sealed class GleeokActor : Actor
     public override void Draw()
     {
         var pal = CalcPalette(Palette.SeaPal);
-        Animator.Draw(TileSheet.Boss, X, Y, pal);
+        _animator.Draw(TileSheet.Boss, X, Y, pal);
 
         for (var i = 0; i < neckCount; i++)
         {
@@ -846,15 +848,15 @@ internal sealed class GleeokActor : Actor
 
     void Animate()
     {
-        Animator.Advance();
+        _animator.Advance();
 
         if (writhingTimer != 0)
         {
             writhingTimer--;
             if (writhingTimer == 0)
             {
-                Animator.DurationFrames = NormalAnimFrames;
-                Animator.Time = 0;
+                _animator.DurationFrames = NormalAnimFrames;
+                _animator.Time = 0;
             }
         }
     }
@@ -883,8 +885,8 @@ internal sealed class GleeokActor : Actor
             if (ShoveDirection != 0)
             {
                 writhingTimer = TotalWrithingFrames;
-                Animator.DurationFrames = WrithingAnimFrames;
-                Animator.Time = 0;
+                _animator.DurationFrames = WrithingAnimFrames;
+                _animator.Time = 0;
             }
 
             ShoveDirection = 0;
@@ -2158,6 +2160,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
     {
         var player = Game.Link;
 
+        // Player is not being held.
         if (framesHeld == 0)
         {
             MoveIfNeeded();
@@ -2177,24 +2180,29 @@ internal sealed class LikeLikeActor : WandererWalkerActor
                 Animator.Time = 0;
                 Flags |= ActorFlags.DrawAbovePlayer;
             }
+
+            return;
         }
-        else
+
+        // Player is held.
+        var frame = Animator.Time / 4;
+        if (frame < 3)
         {
-            var frame = Animator.Time / 4;
-            if (frame < 3)
-                Animator.Advance();
+            Animator.Advance();
+        }
 
-            framesHeld++;
-            if (framesHeld >= 0x60)
-            {
-                Game.World.SetItem(ItemSlot.MagicShield, 0);
-                framesHeld = 0xC0;
-            }
+        framesHeld++;
+        if (framesHeld >= 0x60)
+        {
+            Game.World.SetItem(ItemSlot.MagicShield, 0);
+            framesHeld = 0xC0;
+        }
 
-            CheckCollisions();
+        CheckCollisions();
 
-            if (Decoration != 0)
-                player.Paralyzed = false;
+        if (Decoration != 0)
+        {
+            player.Paralyzed = false;
         }
     }
 }
@@ -3175,6 +3183,12 @@ internal enum PatraType { Circle, Spin }
 
 internal sealed class PatraActor : FlyingActor
 {
+    private const int PatraX = 0x80;
+    private const int PatraY = 0x70;
+
+    private const ObjectSlot FirstChildSlot = ObjectSlot.Monster1;
+    private const ObjectSlot LastChildSlot = ObjectSlot.Monster9;
+
     private static readonly AnimationId[] patraAnimMap = new[]
     {
         AnimationId.B3_Patra,
@@ -3194,7 +3208,8 @@ internal sealed class PatraActor : FlyingActor
     public static int[] patraState = new int[9];
 
     public override bool IsReoccuring => false;
-    public PatraActor(Game game, PatraType type, int x, int y) : base(game, GetPatraType(type), patraSpec, x, y)
+
+    private PatraActor(Game game, ObjType type, int x = PatraX, int y = PatraY) : base(game, type, patraSpec, x, y)
     {
         InvincibilityMask = 0xFE;
         Facing = Direction.Up;
@@ -3206,14 +3221,25 @@ internal sealed class PatraActor : FlyingActor
         Array.Fill(patraState, 0);
     }
 
-    private static ObjType GetPatraType(PatraType type)
+    public static PatraActor MakePatra(Game game, PatraType patraType)
     {
-        return type switch
+        var type = patraType switch
         {
             PatraType.Circle => ObjType.Patra1,
             PatraType.Spin => ObjType.Patra2,
             _ => throw new ArgumentOutOfRangeException(),
         };
+
+        var patra = new PatraActor(game, type);
+        game.World.SetObject(ObjectSlot.Monster1, patra);
+
+        for (var i = FirstChildSlot; i <= LastChildSlot; i++)
+        {
+            var child = PatraChildActor.Make(game, patraType);
+            game.World.SetObject(i, child);
+        }
+
+        return patra;
     }
 
     public int GetXMove() => xMove;
@@ -3275,6 +3301,7 @@ internal sealed class PatraChildActor : Actor
     int angleAccum;
 
     public override bool IsReoccuring => false;
+
     private PatraChildActor(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
         InvincibilityMask = 0xFE;
@@ -3287,7 +3314,7 @@ internal sealed class PatraChildActor : Actor
         };
     }
 
-    public static PatraChildActor Make(Game game, PatraType type, int x, int y)
+    public static PatraChildActor Make(Game game, PatraType type, int x = 0, int y = 0)
     {
         var objtype = type switch
         {
@@ -3324,21 +3351,22 @@ internal sealed class PatraChildActor : Actor
         if (PatraActor.patraState[(int)slot] == 0)
         {
             UpdateStart();
+            return;
         }
-        else
-        {
-            UpdateTurn();
-            Animator.Advance();
 
-            if (PatraActor.patraState[0] != 0)
-            {
-                CheckCollisions();
-                if (Decoration != 0)
-                {
-                    var dummy = new DeadDummyActor(Game, X, Y);
-                    Game.World.SetObject(slot, dummy);
-                }
-            }
+        UpdateTurn();
+        Animator.Advance();
+
+        if (PatraActor.patraState[0] == 0)
+        {
+            return;
+        }
+
+        CheckCollisions();
+        if (Decoration != 0)
+        {
+            var dummy = new DeadDummyActor(Game, X, Y);
+            Game.World.SetObject(slot, dummy);
         }
     }
 
@@ -3356,22 +3384,20 @@ internal sealed class PatraChildActor : Actor
     void UpdateStart()
     {
         var slot = Game.World.curObjectSlot;
-
         if (slot != (ObjectSlot)1)
         {
-            if (PatraActor.patraState[1] == 0)
-                return;
-
+            if (PatraActor.patraState[1] == 0) return;
             var index = slot - 2;
-            if (PatraActor.patraAngle[1] != patraEntryAngles[(int)index])
-                return;
+            if (PatraActor.patraAngle[1] != patraEntryAngles[(int)index]) return;
         }
 
         var patra = Game.World.GetObject<PatraActor>(0) ?? throw new Exception();
         var distance = ObjType == ObjType.PatraChild1 ? 0x2C : 0x18;
 
         if (slot == (ObjectSlot)8)
+        {
             PatraActor.patraState[0] = 1;
+        }
         PatraActor.patraState[(int)slot] = 1;
         PatraActor.patraAngle[(int)slot] = 0x18;
 
@@ -3382,7 +3408,7 @@ internal sealed class PatraChildActor : Actor
         Y = y >> 8;
     }
 
-    void UpdateTurn()
+    private void UpdateTurn()
     {
         var slot = Game.World.curObjectSlot;
         var patra = Game.World.GetObject<PatraActor>(0) ?? throw new Exception();
@@ -3418,23 +3444,30 @@ internal sealed class PatraChildActor : Actor
         var n = ShiftMult(cos, TurnSpeed, xShiftCount);
 
         if ((PatraActor.patraAngle[(int)slot] & 0x18) < 0x10)
+        {
             x += n;
+        }
         else
+        {
             x -= n;
+        }
 
         index = (PatraActor.patraAngle[(int)slot] + 8) & 0xF;
         var sin = sinCos[index];
         n = ShiftMult(sin, TurnSpeed, yShiftCount);
 
         if (((PatraActor.patraAngle[(int)slot] - 8) & 0x18) < 0x10)
+        {
             y += n;
+        }
         else
+        {
             y -= n;
+        }
 
         X = x >> 8;
         Y = y >> 8;
     }
-
 }
 
 internal readonly record struct JumperSpec(
@@ -5432,9 +5465,10 @@ internal sealed class DodongoActor : WandererWalkerActor
     }
 }
 
-
 internal sealed class ManhandlaActor : Actor
 {
+    private const ObjectSlot ManhandlaCenterBodySlot = (ObjectSlot)4;
+
     private static readonly AnimationId[] manhandlaAnimMap = new[]
     {
         AnimationId.B2_Manhandla_Hand_U,
@@ -5446,9 +5480,9 @@ internal sealed class ManhandlaActor : Actor
 
     readonly SpriteAnimator Animator;
 
-    short curSpeedFix;
-    short speedAccum;
-    short frameAccum;
+    ushort curSpeedFix;
+    ushort speedAccum;
+    ushort frameAccum;
     int frame;
     int oldFrame;
 
@@ -5462,6 +5496,7 @@ internal sealed class ManhandlaActor : Actor
     public override bool IsReoccuring => false;
     private ManhandlaActor(Game game, int index, int x, int y, Direction facing) : base(game, ObjType.Manhandla, x, y)
     {
+        curSpeedFix = 0x80;
         InvincibilityMask = 0xE2;
         Decoration = 0;
         Facing = facing;
@@ -5487,7 +5522,6 @@ internal sealed class ManhandlaActor : Actor
             var yPos = y + yOffsets[i];
 
             var manhandla = new ManhandlaActor(game, i, xPos, yPos, dir);
-
             game.World.SetObject((ObjectSlot)i, manhandla);
         }
 
@@ -5500,15 +5534,16 @@ internal sealed class ManhandlaActor : Actor
         {
             var manhandla = Game.World.GetObject<ManhandlaActor>((ObjectSlot)i);
             if (manhandla != null)
+            {
                 manhandla.Facing = dir;
+            }
         }
     }
 
     public override void Update()
     {
         var slot = Game.World.curObjectSlot;
-
-        if (slot == (ObjectSlot)4)
+        if (slot == ManhandlaCenterBodySlot)
         {
             UpdateBody();
             sFacingAtFrameBegin = Facing;
@@ -5518,21 +5553,24 @@ internal sealed class ManhandlaActor : Actor
         CheckManhandlaCollisions();
 
         if (Facing != sFacingAtFrameBegin)
+        {
             sBounceDir = Facing;
+        }
 
         frame = (frameAccum & 0x10) >> 4;
 
-        if (slot != (ObjectSlot)4)
+        if (slot != ManhandlaCenterBodySlot)
+        {
             TryShooting();
+        }
     }
 
     public override void Draw()
     {
         var slot = Game.World.curObjectSlot;
-
         var pal = CalcPalette(Palette.Blue);
 
-        if (slot == (ObjectSlot)4)
+        if (slot == ManhandlaCenterBodySlot)
         {
             Animator.Draw(TileSheet.Boss, X, Y, pal);
         }
@@ -5550,7 +5588,9 @@ internal sealed class ManhandlaActor : Actor
             {
                 var manhandla = Game.World.GetObject<ManhandlaActor>((ObjectSlot)i);
                 if (manhandla != null)
+                {
                     manhandla.curSpeedFix += 0x80;
+                }
             }
             sPartsDied = 0;
         }
@@ -5578,12 +5618,12 @@ internal sealed class ManhandlaActor : Actor
     void Move()
     {
         speedAccum &= 0xFF;
-        speedAccum += (short)(curSpeedFix & 0xFFE0);
+        speedAccum += (ushort)(curSpeedFix & 0xFFE0);
         var speed = speedAccum >> 8;
 
         MoveSimple8(Facing, speed);
 
-        frameAccum += (short)(Random.Shared.Next(4) + speed);
+        frameAccum += (ushort)(Random.Shared.Next(4) + speed);
 
         if (Direction.None == CheckWorldMargin(Facing))
         {
@@ -5618,9 +5658,10 @@ internal sealed class ManhandlaActor : Actor
         ObjTimer = (byte)origStateTimer;
         Facing = origFacing;
 
-        // JOE: TODO: Make (ObjectSlot)4 into a named enum member.
-        if (objSlot == (ObjectSlot)4)
+        if (objSlot == ManhandlaCenterBodySlot)
+        {
             InvincibilityTimer = 0;
+        }
 
         PlayBossHitSoundIfHit();
 
@@ -5630,7 +5671,7 @@ internal sealed class ManhandlaActor : Actor
         ShoveDirection = 0;
         ShoveDistance = 0;
 
-        if (objSlot == (ObjectSlot)4)
+        if (objSlot == ManhandlaCenterBodySlot)
         {
             Decoration = 0;
             return;
@@ -5638,6 +5679,7 @@ internal sealed class ManhandlaActor : Actor
 
         var handCount = 0;
 
+        // JOE: TODO: Use enum method.
         for (var i = ObjectSlot.Monster1; i < ObjectSlot.Monster1 + 4; i++)
         {
             var obj = Game.World.GetObject(i);

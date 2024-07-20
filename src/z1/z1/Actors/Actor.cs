@@ -179,8 +179,6 @@ internal abstract class Actor
             ObjType.FlyingGhini => new FlyingGhiniActor(game, x, y),
             ObjType.BlueWizzrobe => new BlueWizzrobeActor(game, x, y),
             ObjType.RedWizzrobe => new RedWizzrobeActor(game, x, y),
-            ObjType.PatraChild1 => PatraChildActor.Make(game, PatraType.Circle, x, y),
-            ObjType.PatraChild2 => PatraChildActor.Make(game, PatraType.Spin, x, y),
             ObjType.Wallmaster => new WallmasterActor(game, x, y),
             ObjType.Rope => new RopeActor(game, x, y),
             ObjType.Stalfos => new StalfosActor(game, x, y),
@@ -211,8 +209,8 @@ internal abstract class Actor
             ObjType.Gleeok3 => GleeokActor.Make(game, 3),
             ObjType.Gleeok4 => GleeokActor.Make(game, 4),
             ObjType.GleeokHead => new GleeokHeadActor(game, x, y),
-            ObjType.Patra1 => new PatraActor(game, PatraType.Circle, x, y),
-            ObjType.Patra2 => new PatraActor(game, PatraType.Spin, x, y),
+            ObjType.Patra1 => PatraActor.MakePatra(game, PatraType.Circle),
+            ObjType.Patra2 => PatraActor.MakePatra(game, PatraType.Spin),
             ObjType.Trap => TrapActor.MakeSet(game, 6),
             ObjType.TrapSet4 => TrapActor.MakeSet(game, 4),
             _ => throw new NotImplementedException(),
@@ -235,8 +233,8 @@ internal abstract class Actor
         var x = X;
         var y = Y;
         MoveSimple(ref x, ref y, dir, speed);
-        X += x;
-        Y += y;
+        X = x;
+        Y = y;
     }
 
     public static void MoveSimple8(ref float x, ref float y, Direction dir, float speed)
@@ -269,23 +267,13 @@ internal abstract class Actor
         }
     }
 
-    public static Size MoveSimple8(Direction dir, int speed)
+    public void MoveSimple8(Direction dir, int speed)
     {
-        var x = (dir & (Direction.Right | Direction.Left)) switch
-        {
-            Direction.Right => speed,
-            Direction.Left => -speed,
-            _ => 0
-        };
-
-        var y = (dir & (Direction.Down | Direction.Up)) switch
-        {
-            Direction.Down => speed,
-            Direction.Up => -speed,
-            _ => 0
-        };
-
-        return new(x, y);
+        var x = X;
+        var y = Y;
+        MoveSimple8(ref x, ref y, dir, speed);
+        X = x;
+        Y = y;
     }
 
     public static SizeF MoveSimple8(Direction dir, float speed)
@@ -1347,7 +1335,7 @@ internal abstract class Actor
     protected Direction TurnTowardsPlayer8(int x, int y, Direction facing)
     {
         var dirToPlayer = GetDir8ToPlayer(x, y);
-        var dirIndex = (uint)facing.GetDirection8Ord();
+        var dirIndex = (uint)facing.GetDirection8Ord(); // uint required.
 
         dirIndex = (dirIndex + 1) % 8;
 
@@ -1375,7 +1363,7 @@ internal abstract class Actor
         return dirIndex.GetDirection8();
     }
 
-    protected Direction TurnRandomly8(Direction facing)
+    protected static Direction TurnRandomly8(Direction facing)
     {
         switch (Random.Shared.GetByte())
         {

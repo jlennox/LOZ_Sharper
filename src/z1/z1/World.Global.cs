@@ -222,6 +222,12 @@ internal partial class World
         return ObjectSlot.NoneFound;
     }
 
+    public bool TryFindEmptyMonsterSlot(out ObjectSlot slot)
+    {
+        slot = FindEmptyMonsterSlot();
+        return slot != ObjectSlot.NoneFound;
+    }
+
     void ClearRoomItemData()
     {
         recorderUsed = 0;

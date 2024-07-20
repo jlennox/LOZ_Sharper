@@ -3,7 +3,16 @@
 internal enum ObjectSlot
 {
     NoneFound = -1,
-    Monster1,
+    Monster1, // 0
+    Monster2,
+    Monster3,
+    Monster4,
+    Monster5,
+    Monster6, // 5
+    Monster7,
+    Monster8,
+    Monster9,
+    Monster10, // 9
     Monster11 = Monster1 + 10,
     Buffer,
     PlayerSword,
@@ -23,6 +32,8 @@ internal enum ObjectSlot
     Player,
     Door,
     MaxObjects,
+
+    FirstSlot = Monster1,
 
     FirstBomb = Bomb,
     LastBomb = Bomb2 + 1,

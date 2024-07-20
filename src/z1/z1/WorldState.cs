@@ -93,6 +93,7 @@ internal struct ScrollState
     public const int StateTime = 32;
 
     public Substates substate;
+    /// <summary>How long before the screen begins the scroll animation.</summary>
     public int timer;
     public Direction scrollDir;
     public int nextRoomId;
