@@ -1,11 +1,14 @@
-﻿using System.Diagnostics;
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace z1.UI;
 
 internal sealed class SubmenuType
 {
-    private readonly Game _game;
+    public const int Width = Global.StdViewWidth;
+    public const int Height = 0xAE;
+    public const int ActiveItems = 8;
+    public const int PassiveItems = 6;
+    public const int YScrollSpeed = 3;
 
     private const int CurItemX = 0x40;
     private const int CurItemY = 0x28;
@@ -180,11 +183,7 @@ internal sealed class SubmenuType
 
     private static readonly int ArrowBowUISlot = Array.IndexOf(inventoryOrder, ItemSlot.Arrow);
 
-    public const int Width = Global.StdViewWidth;
-    public const int Height = 0xAE;
-    public const int ActiveItems = 8;
-    public const int PassiveItems = 6;
-
+    private readonly Game _game;
     private bool enabled;
     private bool activated;
     private int activeUISlot;
@@ -236,11 +235,13 @@ internal sealed class SubmenuType
 
     public void Enable()
     {
+        // JOE: TODO: Write an enumerator for this?
         for (var i = 0; i < ActiveItems; i++)
         {
             activeItems[i] = GetItemIdForUISlot(i, ref activeSlots[i]);
         }
 
+        // JOE: TODO: Can this be in the constructor?
         cursor.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cursor);
 
         var profile = _game.World.GetProfile();

@@ -10,11 +10,11 @@ using z1.UI;
 internal enum DoorType { Open, None, FalseWall, FalseWall2, Bombable, Key, Key2, Shutter }
 internal enum TileInteraction { Load, Push, Touch, Cover }
 internal enum SpritePriority { None, AboveBg, BelowBg }
+internal enum SubmenuState { IdleClosed, StartOpening, EndOpening = 7, IdleOpen, StartClose }
 
 internal record Cell(byte Row, byte Col)
 {
     public const int MobPatchCellCount = 16;
-
     public static Cell[] MakeMobPatchCell() => new Cell[MobPatchCellCount];
 }
 
@@ -32,39 +32,14 @@ internal sealed class TileMap
     public TileBehavior AsBehaviors(int row, int col) => (TileBehavior)_tileBehaviors[row * World.Columns + col];
 }
 
-internal enum UniqueRoomIds
-{
-    TopRightOverworldSecret = 0x0F,
-}
-
 internal sealed unsafe partial class World
 {
     public const int LevelGroups = 3;
 
-    internal enum Cave
-    {
-        Items = 0x79,
-        Shortcut = 0x7A,
-    }
-
-    internal enum Secret
-    {
-        None,
-        FoesDoor,
-        Ringleader,
-        LastBoss,
-        BlockDoor,
-        BlockStairs,
-        MoneyOrLife,
-        FoesItem
-    }
-
-    internal enum TileScheme
-    {
-        Overworld,
-        UnderworldMain,
-        UnderworldCellar,
-    }
+    internal enum Cave { Items = 0x79, Shortcut = 0x7A, }
+    internal enum Secret { None, FoesDoor, Ringleader, LastBoss, BlockDoor, BlockStairs, MoneyOrLife, FoesItem }
+    internal enum TileScheme { Overworld, UnderworldMain, UnderworldCellar }
+    internal enum UniqueRoomIds { TopRightOverworldSecret = 0x0F }
 
     public const int MobRows = 11;
     public const int MobColumns = 16;
@@ -206,7 +181,7 @@ internal sealed unsafe partial class World
     public byte WhirlwindTeleporting;   // 522
     public byte TeleportingRoomIndex;   // 523
     public byte Pause;                  // E0
-    public byte Submenu;                // E1
+    public SubmenuState Submenu;                // E1
     public int SubmenuOffsetY;         // EC
     public bool StatusBarVisible;
     public int[] LevelKillCounts = new int[(int)LevelBlock.Rooms];
@@ -2003,11 +1978,11 @@ internal sealed unsafe partial class World
                 return;
             }
 
-            if (Submenu != 0)
+            if (Submenu != SubmenuState.IdleClosed)
             {
-                if (Game.Input.IsButtonPressing(Button.Select))
+                if (Game.Input.IsButtonPressing(Button.Select) && Game.Input.IsButtonPressing(Button.Up))
                 {
-                    Submenu = 0;
+                    Submenu = SubmenuState.IdleClosed;
                     SubmenuOffsetY = 0;
                     GotoContinueQuestion();
                 }
@@ -2035,7 +2010,7 @@ internal sealed unsafe partial class World
                 }
                 else if (Game.Input.IsButtonPressing(Button.Start))
                 {
-                    Submenu = 1;
+                    Submenu = SubmenuState.StartOpening;
                     return;
                 }
             }
@@ -2109,37 +2084,51 @@ internal sealed unsafe partial class World
 
     private void UpdateSubmenu()
     {
-        if (Submenu == 1)
+        if (Submenu == SubmenuState.StartOpening)
         {
             menu.Enable();
             Submenu++;
             statusBar.EnableFeatures(StatusBarFeatures.Equipment, false);
+
+            if (Game.Cheats.SpeedUp)
+            {
+                Submenu = SubmenuState.EndOpening;
+                SubmenuOffsetY = SubmenuType.Height;
+            }
         }
-        else if (Submenu == 7)
+        else if (Submenu == SubmenuState.EndOpening)
         {
-            SubmenuOffsetY += 3;
+            SubmenuOffsetY += SubmenuType.YScrollSpeed;
             if (SubmenuOffsetY >= SubmenuType.Height)
             {
+                SubmenuOffsetY = SubmenuType.Height;
                 menu.Activate();
                 Submenu++;
             }
         }
-        else if (Submenu == 8)
+        else if (Submenu == SubmenuState.IdleOpen)
         {
             if (Game.Input.IsButtonPressing(Button.Start))
             {
                 menu.Deactivate();
                 Submenu++;
+
+                if (Game.Cheats.SpeedUp)
+                {
+                    Submenu = SubmenuState.StartClose;
+                    SubmenuOffsetY = 0;
+                }
             }
         }
-        else if (Submenu == 9)
+        else if (Submenu == SubmenuState.StartClose)
         {
-            SubmenuOffsetY -= 3;
-            if (SubmenuOffsetY == 0)
+            SubmenuOffsetY -= SubmenuType.YScrollSpeed;
+            if (SubmenuOffsetY <= 0)
             {
                 menu.Disable();
-                Submenu = 0;
+                Submenu = SubmenuState.IdleClosed;
                 statusBar.EnableFeatures(StatusBarFeatures.Equipment, true);
+                SubmenuOffsetY = 0;
             }
         }
         else
@@ -2148,7 +2137,9 @@ internal sealed unsafe partial class World
         }
 
         if (Submenu != 0)
+        {
             menu.Update();
+        }
     }
 
     private void CheckShutters()
