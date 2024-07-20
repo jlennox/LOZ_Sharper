@@ -4270,7 +4270,7 @@ internal sealed class RedWizzrobeActor : Actor
         }
     }
 
-    int GetState()
+    int GetState() // JOE: TODO: What the heck is this state? Enumify this?
     {
         return stateTimer >> 6;
     }
@@ -4356,16 +4356,22 @@ internal sealed class RedWizzrobeActor : Actor
             }
 
             if (stateTimer != 0)
+            {
                 SetFacingAnimation();
+            }
         }
         else
         {
             if (stateTimer == 0x7F)
+            {
                 stateTimer = 0x4F;
+            }
 
             flashTimer++;
             if ((flashTimer & 1) == 0)
+            {
                 CheckRedWizzrobeCollisions();
+            }
         }
     }
 
@@ -4382,7 +4388,7 @@ internal sealed class RedWizzrobeActor : Actor
             CheckBombAndFire(ObjectSlot.Bomb2);
             CheckBombAndFire(ObjectSlot.Fire);
             CheckBombAndFire(ObjectSlot.Fire2);
-            CheckSword(ObjectSlot.PlayerSwordShot);
+            CheckSword(ObjectSlot.PlayerSword);
         }
         CheckPlayerCollision();
     }
@@ -4629,7 +4635,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
             CheckBombAndFire(ObjectSlot.Bomb2);
             CheckBombAndFire(ObjectSlot.Fire);
             CheckBombAndFire(ObjectSlot.Fire2);
-            CheckSword(ObjectSlot.PlayerSwordShot);
+            CheckSword(ObjectSlot.PlayerSword);
         }
         CheckPlayerCollision();
     }
@@ -6003,21 +6009,21 @@ internal sealed class GohmaActor : Actor
         Decoration = 0;
         InvincibilityMask = 0xFB;
 
-        Animator = new()
+        Animator = new SpriteAnimator
         {
             DurationFrames = 1,
             Time = 0,
             Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gohma_Eye_All)
         };
 
-        leftAnimator = new()
+        leftAnimator = new SpriteAnimator
         {
             DurationFrames = 32,
             Time = 0,
             Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gohma_Legs_L)
         };
 
-        rightAnimator = new()
+        rightAnimator = new SpriteAnimator
         {
             DurationFrames = 32,
             Time = 0,
