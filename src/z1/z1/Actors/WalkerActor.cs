@@ -3142,7 +3142,7 @@ internal sealed class MoldormActor : FlyingActor
             var prevSlot = slot - 1;
 
             var obj = Game.World.GetObject(prevSlot);
-            if (obj != null && obj is MoldormActor && obj.Facing != Direction.None)
+            if (obj is MoldormActor && obj.Facing != Direction.None)
                 ShiftFacings();
         }
         else
@@ -4816,7 +4816,7 @@ internal sealed class LamnolaActor : Actor
         for (; ; slot++)
         {
             var obj = Game.World.GetObject(slot);
-            if (obj != null && obj.GetType() == GetType())
+            if (obj != null && obj.ObjType == ObjType)
                 break;
         }
 
