@@ -196,8 +196,8 @@ internal class GameCheats
         public WalkThroughWallsCheat() : base("idclip", true) { }
         public override void RunPayload(Game game, string[] args)
         {
-            Game.Cheats.WalkThroughWalls = !Game.Cheats.WalkThroughWalls;
-            game.Toast("Walk through walls " + (Game.Cheats.WalkThroughWalls ? "enabled" : "disabled"));
+            Game.Cheats.NoClip = !Game.Cheats.NoClip;
+            game.Toast("Walk through walls " + (Game.Cheats.NoClip ? "enabled" : "disabled"));
         }
     }
 

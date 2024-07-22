@@ -530,11 +530,6 @@ internal sealed class PlayerSwordActor : Actor
         Decoration = 0;
     }
 
-    int GetState()
-    {
-        return state;
-    }
-
     void Put()
     {
         var player = Game.Link;

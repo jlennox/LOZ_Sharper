@@ -76,7 +76,7 @@ internal sealed class Game
     {
         public static bool SpeedUp = true;
         public static bool GodMode = true;
-        public static bool WalkThroughWalls = false;
+        public static bool NoClip = true;
     }
 
     public bool Enhancements = true;

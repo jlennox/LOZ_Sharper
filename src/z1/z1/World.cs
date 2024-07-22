@@ -762,7 +762,7 @@ internal sealed unsafe partial class World
             collision.Collides = false;
         }
 
-        if (Game.Cheats.WalkThroughWalls && isPlayer)
+        if (Game.Cheats.NoClip && isPlayer)
         {
             collision.Collides = false;
         }

@@ -16,18 +16,6 @@ internal enum DamageType
     Fire = 0x20,
 }
 
-[Flags]
-internal enum ActorAttributes
-{
-    CustomCollision = 1,
-    CustomDraw = 4,
-    Unknown10__ = 0x10,
-    InvincibleToWeapons = 0x20,
-    HalfWidth = 0x40,
-    Unknown80__ = 0x80,
-    WorldCollision = 0x100,
-}
-
 internal interface IDeleteEvent
 {
     void OnDelete();
@@ -69,7 +57,8 @@ internal abstract class Actor
         {
             _isDeleted = value;
 
-            // JOE: I don't like properties that have side effects but here we are :)
+            // JOE: TODO: Arg. Don't do this.
+            // I don't like properties that have side effects but here we are :)
             if (value && this is IDeleteEvent deleteEvent && !_ranDeletedEvent)
             {
                 deleteEvent.OnDelete();
@@ -109,11 +98,25 @@ internal abstract class Actor
         get => (Direction)Moving;
         set => Moving = (byte)value;
     }
-    public byte ObjTimer;
+
+    public byte ObjTimer
+    {
+        get => __objTimer;
+        set {
+            if (this is BlueWizzrobeActor && value >= 100)
+            {
+                Debugger.Break();
+            }
+            __objTimer = value;
+        }
+    }
+    public byte __objTimer;
+
+
     protected byte StunTimer;
     public ActorFlags Flags;
 
-    public ObjType ObjType { get; set; }
+    public ObjType ObjType { get; }
     public ObjectAttr Attributes => Game.World.GetObjectAttrs(ObjType);
 
     protected bool IsStunned => _isStunned();
@@ -130,6 +133,7 @@ internal abstract class Actor
         ObjType = type;
         Position = new Point(x, y);
 
+        // JOE: "monsters and persons not armos or flying ghini"
         if (type < ObjType.PersonEnd
             && type != ObjType.Armos && type != ObjType.FlyingGhini)
         {
@@ -464,6 +468,8 @@ internal abstract class Actor
 
     protected void CheckWave(ObjectSlot slot)
     {
+        if (slot != ObjectSlot.PlayerSwordShot) throw new ArgumentOutOfRangeException(nameof(slot));
+
         var weaponObj = Game.World.GetObject(slot);
         if (weaponObj == null) return;
 
@@ -537,38 +543,34 @@ internal abstract class Actor
 
     protected void CheckSword(ObjectSlot slot)
     {
+        if (slot != ObjectSlot.PlayerSword) throw new ArgumentOutOfRangeException(nameof(slot));
+
         var sword = Game.World.GetObject<PlayerSwordActor>(slot);
         if (sword == null || sword.state != 1) return;
 
-        var box = new Point();
         var player = Game.Link;
 
-        if (player.Facing.IsVertical())
-        {
-            box.X = 0xC;
-            box.Y = 0x10;
-        }
-        else
-        {
-            box.X = 0x10;
-            box.Y = 0xC;
-        }
-
+        var box = player.Facing.IsVertical() ? new Point(0xC, 0x10) : new Point(0x10, 0xC);
         var context = new CollisionContext(slot, DamageType.Sword, 0, Point.Empty);
 
-        if (sword.ObjType == ObjType.PlayerSword)
+        switch (sword.ObjType)
         {
-            var itemValue = Game.World.GetItem(ItemSlot.Sword);
-            int power = _swordPowers[itemValue];
-            context.Damage = power;
-        }
-        else if (sword.ObjType == ObjType.Rod)
-        {
-            context.Damage = 0x20;
+            case ObjType.PlayerSword:
+            {
+                var itemValue = Game.World.GetItem(ItemSlot.Sword);
+                var power = _swordPowers[itemValue];
+                context.Damage = power;
+                break;
+            }
+            case ObjType.Rod:
+                context.Damage = 0x20;
+                break;
         }
 
         if (CheckCollisionNoShove(context, box))
+        {
             ShoveCommon(context);
+        }
     }
 
     private static ReadOnlySpan<int> _arrowPowers => new[] { 0, 0x20, 0x40 };
@@ -618,18 +620,7 @@ internal abstract class Actor
     protected bool CheckCollisionNoShove(CollisionContext context, Point box)
     {
         var player = Game.Link;
-        Point weaponCenter = new();
-
-        if (player.Facing.IsVertical())
-        {
-            weaponCenter.X = 6;
-            weaponCenter.Y = 8;
-        }
-        else
-        {
-            weaponCenter.X = 8;
-            weaponCenter.Y = 6;
-        }
+        var weaponCenter = player.Facing.IsVertical() ? new Point(6, 8) : new Point(8, 6);
 
         return CheckCollisionCustomNoShove(context, box, weaponCenter);
     }
@@ -694,8 +685,8 @@ internal abstract class Actor
                 arrow.SetSpark(4);
             }
 
-            // FIXME: This is repeated and could be made a method on gohma.
-            if (((gohma.GetCurrentCheckPart() == 3) || (gohma.GetCurrentCheckPart() == 4))
+            // JOE: FIXME: This is repeated and could be made a method on gohma.
+            if ((gohma.GetCurrentCheckPart() is 3 or 4)
                 && gohma.GetEyeFrame() == 3
                 && weaponObj.Facing == Direction.Up)
             {
@@ -864,6 +855,7 @@ internal abstract class Actor
 
         if (Attributes.GetUnknown80__())
         {
+            Debugger.Break();
             dir |= (Direction)0x40;
         }
 
@@ -1161,12 +1153,9 @@ internal abstract class Actor
         // ($6E46) if first object is grumble or person, block movement up above $8E.
 
         var firstObj = Game.World.GetObject(ObjectSlot.Monster1);
-        if (firstObj != null)
+        if (firstObj != null && firstObj.ShouldStopAtPersonWall)
         {
-            if (firstObj.ShouldStopAtPersonWall)
-            {
-                return StopAtPersonWall(dir);
-            }
+            return StopAtPersonWall(dir);
         }
 
         return dir;

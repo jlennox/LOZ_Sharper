@@ -7,13 +7,10 @@ using Timer = System.Windows.Forms.Timer;
 namespace z1.GUI;
 
 // Bugs:
-// * Can't hit wizzrobes with sword.
-// * Celler pushblocks dont work.
 // * Traps move slow?
 // * No spawn clouds?
 // * Doors in dungeons and drawing priority.
 // * Likelike's don't hold correctly.
-// * Power bracelet does not work. At least in NE location.
 
 // To check:
 // * Check `IsReoccuring` is proper.
@@ -27,6 +24,7 @@ namespace z1.GUI;
 // Enhancements:
 // * Having the red candle causes dark rooms to auto fade in.
 //   Blue candle does not because it can only be used once per room, this would be too strong of a buf as a weapon for it.
+// * Reimplement mic kill of pols voice
 
 // Monsters:
 // * Manhandla:              W8, u1
