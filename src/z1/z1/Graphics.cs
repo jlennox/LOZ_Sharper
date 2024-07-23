@@ -17,7 +17,6 @@ internal enum DrawingFlags
 internal static class Graphics
 {
     private static SKSurface? _surface;
-    private static SKImageInfo _info;
 
     private static readonly int _paletteBmpWidth = Math.Max(Global.PaletteLength, 16);
     private static readonly int _paletteBmpHeight = Math.Max(Global.PaletteCount, 16);
@@ -41,10 +40,9 @@ internal static class Graphics
         _paletteBuf = new byte[size];
     }
 
-    public static void SetSurface(SKSurface surface, SKImageInfo info)
+    public static void SetSurface(SKSurface surface)
     {
         _surface = surface;
-        _info = info;
     }
 
     public static void Begin()

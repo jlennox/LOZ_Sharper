@@ -86,6 +86,7 @@ internal sealed class Game
 
     public World World;
     public Input Input = new();
+    public GameCheats GameCheats;
 
     public int FrameCounter = 0;
     public int GetFrameCounter() => FrameCounter;
@@ -93,16 +94,19 @@ internal sealed class Game
     public Game()
     {
         World = new World(this);
+        GameCheats = new(this);
     }
 
-    public void UpdateScreenSize(SKSurface surface, SKImageInfo info)
+    public void UpdateScreenSize(SKSurface surface)
     {
         const int NesResX = 256;
         const int NesResY = 240;
 
-        var scale = Math.Min((float)info.Width / NesResX, (float)info.Height / NesResY);
-        var offsetX = (info.Width - scale * NesResX) / 2;
-        var offsetY = (info.Height - scale * NesResY) / 2;
+        surface.Canvas.GetLocalClipBounds(out var bounds);
+
+        var scale = Math.Min((float)bounds.Width / NesResX, (float)bounds.Height / NesResY);
+        var offsetX = (bounds.Width - scale * NesResX) / 2;
+        var offsetY = (bounds.Height - scale * NesResY) / 2;
 
         surface.Canvas.Translate(offsetX, offsetY);
         surface.Canvas.Scale(scale, scale);

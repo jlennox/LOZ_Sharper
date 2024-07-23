@@ -855,7 +855,7 @@ internal abstract class Actor
 
         if (Attributes.GetUnknown80__())
         {
-            Debugger.Break();
+            // Debugger.Break();
             dir |= (Direction)0x40;
         }
 

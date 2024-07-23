@@ -1,4 +1,6 @@
-﻿namespace z1;
+﻿using Silk.NET.Input;
+
+namespace z1;
 
 internal enum ButtonState
 {
@@ -74,19 +76,19 @@ internal sealed class Input
         return new InputButtons { Buttons = (Button)buttons };
     }
 
-    private static readonly Dictionary<Keys, Button> _map = new()
+    private static readonly Dictionary<Key, Button> _map = new()
     {
-        { Keys.Z, Button.A },
-        { Keys.X, Button.B },
-        { Keys.Q, Button.Select },
-        { Keys.Space, Button.Start },
-        { Keys.Up, Button.Up },
-        { Keys.Down, Button.Down },
-        { Keys.Left, Button.Left },
-        { Keys.Right, Button.Right }
+        { Key.Z, Button.A },
+        { Key.X, Button.B },
+        { Key.Q, Button.Select },
+        { Key.Space, Button.Start },
+        { Key.Up, Button.Up },
+        { Key.Down, Button.Down },
+        { Key.Left, Button.Left },
+        { Key.Right, Button.Right }
     };
 
-    public bool SetKey(Keys keys)
+    public bool SetKey(Key keys)
     {
         if (_map.TryGetValue(keys, out var button))
         {
@@ -109,13 +111,21 @@ internal sealed class Input
         return false;
     }
 
-    public void UnsetKey(Keys keys)
+    public bool UnsetKey(Key keys)
     {
         if (_map.TryGetValue(keys, out var button))
         {
             // oldInputState = new InputButtons { Buttons = inputState.Buttons };
             inputState.Buttons &= ~button;
+            return true;
         }
+
+        return false;
+    }
+
+    public void UnsetAllKeys()
+    {
+        inputState.Buttons = Button.None;
     }
 
     public void UnsetLetter(char letter)

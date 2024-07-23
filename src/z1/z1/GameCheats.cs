@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
+using Silk.NET.Input;
 using z1.Actors;
 
 namespace z1;
@@ -10,7 +10,7 @@ internal class GameCheats
 {
     private abstract class Cheat
     {
-        public abstract bool OnKeyPressed(Keys key, [MaybeNullWhen(false)] out string[] args);
+        public abstract bool OnKeyPressed(char key, [MaybeNullWhen(false)] out string[] args);
         public abstract void RunPayload(Game game, string[] args);
     }
 
@@ -24,12 +24,11 @@ internal class GameCheats
 
         private readonly StringBuilder _input = new();
 
-        public override bool OnKeyPressed(Keys key, [MaybeNullWhen(false)] out string[] args)
+        public override bool OnKeyPressed(char key, [MaybeNullWhen(false)] out string[] args)
         {
             args = null;
 
-            var val = key.GetKeyString();
-            _input.Append(val);
+            _input.Append(key);
             var inputString = _input.ToString();
             if (!PartialMatch.IsMatch(inputString))
             {
@@ -262,11 +261,14 @@ internal class GameCheats
         _game = game;
     }
 
-    public void OnKeyPressed(Keys key)
+    public void OnKeyPressed(Key key)
     {
+        var chr = key.GetKeyCharacter();
+        if (chr == '\0') return;
+
         foreach (var cheat in _cheats)
         {
-            if (cheat.OnKeyPressed(key, out var args))
+            if (cheat.OnKeyPressed(chr, out var args))
             {
                 cheat.RunPayload(_game, args);
             }
