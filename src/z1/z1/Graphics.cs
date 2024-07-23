@@ -204,11 +204,11 @@ internal static class Graphics
         ArgumentNullException.ThrowIfNull(bitmap);
         ArgumentNullException.ThrowIfNull(_surface);
 
-        var sourceRect = new SKRect(srcX, srcY, srcX + width, srcY + height);
         var destRect = new SKRect(destX, destY, destX + width, destY + height);
 
-        // JOE: TODO: Apply flags.
-        _surface.Canvas.DrawBitmap(bitmap, sourceRect, destRect); //, paint);
+        var cacheKey = new TileCache(null, bitmap, _activeSystemPalette, srcX, srcY, palette, flags);
+        var tile = cacheKey.GetValue(width, height);
+        _surface.Canvas.DrawBitmap(tile, destRect);
     }
 
     public static void DrawSpriteTile(
@@ -226,14 +226,49 @@ internal static class Graphics
         DrawTile(slot, srcX, srcY, width, height, destX, destY + 1, palette, flags);
     }
 
-    private readonly record struct TileCache(TileSheet Slot, int[] SystemPalette, int X, int Y, Palette Palette, DrawingFlags Flags)
+    private readonly record struct TileCache(TileSheet? Slot, SKBitmap? Bitmap, int[] SystemPalette, int X, int Y, Palette Palette, DrawingFlags Flags)
     {
         private static readonly Dictionary<TileCache, SKBitmap> _tileCache = new(200);
 
         public bool TryGetValue([MaybeNullWhen(false)] out SKBitmap bitmap) => _tileCache.TryGetValue(this, out bitmap);
         public void Set(SKBitmap bitmap) => _tileCache[this] = bitmap;
-        // JOE: Arg. This makes me hate the tile cache even more.
+        // JOE: Arg. This makes me hate the tile cache even more. Also, this leaks all those SKBitmaps.
         public static void Clear() => _tileCache.Clear();
+
+        public unsafe SKBitmap GetValue(int width, int height)
+        {
+            if (!TryGetValue(out var tile))
+            {
+                var sheet = Bitmap ?? _tileSheets[(int)Slot] ?? throw new Exception();
+                tile = sheet.Extract(X, Y, width, height, null, Flags);
+
+                var locked = tile.Lock();
+                for (var y = 0; y < locked.Height; ++y)
+                {
+                    var px = locked.PtrFromPoint(0, y);
+                    for (var x = 0; x < locked.Width; ++x, ++px)
+                    {
+                        var r = px->Blue;
+                        if (r == 0)
+                        {
+                            *px = SKColors.Transparent;
+                            continue;
+                        }
+
+                        var paletteX = r / 16;
+                        var paletteY = (int)Palette;
+
+                        var val = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY * _paletteBmpWidth + paletteX];
+                        var color = new SKColor(val.Blue, val.Green, val.Red, val.Alpha);
+                        *px = color;
+                    }
+                }
+
+                Set(tile);
+            }
+
+            return tile;
+        }
     }
 
     public static unsafe void DrawTile(
@@ -251,36 +286,8 @@ internal static class Graphics
         ArgumentNullException.ThrowIfNull(_surface);
         Debug.Assert(slot < TileSheet.Max);
 
-        var cacheKey = new TileCache(slot, _activeSystemPalette, srcX, srcY, palette, flags);
-        if (!cacheKey.TryGetValue(out var tile))
-        {
-            var sheet = _tileSheets[(int)slot] ?? throw new Exception();
-            tile = sheet.Extract(srcX, srcY, width, height, null, flags);
-
-            var locked = tile.Lock();
-            for (var y = 0; y < locked.Height; ++y)
-            {
-                var px = locked.PtrFromPoint(0, y);
-                for (var x = 0; x < locked.Width; ++x, ++px)
-                {
-                    var r = px->Blue;
-                    if (r == 0)
-                    {
-                        *px = SKColors.Transparent;
-                        continue;
-                    }
-
-                    var paletteX = r / 16;
-                    var paletteY = (int)palette;
-
-                    var val = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY * _paletteBmpWidth + paletteX];
-                    var color = new SKColor(val.Blue, val.Green, val.Red, val.Alpha);
-                    *px = color;
-                }
-            }
-
-            cacheKey.Set(tile);
-        }
+        var cacheKey = new TileCache(slot, null, _activeSystemPalette, srcX, srcY, palette, flags);
+        var tile = cacheKey.GetValue(width, height);
 
         var destRect = new SKRect(destX, destY, destX + width, destY + height);
         _surface.Canvas.DrawBitmap(tile, destRect);
