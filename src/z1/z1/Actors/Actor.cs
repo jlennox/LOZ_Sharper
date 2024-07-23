@@ -105,7 +105,7 @@ internal abstract class Actor
         set {
             if (this is BlueWizzrobeActor && value >= 100)
             {
-                Debugger.Break();
+                // Debugger.Break();
             }
             __objTimer = value;
         }
@@ -475,7 +475,7 @@ internal abstract class Actor
 
         if (weaponObj is PlayerSwordProjectile wave)
         {
-            if (wave.state != ProjectileState.Flying) return;
+            if (wave.State != ProjectileState.Flying) return;
         }
 
         var box = new Point(0xC, 0xC);
@@ -580,7 +580,7 @@ internal abstract class Actor
         var arrow = Game.World.GetObject<ArrowProjectile>(slot);
         if (arrow == null) return false;
 
-        if (arrow.state != ProjectileState.Flying)
+        if (arrow.State != ProjectileState.Flying)
             return false;
 
         var itemValue = Game.World.GetItem(ItemSlot.Arrow);
@@ -939,7 +939,7 @@ internal abstract class Actor
         }
 
         if (this is Projectile projectile &&
-            projectile.IsBlockedByMagicSheild &&
+            projectile.IsBlockedByMagicShield &&
             Game.World.GetItem(ItemSlot.MagicShield) == 0)
         {
             Shove(context);

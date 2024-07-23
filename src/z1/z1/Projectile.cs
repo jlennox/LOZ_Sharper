@@ -11,17 +11,15 @@ internal enum ProjectileState { Flying, Spark, Bounce, Spreading }
 
 internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
 {
-    private static readonly int[] xSpeeds = new[] { 2, -2, -1, 1 };
-    private static readonly int[] ySpeeds = new[] { -1, -1, 2, -2 };
-
-    public Direction bounceDir = Direction.None;
-    public ProjectileState state = ProjectileState.Flying;
+    public ProjectileState State = ProjectileState.Flying;
 
     public bool IsPlayerWeapon => Game.World.curObjectSlot > ObjectSlot.Buffer;
+    public virtual bool IsBlockedByMagicShield => true;
 
-    public virtual bool IsBlockedByMagicSheild => true;
+    private Direction _bounceDir = Direction.None;
 
-    protected Projectile(Game game, ObjType type, int x, int y) : base(game, type, x, y)
+    protected Projectile(Game game, ObjType type, int x, int y)
+        : base(game, type, x, y)
     {
         if (!IsPlayerWeapon)
         {
@@ -37,14 +35,16 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
         }
     }
 
-    public virtual bool IsInShotStartState() => state == ProjectileState.Flying;
+    public virtual bool IsInShotStartState() => State == ProjectileState.Flying;
 
     protected void Move(int speed)
     {
         MoveDirection(speed, Facing);
 
         if ((TileOffset & 7) == 0)
+        {
             TileOffset = 0;
+        }
     }
 
     protected void CheckPlayer()
@@ -59,16 +59,18 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
             else if (collision.ShotCollides)
             {
                 TileOffset = 0;
-                state = ProjectileState.Bounce;
-                bounceDir = Game.Link.Facing;
+                State = ProjectileState.Bounce;
+                _bounceDir = Game.Link.Facing;
             }
         }
     }
 
     protected void UpdateBounce()
     {
+        ReadOnlySpan<int> xSpeeds = [ 2, -2, -1, 1 ];
+        ReadOnlySpan<int> ySpeeds = [ -1, -1, 2, -2 ];
 
-        int dirOrd = bounceDir.GetOrdinal();
+        var dirOrd = _bounceDir.GetOrdinal();
 
         X += xSpeeds[dirOrd];
         Y += ySpeeds[dirOrd];
@@ -84,7 +86,8 @@ internal sealed class PlayerSwordProjectile : Projectile
     private int _distance;
     private readonly SpriteImage _image;
 
-    public PlayerSwordProjectile(Game game, int x, int y, Direction direction) : base(game, ObjType.PlayerSwordShot, x, y)
+    public PlayerSwordProjectile(Game game, int x, int y, Direction direction)
+        : base(game, ObjType.PlayerSwordShot, x, y)
     {
         Facing = direction;
         Decoration = 0;
@@ -99,7 +102,7 @@ internal sealed class PlayerSwordProjectile : Projectile
 
     public override void Update()
     {
-        switch (state)
+        switch (State)
         {
             case ProjectileState.Flying: UpdateFlying(); break;
             case ProjectileState.Spreading: UpdateSpreading(); break;
@@ -112,9 +115,14 @@ internal sealed class PlayerSwordProjectile : Projectile
         if (Direction.None == CheckWorldMargin(Facing))
         {
             if (IsPlayerWeapon)
+            {
                 SpreadOut();
+            }
             else
+            {
                 IsDeleted = true;
+            }
+
             return;
         }
 
@@ -139,7 +147,7 @@ internal sealed class PlayerSwordProjectile : Projectile
         var palette = Palette.Player + palOffset;
         var yOffset = Facing.IsHorizontal() ? 3 : 0;
 
-        if (state == ProjectileState.Flying)
+        if (State == ProjectileState.Flying)
         {
             var xOffset = (16 - _image.Animation.Width) / 2;
             _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y + yOffset, palette);
@@ -166,7 +174,7 @@ internal sealed class PlayerSwordProjectile : Projectile
 
     public void SpreadOut()
     {
-        state = ProjectileState.Spreading;
+        State = ProjectileState.Spreading;
         _distance = 0;
         _image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Slash);
     }
@@ -174,14 +182,15 @@ internal sealed class PlayerSwordProjectile : Projectile
 
 internal sealed class FlyingRockProjectile : Projectile
 {
-    private readonly SpriteImage image;
+    private readonly SpriteImage _image;
 
-    public FlyingRockProjectile(Game game, int x, int y, Direction moving) : base(game, ObjType.FlyingRock, x, y)
+    public FlyingRockProjectile(Game game, int x, int y, Direction moving)
+        : base(game, ObjType.FlyingRock, x, y)
     {
         Facing = moving;
         Decoration = 0;
 
-        image = new()
+        _image = new SpriteImage
         {
             Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.OW_FlyingRock)
         };
@@ -189,7 +198,7 @@ internal sealed class FlyingRockProjectile : Projectile
 
     public override void Update()
     {
-        switch (state)
+        switch (State)
         {
             case ProjectileState.Flying: UpdateFlying(); break;
             case ProjectileState.Bounce: UpdateBounce(); break;
@@ -220,8 +229,8 @@ internal sealed class FlyingRockProjectile : Projectile
     public override void Draw()
     {
         var palette = Palette.Player;
-        int xOffset = (16 - image.Animation.Width) / 2;
-        image.Draw(TileSheet.Npcs, X + xOffset, Y, palette);
+        var xOffset = (16 - _image.Animation.Width) / 2;
+        _image.Draw(TileSheet.Npcs, X + xOffset, Y, palette);
     }
 }
 
@@ -229,7 +238,7 @@ internal enum FireballState { Unknown0, Unknown1 }
 
 internal sealed class FireballProjectile : Actor
 {
-    private static readonly Direction[] sector16Dirs = new[]
+    private static readonly Direction[] _sector16Dirs = new[]
     {
         Direction.Right,
         Direction.Right | Direction.Down,
@@ -249,23 +258,28 @@ internal sealed class FireballProjectile : Actor
         Direction.Up | Direction.Right,
     };
 
-    private float x;
-    private float y;
-    private readonly float speedX;
-    private readonly float speedY;
-    private readonly SpriteImage image;
-    private FireballState state;
+    // JOE: NOTE: This appears to mirror the original X/Y values so they're floats instead?
+    private float _x;
+    private float _y;
+    private readonly float _speedX;
+    private readonly float _speedY;
+    private readonly SpriteImage _image;
+    private FireballState _state;
 
-    public FireballProjectile(Game game, ObjType type, int x, int y, float speed) : base(game, type, x, y)
+    public FireballProjectile(Game game, ObjType type, int x, int y, float speed)
+        : base(game, type, x, y)
     {
         Decoration = 0;
 
-        image = new()
+        _image = new SpriteImage
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fireball)
         };
 
-        state = FireballState.Unknown0;
+        _x = x;
+        _y = y;
+
+        _state = FireballState.Unknown0;
         var player = Game.Link;
         var xDist = player.X - x;
         var yDist = player.Y - y;
@@ -273,18 +287,18 @@ internal sealed class FireballProjectile : Actor
         var sector = new PointF(xDist, yDist).Rotate(Global.PI_OVER_16).GetSector16();
         var angle = Global.PI_OVER_8 * sector;
 
-        Facing = sector16Dirs[sector];
+        Facing = _sector16Dirs[sector];
 
-        speedX = (float)Math.Cos(angle) * speed;
-        speedY = (float)Math.Sin(angle) * speed;
+        _speedX = (float)Math.Cos(angle) * speed;
+        _speedY = (float)Math.Sin(angle) * speed;
     }
 
     public override void Update()
     {
-        if (state == 0)
+        if (_state == 0)
         {
             ObjTimer = 0x10;
-            state = FireballState.Unknown1;
+            _state = FireballState.Unknown1;
             return;
         }
 
@@ -296,9 +310,10 @@ internal sealed class FireballProjectile : Actor
                 return;
             }
 
-            // JOE: NOTE: Do we want to maths than cast?
-            X += (int)speedX;
-            Y += (int)speedY;
+            _x += _speedX;
+            _y += _speedY;
+            X += (int)_x;
+            Y += (int)_y;
         }
 
         var collision = CheckPlayerCollision();
@@ -314,7 +329,7 @@ internal sealed class FireballProjectile : Actor
         var palOffset = Game.GetFrameCounter() % Global.ForegroundPalCount;
         var palette = Palette.Player + palOffset;
 
-        image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
+        _image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
     }
 }
 
@@ -336,7 +351,8 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
     private int _animTimer;
     private readonly SpriteAnimator _animator;
 
-    public BoomerangProjectile(Game game, int x, int y, Direction moving, int distance, float speed, Actor? owner) : base(game, ObjType.Boomerang, x, y)
+    public BoomerangProjectile(Game game, int x, int y, Direction moving, int distance, float speed, Actor? owner)
+        : base(game, ObjType.Boomerang, x, y)
     {
         _startX = x;
         _startY = y;
@@ -351,7 +367,7 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
         Facing = moving;
         Decoration = 0;
 
-        _animator = new()
+        _animator = new SpriteAnimator
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Boomerang),
             Time = 0
@@ -562,7 +578,7 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
         var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
         if (itemValue == 0)
             itemValue = 1;
-        var pal = (_state == BoomerangState.Unknown2) ? Palette.RedFgPalette : (Palette.Player + itemValue - 1);
+        var pal = _state == BoomerangState.Unknown2 ? Palette.RedFgPalette : (Palette.Player + itemValue - 1);
         var xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
         _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal);
     }
@@ -570,7 +586,7 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
 
 internal sealed class MagicWaveProjectile : Projectile
 {
-    private static readonly AnimationId[] waveAnimMap = new[]
+    private static readonly AnimationId[] _waveAnimMap = new[]
     {
         AnimationId.Wave_Right,
         AnimationId.Wave_Left,
@@ -578,9 +594,10 @@ internal sealed class MagicWaveProjectile : Projectile
         AnimationId.Wave_Up,
     };
 
-    private readonly SpriteImage image;
+    private readonly SpriteImage _image;
 
-    public MagicWaveProjectile(Game game, ObjType type, int x, int y, Direction direction) : base(game, type, x, y)
+    public MagicWaveProjectile(Game game, ObjType type, int x, int y, Direction direction)
+        : base(game, type, x, y)
     {
         if (type is not (ObjType.MagicWave or ObjType.MagicWave2))
         {
@@ -591,15 +608,15 @@ internal sealed class MagicWaveProjectile : Projectile
         Decoration = 0;
 
         var dirOrd = direction.GetOrdinal();
-        image = new()
+        _image = new SpriteImage
         {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, waveAnimMap[dirOrd])
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, _waveAnimMap[dirOrd])
         };
     }
 
     public override void Update()
     {
-        switch (state)
+        switch (State)
         {
             case ProjectileState.Flying: UpdateFlying(); break;
             case ProjectileState.Bounce: UpdateBounce(); break;
@@ -626,7 +643,7 @@ internal sealed class MagicWaveProjectile : Projectile
     public override void Draw()
     {
         var pal = 4 + Game.GetFrameCounter() % 4;
-        image.Draw(TileSheet.PlayerAndItems, X, Y, (Palette)pal);
+        _image.Draw(TileSheet.PlayerAndItems, X, Y, (Palette)pal);
     }
 
     public void AddFire()
@@ -648,7 +665,7 @@ internal sealed class MagicWaveProjectile : Projectile
 
 internal sealed class ArrowProjectile : Projectile
 {
-    private static readonly AnimationId[] arrowAnimMap = new[]
+    private static readonly AnimationId[] _arrowAnimMap = new[]
     {
         AnimationId.Arrow_Right,
         AnimationId.Arrow_Left,
@@ -656,32 +673,32 @@ internal sealed class ArrowProjectile : Projectile
         AnimationId.Arrow_Up,
     };
 
-    private static readonly int[] yOffsets = new[] { 3, 3, 0, 0 };
+    private int _timer;
+    private readonly SpriteImage _image;
 
-    private int timer;
-    private readonly SpriteImage image;
-
-    public ArrowProjectile(Game game, int x, int y, Direction direction) : base(game, ObjType.Arrow, x, y)
+    public ArrowProjectile(Game game, int x, int y, Direction direction)
+        : base(game, ObjType.Arrow, x, y)
     {
         Facing = direction;
         Decoration = 0;
 
         var dirOrd = direction.GetOrdinal();
-        image = new() {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, arrowAnimMap[dirOrd]),
+        _image = new SpriteImage
+        {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, _arrowAnimMap[dirOrd]),
         };
     }
 
     public void SetSpark(int frames = 3)
     {
-        state = ProjectileState.Spark;
-        timer = frames;
-        image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Spark);
+        State = ProjectileState.Spark;
+        _timer = frames;
+        _image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Spark);
     }
 
     public override void Update()
     {
-        switch (state)
+        switch (State)
         {
             case ProjectileState.Flying: UpdateArrow(); break;
             case ProjectileState.Spark: UpdateSpark(); break;
@@ -704,7 +721,7 @@ internal sealed class ArrowProjectile : Projectile
         }
         else
         {
-            int speed = IsPlayerWeapon ? 0xC0 : 0x80;
+            var speed = IsPlayerWeapon ? 0xC0 : 0x80;
             Move(speed);
             CheckPlayer();
         }
@@ -712,16 +729,18 @@ internal sealed class ArrowProjectile : Projectile
 
     private void UpdateSpark()
     {
-        timer--;
-        if (timer == 0)
+        _timer--;
+        if (_timer == 0)
             IsDeleted = true;
     }
 
     public override void Draw()
     {
+        ReadOnlySpan<int> yOffsets = [ 3, 3, 0, 0 ];
+
         var pal = Palette.BlueFgPalette;
 
-        if (state != ProjectileState.Spark)
+        if (State != ProjectileState.Spark)
         {
             if (IsPlayerWeapon)
             {
@@ -741,9 +760,9 @@ internal sealed class ArrowProjectile : Projectile
         var x = X;
         var y = Y + yOffset;
 
-        if (state == ProjectileState.Spark && Facing.IsHorizontal())
+        if (State == ProjectileState.Spark && Facing.IsHorizontal())
             x += 4;
 
-        image.Draw(TileSheet.PlayerAndItems, x, y, pal);
+        _image.Draw(TileSheet.PlayerAndItems, x, y, pal);
     }
 }

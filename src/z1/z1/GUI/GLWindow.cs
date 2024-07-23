@@ -10,10 +10,10 @@ namespace z1.GUI;
 internal class GLWindow : IDisposable
 {
     private readonly Game _game = new();
+    private readonly IWindow? _window;
 
-    private IWindow _window = null!;
-    private GL _gl = null!;
-    private IInputContext _inputContext = null!;
+    private GL? _gl;
+    private IInputContext? _inputContext;
 
     private GRGlInterface? _glinterface;
     private GRContext? _grcontext;
@@ -26,6 +26,7 @@ internal class GLWindow : IDisposable
         {
             FramesPerSecond = 60,
             UpdatesPerSecond = 60,
+            Size = new Vector2D<int>(1200, 1100),
             Title = "The Legend of Form1"
         };
         _window = Window.Create(options);
@@ -39,17 +40,20 @@ internal class GLWindow : IDisposable
 
     private SKSurface CreateSkSurface()
     {
+        var gl = _gl ?? throw new Exception();
+        var window = _window ?? throw new Exception();
+
         _glinterface?.Dispose();
         _grcontext?.Dispose();
         _surface?.Dispose();
         _rendertarget?.Dispose();
 
-        var framebuffer = _gl.GetInteger(GLEnum.FramebufferBinding);
+        var framebuffer = gl.GetInteger(GLEnum.FramebufferBinding);
         _glinterface = GRGlInterface.Create();
         _grcontext = GRContext.CreateGl(_glinterface);
 
         _rendertarget = new GRBackendRenderTarget(
-            _window.Size.X, _window.Size.Y,
+            window.Size.X, window.Size.Y,
             0, 8,
             new GRGlFramebufferInfo((uint)framebuffer, SKColorType.Rgba8888.ToGlSizedFormat())
         );
@@ -58,8 +62,10 @@ internal class GLWindow : IDisposable
 
     private void OnLoad()
     {
-        _gl = _window.CreateOpenGL();
-        _inputContext = _window.CreateInput();
+        var window = _window ?? throw new Exception();
+
+        _gl = window.CreateOpenGL();
+        _inputContext = window.CreateInput();
 
         // JOE: TODO: Use _inputContext.ConnectionChanged and yadda yadda yadda.
         var targetkb = _inputContext.Keyboards[0];
@@ -88,7 +94,9 @@ internal class GLWindow : IDisposable
 
     private void OnFramebufferResize(Vector2D<int> s)
     {
-        _gl.Viewport(s);
+        var gl = _gl ?? throw new Exception();
+
+        gl.Viewport(s);
 
         var surface = CreateSkSurface();
         _game.UpdateScreenSize(surface);
@@ -97,17 +105,19 @@ internal class GLWindow : IDisposable
     private readonly Stopwatch _starttime = Stopwatch.StartNew();
     private TimeSpan _renderedTime = TimeSpan.Zero;
 
-    private void Render(double delta)
+    private void Render(double deltaSeconds)
     {
+        var surface = _surface ?? throw new Exception();
+
         var updated = false;
         var frameTime = TimeSpan.FromSeconds(1 / 60d);
 
-        var surface = _surface ?? throw new Exception();
+        var delta = TimeSpan.FromSeconds(deltaSeconds);
 
         Graphics.SetSurface(surface);
 
         // JOE: TODO: Port this over to `delta`
-        while (_starttime.Elapsed - _renderedTime >= frameTime)
+        // while (_starttime.Elapsed - _renderedTime >= frameTime)
         {
             _game.FrameCounter++;
 
@@ -137,8 +147,8 @@ internal class GLWindow : IDisposable
         _grcontext?.Dispose();
         _surface?.Dispose();
         _rendertarget?.Dispose();
-        _window.Dispose();
-        _gl.Dispose();
-        _inputContext.Dispose();
+        _window?.Dispose();
+        _gl?.Dispose();
+        _inputContext?.Dispose();
     }
 }

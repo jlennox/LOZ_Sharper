@@ -1,4 +1,5 @@
-﻿using z1.Actors;
+﻿using Silk.NET.Input;
+using z1.Actors;
 
 namespace z1;
 
@@ -152,7 +153,6 @@ internal static class Extensions
         }
 
         var rotated = Rotate(new PointF(x, y), Global.NEG_PI_OVER_8);
-        x = rotated.X;
         y = rotated.Y;
 
         if (y > 0)
@@ -160,5 +160,14 @@ internal static class Extensions
 
         sector %= 16;
         return sector;
+    }
+
+    public static char GetKeyCharacter(this Key key)
+    {
+        if ((int)key < 32 || (int)key > 126)
+        {
+            return '\0';
+        }
+        return (char)key;
     }
 }

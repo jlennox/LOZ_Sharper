@@ -1,12 +1,11 @@
-using z1.GUI;
+﻿using z1.GUI;
 
 namespace z1;
 
 // Bugs:
-// * Traps move slow?
 // * No spawn clouds?
-// * Doors in dungeons and drawing priority.
 // * Likelike's don't hold correctly.
+// * Blue Wizzrobes crash the game.
 
 // To check:
 // * Check `IsReoccuring` is proper.
