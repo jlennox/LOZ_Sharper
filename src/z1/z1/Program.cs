@@ -3,7 +3,6 @@
 namespace z1;
 
 // Bugs:
-// * No spawn clouds?
 // * Likelike's don't hold correctly.
 // * Blue Wizzrobes crash the game.
 
