@@ -3,7 +3,6 @@
 namespace z1;
 
 // Bugs:
-// * Likelike's don't hold correctly.
 // * Blue Wizzrobes crash the game.
 
 // To check:
@@ -13,6 +12,7 @@ namespace z1;
 
 // TODO:
 // * SIMD the palettes?
+// * Try this for the palettes? https://skia.org/docs/user/sksl/
 // * Eliminate parameterless SpriteImage constructor?
 
 // Enhancements:
@@ -28,7 +28,9 @@ namespace z1;
 // * Crab:                   W8, u3, l1
 // * Moldorm:                W7, r1
 // * Lamnola:                W9: u2, l1
+// * Pols:                   W8: u2, r1
 // * Patra (expand, type 2): W9: u5, r1
+// * LikeLike:               W9: u2
 
 internal static class Program
 {

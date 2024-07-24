@@ -15,18 +15,18 @@ internal sealed class Link : Actor, IThrower
 
     public override bool IsPlayer => true;
 
+    public bool IsParalyzed;
+
     private int _walkFrame = 0;
     private int _state = 0; // JOE: TODO: Enumify this.
     private byte _speed;
     private TileBehavior _tileBehavior;
-    public bool Paralyzed;
     private byte _animTimer;
     private byte _avoidTurningWhenDiag;   // 56
     private byte _keepGoingStraight;      // 57
     private InputButtons _curButtons;
 
     public readonly SpriteAnimator Animator;
-
 
     public Link(Game game, Direction facing = Direction.Up) : base(game, ObjType.Player)
     {
@@ -64,7 +64,7 @@ internal sealed class Link : Actor, IThrower
 
         HandleInput();
 
-        if (Paralyzed)
+        if (IsParalyzed)
         {
             Moving &= 0xF0;
         }

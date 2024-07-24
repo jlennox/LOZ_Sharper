@@ -24,13 +24,12 @@ internal abstract class WalkerActor : Actor
     protected AnimationId[]? AnimationMap => Spec.AnimationMap;
     protected int AnimationTime => Spec.AnimationTime;
     protected int Speed => Spec.Speed;
-    protected virtual Palette Palette => Spec.Palette;
-
-    protected virtual bool HasProjectile => false;
 
     protected int CurrentSpeed;
-    protected int ShootTimer = 0;
-    protected bool WantToShoot = false;
+    protected int ShootTimer;
+    protected bool WantToShoot;
+
+    protected virtual bool HasProjectile => false;
 
     protected WalkerActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
         : base(game, type, x, y)
@@ -52,7 +51,7 @@ internal abstract class WalkerActor : Actor
     {
         SetFacingAnimation();
         var offsetX = (16 - Animator.Animation.Width) / 2;
-        var pal = CalcPalette(Palette);
+        var pal = CalcPalette(Spec.Palette);
         Animator.Draw(TileSheet.Npcs, X + offsetX, Y, pal);
     }
 
@@ -2255,7 +2254,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
                 player.ObjTimer = 0;
                 // ORIGINAL: PlayerState.[$405] := 0  (But, what's the point?)
                 player.ResetShove();
-                player.Paralyzed = true;
+                player.IsParalyzed = true;
                 Animator.DurationFrames = Animator.Animation.Length * 4;
                 Animator.Time = 0;
                 Flags |= ActorFlags.DrawAbovePlayer;
@@ -2282,7 +2281,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
 
         if (Decoration != 0)
         {
-            player.Paralyzed = false;
+            player.IsParalyzed = false;
         }
     }
 }
@@ -5188,7 +5187,7 @@ internal sealed class DodongoActor : WandererWalkerActor
     }
 
 
-    private bool Overlaps(int xDist, int yDist, int boundsIndex)
+    private static bool Overlaps(int xDist, int yDist, int boundsIndex)
     {
         ReadOnlySpan<int> posBoundsOverlaps = [ 0xC, 0x11 ];
         ReadOnlySpan<int> negBoundsOverlaps = [ -0xC, -0x10 ];

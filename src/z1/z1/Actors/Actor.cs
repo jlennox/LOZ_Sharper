@@ -86,7 +86,7 @@ internal abstract class Actor
         {
             if (this is Link && value == Direction.None)
             {
-                Debugger.Break();
+                // Debugger.Break();
             }
             _facing = value;
         }
@@ -122,7 +122,6 @@ internal abstract class Actor
     public ObjectAttr Attributes => Game.World.GetObjectAttrs(ObjType);
 
     protected bool IsStunned => _isStunned();
-    protected bool IsParalyzed { get; set; }
 
     // JOE: TODO: Consider bringing this back.
     //public ActorColor Color;

@@ -2353,7 +2353,7 @@ internal sealed unsafe partial class World
         {
             if (!CalcHasLivingObjects())
             {
-                Game.Link.Paralyzed = false;
+                Game.Link.IsParalyzed = false;
                 RoomAllDead = true;
             }
         }
@@ -2742,7 +2742,7 @@ internal sealed unsafe partial class World
             var obj = objects[(int)i];
             if (obj != null && !obj.IsDeleted)
             {
-                if (!obj.Flags.HasFlag(ActorFlags.DrawAbovePlayer) || objOverPlayer == null)
+                if (!obj.Flags.HasFlag(ActorFlags.DrawAbovePlayer) || objOverPlayer != null)
                 {
                     obj.DecoratedDraw();
                 }
