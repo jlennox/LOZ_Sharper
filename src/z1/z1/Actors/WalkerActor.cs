@@ -209,7 +209,7 @@ internal abstract class DelayedWanderer : WandererWalkerActor
         : base(game, type, spec, turnRate, x, y)
     {
         InitCommonFacing();
-        InitCommonStateTimer(ref __objTimer);
+        InitCommonStateTimer();
         SetFacingAnimation();
 
         if (type is ObjType.BlueFastOctorock or ObjType.RedFastOctorock)
@@ -1760,7 +1760,7 @@ internal sealed class GhiniActor : WandererWalkerActor
         : base(game, ObjType.Ghini, _ghiniSpec, 0xFF, x, y)
     {
         InitCommonFacing();
-        InitCommonStateTimer(ref __objTimer);
+        InitCommonStateTimer();
         SetFacingAnimation();
     }
 
@@ -2306,7 +2306,7 @@ internal abstract class DigWanderer : WandererWalkerActor
     {
         ObjTimer = 0;
         _stateSpecs = specs;
-        this.StateTimes = stateTimes;
+        StateTimes = stateTimes;
     }
 
     public override void Update()
@@ -2444,7 +2444,7 @@ internal sealed class BlueLeeverActor : DigWanderer
         : base(game, ObjType.BlueLeever, _blueLeeverSpecs, _blueLeeverStateTimes, x, y)
     {
         Decoration = 0;
-        InitCommonStateTimer(ref __objTimer);
+        InitCommonStateTimer();
         InitCommonFacing();
         SetFacingAnimation();
     }
@@ -2504,7 +2504,7 @@ internal sealed class RedLeeverActor : Actor
             DurationFrames = _spec.AnimationTime
         };
 
-        InitCommonStateTimer(ref __objTimer);
+        InitCommonStateTimer();
         // No need to InitCommonFacing, because the Facing is changed with every update.
         SetFacingAnimation();
 
@@ -2585,7 +2585,7 @@ internal sealed class RedLeeverActor : Actor
 
     private void SetSpec(WalkerSpec spec)
     {
-        this._spec = spec;
+        _spec = spec;
         _animator.SetDuration(spec.AnimationTime);
         SetFacingAnimation();
     }
@@ -2647,24 +2647,20 @@ internal readonly record struct FlyerSpec(AnimationId[]? AnimationMap, TileSheet
 internal abstract class FlyingActor : Actor
 {
     protected SpriteAnimator Animator;
-
     protected int State;
     protected int SprintsLeft;
-
-    protected readonly Action[] SStateFuncs;
-
     protected int CurSpeed;
     protected int AccelStep;
-
     protected Direction DeferredDir;
     protected int MoveCounter;
 
+    protected readonly Action[] SStateFuncs;
     protected readonly FlyerSpec Spec;
 
     protected FlyingActor(Game game, ObjType type, FlyerSpec spec, int x, int y)
         : base(game, type, x, y)
     {
-        this.Spec = spec;
+        Spec = spec;
         SStateFuncs = new Action[] {
             UpdateHastening,
             UpdateFullSpeed,
@@ -2677,7 +2673,7 @@ internal abstract class FlyingActor : Actor
         Animator = new SpriteAnimator
         {
             Time = 0,
-            Animation = Graphics.GetAnimation(spec.Sheet, spec.AnimationMap[0])
+            Animation = Graphics.GetAnimation(spec.Sheet, spec.AnimationMap![0])
         };
         Animator.DurationFrames = Animator.Animation.Length;
     }
@@ -2737,14 +2733,9 @@ internal abstract class FlyingActor : Actor
         }
     }
 
-    private int GetState()
-    {
-        return State;
-    }
-
     protected void GoToState(int state, int sprints)
     {
-        this.State = state;
+        State = state;
         SprintsLeft = sprints;
     }
 
@@ -2902,7 +2893,6 @@ internal sealed class PeahatActor : StdFlyerActor
             CheckPlayerCollision();
         }
     }
-
 }
 
 internal sealed class FlyingGhiniActor : FlyingActor
@@ -3349,9 +3339,8 @@ internal sealed class PatraChildActor : Actor
 
     private int _x;
     private int _y;
-    private readonly SpriteAnimator _animator;
-
     private int _angleAccum;
+    private readonly SpriteAnimator _animator;
 
     public override bool IsReoccuring => false;
 
@@ -3535,23 +3524,21 @@ internal readonly record struct JumperSpec(
 internal abstract class JumperActor : Actor, IDeleteEvent
 {
     public static readonly int[] JumperStartDirs = new[] { 1, 2, 5, 0xA };
-
     private static readonly int[] _targetYOffset = new[] { 0, 0, 0, 0, 0, 0x20, 0x20, 0, 0, -0x20, -0x20, };
 
     private int _curSpeed;
     private int _accelStep;
-    private readonly SpriteAnimator _animator;
-
     private int _state;
     private int _targetY;
     private int _reversesPending;
 
+    private readonly SpriteAnimator _animator;
     private readonly JumperSpec _spec;
 
     protected JumperActor(Game game, ObjType type, JumperSpec spec, int x, int y)
         : base(game, type, x, y)
     {
-        this._spec = spec;
+        _spec = spec;
 
         _animator = new()
         {
@@ -3871,19 +3858,19 @@ internal sealed class TrapActor : Actor
 
     private static readonly int[] _trapAllowedDirs = new int[] { 5, 9, 6, 0xA, 1, 2 };
 
-    private readonly int _trapIndex;
     private int _state;
     private int _speed;
     private int _origCoord;
 
     private readonly SpriteImage _image;
+    private readonly int _trapIndex;
 
     public override bool CountsAsLiving => false;
 
     private TrapActor(Game game, int trapIndex, int x, int y)
         : base(game, ObjType.Trap, x, y)
     {
-        this._trapIndex = trapIndex;
+        _trapIndex = trapIndex;
         _image = new SpriteImage
         {
             Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.UW_Trap)
@@ -4020,9 +4007,8 @@ internal sealed class RopeActor : Actor
     private const int RopeNormalSpeed = 0x20;
     private const int RopeFastSpeed = 0x60;
 
-    private readonly SpriteAnimator _animator;
-
     private int _speed;
+    private readonly SpriteAnimator _animator;
 
     public RopeActor(Game game, int x, int y)
         : base(game, ObjType.Rope, x, y)
@@ -4289,11 +4275,10 @@ internal sealed class RedWizzrobeActor : Actor
     private static readonly int[] _allWizzrobeCollisionXOffsets = new[] { 0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0 };
     private static readonly int[] _allWizzrobeCollisionYOffsets = new[] { 4, 4, 0, 8, 8, 8, 0, -8, 0, 0 };
 
-    private readonly SpriteAnimator _animator;
-
     private byte _stateTimer;
     private byte _flashTimer;
 
+    private readonly SpriteAnimator _animator;
     private readonly Action[] _sStateFuncs;
 
     public RedWizzrobeActor(Game game, int x, int y)
@@ -4695,12 +4680,11 @@ internal sealed class WallmasterActor : Actor
         0x08, 0x08, 0x01, 0x01, 0x01, 0x04, 0x04, 0x04
     };
 
-    private readonly SpriteAnimator _animator;
-
     private int _state;
     private int _dirIndex;
     private int _tilesCrossed;
     private bool _holdingPlayer;
+    private readonly SpriteAnimator _animator;
 
     public WallmasterActor(Game game, int x, int y)
         : base(game, ObjType.Wallmaster, x, y)
@@ -4881,13 +4865,13 @@ internal sealed class AquamentusActor : Actor
 
     private static readonly byte[] _palette = new byte[] { 0, 0x0A, 0x29, 0x30 };
 
+    private int _distance;
     private readonly SpriteAnimator _animator;
     private readonly SpriteImage _mouthImage;
-
-    private int _distance;
     private readonly byte[] _fireballOffsets = new byte[(int)ObjectSlot.MaxMonsters];
 
     public override bool IsReoccuring => false;
+
     public AquamentusActor(Game game, int x = AquamentusX, int y = AquamentusY)
         : base(game, ObjType.Aquamentus, x, y)
     {
@@ -5030,7 +5014,6 @@ internal sealed class DodongoActor : WandererWalkerActor
     private static readonly WalkerSpec _dodongoWalkSpec = new(_dodongoWalkAnimMap, 20, Palette.Red, Global.StdSpeed);
 
     private static readonly byte[] _palette = new byte[] { 0, 0x17, 0x27, 0x30 };
-
     private static readonly int[] _negBounds = new int[] { -0x10, 0, -8, 0, -8, -4, -4, -0x10, 0, 0 };
     private static readonly int[] _posBounds = new int[] { 0, 0x10, 8, 0, 8, 4, 4, 0, 0, 0x10 };
 
@@ -5043,6 +5026,7 @@ internal sealed class DodongoActor : WandererWalkerActor
     private readonly StateFunc[] _sBloatedSubstateFuncs;
 
     public override bool IsReoccuring => false;
+
     private DodongoActor(Game game, ObjType type, int x, int y)
         : base(game, type, _dodongoWalkSpec, 0x20, x, y)
     {
@@ -5203,17 +5187,17 @@ internal sealed class DodongoActor : WandererWalkerActor
         bomb.IsDeleted = true;
     }
 
-    private static readonly int[] _posBoundsOverlaps = new int[] { 0xC, 0x11 };
-    private static readonly int[] _negBoundsOverlaps = new int[] { -0xC, -0x10 };
 
     private bool Overlaps(int xDist, int yDist, int boundsIndex)
     {
+        ReadOnlySpan<int> posBoundsOverlaps = [ 0xC, 0x11 ];
+        ReadOnlySpan<int> negBoundsOverlaps = [ -0xC, -0x10 ];
         ReadOnlySpan<int> distances = [ xDist, yDist ];
 
         for (var i = 1; i >= 0; i--)
         {
-            if (distances[i] >= _posBoundsOverlaps[boundsIndex]
-                || distances[i] < _negBoundsOverlaps[boundsIndex])
+            if (distances[i] >= posBoundsOverlaps[boundsIndex]
+                || distances[i] < negBoundsOverlaps[boundsIndex])
             {
                 return false;
             }
@@ -5678,7 +5662,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
     private DigdoggerActor(Game game, int x, int y, int childCount)
         : base(game, ObjType.Digdogger1, x, y)
     {
-        this._childCount = childCount;
+        _childCount = childCount;
         _updateBig = true;
 
         _animator = new SpriteAnimator

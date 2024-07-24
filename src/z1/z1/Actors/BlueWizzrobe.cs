@@ -55,7 +55,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
         if (flashTimer == 0)
         {
-            int r = Random.Shared.GetByte();
+            var r = Random.Shared.GetByte();
             ObjTimer = (byte)(r | 0x70);
             TruncatePosition();
             Turn();
@@ -165,7 +165,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
         if (collisionResult != 0)
         {
-            int r = Random.Shared.GetByte();
+            var r = Random.Shared.GetByte();
             ObjTimer = (byte)(r | 0x70);
         }
         else

@@ -55,7 +55,6 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 {
     public int Timer;
     public int TargetPos;
-    // public BlockSpec spec;
     public int OrigX;
     public int OrigY;
 
@@ -372,8 +371,6 @@ internal sealed class BombActor : Actor
         }
     };
 
-    private static readonly byte[] _times = new byte[] { 0x30, 0x18, 0xC, 0 };
-
     public BombState BombState = BombState.Initing;
 
     private readonly SpriteAnimator _animator;
@@ -393,9 +390,11 @@ internal sealed class BombActor : Actor
 
     public override void Update()
     {
+        ReadOnlySpan<byte> times = [ 0x30, 0x18, 0xC, 0 ];
+
         if (ObjTimer == 0)
         {
-            ObjTimer = _times[(int)BombState];
+            ObjTimer = times[(int)BombState];
             BombState++;
 
             if (BombState == BombState.Blasting)

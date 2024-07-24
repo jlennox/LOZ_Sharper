@@ -23,6 +23,8 @@ internal interface IDeleteEvent
 
 internal abstract class Actor
 {
+    private static ReadOnlySpan<byte> _swordPowers => new byte[] { 0, 0x10, 0x20, 0x40 };
+
     public Game Game { get; }
 
     // JOE: TODO: Get rid of this.
@@ -305,7 +307,7 @@ internal abstract class Actor
             case Direction.Up: y = -speed; break;
         }
 
-        return new(x, y);
+        return new SizeF(x, y);
     }
 
     protected void InitCommonFacing()
@@ -334,11 +336,11 @@ internal abstract class Actor
         }
     }
 
-    protected void InitCommonStateTimer(ref byte stateTimer)
+    protected void InitCommonStateTimer()
     {
         var t = Game.World.curObjSlot;
         t = (t + 2) * 16;
-        stateTimer = (byte)t;
+        ObjTimer = (byte)t;
     }
 
     public void DecrementObjectTimer()
@@ -539,8 +541,6 @@ internal abstract class Actor
         }
     }
 
-    private static ReadOnlySpan<byte> _swordPowers => new byte[] { 0, 0x10, 0x20, 0x40 };
-
     protected void CheckSword(ObjectSlot slot)
     {
         if (slot != ObjectSlot.PlayerSword) throw new ArgumentOutOfRangeException(nameof(slot));
@@ -579,9 +579,7 @@ internal abstract class Actor
     {
         var arrow = Game.World.GetObject<ArrowProjectile>(slot);
         if (arrow == null) return false;
-
-        if (arrow.State != ProjectileState.Flying)
-            return false;
+        if (arrow.State != ProjectileState.Flying) return false;
 
         var itemValue = Game.World.GetItem(ItemSlot.Arrow);
         var box = new Point(0xB, 0xB);
@@ -610,7 +608,7 @@ internal abstract class Actor
     {
         if (this is GanonActor)
         {
-            return new(X + 0x10, Y + 0x10);
+            return new Point(X + 0x10, Y + 0x10);
         }
 
         var xOffset = Attributes.GetHalfWidth() ? 4 : 8;
@@ -655,7 +653,7 @@ internal abstract class Actor
 
     protected static bool DoObjectsCollide(Point obj1, Point obj2, Point box, out Point distance)
     {
-        distance = new(Math.Abs(obj2.X - obj1.X), 0);
+        distance = new Point(Math.Abs(obj2.X - obj1.X), 0);
         if (distance.X < box.X)
         {
             distance.Y = Math.Abs(obj2.Y - obj1.Y);
@@ -686,7 +684,7 @@ internal abstract class Actor
             }
 
             // JOE: FIXME: This is repeated and could be made a method on gohma.
-            if ((gohma.GetCurrentCheckPart() is 3 or 4)
+            if (gohma.GetCurrentCheckPart() is 3 or 4
                 && gohma.GetEyeFrame() == 3
                 && weaponObj.Facing == Direction.Up)
             {
@@ -789,7 +787,7 @@ internal abstract class Actor
             var weaponObj = Game.World.GetObject(context.WeaponSlot) ?? throw new InvalidOperationException("Weapon was null.");
             var combinedDir = (int)Facing | (int)weaponObj.Facing;
 
-            if (combinedDir == 3 || combinedDir == 0xC)
+            if (combinedDir is 3 or 0xC)
             {
                 Game.Sound.PlayEffect(SoundEffect.Parry);
                 return;
@@ -814,17 +812,7 @@ internal abstract class Actor
         var player = Game.Link;
         if (player.InvincibilityTimer != 0) return;
 
-        var useY = false;
-        if (player.TileOffset == 0)
-        {
-            if (context.Distance.Y >= 4)
-                useY = true;
-        }
-        else
-        {
-            if (player.Facing.IsVertical())
-                useY = true;
-        }
+        var useY = player.TileOffset == 0 ? context.Distance.Y >= 4 : player.Facing.IsVertical();
 
         Direction dir;
         if (useY)
@@ -922,25 +910,25 @@ internal abstract class Actor
             return new PlayerCollision(true, true);
         }
 
-        if (ObjType is ObjType.Fireball2 || ObjType == (ObjType)0x5A ||
-            player.GetState() != PlayerState.Idle)
+        if (ObjType is ObjType.Fireball2 or (ObjType)0x5A
+            || player.GetState() != PlayerState.Idle)
         {
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, true);
         }
 
-        if (((int)(Facing | player.Facing) & 0xC) != 0xC &&
-            ((int)(Facing | player.Facing) & 3) != 3)
+        if (((int)(Facing | player.Facing) & 0xC) != 0xC
+            && ((int)(Facing | player.Facing) & 3) != 3)
         {
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, true);
         }
 
-        if (this is Projectile projectile &&
-            projectile.IsBlockedByMagicShield &&
-            Game.World.GetItem(ItemSlot.MagicShield) == 0)
+        if (this is Projectile projectile
+            && projectile.IsBlockedByMagicShield
+            && Game.World.GetItem(ItemSlot.MagicShield) == 0)
         {
             Shove(context);
             player.BeHarmed(this);
@@ -1069,8 +1057,7 @@ internal abstract class Actor
                 if (!collision.Collides)
                 {
                     dir = CheckWorldBounds(dir);
-                    if (dir != Direction.None)
-                        return dir;
+                    if (dir != Direction.None) return dir;
                 }
 
                 // The original handles objAttr $10 here, but no object seems to have it.
@@ -1107,31 +1094,23 @@ internal abstract class Actor
         }
     }
 
-    private static ReadOnlySpan<Direction> _nextDirections => new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
-
     private Direction GetNextAltDir(ref int seq, Direction dir)
     {
+        ReadOnlySpan<Direction> nextDirections = [ Direction.Up, Direction.Down, Direction.Left, Direction.Right ];
         switch (seq++)
         {
             // Choose a random direction perpendicular to facing.
             case 0:
-                {
-                    var index = 0;
-                    int r = Random.Shared.GetByte();
-                    if ((r & 1) == 0)
-                        index++;
-                    if (Facing.IsVertical())
-                        index += 2;
-                    return _nextDirections[index];
-                }
-
+                var index = 0;
+                var r = Random.Shared.GetByte();
+                if ((r & 1) == 0) index++;
+                if (Facing.IsVertical()) index += 2;
+                return nextDirections[index];
             case 1:
                 return dir.GetOppositeDirection();
-
             case 2:
                 Facing = Facing.GetOppositeDirection();
                 return Facing;
-
             default:
                 seq = 0;
                 return Direction.None;
@@ -1192,11 +1171,7 @@ internal abstract class Actor
 
     protected void MoveDirection(int speed, Direction dir)
     {
-        var align = 0x10;
-
-        if (IsPlayer)
-            align = 8;
-
+        var align = IsPlayer ? 8 : 0x10;
         MoveWhole(speed, dir, align);
     }
 
@@ -1214,14 +1189,7 @@ internal abstract class Actor
     {
         int frac = Fraction;
 
-        if (dir.IsGrowing())
-        {
-            frac += speed;
-        }
-        else
-        {
-            frac -= speed;
-        }
+        frac += dir.IsGrowing() ? speed : -speed;
 
         var carry = frac >> 8;
         Fraction = (byte)(frac & 0xFF);
@@ -1305,10 +1273,8 @@ internal abstract class Actor
         }
     }
 
-
     // Are these monster only?
     // -----------------------
-
 
     protected Direction GetXDirToPlayer(int x) => Game.World.GetObservedPlayerPos().X < x ? Direction.Left : Direction.Right;
     protected Direction GetYDirToPlayer(int y) => Game.World.GetObservedPlayerPos().Y < y ? Direction.Up : Direction.Down;
@@ -1321,14 +1287,22 @@ internal abstract class Actor
         var dir = Direction.None;
 
         if (playerPos.Y < y)
+        {
             dir |= Direction.Up;
+        }
         else if (playerPos.Y > y)
+        {
             dir |= Direction.Down;
+        }
 
         if (playerPos.X < x)
+        {
             dir |= Direction.Left;
+        }
         else if (playerPos.X > x)
+        {
             dir |= Direction.Right;
+        }
 
         return dir;
     }
@@ -1342,8 +1316,7 @@ internal abstract class Actor
 
         for (var i = 0; i < 3; i++)
         {
-            if (dirIndex.GetDirection8() == dirToPlayer)
-                return facing;
+            if (dirIndex.GetDirection8() == dirToPlayer) return facing;
             dirIndex = (dirIndex - 1) % 8;
         }
 
@@ -1354,8 +1327,7 @@ internal abstract class Actor
             var dir = dirIndex.GetDirection8();
             if ((dir & dirToPlayer) != 0)
             {
-                if ((dir | dirToPlayer) < (Direction)7)
-                    return dir;
+                if ((dir | dirToPlayer) < (Direction)7) return dir;
             }
             dirIndex = (dirIndex + 1) % 8;
         }
@@ -1385,10 +1357,7 @@ internal abstract class Actor
     protected ObjectSlot Shoot(ObjType shotType, int x, int y, Direction facing)
     {
         var slot = Game.World.FindEmptyMonsterSlot();
-        if (slot < 0)
-        {
-            return ObjectSlot.NoneFound;
-        }
+        if (slot < 0) return ObjectSlot.NoneFound;
 
         var thisSlot = Game.World.curObjectSlot;
         var oldActiveShots = Game.World.activeShots;

@@ -3134,7 +3134,7 @@ internal sealed unsafe partial class World
         }
         else
         {
-            int r = Random.Shared.GetByte();
+            var r = Random.Shared.GetByte();
             var rate = _classRates[objClass];
 
             if (r >= rate)
