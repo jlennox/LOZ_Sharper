@@ -522,7 +522,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if (IsPlaying() && State.Play.roomType == PlayState.RoomType.Regular)
+        if (IsPlaying() && State.Play.RoomType == RoomType.Regular)
         {
             static ReadOnlySpan<byte> roomIds() => new byte[] { 0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72 };
 
@@ -558,7 +558,7 @@ internal sealed unsafe partial class World
             && WhirlwindTeleporting == 0
             && IsOverworld()
             && IsPlaying()
-            && State.Play.roomType == PlayState.RoomType.Regular
+            && State.Play.RoomType == RoomType.Regular
             && GetItem(ItemSlot.TriforcePieces) != 0)
         {
             var slot = FindEmptyMonsterSlot();
@@ -584,11 +584,11 @@ internal sealed unsafe partial class World
         // the animation. See $EFA4, and the FluteSecret's update routine at $FEF4.
         // But, for now we'll keep doing it as we have been.
 
-        if (!State.Play.uncoveredRecorderSecret && FindSparseFlag(Sparse.Recorder, curRoomId))
+        if (!State.Play.UncoveredRecorderSecret && FindSparseFlag(Sparse.Recorder, curRoomId))
         {
-            State.Play.uncoveredRecorderSecret = true;
-            State.Play.animatingRoomColors = true;
-            State.Play.timer = 88;
+            State.Play.UncoveredRecorderSecret = true;
+            State.Play.AnimatingRoomColors = true;
+            State.Play.Timer = 88;
         }
     }
 
@@ -811,7 +811,7 @@ internal sealed unsafe partial class World
         {
             var curBehavior = GetTileBehavior(fineRow, c);
 
-            if (curBehavior == TileBehavior.Water && State.Play.allowWalkOnWater)
+            if (curBehavior == TileBehavior.Water && State.Play.AllowWalkOnWater)
             {
                 curBehavior = TileBehavior.GenericWalkable;
             }
@@ -844,7 +844,7 @@ internal sealed unsafe partial class World
             {
                 var curBehavior = GetTileBehavior(r, c);
 
-                if (curBehavior == TileBehavior.Water && State.Play.allowWalkOnWater)
+                if (curBehavior == TileBehavior.Water && State.Play.AllowWalkOnWater)
                 {
                     curBehavior = TileBehavior.GenericWalkable;
                 }
@@ -1369,13 +1369,13 @@ internal sealed unsafe partial class World
 
         if (itemId is ItemId.None or 0)
         {
-            State.Play.liftItemTimer = 0;
-            State.Play.liftItemId = 0;
+            State.Play.LiftItemTimer = 0;
+            State.Play.LiftItemId = 0;
             return;
         }
 
-        State.Play.liftItemTimer = Game.Cheats.SpeedUp ? (byte)1 : timer;
-        State.Play.liftItemId = itemId;
+        State.Play.LiftItemTimer = Game.Cheats.SpeedUp ? (byte)1 : timer;
+        State.Play.LiftItemId = itemId;
 
         Game.Link.SetState(PlayerState.Paused);
     }
@@ -1385,7 +1385,7 @@ internal sealed unsafe partial class World
         if (!IsPlaying())
             return false;
 
-        return State.Play.liftItemId != 0;
+        return State.Play.LiftItemId != 0;
     }
 
     public void OpenShutters()
@@ -1446,7 +1446,7 @@ internal sealed unsafe partial class World
 
     public void SetPersonWallY(int y)
     {
-        State.Play.personWallY = y;
+        State.Play.PersonWallY = y;
     }
 
     public int GetFadeStep()
@@ -1907,13 +1907,13 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void GotoPlay(PlayState.RoomType roomType = PlayState.RoomType.Regular)
+    private void GotoPlay(RoomType roomType = RoomType.Regular)
     {
         switch (roomType)
         {
-            case PlayState.RoomType.Regular: curMode = GameMode.Play; break;
-            case PlayState.RoomType.Cave: curMode = GameMode.PlayCave; break;
-            case PlayState.RoomType.Cellar: curMode = GameMode.PlayCellar; break;
+            case RoomType.Regular: curMode = GameMode.Play; break;
+            case RoomType.Cave: curMode = GameMode.PlayCave; break;
+            case RoomType.Cellar: curMode = GameMode.PlayCellar; break;
             default:
                 throw new Exception();
                 curMode = GameMode.Play;
@@ -1930,14 +1930,14 @@ internal sealed unsafe partial class World
         ghostCount = 0;
         armosCount = 0;
 
-        State.Play.substate = PlayState.Substates.Active;
-        State.Play.animatingRoomColors = false;
-        State.Play.allowWalkOnWater = false;
-        State.Play.uncoveredRecorderSecret = false;
-        State.Play.roomType = roomType;
-        State.Play.liftItemTimer = 0;
-        State.Play.liftItemId = 0;
-        State.Play.personWallY = 0;
+        State.Play.Substate = PlayState.Substates.Active;
+        State.Play.AnimatingRoomColors = false;
+        State.Play.AllowWalkOnWater = false;
+        State.Play.UncoveredRecorderSecret = false;
+        State.Play.RoomType = roomType;
+        State.Play.LiftItemTimer = 0;
+        State.Play.LiftItemId = 0;
+        State.Play.PersonWallY = 0;
 
         if (FindSparseFlag(Sparse.Dock, curRoomId))
         {
@@ -1968,7 +1968,7 @@ internal sealed unsafe partial class World
 
     private void UpdatePlay()
     {
-        if (State.Play.substate == PlayState.Substates.Active)
+        if (State.Play.Substate == PlayState.Substates.Active)
         {
             if (brightenRoom)
             {
@@ -2036,7 +2036,7 @@ internal sealed unsafe partial class World
                 return;
             }
 
-            if (State.Play.animatingRoomColors)
+            if (State.Play.AnimatingRoomColors)
                 UpdateRoomColors();
 
             if (IsUWMain(curRoomId))
@@ -2256,9 +2256,9 @@ internal sealed unsafe partial class World
 
     private void UpdateRoomColors()
     {
-        if (State.Play.timer == 0)
+        if (State.Play.Timer == 0)
         {
-            State.Play.animatingRoomColors = false;
+            State.Play.AnimatingRoomColors = false;
             var posAttr = FindSparsePos(Sparse.Recorder, curRoomId);
             if (posAttr != null)
             {
@@ -2269,14 +2269,14 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if ((State.Play.timer % 8) == 0)
+        if ((State.Play.Timer % 8) == 0)
         {
             var colorSeq = extraData.ReadLengthPrefixedItem((int)Extra.PondColors);
             if (CurColorSeqNum < colorSeq.Length - 1)
             {
                 if (CurColorSeqNum == colorSeq.Length - 2)
                 {
-                    State.Play.allowWalkOnWater = true;
+                    State.Play.AllowWalkOnWater = true;
                 }
 
                 int colorIndex = colorSeq[CurColorSeqNum];
@@ -2286,7 +2286,7 @@ internal sealed unsafe partial class World
             }
         }
 
-        State.Play.timer--;
+        State.Play.Timer--;
     }
 
     private void CheckBombables()
@@ -2664,16 +2664,16 @@ internal sealed unsafe partial class World
 
     private void UpdateLiftItem()
     {
-        if (State.Play.liftItemId == 0)
+        if (State.Play.LiftItemId == 0)
             return;
 
-        ArgumentOutOfRangeException.ThrowIfNegative(State.Play.liftItemTimer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.Play.LiftItemTimer);
 
-        State.Play.liftItemTimer--;
+        State.Play.LiftItemTimer--;
 
-        if (State.Play.liftItemTimer == 0)
+        if (State.Play.LiftItemTimer == 0)
         {
-            State.Play.liftItemId = 0;
+            State.Play.LiftItemId = 0;
             Game.Link.SetState(PlayerState.Idle);
         }
         else
@@ -2700,7 +2700,7 @@ internal sealed unsafe partial class World
 
         if (IsLiftingItem())
         {
-            DrawLinkLiftingItem(State.Play.liftItemId);
+            DrawLinkLiftingItem(State.Play.LiftItemId);
         }
         else
         {
@@ -2778,7 +2778,7 @@ internal sealed unsafe partial class World
             MakeCellarObjects();
             return;
         }
-        else if (State.Play.roomType == PlayState.RoomType.Cave)
+        else if (State.Play.RoomType == RoomType.Cave)
         {
             MakeCaveObjects();
             return;
@@ -2971,7 +2971,7 @@ internal sealed unsafe partial class World
     // JOE: type is no longer a type I think? It's a cave ID.
     private void MakePersonRoomObjects(ObjType type, CaveSpec spec)
     {
-        static ReadOnlySpan<int> fireXs() => new[] { 0x48, 0xA8 };
+        ReadOnlySpan<int> fireXs = [ 0x48, 0xA8 ];
 
         if (spec.DwellerType != ObjType.None)
         {
@@ -2983,7 +2983,7 @@ internal sealed unsafe partial class World
         for (var i = 0; i < 2; i++)
         {
             curObjSlot++;
-            var fire = new StandingFireActor(Game, fireXs()[i], 0x80);
+            var fire = new StandingFireActor(Game, fireXs[i], 0x80);
             Game.World.SetObject((ObjectSlot)curObjSlot, fire);
         }
     }
@@ -3168,16 +3168,16 @@ internal sealed unsafe partial class World
     {
         if (dir == Direction.None) throw new ArgumentOutOfRangeException(nameof(dir));
 
-        State.Scroll.curRoomId = curRoomId;
-        State.Scroll.scrollDir = dir;
-        State.Scroll.substate = ScrollState.Substates.Start;
+        State.Scroll.CurRoomId = curRoomId;
+        State.Scroll.ScrollDir = dir;
+        State.Scroll.Substate = ScrollState.Substates.Start;
         curMode = GameMode.Scroll;
     }
 
     private void GotoScroll(Direction dir, int currentRoomId)
     {
         GotoScroll(dir);
-        State.Scroll.curRoomId = currentRoomId;
+        State.Scroll.CurRoomId = currentRoomId;
     }
 
     private bool CalcMazeStayPut(Direction dir)
@@ -3220,26 +3220,26 @@ internal sealed unsafe partial class World
 
     private void UpdateScroll()
     {
-        sScrollFuncs[(int)State.Scroll.substate]();
+        sScrollFuncs[(int)State.Scroll.Substate]();
     }
 
     private void UpdateScroll_Start()
     {
-        GetWorldCoord(State.Scroll.curRoomId, out var roomRow, out var roomCol);
+        GetWorldCoord(State.Scroll.CurRoomId, out var roomRow, out var roomCol);
 
-        Actor.MoveSimple(ref roomCol, ref roomRow, State.Scroll.scrollDir, 1);
+        Actor.MoveSimple(ref roomCol, ref roomRow, State.Scroll.ScrollDir, 1);
 
-        var nextRoomId = CalcMazeStayPut(State.Scroll.scrollDir) ? State.Scroll.curRoomId : MakeRoomId(roomRow, roomCol);
+        var nextRoomId = CalcMazeStayPut(State.Scroll.ScrollDir) ? State.Scroll.CurRoomId : MakeRoomId(roomRow, roomCol);
 
-        State.Scroll.nextRoomId = nextRoomId;
-        State.Scroll.substate = ScrollState.Substates.AnimatingColors;
+        State.Scroll.NextRoomId = nextRoomId;
+        State.Scroll.Substate = ScrollState.Substates.AnimatingColors;
     }
 
     private void UpdateScroll_AnimatingColors()
     {
         if (CurColorSeqNum == 0)
         {
-            State.Scroll.substate = ScrollState.Substates.LoadRoom;
+            State.Scroll.Substate = ScrollState.Substates.LoadRoom;
             return;
         }
 
@@ -3253,17 +3253,17 @@ internal sealed unsafe partial class World
             Graphics.UpdatePalettes();
 
             if (CurColorSeqNum == 0)
-                State.Scroll.substate = ScrollState.Substates.LoadRoom;
+                State.Scroll.Substate = ScrollState.Substates.LoadRoom;
         }
     }
 
     private void UpdateScroll_FadeOut()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.Scroll.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.Scroll.Timer);
 
-        if (State.Scroll.timer > 0)
+        if (State.Scroll.Timer > 0)
         {
-            State.Scroll.timer--;
+            State.Scroll.Timer--;
             return;
         }
 
@@ -3277,18 +3277,18 @@ internal sealed unsafe partial class World
 
         if (DarkRoomFadeStep == 4)
         {
-            State.Scroll.substate = ScrollState.Substates.Scroll;
-            State.Scroll.timer = ScrollState.StateTime;
+            State.Scroll.Substate = ScrollState.Substates.Scroll;
+            State.Scroll.Timer = ScrollState.StateTime;
         }
         else
         {
-            State.Scroll.timer = 9;
+            State.Scroll.Timer = 9;
         }
     }
 
     private void UpdateScroll_LoadRoom()
     {
-        if (State.Scroll.scrollDir == Direction.Down
+        if (State.Scroll.ScrollDir == Direction.Down
             && !IsOverworld()
             && curRoomId == infoBlock.StartRoomId)
         {
@@ -3296,76 +3296,76 @@ internal sealed unsafe partial class World
             return;
         }
 
-        State.Scroll.offsetX = 0;
-        State.Scroll.offsetY = 0;
-        State.Scroll.speedX = 0;
-        State.Scroll.speedY = 0;
-        State.Scroll.oldMapToNewMapDistX = 0;
-        State.Scroll.oldMapToNewMapDistY = 0;
+        State.Scroll.OffsetX = 0;
+        State.Scroll.OffsetY = 0;
+        State.Scroll.SpeedX = 0;
+        State.Scroll.SpeedY = 0;
+        State.Scroll.OldMapToNewMapDistX = 0;
+        State.Scroll.OldMapToNewMapDistY = 0;
 
-        switch (State.Scroll.scrollDir)
+        switch (State.Scroll.ScrollDir)
         {
             case Direction.Left:
-                State.Scroll.offsetX = -TileMapWidth;
-                State.Scroll.speedX = ScrollSpeed;
-                State.Scroll.oldMapToNewMapDistX = TileMapWidth;
+                State.Scroll.OffsetX = -TileMapWidth;
+                State.Scroll.SpeedX = ScrollSpeed;
+                State.Scroll.OldMapToNewMapDistX = TileMapWidth;
                 break;
 
             case Direction.Right:
-                State.Scroll.offsetX = TileMapWidth;
-                State.Scroll.speedX = -ScrollSpeed;
-                State.Scroll.oldMapToNewMapDistX = -TileMapWidth;
+                State.Scroll.OffsetX = TileMapWidth;
+                State.Scroll.SpeedX = -ScrollSpeed;
+                State.Scroll.OldMapToNewMapDistX = -TileMapWidth;
                 break;
 
             case Direction.Up:
-                State.Scroll.offsetY = -TileMapHeight;
-                State.Scroll.speedY = ScrollSpeed;
-                State.Scroll.oldMapToNewMapDistY = TileMapHeight;
+                State.Scroll.OffsetY = -TileMapHeight;
+                State.Scroll.SpeedY = ScrollSpeed;
+                State.Scroll.OldMapToNewMapDistY = TileMapHeight;
                 break;
 
             case Direction.Down:
-                State.Scroll.offsetY = TileMapHeight;
-                State.Scroll.speedY = -ScrollSpeed;
-                State.Scroll.oldMapToNewMapDistY = -TileMapHeight;
+                State.Scroll.OffsetY = TileMapHeight;
+                State.Scroll.SpeedY = -ScrollSpeed;
+                State.Scroll.OldMapToNewMapDistY = -TileMapHeight;
                 break;
         }
 
-        State.Scroll.oldRoomId = curRoomId;
+        State.Scroll.OldRoomId = curRoomId;
 
-        var nextRoomId = State.Scroll.nextRoomId;
+        var nextRoomId = State.Scroll.NextRoomId;
         var nextTileMapIndex = (curTileMapIndex + 1) % 2;
-        State.Scroll.oldTileMapIndex = curTileMapIndex;
+        State.Scroll.OldTileMapIndex = curTileMapIndex;
 
         TempShutterRoomId = nextRoomId;
-        TempShutterDoorDir = State.Scroll.scrollDir.GetOppositeDirection();
+        TempShutterDoorDir = State.Scroll.ScrollDir.GetOppositeDirection();
 
         LoadRoom(nextRoomId, nextTileMapIndex);
 
         var uwRoomAttrs = GetUWRoomAttrs(nextRoomId);
         if (uwRoomAttrs.IsDark() && DarkRoomFadeStep == 0)
         {
-            State.Scroll.substate = ScrollState.Substates.FadeOut;
-            State.Scroll.timer = Game.Cheats.SpeedUp ? 1 : 9;
+            State.Scroll.Substate = ScrollState.Substates.FadeOut;
+            State.Scroll.Timer = Game.Cheats.SpeedUp ? 1 : 9;
         }
         else
         {
-            State.Scroll.substate = ScrollState.Substates.Scroll;
-            State.Scroll.timer = Game.Cheats.SpeedUp ? 1 : ScrollState.StateTime;
+            State.Scroll.Substate = ScrollState.Substates.Scroll;
+            State.Scroll.Timer = Game.Cheats.SpeedUp ? 1 : ScrollState.StateTime;
         }
     }
 
     private void UpdateScroll_Scroll()
     {
-        if (State.Scroll.timer > 0)
+        if (State.Scroll.Timer > 0)
         {
-            State.Scroll.timer--;
+            State.Scroll.Timer--;
             return;
         }
 
-        if (State.Scroll.offsetX == 0 && State.Scroll.offsetY == 0)
+        if (State.Scroll.OffsetX == 0 && State.Scroll.OffsetY == 0)
         {
-            GotoEnter(State.Scroll.scrollDir);
-            if (IsOverworld() && State.Scroll.nextRoomId == (int)UniqueRoomIds.TopRightOverworldSecret)
+            GotoEnter(State.Scroll.ScrollDir);
+            if (IsOverworld() && State.Scroll.NextRoomId == (int)UniqueRoomIds.TopRightOverworldSecret)
             {
                 Game.Sound.PlayEffect(SoundEffect.Secret);
             }
@@ -3377,14 +3377,14 @@ internal sealed unsafe partial class World
             // JOE: TODO
         }
 
-        State.Scroll.offsetX += State.Scroll.speedX;
-        State.Scroll.offsetY += State.Scroll.speedY;
+        State.Scroll.OffsetX += State.Scroll.SpeedX;
+        State.Scroll.OffsetY += State.Scroll.SpeedY;
 
         var playerLimits = Link.PlayerLimits;
 
-        if (State.Scroll.speedX != 0)
+        if (State.Scroll.SpeedX != 0)
         {
-            var x = Game.Link.X + State.Scroll.speedX;
+            var x = Game.Link.X + State.Scroll.SpeedX;
             if (x < playerLimits[1])
                 x = playerLimits[1];
             else if (x > playerLimits[0])
@@ -3393,7 +3393,7 @@ internal sealed unsafe partial class World
         }
         else
         {
-            var y = Game.Link.Y + State.Scroll.speedY;
+            var y = Game.Link.Y + State.Scroll.SpeedY;
             if (y < playerLimits[3])
                 y = playerLimits[3];
             else if (y > playerLimits[2])
@@ -3410,13 +3410,13 @@ internal sealed unsafe partial class World
         {
             ClearScreen();
 
-            if (State.Scroll.substate is ScrollState.Substates.Scroll or ScrollState.Substates.FadeOut)
+            if (State.Scroll.Substate is ScrollState.Substates.Scroll or ScrollState.Substates.FadeOut)
             {
-                var oldMapOffsetX = State.Scroll.offsetX + State.Scroll.oldMapToNewMapDistX;
-                var oldMapOffsetY = State.Scroll.offsetY + State.Scroll.oldMapToNewMapDistY;
+                var oldMapOffsetX = State.Scroll.OffsetX + State.Scroll.OldMapToNewMapDistX;
+                var oldMapOffsetY = State.Scroll.OffsetY + State.Scroll.OldMapToNewMapDistY;
 
-                DrawMap(curRoomId, curTileMapIndex, State.Scroll.offsetX, State.Scroll.offsetY);
-                DrawMap(State.Scroll.oldRoomId, State.Scroll.oldTileMapIndex, oldMapOffsetX, oldMapOffsetY);
+                DrawMap(curRoomId, curTileMapIndex, State.Scroll.OffsetX, State.Scroll.OffsetY);
+                DrawMap(State.Scroll.OldRoomId, State.Scroll.OldTileMapIndex, oldMapOffsetX, oldMapOffsetY);
             }
             else
             {
@@ -3434,16 +3434,16 @@ internal sealed unsafe partial class World
     {
         if (dir == Direction.None) throw new ArgumentOutOfRangeException(nameof(dir));
 
-        State.Leave.curRoomId = curRoomId;
-        State.Leave.scrollDir = dir;
-        State.Leave.timer = LeaveState.StateTime;
+        State.Leave.CurRoomId = curRoomId;
+        State.Leave.ScrollDir = dir;
+        State.Leave.Timer = LeaveState.StateTime;
         curMode = GameMode.Leave;
     }
 
     private void GotoLeave(Direction dir, int currentRoomId)
     {
         GotoLeave(dir);
-        State.Leave.curRoomId = currentRoomId;
+        State.Leave.CurRoomId = currentRoomId;
     }
 
     private void UpdateLeave()
@@ -3454,18 +3454,18 @@ internal sealed unsafe partial class World
 
         if (coord != playerLimits[dirOrd])
         {
-            Game.Link.MoveLinear(State.Leave.scrollDir, Link.WalkSpeed);
+            Game.Link.MoveLinear(State.Leave.ScrollDir, Link.WalkSpeed);
             Game.Link.Animator.Advance();
             return;
         }
 
-        if (State.Leave.timer == 0)
+        if (State.Leave.Timer == 0)
         {
             Game.Link.Animator.AdvanceFrame();
-            GotoScroll(State.Leave.scrollDir, State.Leave.curRoomId);
+            GotoScroll(State.Leave.ScrollDir, State.Leave.CurRoomId);
             return;
         }
-        State.Leave.timer--;
+        State.Leave.Timer--;
     }
 
     private void DrawLeave()
@@ -3476,12 +3476,12 @@ internal sealed unsafe partial class World
 
     private void GotoEnter(Direction dir)
     {
-        State.Enter.substate = EnterState.Substates.Start;
-        State.Enter.scrollDir = dir;
-        State.Enter.timer = 0;
-        State.Enter.playerPriority = SpritePriority.AboveBg;
-        State.Enter.playerSpeed = Link.WalkSpeed;
-        State.Enter.gotoPlay = false;
+        State.Enter.Substate = EnterState.Substates.Start;
+        State.Enter.ScrollDir = dir;
+        State.Enter.Timer = 0;
+        State.Enter.PlayerPriority = SpritePriority.AboveBg;
+        State.Enter.PlayerSpeed = Link.WalkSpeed;
+        State.Enter.GotoPlay = false;
         curMode = GameMode.Enter;
     }
 
@@ -3501,9 +3501,9 @@ internal sealed unsafe partial class World
 
     private void UpdateEnter()
     {
-        sEnterFuncs[(int)State.Enter.substate]();
+        sEnterFuncs[(int)State.Enter.Substate]();
 
-        if (State.Enter.gotoPlay)
+        if (State.Enter.GotoPlay)
         {
             var origShutterDoorDir = TempShutterDoorDir;
             TempShutterDoorDir = Direction.None;
@@ -3540,27 +3540,27 @@ internal sealed unsafe partial class World
                 Game.Link.Y += MobTileHeight;
                 Game.Link.Facing = Direction.Down;
 
-                State.Enter.playerFraction = 0;
-                State.Enter.playerSpeed = 0x40;
-                State.Enter.playerPriority = SpritePriority.BelowBg;
-                State.Enter.scrollDir = Direction.Up;
-                State.Enter.targetX = Game.Link.X;
-                State.Enter.targetY = Game.Link.Y - 0x10;
-                State.Enter.substate = EnterState.Substates.WalkCave;
+                State.Enter.PlayerFraction = 0;
+                State.Enter.PlayerSpeed = 0x40;
+                State.Enter.PlayerPriority = SpritePriority.BelowBg;
+                State.Enter.ScrollDir = Direction.Up;
+                State.Enter.TargetX = Game.Link.X;
+                State.Enter.TargetY = Game.Link.Y - 0x10;
+                State.Enter.Substate = EnterState.Substates.WalkCave;
 
                 Game.Sound.StopAll();
                 Game.Sound.PlayEffect(SoundEffect.Stairs);
             }
             else
             {
-                State.Enter.substate = EnterState.Substates.Wait;
-                State.Enter.timer = EnterState.StateTime;
+                State.Enter.Substate = EnterState.Substates.Wait;
+                State.Enter.Timer = EnterState.StateTime;
             }
         }
-        else if (State.Enter.scrollDir != Direction.None)
+        else if (State.Enter.ScrollDir != Direction.None)
         {
             var uwRoomAttrs = CurrentUWRoomAttrs;
-            var oppositeDir = State.Enter.scrollDir.GetOppositeDirection();
+            var oppositeDir = State.Enter.ScrollDir.GetOppositeDirection();
             var door = oppositeDir.GetOrdinal();
             var doorType = uwRoomAttrs.GetDoor(door);
             int distance;
@@ -3574,41 +3574,41 @@ internal sealed unsafe partial class World
                 distance = MobTileWidth;
             }
 
-            State.Enter.targetX = Game.Link.X;
-            State.Enter.targetY = Game.Link.Y;
+            State.Enter.TargetX = Game.Link.X;
+            State.Enter.TargetY = Game.Link.Y;
             Actor.MoveSimple(
-                ref State.Enter.targetX,
-                ref State.Enter.targetY,
-                State.Enter.scrollDir,
+                ref State.Enter.TargetX,
+                ref State.Enter.TargetY,
+                State.Enter.ScrollDir,
                 distance);
 
             if (!uwRoomAttrs.IsDark() && DarkRoomFadeStep > 0)
             {
-                State.Enter.substate = EnterState.Substates.FadeIn;
-                State.Enter.timer = 9;
+                State.Enter.Substate = EnterState.Substates.FadeIn;
+                State.Enter.Timer = 9;
             }
             else
             {
-                State.Enter.substate = EnterState.Substates.Walk;
+                State.Enter.Substate = EnterState.Substates.Walk;
             }
 
-            Game.Link.Facing = State.Enter.scrollDir;
+            Game.Link.Facing = State.Enter.ScrollDir;
         }
         else
         {
-            State.Enter.substate = EnterState.Substates.Wait;
-            State.Enter.timer = EnterState.StateTime;
+            State.Enter.Substate = EnterState.Substates.Wait;
+            State.Enter.Timer = EnterState.StateTime;
         }
 
-        doorwayDir = IsUWMain(curRoomId) ? State.Enter.scrollDir : Direction.None;
+        doorwayDir = IsUWMain(curRoomId) ? State.Enter.ScrollDir : Direction.None;
     }
 
     private void UpdateEnter_Wait()
     {
-        State.Enter.timer--;
-        if (State.Enter.timer == 0)
+        State.Enter.Timer--;
+        if (State.Enter.Timer == 0)
         {
-            State.Enter.gotoPlay = true;
+            State.Enter.GotoPlay = true;
         }
     }
 
@@ -3616,20 +3616,20 @@ internal sealed unsafe partial class World
     {
         if (DarkRoomFadeStep == 0)
         {
-            State.Enter.substate = EnterState.Substates.Walk;
+            State.Enter.Substate = EnterState.Substates.Walk;
             return;
         }
 
-        ArgumentOutOfRangeException.ThrowIfNegative(State.Enter.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.Enter.Timer);
 
-        if (State.Enter.timer > 0)
+        if (State.Enter.Timer > 0)
         {
-            State.Enter.timer--;
+            State.Enter.Timer--;
             return;
         }
 
         DarkRoomFadeStep--;
-        State.Enter.timer = 9;
+        State.Enter.Timer = 9;
 
         for (var i = 0; i < 2; i++)
         {
@@ -3640,25 +3640,25 @@ internal sealed unsafe partial class World
 
     private void UpdateEnter_Walk()
     {
-        if (Game.Link.X == State.Enter.targetX && Game.Link.Y == State.Enter.targetY)
+        if (Game.Link.X == State.Enter.TargetX && Game.Link.Y == State.Enter.TargetY)
         {
-            State.Enter.gotoPlay = true;
+            State.Enter.GotoPlay = true;
         }
         else
         {
-            Game.Link.MoveLinear(State.Enter.scrollDir, State.Enter.playerSpeed);
+            Game.Link.MoveLinear(State.Enter.ScrollDir, State.Enter.PlayerSpeed);
         }
     }
 
     private void UpdateEnter_WalkCave()
     {
-        if (Game.Link.X == State.Enter.targetX && Game.Link.Y == State.Enter.targetY)
+        if (Game.Link.X == State.Enter.TargetX && Game.Link.Y == State.Enter.TargetY)
         {
-            State.Enter.gotoPlay = true;
+            State.Enter.GotoPlay = true;
         }
         else
         {
-            MovePlayer(State.Enter.scrollDir, State.Enter.playerSpeed, ref State.Enter.playerFraction);
+            MovePlayer(State.Enter.ScrollDir, State.Enter.PlayerSpeed, ref State.Enter.PlayerFraction);
         }
     }
 
@@ -3666,18 +3666,18 @@ internal sealed unsafe partial class World
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
-        if (State.Enter.substate != EnterState.Substates.Start)
+        if (State.Enter.Substate != EnterState.Substates.Start)
         {
-            DrawRoomNoObjects(State.Enter.playerPriority);
+            DrawRoomNoObjects(State.Enter.PlayerPriority);
         }
     }
 
     public void GotoLoadLevel(int level, bool restartOW = false)
     {
-        State.LoadLevel.level = level;
-        State.LoadLevel.substate = LoadLevelState.Substates.Load;
-        State.LoadLevel.timer = 0;
-        State.LoadLevel.restartOW = restartOW;
+        State.LoadLevel.Level = level;
+        State.LoadLevel.Substate = LoadLevelState.Substates.Load;
+        State.LoadLevel.Timer = 0;
+        State.LoadLevel.RestartOW = restartOW;
 
         curMode = GameMode.LoadLevel;
     }
@@ -3701,21 +3701,21 @@ internal sealed unsafe partial class World
 
     private void UpdateLoadLevel()
     {
-        if (State.LoadLevel.substate == LoadLevelState.Substates.Load)
+        if (State.LoadLevel.Substate == LoadLevelState.Substates.Load)
         {
-            State.LoadLevel.timer = LoadLevelState.StateTime;
-            State.LoadLevel.substate = LoadLevelState.Substates.Wait;
+            State.LoadLevel.Timer = LoadLevelState.StateTime;
+            State.LoadLevel.Substate = LoadLevelState.Substates.Wait;
 
             int origLevel = infoBlock.LevelNumber;
             var origRoomId = curRoomId;
 
             Game.Sound.StopAll();
             StatusBarVisible = false;
-            LoadLevel(State.LoadLevel.level);
+            LoadLevel(State.LoadLevel.Level);
 
             // Let the Unfurl game mode load the room and reset colors.
 
-            if (State.LoadLevel.level == 0)
+            if (State.LoadLevel.Level == 0)
             {
                 curRoomId = SavedOWRoomId;
                 SavedOWRoomId = -1;
@@ -3728,15 +3728,15 @@ internal sealed unsafe partial class World
                     SavedOWRoomId = origRoomId;
             }
         }
-        else if (State.LoadLevel.substate == LoadLevelState.Substates.Wait)
+        else if (State.LoadLevel.Substate == LoadLevelState.Substates.Wait)
         {
-            if (State.LoadLevel.timer == 0)
+            if (State.LoadLevel.Timer == 0)
             {
-                GotoUnfurl(State.LoadLevel.restartOW);
+                GotoUnfurl(State.LoadLevel.RestartOW);
                 return;
             }
 
-            State.LoadLevel.timer--;
+            State.LoadLevel.Timer--;
         }
     }
 
@@ -3748,12 +3748,12 @@ internal sealed unsafe partial class World
 
     private void GotoUnfurl(bool restartOW = false)
     {
-        State.Unfurl.substate = UnfurlState.Substates.Start;
-        State.Unfurl.timer = UnfurlState.StateTime;
-        State.Unfurl.stepTimer = 0;
-        State.Unfurl.left = 0x80;
-        State.Unfurl.right = 0x80;
-        State.Unfurl.restartOW = restartOW;
+        State.Unfurl.Substate = UnfurlState.Substates.Start;
+        State.Unfurl.Timer = UnfurlState.StateTime;
+        State.Unfurl.StepTimer = 0;
+        State.Unfurl.Left = 0x80;
+        State.Unfurl.Right = 0x80;
+        State.Unfurl.RestartOW = restartOW;
 
         ClearLevelData();
 
@@ -3762,13 +3762,13 @@ internal sealed unsafe partial class World
 
     private void UpdateUnfurl()
     {
-        if (State.Unfurl.substate == UnfurlState.Substates.Start)
+        if (State.Unfurl.Substate == UnfurlState.Substates.Start)
         {
-            State.Unfurl.substate = UnfurlState.Substates.Unfurl;
+            State.Unfurl.Substate = UnfurlState.Substates.Unfurl;
             StatusBarVisible = true;
             statusBar.EnableFeatures(StatusBarFeatures.All, false);
 
-            if (infoBlock.LevelNumber == 0 && !State.Unfurl.restartOW)
+            if (infoBlock.LevelNumber == 0 && !State.Unfurl.RestartOW)
             {
                 LoadRoom(curRoomId, 0);
                 SetPlayerExitPosOW(curRoomId);
@@ -3790,13 +3790,13 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if (State.Unfurl.timer > 0)
+        if (State.Unfurl.Timer > 0)
         {
-            State.Unfurl.timer--;
+            State.Unfurl.Timer--;
             return;
         }
 
-        if (State.Unfurl.left == 0 || Game.Cheats.SpeedUp)
+        if (State.Unfurl.Left == 0 || Game.Cheats.SpeedUp)
         {
             statusBar.EnableFeatures(StatusBarFeatures.EquipmentAndMap, true);
             if (!IsOverworld())
@@ -3807,31 +3807,31 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if (State.Unfurl.stepTimer == 0)
+        if (State.Unfurl.StepTimer == 0)
         {
-            State.Unfurl.left -= 8;
-            State.Unfurl.right += 8;
-            State.Unfurl.stepTimer = 4;
+            State.Unfurl.Left -= 8;
+            State.Unfurl.Right += 8;
+            State.Unfurl.StepTimer = 4;
         }
         else
         {
-            State.Unfurl.stepTimer--;
+            State.Unfurl.StepTimer--;
         }
     }
 
     private void DrawUnfurl()
     {
-        if (State.Unfurl.substate == UnfurlState.Substates.Start)
+        if (State.Unfurl.Substate == UnfurlState.Substates.Start)
             return;
 
-        var width = State.Unfurl.right - State.Unfurl.left;
+        var width = State.Unfurl.Right - State.Unfurl.Left;
 
         using (var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
         {
             ClearScreen();
         }
 
-        using (var _ = Graphics.SetClip(State.Unfurl.left, TileMapBaseY, width, TileMapHeight))
+        using (var _ = Graphics.SetClip(State.Unfurl.Left, TileMapBaseY, width, TileMapHeight))
         {
             DrawRoomNoObjects(SpritePriority.None);
         }
@@ -3844,23 +3844,23 @@ internal sealed unsafe partial class World
 
     private void GotoEndLevel()
     {
-        State.EndLevel.substate = EndLevelState.Substates.Start;
+        State.EndLevel.Substate = EndLevelState.Substates.Start;
         curMode = GameMode.EndLevel;
     }
 
     private void UpdateEndLevel()
     {
-        sEndLevelFuncs[(int)State.EndLevel.substate]();
+        sEndLevelFuncs[(int)State.EndLevel.Substate]();
     }
 
     private void UpdateEndLevel_Start()
     {
-        State.EndLevel.substate = EndLevelState.Substates.Wait1;
-        State.EndLevel.timer = EndLevelState.Wait1Time;
+        State.EndLevel.Substate = EndLevelState.Substates.Wait1;
+        State.EndLevel.Timer = EndLevelState.Wait1Time;
 
-        State.EndLevel.left = 0;
-        State.EndLevel.right = TileMapWidth;
-        State.EndLevel.stepTimer = 4;
+        State.EndLevel.Left = 0;
+        State.EndLevel.Right = TileMapWidth;
+        State.EndLevel.StepTimer = 4;
 
         statusBar.EnableFeatures(StatusBarFeatures.Equipment, false);
         Game.Sound.PlaySong(SongId.Triforce, SongStream.MainSong, false);
@@ -3868,43 +3868,43 @@ internal sealed unsafe partial class World
 
     private void UpdateEndLevel_Wait()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.EndLevel.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.EndLevel.Timer);
 
-        if (State.EndLevel.timer > 0)
+        if (State.EndLevel.Timer > 0)
         {
-            State.EndLevel.timer--;
+            State.EndLevel.Timer--;
             return;
         }
 
-        if (State.EndLevel.substate == EndLevelState.Substates.Wait3)
+        if (State.EndLevel.Substate == EndLevelState.Substates.Wait3)
         {
             GotoLoadLevel(0);
         }
         else
         {
-            State.EndLevel.substate += 1;
-            if (State.EndLevel.substate == EndLevelState.Substates.Flash)
-                State.EndLevel.timer = EndLevelState.FlashTime;
+            State.EndLevel.Substate += 1;
+            if (State.EndLevel.Substate == EndLevelState.Substates.Flash)
+                State.EndLevel.Timer = EndLevelState.FlashTime;
         }
     }
 
     private void UpdateEndLevel_Flash()
     {
-        if (State.EndLevel.timer == 0)
+        if (State.EndLevel.Timer == 0)
         {
-            State.EndLevel.substate += 1;
+            State.EndLevel.Substate += 1;
             return;
         }
 
-        ArgumentOutOfRangeException.ThrowIfNegative(State.EndLevel.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.EndLevel.Timer);
 
-        var step = State.EndLevel.timer & 0x7;
+        var step = State.EndLevel.Timer & 0x7;
         switch (step)
         {
             case 0: SetFlashPalette(); break;
             case 3: SetLevelPalette(); break;
         }
-        State.EndLevel.timer--;
+        State.EndLevel.Timer--;
     }
 
     private void UpdateEndLevel_FillHearts()
@@ -3915,8 +3915,8 @@ internal sealed unsafe partial class World
 
         if (profile.Hearts == maxHeartValue)
         {
-            State.EndLevel.substate += 1;
-            State.EndLevel.timer = EndLevelState.Wait2Time;
+            State.EndLevel.Substate += 1;
+            State.EndLevel.Timer = EndLevelState.Wait2Time;
         }
         else
         {
@@ -3926,20 +3926,20 @@ internal sealed unsafe partial class World
 
     private void UpdateEndLevel_Furl()
     {
-        if (State.EndLevel.left == WorldMidX)
+        if (State.EndLevel.Left == WorldMidX)
         {
-            State.EndLevel.substate += 1;
-            State.EndLevel.timer = EndLevelState.Wait3Time;
+            State.EndLevel.Substate += 1;
+            State.EndLevel.Timer = EndLevelState.Wait3Time;
         }
-        else if (State.EndLevel.stepTimer == 0)
+        else if (State.EndLevel.StepTimer == 0)
         {
-            State.EndLevel.left += 8;
-            State.EndLevel.right -= 8;
-            State.EndLevel.stepTimer = 4;
+            State.EndLevel.Left += 8;
+            State.EndLevel.Right -= 8;
+            State.EndLevel.StepTimer = 4;
         }
         else
         {
-            State.EndLevel.stepTimer--;
+            State.EndLevel.StepTimer--;
         }
     }
 
@@ -3948,10 +3948,10 @@ internal sealed unsafe partial class World
         var left = 0;
         var width = TileMapWidth;
 
-        if (State.EndLevel.substate >= EndLevelState.Substates.Furl)
+        if (State.EndLevel.Substate >= EndLevelState.Substates.Furl)
         {
-            left = State.EndLevel.left;
-            width = State.EndLevel.right - State.EndLevel.left;
+            left = State.EndLevel.Left;
+            width = State.EndLevel.Right - State.EndLevel.Left;
 
             using (var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
             {
@@ -3974,19 +3974,19 @@ internal sealed unsafe partial class World
 
     private void GotoWinGame()
     {
-        State.WinGame.substate = WinGameState.Substates.Start;
-        State.WinGame.timer = 162;
-        State.WinGame.left = 0;
-        State.WinGame.right = TileMapWidth;
-        State.WinGame.stepTimer = 0;
-        State.WinGame.npcVisual = WinGameState.NpcVisual.Npc_Stand;
+        State.WinGame.Substate = WinGameState.Substates.Start;
+        State.WinGame.Timer = 162;
+        State.WinGame.Left = 0;
+        State.WinGame.Right = TileMapWidth;
+        State.WinGame.StepTimer = 0;
+        State.WinGame.NpcVisual = WinGameState.NpcVisualState.Stand;
 
         curMode = GameMode.WinGame;
     }
 
     private void UpdateWinGame()
     {
-        sWinGameFuncs[(int)State.WinGame.substate]();
+        sWinGameFuncs[(int)State.WinGame.Substate]();
     }
 
     private static readonly byte[] winGameStr1 = new byte[] {
@@ -3997,32 +3997,32 @@ internal sealed unsafe partial class World
 
     private void UpdateWinGame_Start()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.Timer);
 
-        if (State.WinGame.timer > 0)
+        if (State.WinGame.Timer > 0)
         {
-            State.WinGame.timer--;
+            State.WinGame.Timer--;
             return;
         }
 
-        if (State.WinGame.left == WorldMidX)
+        if (State.WinGame.Left == WorldMidX)
         {
-            State.WinGame.substate = WinGameState.Substates.Text1;
+            State.WinGame.Substate = WinGameState.Substates.Text1;
             statusBar.EnableFeatures(StatusBarFeatures.EquipmentAndMap, false);
 
             // A959
 
             textBox1 = new TextBox(Game, winGameStr1); // FIX
         }
-        else if (State.WinGame.stepTimer == 0)
+        else if (State.WinGame.StepTimer == 0)
         {
-            State.WinGame.left += 8;
-            State.WinGame.right -= 8;
-            State.WinGame.stepTimer = 4;
+            State.WinGame.Left += 8;
+            State.WinGame.Right -= 8;
+            State.WinGame.StepTimer = 4;
         }
         else
         {
-            State.WinGame.stepTimer--;
+            State.WinGame.StepTimer--;
         }
     }
 
@@ -4031,45 +4031,45 @@ internal sealed unsafe partial class World
         textBox1.Update();
         if (textBox1.IsDone())
         {
-            State.WinGame.substate = WinGameState.Substates.Stand;
-            State.WinGame.timer = 76;
+            State.WinGame.Substate = WinGameState.Substates.Stand;
+            State.WinGame.Timer = 76;
         }
     }
 
     private void UpdateWinGame_Stand()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.Timer);
 
-        State.WinGame.timer--;
-        if (State.WinGame.timer == 0)
+        State.WinGame.Timer--;
+        if (State.WinGame.Timer == 0)
         {
-            State.WinGame.substate = WinGameState.Substates.Hold1;
-            State.WinGame.timer = 64;
+            State.WinGame.Substate = WinGameState.Substates.Hold1;
+            State.WinGame.Timer = 64;
         }
     }
 
     private void UpdateWinGame_Hold1()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.Timer);
 
-        State.WinGame.npcVisual = WinGameState.NpcVisual.Npc_Lift;
-        State.WinGame.timer--;
-        if (State.WinGame.timer == 0)
+        State.WinGame.NpcVisual = WinGameState.NpcVisualState.Lift;
+        State.WinGame.Timer--;
+        if (State.WinGame.Timer == 0)
         {
-            State.WinGame.substate = WinGameState.Substates.Colors;
-            State.WinGame.timer = 127;
+            State.WinGame.Substate = WinGameState.Substates.Colors;
+            State.WinGame.Timer = 127;
         }
     }
 
     private void UpdateWinGame_Colors()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.Timer);
 
-        State.WinGame.timer--;
-        if (State.WinGame.timer == 0)
+        State.WinGame.Timer--;
+        if (State.WinGame.Timer == 0)
         {
-            State.WinGame.substate = WinGameState.Substates.Hold2;
-            State.WinGame.timer = 131;
+            State.WinGame.Substate = WinGameState.Substates.Hold2;
+            State.WinGame.Timer = 131;
             Game.Sound.PlaySong(SongId.Ending, SongStream.MainSong, true);
         }
     }
@@ -4087,12 +4087,12 @@ internal sealed unsafe partial class World
 
     private void UpdateWinGame_Hold2()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.Timer);
 
-        State.WinGame.timer--;
-        if (State.WinGame.timer == 0)
+        State.WinGame.Timer--;
+        if (State.WinGame.Timer == 0)
         {
-            State.WinGame.substate = WinGameState.Substates.Text2;
+            State.WinGame.Substate = WinGameState.Substates.Text2;
             textBox2 = new TextBox(Game, winGameStr2.ToArray(), 8); // TODO
             textBox2.SetY(WinGameState.TextBox2Top);
         }
@@ -4103,31 +4103,31 @@ internal sealed unsafe partial class World
         textBox2.Update();
         if (textBox2.IsDone())
         {
-            State.WinGame.substate = WinGameState.Substates.Hold3;
-            State.WinGame.timer = 129;
+            State.WinGame.Substate = WinGameState.Substates.Hold3;
+            State.WinGame.Timer = 129;
         }
     }
 
     private void UpdateWinGame_Hold3()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.WinGame.Timer);
 
-        State.WinGame.timer--;
-        if (State.WinGame.timer == 0)
+        State.WinGame.Timer--;
+        if (State.WinGame.Timer == 0)
         {
-            State.WinGame.substate = WinGameState.Substates.NoObjects;
-            State.WinGame.timer = 32;
+            State.WinGame.Substate = WinGameState.Substates.NoObjects;
+            State.WinGame.Timer = 32;
         }
     }
 
     private void UpdateWinGame_NoObjects()
     {
-        State.WinGame.npcVisual = WinGameState.NpcVisual.Npc_None;
-        State.WinGame.timer--;
-        if (State.WinGame.timer == 0)
+        State.WinGame.NpcVisual = WinGameState.NpcVisualState.None;
+        State.WinGame.Timer--;
+        if (State.WinGame.Timer == 0)
         {
             credits = new Credits();
-            State.WinGame.substate = WinGameState.Substates.Credits;
+            State.WinGame.Substate = WinGameState.Substates.Credits;
         }
     }
 
@@ -4254,40 +4254,40 @@ internal sealed unsafe partial class World
 
     private void GotoStairs(TileBehavior behavior)
     {
-        State.Stairs.substate = StairsState.Substates.Start;
-        State.Stairs.tileBehavior = behavior;
-        State.Stairs.playerPriority = SpritePriority.AboveBg;
+        State.Stairs.Substate = StairsState.Substates.Start;
+        State.Stairs.TileBehavior = behavior;
+        State.Stairs.PlayerPriority = SpritePriority.AboveBg;
 
         curMode = GameMode.Stairs;
     }
 
     private void UpdateStairsState()
     {
-        switch (State.Stairs.substate)
+        switch (State.Stairs.Substate)
         {
             case StairsState.Substates.Start:
             {
-                State.Stairs.playerPriority = SpritePriority.BelowBg;
+                State.Stairs.PlayerPriority = SpritePriority.BelowBg;
 
                 if (IsOverworld())
                     Game.Sound.StopAll();
 
-                if (State.Stairs.tileBehavior == TileBehavior.Cave)
+                if (State.Stairs.TileBehavior == TileBehavior.Cave)
                 {
                     Game.Link.Facing = Direction.Up;
 
-                    State.Stairs.targetX = Game.Link.X;
-                    State.Stairs.targetY = Game.Link.Y + 0x10;
-                    State.Stairs.scrollDir = Direction.Down;
-                    State.Stairs.playerSpeed = 0x40;
-                    State.Stairs.playerFraction = 0;
+                    State.Stairs.TargetX = Game.Link.X;
+                    State.Stairs.TargetY = Game.Link.Y + 0x10;
+                    State.Stairs.ScrollDir = Direction.Down;
+                    State.Stairs.PlayerSpeed = 0x40;
+                    State.Stairs.PlayerFraction = 0;
 
-                    State.Stairs.substate = StairsState.Substates.WalkCave;
+                    State.Stairs.Substate = StairsState.Substates.WalkCave;
                     Game.Sound.PlayEffect(SoundEffect.Stairs);
                 }
                 else
                 {
-                    State.Stairs.substate = StairsState.Substates.Walk;
+                    State.Stairs.Substate = StairsState.Substates.Walk;
                 }
 
                 break;
@@ -4306,8 +4306,8 @@ internal sealed unsafe partial class World
             case StairsState.Substates.Walk:
                 GotoPlayCellar();
                 break;
-            case StairsState.Substates.WalkCave when Game.Link.X == State.Stairs.targetX
-                && Game.Link.Y == State.Stairs.targetY:
+            case StairsState.Substates.WalkCave when Game.Link.X == State.Stairs.TargetX
+                && Game.Link.Y == State.Stairs.TargetY:
             {
                 var owRoomAttrs = CurrentOWRoomAttrs;
                 var cave = owRoomAttrs.GetCaveId();
@@ -4319,7 +4319,7 @@ internal sealed unsafe partial class World
                 break;
             }
             case StairsState.Substates.WalkCave:
-                MovePlayer(State.Stairs.scrollDir, State.Stairs.playerSpeed, ref State.Stairs.playerFraction);
+                MovePlayer(State.Stairs.ScrollDir, State.Stairs.PlayerSpeed, ref State.Stairs.PlayerFraction);
                 Game.Link.Animator.Advance();
                 break;
         }
@@ -4328,50 +4328,50 @@ internal sealed unsafe partial class World
     private void DrawStairsState()
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-        DrawRoomNoObjects(State.Stairs.playerPriority);
+        DrawRoomNoObjects(State.Stairs.PlayerPriority);
     }
 
     private void GotoPlayCellar()
     {
-        State.PlayCellar.substate = PlayCellarState.Substates.Start;
-        State.PlayCellar.playerPriority = SpritePriority.None;
+        State.PlayCellar.Substate = PlayCellarState.Substates.Start;
+        State.PlayCellar.PlayerPriority = SpritePriority.None;
 
         curMode = GameMode.InitPlayCellar;
     }
 
     private void UpdatePlayCellar()
     {
-        sPlayCellarFuncs[(int)State.PlayCellar.substate]();
+        sPlayCellarFuncs[(int)State.PlayCellar.Substate]();
     }
 
     private void UpdatePlayCellar_Start()
     {
-        State.PlayCellar.substate = PlayCellarState.Substates.FadeOut;
-        State.PlayCellar.fadeTimer = 11;
-        State.PlayCellar.fadeStep = 0;
+        State.PlayCellar.Substate = PlayCellarState.Substates.FadeOut;
+        State.PlayCellar.FadeTimer = 11;
+        State.PlayCellar.FadeStep = 0;
     }
 
     private void UpdatePlayCellar_FadeOut()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.PlayCellar.fadeTimer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.PlayCellar.FadeTimer);
 
-        if (State.PlayCellar.fadeTimer > 0)
+        if (State.PlayCellar.FadeTimer > 0)
         {
-            State.PlayCellar.fadeTimer--;
+            State.PlayCellar.FadeTimer--;
             return;
         }
 
         for (var i = 0; i < LevelInfoBlock.FadePals; i++)
         {
-            var step = State.PlayCellar.fadeStep;
+            var step = State.PlayCellar.FadeStep;
             Graphics.SetPaletteIndexed((Palette)i + 2, infoBlock.OutOfCellarPalette(step, i));
         }
         Graphics.UpdatePalettes();
-        State.PlayCellar.fadeTimer = 9;
-        State.PlayCellar.fadeStep++;
+        State.PlayCellar.FadeTimer = 9;
+        State.PlayCellar.FadeStep++;
 
-        if (State.PlayCellar.fadeStep == LevelInfoBlock.FadeLength)
-            State.PlayCellar.substate = PlayCellarState.Substates.LoadRoom;
+        if (State.PlayCellar.FadeStep == LevelInfoBlock.FadeLength)
+            State.PlayCellar.Substate = PlayCellarState.Substates.LoadRoom;
     }
 
     private void UpdatePlayCellar_LoadRoom()
@@ -4388,10 +4388,10 @@ internal sealed unsafe partial class World
             Game.Link.Y = 0x44;
             Game.Link.Facing = Direction.Down;
 
-            State.PlayCellar.targetY = 0x60;
-            State.PlayCellar.substate = PlayCellarState.Substates.FadeIn;
-            State.PlayCellar.fadeTimer = 35;
-            State.PlayCellar.fadeStep = 3;
+            State.PlayCellar.TargetY = 0x60;
+            State.PlayCellar.Substate = PlayCellarState.Substates.FadeIn;
+            State.PlayCellar.FadeTimer = 35;
+            State.PlayCellar.FadeStep = 3;
         }
         else
         {
@@ -4401,37 +4401,37 @@ internal sealed unsafe partial class World
 
     private void UpdatePlayCellar_FadeIn()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.PlayCellar.fadeTimer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.PlayCellar.FadeTimer);
 
-        if (State.PlayCellar.fadeTimer > 0)
+        if (State.PlayCellar.FadeTimer > 0)
         {
-            State.PlayCellar.fadeTimer--;
+            State.PlayCellar.FadeTimer--;
             return;
         }
 
         for (var i = 0; i < LevelInfoBlock.FadePals; i++)
         {
-            var step = State.PlayCellar.fadeStep;
+            var step = State.PlayCellar.FadeStep;
             Graphics.SetPaletteIndexed((Palette)i + 2, infoBlock.InCellarPalette(step, i));
         }
         Graphics.UpdatePalettes();
-        State.PlayCellar.fadeTimer = 9;
-        State.PlayCellar.fadeStep--;
+        State.PlayCellar.FadeTimer = 9;
+        State.PlayCellar.FadeStep--;
 
-        if (State.PlayCellar.fadeStep < 0)
+        if (State.PlayCellar.FadeStep < 0)
         {
-            State.PlayCellar.substate = PlayCellarState.Substates.Walk;
+            State.PlayCellar.Substate = PlayCellarState.Substates.Walk;
         }
     }
 
     private void UpdatePlayCellar_Walk()
     {
-        State.PlayCellar.playerPriority = SpritePriority.AboveBg;
+        State.PlayCellar.PlayerPriority = SpritePriority.AboveBg;
 
-        if (Game.Link.Y == State.PlayCellar.targetY)
+        if (Game.Link.Y == State.PlayCellar.TargetY)
         {
             fromUnderground = 1;
-            GotoPlay(PlayState.RoomType.Cellar);
+            GotoPlay(RoomType.Cellar);
         }
         else
         {
@@ -4443,56 +4443,56 @@ internal sealed unsafe partial class World
     private void DrawPlayCellar()
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-        DrawRoomNoObjects(State.PlayCellar.playerPriority);
+        DrawRoomNoObjects(State.PlayCellar.PlayerPriority);
     }
 
     private void GotoLeaveCellar()
     {
-        State.LeaveCellar.substate = LeaveCellarState.Substates.Start;
+        State.LeaveCellar.Substate = LeaveCellarState.Substates.Start;
         curMode = GameMode.LeaveCellar;
     }
 
     private void UpdateLeaveCellar()
     {
-        sLeaveCellarFuncs[(int)State.LeaveCellar.substate]();
+        sLeaveCellarFuncs[(int)State.LeaveCellar.Substate]();
     }
 
     private void UpdateLeaveCellar_Start()
     {
         if (IsOverworld())
         {
-            State.LeaveCellar.substate = LeaveCellarState.Substates.Wait;
-            State.LeaveCellar.timer = 29;
+            State.LeaveCellar.Substate = LeaveCellarState.Substates.Wait;
+            State.LeaveCellar.Timer = 29;
         }
         else
         {
-            State.LeaveCellar.substate = LeaveCellarState.Substates.FadeOut;
-            State.LeaveCellar.fadeTimer = 11;
-            State.LeaveCellar.fadeStep = 0;
+            State.LeaveCellar.Substate = LeaveCellarState.Substates.FadeOut;
+            State.LeaveCellar.FadeTimer = 11;
+            State.LeaveCellar.FadeStep = 0;
         }
     }
 
     private void UpdateLeaveCellar_FadeOut()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.LeaveCellar.fadeTimer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.LeaveCellar.FadeTimer);
 
-        if (State.LeaveCellar.fadeTimer > 0)
+        if (State.LeaveCellar.FadeTimer > 0)
         {
-            State.LeaveCellar.fadeTimer--;
+            State.LeaveCellar.FadeTimer--;
             return;
         }
 
         for (var i = 0; i < LevelInfoBlock.FadePals; i++)
         {
-            var step = State.LeaveCellar.fadeStep;
+            var step = State.LeaveCellar.FadeStep;
             Graphics.SetPaletteIndexed((Palette)i + 2, infoBlock.InCellarPalette(step, i));
         }
         Graphics.UpdatePalettes();
-        State.LeaveCellar.fadeTimer = 9;
-        State.LeaveCellar.fadeStep++;
+        State.LeaveCellar.FadeTimer = 9;
+        State.LeaveCellar.FadeStep++;
 
-        if (State.LeaveCellar.fadeStep == LevelInfoBlock.FadeLength)
-            State.LeaveCellar.substate = LeaveCellarState.Substates.LoadRoom;
+        if (State.LeaveCellar.FadeStep == LevelInfoBlock.FadeLength)
+            State.LeaveCellar.Substate = LeaveCellarState.Substates.LoadRoom;
     }
 
     private void UpdateLeaveCellar_LoadRoom()
@@ -4508,32 +4508,32 @@ internal sealed unsafe partial class World
         Game.Link.Y = 0xA0;
         Game.Link.Facing = Direction.Down;
 
-        State.LeaveCellar.substate = LeaveCellarState.Substates.FadeIn;
-        State.LeaveCellar.fadeTimer = 35;
-        State.LeaveCellar.fadeStep = 3;
+        State.LeaveCellar.Substate = LeaveCellarState.Substates.FadeIn;
+        State.LeaveCellar.FadeTimer = 35;
+        State.LeaveCellar.FadeStep = 3;
     }
 
     private void UpdateLeaveCellar_FadeIn()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.LeaveCellar.fadeTimer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.LeaveCellar.FadeTimer);
 
-        if (State.LeaveCellar.fadeTimer > 0)
+        if (State.LeaveCellar.FadeTimer > 0)
         {
-            State.LeaveCellar.fadeTimer--;
+            State.LeaveCellar.FadeTimer--;
             return;
         }
 
         for (var i = 0; i < LevelInfoBlock.FadePals; i++)
         {
-            var step = State.LeaveCellar.fadeStep;
+            var step = State.LeaveCellar.FadeStep;
             Graphics.SetPaletteIndexed((Palette)i + 2, infoBlock.OutOfCellarPalette(step, i));
         }
         Graphics.UpdatePalettes();
-        State.LeaveCellar.fadeTimer = 9;
-        State.LeaveCellar.fadeStep--;
+        State.LeaveCellar.FadeTimer = 9;
+        State.LeaveCellar.FadeStep--;
 
-        if (State.LeaveCellar.fadeStep < 0)
-            State.LeaveCellar.substate = LeaveCellarState.Substates.Walk;
+        if (State.LeaveCellar.FadeStep < 0)
+            State.LeaveCellar.Substate = LeaveCellarState.Substates.Walk;
     }
 
     private void UpdateLeaveCellar_Walk()
@@ -4543,15 +4543,15 @@ internal sealed unsafe partial class World
 
     private void UpdateLeaveCellar_Wait()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.LeaveCellar.fadeTimer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.LeaveCellar.FadeTimer);
 
-        if (State.LeaveCellar.timer > 0)
+        if (State.LeaveCellar.Timer > 0)
         {
-            State.LeaveCellar.timer--;
+            State.LeaveCellar.Timer--;
             return;
         }
 
-        State.LeaveCellar.substate = LeaveCellarState.Substates.LoadOverworldRoom;
+        State.LeaveCellar.Substate = LeaveCellarState.Substates.LoadOverworldRoom;
     }
 
     private void UpdateLeaveCellar_LoadOverworldRoom()
@@ -4572,10 +4572,10 @@ internal sealed unsafe partial class World
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
-        if (State.LeaveCellar.substate == LeaveCellarState.Substates.Start)
+        if (State.LeaveCellar.Substate == LeaveCellarState.Substates.Start)
         {
         }
-        else if (State.LeaveCellar.substate is LeaveCellarState.Substates.Wait or LeaveCellarState.Substates.LoadOverworldRoom)
+        else if (State.LeaveCellar.Substate is LeaveCellarState.Substates.Wait or LeaveCellarState.Substates.LoadOverworldRoom)
         {
             ClearScreen();
         }
@@ -4587,33 +4587,33 @@ internal sealed unsafe partial class World
 
     private void GotoPlayCave()
     {
-        State.PlayCave.substate = PlayCaveState.Substates.Start;
+        State.PlayCave.Substate = PlayCaveState.Substates.Start;
 
         curMode = GameMode.InitPlayCave;
     }
 
     private void UpdatePlayCave()
     {
-        sPlayCaveFuncs[(int)State.PlayCave.substate]();
+        sPlayCaveFuncs[(int)State.PlayCave.Substate]();
     }
 
     private void UpdatePlayCave_Start()
     {
-        State.PlayCave.substate = PlayCaveState.Substates.Wait;
-        State.PlayCave.timer = 27;
+        State.PlayCave.Substate = PlayCaveState.Substates.Wait;
+        State.PlayCave.Timer = 27;
     }
 
     private void UpdatePlayCave_Wait()
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(State.PlayCave.timer);
+        ArgumentOutOfRangeException.ThrowIfNegative(State.PlayCave.Timer);
 
-        if (State.PlayCave.timer > 0)
+        if (State.PlayCave.Timer > 0)
         {
-            State.PlayCave.timer--;
+            State.PlayCave.Timer--;
             return;
         }
 
-        State.PlayCave.substate = PlayCaveState.Substates.LoadRoom;
+        State.PlayCave.Substate = PlayCaveState.Substates.LoadRoom;
     }
 
     private void UpdatePlayCave_LoadRoom()
@@ -4623,8 +4623,8 @@ internal sealed unsafe partial class World
 
         LoadCaveRoom(caveLayout);
 
-        State.PlayCave.substate = PlayCaveState.Substates.Walk;
-        State.PlayCave.targetY = 0xD5;
+        State.PlayCave.Substate = PlayCaveState.Substates.Walk;
+        State.PlayCave.TargetY = 0xD5;
 
         Game.Link.X = 0x70;
         Game.Link.Y = 0xDD;
@@ -4639,10 +4639,10 @@ internal sealed unsafe partial class World
 
     private void UpdatePlayCave_Walk()
     {
-        if (Game.Link.Y == State.PlayCave.targetY)
+        if (Game.Link.Y == State.PlayCave.TargetY)
         {
             fromUnderground = 1;
-            GotoPlay(PlayState.RoomType.Cave);
+            GotoPlay(RoomType.Cave);
         }
         else
         {
@@ -4655,11 +4655,11 @@ internal sealed unsafe partial class World
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
-        if (State.PlayCave.substate is PlayCaveState.Substates.Wait or PlayCaveState.Substates.LoadRoom)
+        if (State.PlayCave.Substate is PlayCaveState.Substates.Wait or PlayCaveState.Substates.LoadRoom)
         {
             ClearScreen();
         }
-        else if (State.PlayCave.substate == PlayCaveState.Substates.Walk)
+        else if (State.PlayCave.Substate == PlayCaveState.Substates.Walk)
         {
             DrawRoomNoObjects();
         }

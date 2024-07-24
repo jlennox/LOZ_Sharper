@@ -103,6 +103,8 @@ internal static class Extensions
 
     public static T GetRandom<T>(this T[] array) => array[Random.Shared.Next(array.Length)];
 
+    public static T GetRandom<T>(this Random random, T a, T b) => random.Next(2) == 0 ? a : b;
+
     public static bool IsBlueWalker(this ObjType type)
     {
         return type is ObjType.BlueFastOctorock or ObjType.BlueSlowOctorock or ObjType.BlueMoblin or ObjType.BlueLynel;

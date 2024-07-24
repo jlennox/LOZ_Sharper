@@ -1,20 +1,21 @@
 ﻿namespace z1;
 
+internal enum RoomType { Regular, Cellar, Cave }
+
 internal struct PlayState
 {
     public enum Substates { Active }
-    public enum RoomType { Regular, Cellar, Cave }
 
-    public Substates substate;
-    public int timer;
+    public Substates Substate;
+    public int Timer;
 
-    public bool animatingRoomColors;
-    public bool allowWalkOnWater;
-    public bool uncoveredRecorderSecret;
-    public RoomType roomType;
-    public short liftItemTimer;
-    public ItemId liftItemId;
-    public int personWallY;
+    public bool AnimatingRoomColors;
+    public bool AllowWalkOnWater;
+    public bool UncoveredRecorderSecret;
+    public RoomType RoomType;
+    public short LiftItemTimer;
+    public ItemId LiftItemId;
+    public int PersonWallY;
 }
 
 internal struct PlayCellarState
@@ -30,11 +31,11 @@ internal struct PlayCellarState
         MaxSubstate
     }
 
-    public Substates substate;
-    public SpritePriority playerPriority;
-    public int targetY;
-    public int fadeTimer;
-    public int fadeStep;
+    public Substates Substate;
+    public SpritePriority PlayerPriority;
+    public int TargetY;
+    public int FadeTimer;
+    public int FadeStep;
 }
 
 internal struct LeaveCellarState
@@ -53,10 +54,10 @@ internal struct LeaveCellarState
         MaxSubstate
     }
 
-    public Substates substate;
-    public int fadeTimer;
-    public int fadeStep;
-    public int timer;
+    public Substates Substate;
+    public int FadeTimer;
+    public int FadeStep;
+    public int Timer;
 }
 
 internal struct PlayCaveState
@@ -71,9 +72,9 @@ internal struct PlayCaveState
         MaxSubstate
     }
 
-    public Substates substate;
-    public int timer;
-    public int targetY;
+    public Substates Substate;
+    public int Timer;
+    public int TargetY;
     // public SpritePriority playerPriority; // JOE: Unused in the orignal.
 }
 
@@ -92,30 +93,30 @@ internal struct ScrollState
 
     public const int StateTime = 32;
 
-    public Substates substate;
+    public Substates Substate;
     /// <summary>How long before the screen begins the scroll animation.</summary>
-    public int timer;
-    public Direction scrollDir;
-    public int nextRoomId;
-    public int curRoomId;
+    public int Timer;
+    public Direction ScrollDir;
+    public int NextRoomId;
+    public int CurRoomId;
 
-    public int offsetX;
-    public int offsetY;
-    public int speedX;
-    public int speedY;
-    public int oldTileMapIndex;
-    public int oldRoomId;
-    public int oldMapToNewMapDistX;
-    public int oldMapToNewMapDistY;
+    public int OffsetX;
+    public int OffsetY;
+    public int SpeedX;
+    public int SpeedY;
+    public int OldTileMapIndex;
+    public int OldRoomId;
+    public int OldMapToNewMapDistX;
+    public int OldMapToNewMapDistY;
 }
 
 internal struct LeaveState
 {
     public const int StateTime = 2;
 
-    public int timer;
-    public Direction scrollDir;
-    public int curRoomId;
+    public int Timer;
+    public Direction ScrollDir;
+    public int CurRoomId;
 }
 
 internal struct EnterState
@@ -133,15 +134,15 @@ internal struct EnterState
 
     public const int StateTime = 2;
 
-    public Substates substate;
-    public int timer;
-    public Direction scrollDir;
-    public int targetX;
-    public int targetY;
-    public int playerSpeed;
-    public int playerFraction;
-    public SpritePriority playerPriority;
-    public bool gotoPlay;
+    public Substates Substate;
+    public int Timer;
+    public Direction ScrollDir;
+    public int TargetX;
+    public int TargetY;
+    public int PlayerSpeed;
+    public int PlayerFraction;
+    public SpritePriority PlayerPriority;
+    public bool GotoPlay;
 }
 
 internal struct LoadLevelState
@@ -154,10 +155,10 @@ internal struct LoadLevelState
 
     public const int StateTime = 18;
 
-    public Substates substate;
-    public int timer;
-    public int level;
-    public bool restartOW;
+    public Substates Substate;
+    public int Timer;
+    public int Level;
+    public bool RestartOW;
 }
 
 internal struct UnfurlState
@@ -170,12 +171,12 @@ internal struct UnfurlState
 
     public const int StateTime = 11;
 
-    public Substates substate;
-    public int timer;
-    public int stepTimer;
-    public int left;
-    public int right;
-    public bool restartOW;
+    public Substates Substate;
+    public int Timer;
+    public int StepTimer;
+    public int Left;
+    public int Right;
+    public bool RestartOW;
 }
 
 internal struct EndLevelState
@@ -198,11 +199,11 @@ internal struct EndLevelState
     public const int Wait2Time = 0x80;
     public const int Wait3Time = 0x80;
 
-    public Substates substate;
-    public int timer;
-    public int stepTimer;
-    public int left;
-    public int right;
+    public Substates Substate;
+    public int Timer;
+    public int StepTimer;
+    public int Left;
+    public int Right;
 }
 
 internal struct WinGameState
@@ -223,21 +224,21 @@ internal struct WinGameState
         MaxSubstate
     }
 
-    public enum NpcVisual
+    public enum NpcVisualState
     {
-        Npc_None,
-        Npc_Stand,
-        Npc_Lift,
+        None,
+        Stand,
+        Lift,
     }
 
     public const int TextBox2Top = 0xA8;
 
-    public Substates substate;
-    public int timer;
-    public int stepTimer;
-    public int left;
-    public int right;
-    public NpcVisual npcVisual;
+    public Substates Substate;
+    public int Timer;
+    public int StepTimer;
+    public int Left;
+    public int Right;
+    public NpcVisualState NpcVisual;
 }
 
 internal struct StairsState
@@ -251,14 +252,14 @@ internal struct StairsState
         MaxSubstate
     }
 
-    public Substates substate;
-    public Direction scrollDir;
-    public int targetX;
-    public int targetY;
-    public int playerSpeed;
-    public int playerFraction;
-    public TileBehavior tileBehavior;
-    public SpritePriority playerPriority;
+    public Substates Substate;
+    public Direction ScrollDir;
+    public int TargetX;
+    public int TargetY;
+    public int PlayerSpeed;
+    public int PlayerFraction;
+    public TileBehavior TileBehavior;
+    public SpritePriority PlayerPriority;
 }
 
 internal struct DeathState
