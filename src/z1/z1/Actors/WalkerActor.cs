@@ -443,17 +443,13 @@ internal sealed class GleeokNeck
         public int Value2;
     }
 
-    private struct Part
-    {
-        public int X;
-        public int Y;
-    }
-
     private static readonly byte[] _startYs = new byte[] { 0x6F, 0x74, 0x79, 0x7E, 0x83 };
 
-    private readonly Part[] _parts = new Part[MaxParts];
-    private readonly SpriteImage _neckImage = new SpriteImage();
-    private readonly SpriteImage _headImage = new SpriteImage();
+    public int HP;
+
+    private readonly Point[] _parts = new Point[MaxParts];
+    private readonly SpriteImage _neckImage;
+    private readonly SpriteImage _headImage;
 
     private int _startHeadTimer;
     private int _xSpeed;
@@ -462,38 +458,10 @@ internal sealed class GleeokNeck
     private int _changeYDirTimer;
     private int _changeDirsTimer;
     private bool _isAlive;
-    public int HP;
 
-    public GleeokNeck(Game game, int i)
+    public GleeokNeck(Game game, int index)
     {
         _game = game;
-        Init(i);
-    }
-
-    public bool IsAlive()
-    {
-        return _isAlive;
-    }
-
-    public void SetDead()
-    {
-        _isAlive = false;
-    }
-
-    private int GetHP()
-    {
-        return HP;
-    }
-
-    public void SetHP(int value)
-    {
-        HP = value;
-    }
-
-    public Point GetPartLocation(int partIndex) => new Point(_parts[partIndex].X, _parts[partIndex].Y);
-
-    private void Init(int index)
-    {
 
         for (var i = 0; i < MaxParts; i++)
         {
@@ -501,8 +469,8 @@ internal sealed class GleeokNeck
             _parts[i].Y = _startYs[i];
         }
 
-        _isAlive = true;
         HP = 0xA0;
+        _isAlive = true;
         _changeXDirTimer = 6;
         _changeYDirTimer = 3;
         _xSpeed = 1;
@@ -519,16 +487,28 @@ internal sealed class GleeokNeck
             _ySpeed = -1;
         }
 
-        switch (index)
-        {
-            case 1: _startHeadTimer = 12; break;
-            case 2: _startHeadTimer = 24; break;
-            case 3: _startHeadTimer = 36; break;
-        }
+        _startHeadTimer = index switch {
+            1 => 12,
+            2 => 24,
+            3 => 36,
+            _ => _startHeadTimer
+        };
 
-        _neckImage.Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Neck);
-        _headImage.Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Head);
+        _neckImage = new SpriteImage
+        {
+            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Neck)
+        };
+
+        _headImage = new SpriteImage
+        {
+            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Head)
+        };
     }
+
+    public bool IsAlive() => _isAlive;
+    public void SetDead() => _isAlive = false;
+    public void SetHP(int value) => HP = value;
+    public Point GetPartLocation(int partIndex) => new(_parts[partIndex].X, _parts[partIndex].Y);
 
     public void Update()
     {
@@ -697,24 +677,12 @@ internal sealed class GleeokNeck
 
         // The original was [index+2] - [index+2]
         var distance = Math.Abs(_parts[index + 2].X - _parts[index + 1].X);
-        if (distance >= xLimits.Value0)
-        {
-            funcIndex++;
-        }
-        if (distance >= xLimits.Value1)
-        {
-            funcIndex++;
-        }
+        if (distance >= xLimits.Value0) funcIndex++;
+        if (distance >= xLimits.Value1) funcIndex++;
 
         distance = Math.Abs(_parts[index + 2].Y - _parts[index + 1].Y);
-        if (distance >= yLimits.Value0)
-        {
-            funcIndex += 3;
-        }
-        if (distance >= yLimits.Value1)
-        {
-            funcIndex += 3;
-        }
+        if (distance >= yLimits.Value0) funcIndex += 3;
+        if (distance >= yLimits.Value1) funcIndex += 3;
 
         var funcs = new Action<int>[]
         {
@@ -814,7 +782,7 @@ internal sealed class GleeokActor : Actor
 
     private readonly SpriteAnimator _animator;
     private int _writhingTimer;
-    private int _neckCount;
+    private readonly int _neckCount;
     private readonly GleeokNeck[] _necks = new GleeokNeck[MaxNecks];
 
     public override bool IsReoccuring => false;
@@ -1024,9 +992,9 @@ internal sealed class GanonActor : BlueWizzrobeBase
     private readonly int[] _sparksY = new int[8];
     private readonly Direction[] _piecesDir = new Direction[8];
 
-    private SpriteAnimator _animator;
-    private SpriteAnimator _cloudAnimator;
-    private SpriteImage _pileImage;
+    private readonly SpriteAnimator _animator;
+    private readonly SpriteAnimator _cloudAnimator;
+    private readonly SpriteImage _pileImage;
 
     public GanonActor(Game game, int x, int y)
         : base(game, ObjType.Ganon, x, y)
@@ -1379,7 +1347,7 @@ internal sealed class ZeldaActor : Actor
     public override bool IsReoccuring => false;
 
     private int _state;
-    private SpriteImage _image;
+    private readonly SpriteImage _image;
 
     private static readonly byte[] _xs = new byte[] { 0x60, 0x70, 0x80, 0x90 };
     private static readonly byte[] _ys = new byte[] { 0xB5, 0x9D, 0x9D, 0xB5 };
@@ -1473,7 +1441,7 @@ internal sealed class StandingFireActor : Actor
 internal sealed class GuardFireActor : Actor
 {
     public override bool IsReoccuring => false;
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
     public GuardFireActor(Game game, int x, int y)
         : base(game, ObjType.GuardFire, x, y)
@@ -1640,7 +1608,7 @@ internal sealed class PondFairyActor : Actor
     private readonly byte[] _heartAngle = new byte[8];
 
     private PondFairyState _pondFairyState;
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
     public PondFairyActor(Game game, int x = PondFairyX, int y = PondFairyY)
         : base(game, ObjType.PondFairy, x, y)
@@ -2519,7 +2487,7 @@ internal sealed class RedLeeverActor : Actor
 
     private static int _count;
 
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
     private int _state;
     private WalkerSpec _spec;
@@ -3381,7 +3349,7 @@ internal sealed class PatraChildActor : Actor
 
     private int _x;
     private int _y;
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
     private int _angleAccum;
 
@@ -3572,7 +3540,7 @@ internal abstract class JumperActor : Actor, IDeleteEvent
 
     private int _curSpeed;
     private int _accelStep;
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
     private int _state;
     private int _targetY;
@@ -3903,12 +3871,12 @@ internal sealed class TrapActor : Actor
 
     private static readonly int[] _trapAllowedDirs = new int[] { 5, 9, 6, 0xA, 1, 2 };
 
-    private int _trapIndex;
+    private readonly int _trapIndex;
     private int _state;
     private int _speed;
     private int _origCoord;
 
-    private SpriteImage _image;
+    private readonly SpriteImage _image;
 
     public override bool CountsAsLiving => false;
 
@@ -4052,7 +4020,7 @@ internal sealed class RopeActor : Actor
     private const int RopeNormalSpeed = 0x20;
     private const int RopeFastSpeed = 0x60;
 
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
     private int _speed;
 
@@ -4160,7 +4128,7 @@ internal sealed class PolsVoiceActor : Actor
     private int _state;
     private int _stateTimer;
     private int _targetY;
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
     public PolsVoiceActor(Game game, int x, int y)
         : base(game, ObjType.PolsVoice, x, y)
@@ -4321,12 +4289,12 @@ internal sealed class RedWizzrobeActor : Actor
     private static readonly int[] _allWizzrobeCollisionXOffsets = new[] { 0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0 };
     private static readonly int[] _allWizzrobeCollisionYOffsets = new[] { 4, 4, 0, 8, 8, 8, 0, -8, 0, 0 };
 
-    private SpriteAnimator _animator;
+    private readonly SpriteAnimator _animator;
 
     private byte _stateTimer;
     private byte _flashTimer;
 
-    private Action[] _sStateFuncs;
+    private readonly Action[] _sStateFuncs;
 
     public RedWizzrobeActor(Game game, int x, int y)
         : base(game, ObjType.RedWizzrobe, x, y)

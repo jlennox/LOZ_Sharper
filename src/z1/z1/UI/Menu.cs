@@ -218,12 +218,12 @@ internal sealed class RegisterMenu : Menu
     };
 
     private readonly Game _game;
-    private ProfileSummarySnapshot _summaries;
+    private readonly ProfileSummarySnapshot _summaries;
     private int _selectedIndex;
     private int _namePos;
     private int _charPosCol;
     private int _charPosRow;
-    private bool[] _origActive = new bool[SaveFolder.MaxProfiles];
+    private readonly bool[] _origActive = new bool[SaveFolder.MaxProfiles];
 
     public RegisterMenu(Game game, ProfileSummarySnapshot summaries)
     {

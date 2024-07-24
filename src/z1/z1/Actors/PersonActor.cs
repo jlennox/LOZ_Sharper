@@ -31,14 +31,14 @@ internal sealed class PersonActor : Actor
     };
 
     private PersonState _state = PersonState.Idle;
-    SpriteImage? image;
+    readonly SpriteImage? image;
 
     public CaveSpec spec;
     public TextBox textBox;
     public int chosenIndex;
     public bool showNumbers;
 
-    byte[] priceStrs = new byte[MaxItemCount * PriceLength];
+    readonly byte[] priceStrs = new byte[MaxItemCount * PriceLength];
 
     private Span<byte> GetPrice(int index) => priceStrs.AsSpan(index * PriceLength, PriceLength);
 

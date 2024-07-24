@@ -187,9 +187,9 @@ internal sealed class SubmenuType
     private bool enabled;
     private bool activated;
     private int activeUISlot;
-    private ItemSlot[] activeSlots = new ItemSlot[ActiveItems];
-    private ItemId[] activeItems = new ItemId[ActiveItems];
-    private SpriteImage cursor = new();
+    private readonly ItemSlot[] activeSlots = new ItemSlot[ActiveItems];
+    private readonly ItemId[] activeItems = new ItemId[ActiveItems];
+    private readonly SpriteImage cursor = new();
 
     public SubmenuType(Game game)
     {

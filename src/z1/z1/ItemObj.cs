@@ -9,7 +9,7 @@ internal sealed class LadderActor : Actor
 {
     public LadderStates state = LadderStates.Unknown1;
     public Direction origDir = Direction.Down; // JOE: NOTE: This is unused in the original?
-    SpriteImage image;
+    private readonly SpriteImage image;
 
     public LadderActor(Game game, int x, int y) : base(game, ObjType.Ladder, x, y)
     {
@@ -58,7 +58,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
     public int origX;
     public int origY;
 
-    Action? curUpdate;
+    private Action? curUpdate;
 
     protected BlockObjBase(Game game, ObjType type, int x, int y) : base(game, type, x, y)
     {
@@ -109,18 +109,15 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
     {
         if (this is RockObj)
         {
-            if (Game.World.GetItem(ItemSlot.Bracelet) == 0)
-                return;
+            if (Game.World.GetItem(ItemSlot.Bracelet) == 0) return;
         }
         else if (this is BlockObj)
         {
-            if (Game.World.HasLivingObjects())
-                return;
+            if (Game.World.HasLivingObjects()) return;
         }
 
         var player = Game.Link;
-        if (player == null)
-            return;
+        if (player == null) return;
 
         var bounds = player.GetBounds(); // JOE: IS this a bug that this is unused?
         var dir = player.MovingDirection;
@@ -171,20 +168,9 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
 
     private void UpdateMoving()
     {
-        var done = false;
-
         MoveDirection(0x20, Facing);
 
-        if (Facing.IsHorizontal())
-        {
-            if (X == targetPos)
-                done = true;
-        }
-        else
-        {
-            if (Y == targetPos)
-                done = true;
-        }
+        var done = Facing.IsHorizontal() ? X == targetPos : Y == targetPos;
 
         if (done)
         {
@@ -245,7 +231,8 @@ internal class FireActor : Actor
             if (state == FireState.Standing) Game.World.BeginFadeIn();
         }
     }
-    SpriteAnimator animator;
+
+    private readonly SpriteAnimator animator;
 
     private FireState _state;
 
@@ -384,13 +371,13 @@ internal sealed class BombActor : Actor
 
     public BombState BombState = BombState.Initing;
 
-    SpriteAnimator animator;
+    private readonly SpriteAnimator animator;
 
     public BombActor(Game game, int x, int y) : base(game, ObjType.Bomb, x, y)
     {
         Facing = Game.Link.Facing;
         Decoration = 0;
-        animator = new()
+        animator = new SpriteAnimator
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.BombItem),
             Time = 0,
@@ -521,7 +508,7 @@ internal sealed class PlayerSwordActor : Actor
 
     public int state;
     private int timer;
-    private SpriteImage image = new();
+    private readonly SpriteImage image = new();
 
     public PlayerSwordActor(Game game, ObjType type) : base(game, type, 0, 0)
     {
@@ -530,7 +517,7 @@ internal sealed class PlayerSwordActor : Actor
         Decoration = 0;
     }
 
-    void Put()
+    private void Put()
     {
         var player = Game.Link;
         var facingDir = player.Facing;
@@ -549,7 +536,7 @@ internal sealed class PlayerSwordActor : Actor
         image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animIndex);
     }
 
-    void TryMakeWave()
+    private void TryMakeWave()
     {
         if (state == 2)
         {
@@ -583,11 +570,13 @@ internal sealed class PlayerSwordActor : Actor
             }
 
             if (makeWave)
+            {
                 MakeWave();
+            }
         }
     }
 
-    void MakeWave()
+    private void MakeWave()
     {
         var player = Game.Link;
         var x = player.X;
@@ -701,9 +690,9 @@ internal sealed class ItemObjActor : Actor
 {
     private static readonly ObjectSlot[] weaponSlots = new[] { ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow };
 
-    ItemId itemId;
-    bool isRoomItem;
-    int timer;
+    private readonly ItemId itemId;
+    private readonly bool isRoomItem;
+    private int timer;
 
     public ItemObjActor(Game game, ItemId itemId, bool isRoomItem, int x, int y) : base(game, ObjType.Item, x, y)
     {
@@ -713,13 +702,15 @@ internal sealed class ItemObjActor : Actor
         this.isRoomItem = isRoomItem;
 
         if (!isRoomItem)
+        {
             timer = 0x1FF;
+        }
     }
 
-    bool TouchesObject(Actor obj)
+    private bool TouchesObject(Actor obj)
     {
-        int distanceX = Math.Abs(obj.X + 0 - X);
-        int distanceY = Math.Abs(obj.Y + 3 - Y);
+        var distanceX = Math.Abs(obj.X + 0 - X);
+        var distanceY = Math.Abs(obj.Y + 3 - Y);
 
         return distanceX <= 8
             && distanceY <= 8;
@@ -741,7 +732,7 @@ internal sealed class ItemObjActor : Actor
             }
         }
 
-        bool touchedItem = false;
+        var touchedItem = false;
 
         if (TouchesObject(Game.Link))
         {
@@ -749,10 +740,8 @@ internal sealed class ItemObjActor : Actor
         }
         else if (!isRoomItem)
         {
-
-            for (int i = 0; i < weaponSlots.Length; i++)
+            foreach (var slot in weaponSlots)
             {
-                var slot = weaponSlots[i];
                 var obj = Game.World.GetObject(slot);
                 if (obj != null && !obj.IsDeleted && TouchesObject(obj))
                 {
@@ -765,7 +754,9 @@ internal sealed class ItemObjActor : Actor
         if (touchedItem)
         {
             if (isRoomItem)
+            {
                 Game.World.MarkItem();
+            }
 
             IsDeleted = true;
 
@@ -793,9 +784,7 @@ internal sealed class ItemObjActor : Actor
 
     public override void Draw()
     {
-        if (isRoomItem
-            || timer < 0x1E0
-            || (timer & 2) != 0)
+        if (isRoomItem || timer < 0x1E0 || (timer & 2) != 0)
         {
             GlobalFunctions.DrawItemWide(Game, itemId, X, Y);
         }
@@ -881,7 +870,7 @@ internal sealed class WhirlwindActor : Actor
 internal sealed class DockActor : Actor
 {
     private int _state = 0;
-    private SpriteImage _raftImage;
+    private readonly SpriteImage _raftImage;
 
     public DockActor(Game game, int x, int y) : base(game, ObjType.Dock, x, y)
     {
@@ -899,28 +888,21 @@ internal sealed class DockActor : Actor
 
         if (_state == 0)
         {
-            int x;
-
-            if (Game.World.curRoomId == 0x55)
-                x = 0x80;
-            else
-                x = 0x60;
-
-            if (x != player.X)
-                return;
+            var x = Game.World.curRoomId == 0x55 ? 0x80 : 0x60;
+            if (x != player.X) return;
 
             X = x;
 
-            if (player.Y == 0x3D)
-                _state = 1;
-            else if (player.Y == 0x7D)
-                _state = 2;
-            else
-                return;
+            switch (player.Y)
+            {
+                case 0x3D: _state = 1; break;
+                case 0x7D: _state = 2; break;
+                default: return;
+            }
 
             Y = player.Y + 6;
 
-            var facings = new[] { Direction.None, Direction.Down, Direction.Up };
+            ReadOnlySpan<Direction> facings = [ Direction.None, Direction.Down, Direction.Up ];
 
             player.SetState(PlayerState.Paused);
             player.Facing = facings[_state];

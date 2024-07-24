@@ -2,7 +2,7 @@
 
 internal partial class World
 {
-    private static byte[] levelGroups = new byte[] { 0, 0, 1, 1, 0, 1, 0, 1, 2 };
+    private static readonly byte[] levelGroups = new byte[] { 0, 0, 1, 1, 0, 1, 0, 1, 2 };
 
     private readonly record struct EquipValue(byte Value, ItemSlot Slot);
 
