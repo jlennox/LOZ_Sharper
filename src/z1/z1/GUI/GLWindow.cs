@@ -52,11 +52,8 @@ internal sealed class GLWindow : IDisposable
         _glinterface = GRGlInterface.Create();
         _grcontext = GRContext.CreateGl(_glinterface);
 
-        _rendertarget = new GRBackendRenderTarget(
-            window.Size.X, window.Size.Y,
-            0, 8,
-            new GRGlFramebufferInfo((uint)framebuffer, SKColorType.Rgba8888.ToGlSizedFormat())
-        );
+        var framebufferinfo = new GRGlFramebufferInfo((uint)framebuffer, SKColorType.Rgba8888.ToGlSizedFormat());
+        _rendertarget = new GRBackendRenderTarget(window.Size.X, window.Size.Y, 0, 8, framebufferinfo);
         return _surface = SKSurface.Create(_grcontext, _rendertarget, GRSurfaceOrigin.BottomLeft, SKColorType.Rgba8888);
     }
 

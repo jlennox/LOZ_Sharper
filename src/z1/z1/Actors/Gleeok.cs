@@ -1,4 +1,6 @@
-﻿namespace z1.Actors;
+﻿using System.Diagnostics;
+
+namespace z1.Actors;
 
 internal sealed class GleeokHeadActor : FlyingActor
 {
@@ -30,7 +32,7 @@ internal sealed class GleeokHeadActor : FlyingActor
 
         if (r < 0x20
             && (MoveCounter & 1) == 0
-            && Game.World.GetObject(ObjectSlot.LastMonster) == null)
+            && !Game.World.HasObject(ObjectSlot.LastMonster))
         {
             ShootFireball(ObjType.Fireball2, X, Y);
         }

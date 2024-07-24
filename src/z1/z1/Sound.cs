@@ -62,6 +62,7 @@ internal enum StopEffect
     AmbientInstance = 4,
 }
 
+#pragma warning disable CA1822 // Mark members as static
 internal sealed class Sound
 {
     public const int AmbientInstance = 4;

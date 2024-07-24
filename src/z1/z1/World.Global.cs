@@ -216,8 +216,7 @@ internal partial class World
     {
         for (var i = (int)ObjectSlot.LastMonster; i >= 0; i--)
         {
-            if (objects[i] == null)
-                return (ObjectSlot)i;
+            if (objects[i] == null) return (ObjectSlot)i;
         }
         return ObjectSlot.NoneFound;
     }

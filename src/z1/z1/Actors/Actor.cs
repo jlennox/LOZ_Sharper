@@ -947,7 +947,7 @@ internal abstract class Actor
             x += 0xB;
         }
 
-        if (x > Game.MarginLeft)
+        if (x > Game.World.MarginLeft)
         {
             if (adjust)
             {
@@ -956,7 +956,7 @@ internal abstract class Actor
 
             curDir = Direction.Right;
 
-            if (x < Game.MarginRight)
+            if (x < Game.World.MarginRight)
             {
                 return dir;
             }
@@ -965,7 +965,7 @@ internal abstract class Actor
         return (dir & curDir) != 0 ? Direction.None : dir;
     }
 
-    protected static Direction CheckWorldMarginV(int y, Direction dir, bool adjust)
+    protected Direction CheckWorldMarginV(int y, Direction dir, bool adjust)
     {
         var curDir = Direction.Up;
 
@@ -974,7 +974,7 @@ internal abstract class Actor
             y += 0xF;
         }
 
-        if (y > Game.MarginTop)
+        if (y > Game.World.MarginTop)
         {
             if (adjust)
             {
@@ -983,7 +983,7 @@ internal abstract class Actor
 
             curDir = Direction.Down;
 
-            if (y < Game.MarginBottom)
+            if (y < Game.World.MarginBottom)
             {
                 return dir;
             }

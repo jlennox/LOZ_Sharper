@@ -270,7 +270,6 @@ internal sealed class FireballProjectile : Actor
         : base(game, type, x, y)
     {
         Decoration = 0;
-
         _image = new SpriteImage
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fireball)
@@ -280,9 +279,8 @@ internal sealed class FireballProjectile : Actor
         _y = y;
 
         _state = FireballState.Unknown0;
-        var player = Game.Link;
-        var xDist = player.X - x;
-        var yDist = player.Y - y;
+        var xDist = Game.Link.X - x;
+        var yDist = Game.Link.Y - y;
 
         var sector = new PointF(xDist, yDist).Rotate(Global.PI_OVER_16).GetSector16();
         var angle = Global.PI_OVER_8 * sector;
@@ -304,7 +302,7 @@ internal sealed class FireballProjectile : Actor
 
         if (ObjTimer == 0)
         {
-            if (Direction.None == CheckWorldMargin(Facing))
+            if (CheckWorldMargin(Facing) == Direction.None)
             {
                 IsDeleted = true;
                 return;
@@ -312,8 +310,8 @@ internal sealed class FireballProjectile : Actor
 
             _x += _speedX;
             _y += _speedY;
-            X += (int)_x;
-            Y += (int)_y;
+            X = (int)_x;
+            Y = (int)_y;
         }
 
         var collision = CheckPlayerCollision();

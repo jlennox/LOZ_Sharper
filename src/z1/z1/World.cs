@@ -135,10 +135,11 @@ internal sealed unsafe partial class World
     public int startRow;
     public int startCol;
     public int tileTypeCount;
-    public int marginRight;
-    public int marginLeft;
-    public int marginBottom;
-    public int marginTop;
+    // JOE: TODO: Move to rect.
+    public int MarginRight;
+    public int MarginLeft;
+    public int MarginBottom;
+    public int MarginTop;
     public SKBitmap? wallsBmp;
     public SKBitmap? doorsBmp;
 
@@ -256,10 +257,10 @@ internal sealed unsafe partial class World
         startRow = 0;
         startCol = 0;
         tileTypeCount = 56;
-        marginRight = OWMarginRight;
-        marginLeft = OWMarginLeft;
-        marginBottom = OWMarginBottom;
-        marginTop = OWMarginTop;
+        MarginRight = OWMarginRight;
+        MarginLeft = OWMarginLeft;
+        MarginBottom = OWMarginBottom;
+        MarginTop = OWMarginTop;
     }
 
     private void LoadClosedRoomContext()
@@ -269,10 +270,10 @@ internal sealed unsafe partial class World
         startRow = 4;
         startCol = 4;
         tileTypeCount = 9;
-        marginRight = UWMarginRight;
-        marginLeft = UWMarginLeft;
-        marginBottom = UWMarginBottom;
-        marginTop = UWMarginTop;
+        MarginRight = UWMarginRight;
+        MarginLeft = UWMarginLeft;
+        MarginBottom = UWMarginBottom;
+        MarginTop = UWMarginTop;
     }
 
     private void LoadMapResourcesFromDirectory(int uniqueRoomCount)
@@ -700,7 +701,7 @@ internal sealed unsafe partial class World
         return null;
     }
 
-    public void SetObject(ObjectSlot slot, Actor obj)
+    public void SetObject(ObjectSlot slot, Actor? obj)
     {
         SetOnlyObject(slot, obj);
     }

@@ -63,12 +63,6 @@ internal sealed class Game
 
     public Link Link;
 
-    // Use rect?
-    public const int MarginTop = 0x5D;
-    public const int MarginBottom = 0xCD;
-    public const int MarginLeft = 0x20;
-    public const int MarginRight = 0xD0;
-
     public readonly Sound Sound = new();
     public readonly PlayerProfile Profile = new();
 
