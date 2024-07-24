@@ -93,7 +93,7 @@ internal sealed class PlayerSwordProjectile : Projectile
         Decoration = 0;
 
         var dirOrd = Facing.GetOrdinal(); ;
-        var animIndex = PlayerSwordActor.swordAnimMap[dirOrd];
+        var animIndex = PlayerSwordActor.SwordAnimMap[dirOrd];
         _image = new SpriteImage
         {
             Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animIndex)
@@ -656,7 +656,7 @@ internal sealed class MagicWaveProjectile : Projectile
             var fire = new FireActor(Game, X, Y, Facing)
             {
                 ObjTimer = 0x4F,
-                state = FireState.Standing
+                State = FireState.Standing
             };
             Game.World.SetObject(fireSlot, fire);
         }

@@ -546,7 +546,7 @@ internal abstract class Actor
         if (slot != ObjectSlot.PlayerSword) throw new ArgumentOutOfRangeException(nameof(slot));
 
         var sword = Game.World.GetObject<PlayerSwordActor>(slot);
-        if (sword == null || sword.state != 1) return;
+        if (sword == null || sword.State != 1) return;
 
         var player = Game.Link;
 

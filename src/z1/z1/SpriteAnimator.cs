@@ -28,7 +28,7 @@ internal struct SpriteAnimationStruct : ILoadVariableLengthData<SpriteAnimation>
     }
 }
 
-internal class SpriteAnimation
+internal sealed class SpriteAnimation
 {
     public SpriteFrame[] Frames { get; }
     public SpriteFrame FrameA => Frames[0];
@@ -83,7 +83,7 @@ internal sealed class SpriteAnimator
 
     public void Draw(TileSheet sheetSlot, float x, float y, Palette palette, DrawingFlags flags = DrawingFlags.None)
     {
-        Draw((int)sheetSlot, (int)x, (int)y, (int)palette, flags);
+        Draw(sheetSlot, (int)x, (int)y, palette, flags);
     }
 
     public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.None)
@@ -95,22 +95,12 @@ internal sealed class SpriteAnimator
         }
     }
 
-    public void Draw(int sheetSlot, int x, int y, int palette, DrawingFlags flags)
-    {
-        Draw((TileSheet)sheetSlot, x, y, (Palette)palette, flags);
-    }
-
     public void DrawFrame(TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawingFlags flags = DrawingFlags.None)
     {
         if (Animation != null && Animation.Length > frame)
         {
             DrawFrameInternal(sheetSlot, x, y, palette, frame, flags);
         }
-    }
-
-    public void DrawFrame(int sheetSlot, int x, int y, int palette, int frame, DrawingFlags flags = DrawingFlags.None)
-    {
-        DrawFrame((TileSheet)sheetSlot, x, y, (Palette)palette, frame, flags);
     }
 
     public void DrawFrameInternal(TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawingFlags flags)

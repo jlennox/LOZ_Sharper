@@ -19,10 +19,10 @@ internal sealed class PersonActor : Actor
     private const int MaxItemCount = 3;
     private const int PriceLength = 4;
 
-    private static readonly byte[] itemXs = new byte[] { 0x58, 0x78, 0x98 };
-    private static readonly byte[] priceXs = new byte[] { 0x48, 0x68, 0x88 };
+    private static readonly byte[] _itemXs = new byte[] { 0x58, 0x78, 0x98 };
+    private static readonly byte[] _priceXs = new byte[] { 0x48, 0x68, 0x88 };
 
-    private static readonly ItemGraphics[] sPersonGraphics = new[]
+    private static readonly ItemGraphics[] _sPersonGraphics = new[]
     {
         new ItemGraphics(AnimationId.OldMan,       Palette.Red),
         new ItemGraphics(AnimationId.OldWoman,     Palette.Red),
@@ -31,26 +31,27 @@ internal sealed class PersonActor : Actor
     };
 
     private PersonState _state = PersonState.Idle;
-    readonly SpriteImage? image;
+    private readonly SpriteImage? _image;
 
-    public CaveSpec spec;
-    public TextBox textBox;
-    public int chosenIndex;
-    public bool showNumbers;
+    public CaveSpec Spec;
+    public TextBox? TextBox;
+    public int ChosenIndex;
+    public bool ShowNumbers;
 
-    readonly byte[] priceStrs = new byte[MaxItemCount * PriceLength];
+    private readonly byte[] _priceStrs = new byte[MaxItemCount * PriceLength];
 
-    private Span<byte> GetPrice(int index) => priceStrs.AsSpan(index * PriceLength, PriceLength);
+    private Span<byte> GetPrice(int index) => _priceStrs.AsSpan(index * PriceLength, PriceLength);
 
-    public byte[] gamblingAmounts = new byte[3];
-    public byte[] gamblingIndexes = new byte[3];
+    public byte[] GamblingAmounts = new byte[3];
+    public byte[] GamblingIndexes = new byte[3];
 
     public override bool ShouldStopAtPersonWall => true;
     public override bool IsUnderworldPerson => true;
 
-    public PersonActor(Game game, ObjType type, CaveSpec spec, int x, int y) : base(game, type, x, y)
+    public PersonActor(Game game, ObjType type, CaveSpec spec, int x, int y)
+        : base(game, type, x, y)
     {
-        this.spec = spec;
+        Spec = spec;
         HP = 0;
         // This isn't used anymore. The effect is implemented a different way.
         Game.World.SetPersonWallY(0x8D);
@@ -102,20 +103,20 @@ internal sealed class PersonActor : Actor
         }
 
         var animIndex = spec.DwellerType - ObjType.OldMan;
-        var animId = sPersonGraphics[animIndex].AnimId;
-        image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, animId));
-        textBox = new TextBox(Game, Game.World.GetString(stringId).ToArray());
+        var animId = _sPersonGraphics[animIndex].AnimId;
+        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, animId));
+        TextBox = new TextBox(Game, Game.World.GetString(stringId).ToArray());
 
-        Array.Fill(priceStrs, (byte)Char.Space);
+        Array.Fill(_priceStrs, (byte)Char.Space);
 
-        if (this.spec.GetShowPrices() || this.spec.GetSpecial())
+        if (Spec.GetShowPrices() || Spec.GetSpecial())
         {
-            var sign = this.spec.GetShowNegative() ? NumberSign.Negative : NumberSign.None;
+            var sign = Spec.GetShowNegative() ? NumberSign.Negative : NumberSign.None;
 
             for (var i = 0; i < 3; i++)
             {
                 var price = GetPrice(i);
-                GlobalFunctions.NumberToStringR(this.spec.GetPrice(i), sign, ref price);
+                GlobalFunctions.NumberToStringR(Spec.GetPrice(i), sign, ref price);
             }
         }
 
@@ -130,7 +131,7 @@ internal sealed class PersonActor : Actor
             _state = itemValue == 2 ? PersonState.Idle : PersonState.WaitingForLetter;
         }
 
-        showNumbers = stringId is StringId.MoreBombs or StringId.MoneyOrLife;
+        ShowNumbers = stringId is StringId.MoreBombs or StringId.MoneyOrLife;
 
         if (_state == PersonState.Idle)
         {
@@ -140,49 +141,42 @@ internal sealed class PersonActor : Actor
 
     public override void Update()
     {
-        if (_state == PersonState.Idle)
+        switch (_state)
         {
-            UpdateDialog();
-            CheckPlayerHit();
-
-            if (!Game.World.IsOverworld())
+            case PersonState.Idle:
             {
-                CheckCollisions();
-                if (Decoration != 0)
+                UpdateDialog();
+                CheckPlayerHit();
+
+                if (!Game.World.IsOverworld())
                 {
-                    Decoration = 0;
-                    Game.World.EnablePersonFireballs = true;
+                    CheckCollisions();
+                    if (Decoration != 0)
+                    {
+                        Decoration = 0;
+                        Game.World.EnablePersonFireballs = true;
+                    }
                 }
+
+                break;
             }
-        }
-        else if (_state == PersonState.PickedUp)
-        {
-            UpdatePickUp();
-        }
-        else if (_state == PersonState.WaitingForLetter)
-        {
-            UpdateWaitForLetter();
-        }
-        else if (_state == PersonState.WaitingForFood)
-        {
-            UpdateWaitForFood();
-        }
-        else if (_state == PersonState.WaitingForStairs)
-        {
-            CheckStairsHit();
+            case PersonState.PickedUp: UpdatePickUp(); break;
+            case PersonState.WaitingForLetter: UpdateWaitForLetter(); break;
+            case PersonState.WaitingForFood: UpdateWaitForFood(); break;
+            case PersonState.WaitingForStairs: CheckStairsHit(); break;
         }
     }
 
-    void UpdateDialog()
+    private void UpdateDialog()
     {
-        if (textBox.IsDone())
-            return;
+        if (TextBox == null) throw new Exception();
+        if (TextBox.IsDone()) return;
 
-        textBox.Update();
+        TextBox.Update();
 
-        if (textBox.IsDone())
+        if (TextBox.IsDone())
         {
-            if (spec.GetStringId() == StringId.DoorRepair)
+            if (Spec.GetStringId() == StringId.DoorRepair)
             {
                 Game.World.PostRupeeLoss(20);
                 Game.World.MarkItem();
@@ -204,22 +198,19 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    void CheckPlayerHit()
+    private void CheckPlayerHit()
     {
-        if (!spec.GetPickUp()) return;
+        if (!Spec.GetPickUp()) return;
 
         var player = Game.Link;
 
         var distanceY = Math.Abs(ItemY - player.Y);
-        if (distanceY >= 6)
-        {
-            return;
-        }
+        if (distanceY >= 6) return;
 
         for (var i = 0; i < CaveSpec.Count; i++)
         {
-            var itemId = spec.GetItemId(i);
-            if (itemId != ItemId.None && player.X == itemXs[i])
+            var itemId = Spec.GetItemId(i);
+            if (itemId != ItemId.None && player.X == _itemXs[i])
             {
                 HandlePlayerHit(i);
                 break;
@@ -227,9 +218,9 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    void HandlePlayerHit(int index)
+    private void HandlePlayerHit(int index)
     {
-        if (spec.GetCheckHearts())
+        if (Spec.GetCheckHearts())
         {
             var expectedCount = ObjType switch
             {
@@ -238,47 +229,51 @@ internal sealed class PersonActor : Actor
                 _ => throw new Exception()
             };
 
-            if (Game.World.GetItem(ItemSlot.HeartContainers) < expectedCount)
-            {
-                return;
-            }
+            if (Game.World.GetItem(ItemSlot.HeartContainers) < expectedCount) return;
         }
 
-        if (spec.GetPay())
+        if (Spec.GetPay())
         {
-            var price = spec.GetPrice(index);
-            if (price > Game.World.GetItem(ItemSlot.Rupees))
-            {
-                return;
-            }
+            var price = Spec.GetPrice(index);
+            if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
             Game.World.PostRupeeLoss(price);
         }
 
-        if (!spec.GetShowPrices())
+        if (!Spec.GetShowPrices())
+        {
             Game.World.MarkItem();
+        }
 
-        if (spec.GetHint())
+        if (Spec.GetHint())
+        {
             HandlePickUpHint(index);
-        else if (spec.GetSpecial())
+        }
+        else if (Spec.GetSpecial())
+        {
             HandlePickUpSpecial(index);
+        }
         else
+        {
             HandlePickUpItem(index);
+        }
     }
 
-    void HandlePickUpItem(int index)
+    private void HandlePickUpItem(int index)
     {
-        var itemId = spec.GetItemId(index);
+        var itemId = Spec.GetItemId(index);
         Game.World.AddItem(itemId);
-        chosenIndex = index;
+        ChosenIndex = index;
         _state = PersonState.PickedUp;
         ObjTimer = 0x40;
         Game.World.LiftItem(itemId);
         Game.Sound.PushSong(SongId.ItemLift);
-        spec.ClearShowPrices();
+        Spec.ClearShowPrices();
     }
 
-    void HandlePickUpHint(int index)
+    private void HandlePickUpHint(int index)
     {
+        if (TextBox == null) throw new Exception();
+
         var stringId = StringId.AintEnough;
 
         if (index == 2)
@@ -291,17 +286,17 @@ internal sealed class PersonActor : Actor
             };
         }
 
-        textBox.Reset(Game.World.GetString(stringId).ToArray());
+        TextBox.Reset(Game.World.GetString(stringId).ToArray());
 
-        spec.ClearShowPrices();
-        spec.ClearPickUp();
+        Spec.ClearShowPrices();
+        Spec.ClearPickUp();
     }
 
-    void HandlePickUpSpecial(int index)
+    private void HandlePickUpSpecial(int index)
     {
         if (IsGambling())
         {
-            var price = spec.GetPrice(index);
+            var price = Spec.GetPrice(index);
             if (price > Game.World.GetItem(ItemSlot.Rupees))
                 return;
 
@@ -309,57 +304,60 @@ internal sealed class PersonActor : Actor
 
             for (var i = 0; i < CaveSpec.Count; i++)
             {
-                finalIndex = gamblingIndexes[i];
+                finalIndex = GamblingIndexes[i];
                 var sign = finalIndex != 2 ? NumberSign.Negative : NumberSign.Positive;
                 var pricex = GetPrice(i);
-                GlobalFunctions.NumberToStringR(gamblingAmounts[finalIndex], sign, ref pricex);
+                GlobalFunctions.NumberToStringR(GamblingAmounts[finalIndex], sign, ref pricex);
             }
 
-            spec.ClearPickUp();
-            finalIndex = gamblingIndexes[index];
+            Spec.ClearPickUp();
+            finalIndex = GamblingIndexes[index];
 
             if (finalIndex == 2)
-                Game.World.PostRupeeWin(gamblingAmounts[finalIndex]);
+            {
+                Game.World.PostRupeeWin(GamblingAmounts[finalIndex]);
+            }
             else
-                Game.World.PostRupeeLoss(gamblingAmounts[finalIndex]);
+            {
+                Game.World.PostRupeeLoss(GamblingAmounts[finalIndex]);
+            }
         }
-        else if (spec.GetStringId() == StringId.MoreBombs)
+        else if (Spec.GetStringId() == StringId.MoreBombs)
         {
-            var price = spec.GetPrice(index);
-            if (price > Game.World.GetItem(ItemSlot.Rupees))
-                return;
+            var price = Spec.GetPrice(index);
+            if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
 
             Game.World.PostRupeeLoss(price);
             Game.World.GetProfile().Items[ItemSlot.MaxBombs] += 4;
             Game.World.GetProfile().Items[ItemSlot.Bombs] = Game.World.GetProfile().Items[ItemSlot.MaxBombs];
 
-            showNumbers = false;
+            ShowNumbers = false;
             _state = PersonState.PickedUp;
             ObjTimer = 0x40;
         }
-        else if (spec.GetStringId() == StringId.MoneyOrLife)
+        else if (Spec.GetStringId() == StringId.MoneyOrLife)
         {
-            var price = spec.GetPrice(index);
-            var itemId = spec.GetItemId(index);
+            var price = Spec.GetPrice(index);
+            var itemId = Spec.GetItemId(index);
 
             if (itemId == ItemId.Rupee)
             {
-                if (price > Game.World.GetItem(ItemSlot.Rupees))
-                    return;
+                if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
 
                 Game.World.PostRupeeLoss(price);
             }
             else if (itemId == ItemId.HeartContainer)
             {
-                if (price > Game.World.GetItem(ItemSlot.HeartContainers))
-                    return;
+                if (price > Game.World.GetItem(ItemSlot.HeartContainers)) return;
 
                 var profile = Game.World.GetProfile();
                 if (profile.Items[ItemSlot.HeartContainers] > 1)
                 {
                     profile.Items[ItemSlot.HeartContainers]--;
                     if (profile.Hearts > 0x100)
+                    {
                         profile.Hearts -= 0x100;
+                    }
                     Game.Sound.PlayEffect(SoundEffect.KeyHeart);
                 }
             }
@@ -371,60 +369,61 @@ internal sealed class PersonActor : Actor
             Game.World.MarkItem();
             Game.World.OpenShutters();
 
-            showNumbers = false;
+            ShowNumbers = false;
             _state = PersonState.PickedUp;
             ObjTimer = 0x40;
         }
         else  // Give money
         {
-            var amount = spec.GetPrice(index);
+            var amount = Spec.GetPrice(index);
 
             Game.World.PostRupeeWin(amount);
             Game.World.MarkItem();
-            spec.ClearPickUp();
-            showNumbers = true;
+            Spec.ClearPickUp();
+            ShowNumbers = true;
         }
     }
 
-    bool IsGambling()
+    private bool IsGambling()
     {
-        return spec.GetSpecial() && ObjType >= ObjType.Cave1 && ObjType < ObjType.Cave18;
+        return Spec.GetSpecial() && ObjType >= ObjType.Cave1 && ObjType < ObjType.Cave18;
     }
 
-    void InitGambling()
+    private void InitGambling()
     {
-        for (var i = 0; i < gamblingIndexes.Length; i++)
-            gamblingIndexes[i] = (byte)i;
-
-        gamblingAmounts[0] = (byte)(Random.Shared.Next(2) == 0 ? 10 : 40);
-        gamblingAmounts[1] = 10;
-        gamblingAmounts[2] = (byte)(Random.Shared.Next(2) == 0 ? 20 : 50);
-
-        gamblingIndexes.Shuffle();
-    }
-
-    void UpdatePickUp()
-    {
-        if (ObjTimer == 0)
+        for (var i = 0; i < GamblingIndexes.Length; i++)
         {
-            IsDeleted = true;
+            GamblingIndexes[i] = (byte)i;
+        }
 
-            if (ObjType == ObjType.Grumble)
+        GamblingAmounts[0] = (byte)(Random.Shared.Next(2) == 0 ? 10 : 40);
+        GamblingAmounts[1] = 10;
+        GamblingAmounts[2] = (byte)(Random.Shared.Next(2) == 0 ? 20 : 50);
+
+        GamblingIndexes.Shuffle();
+    }
+
+    private void UpdatePickUp()
+    {
+        if (ObjTimer != 0) return;
+
+        IsDeleted = true;
+
+        if (ObjType == ObjType.Grumble)
+        {
+            Game.World.MarkItem();
+            Game.World.SetItem(ItemSlot.Food, 0);
+            Game.World.SetPersonWallY(0);
+
+            var food = Game.World.GetObject(ObjectSlot.Food);
+            if (food is FoodActor)
             {
-                Game.World.MarkItem();
-                Game.World.SetItem(ItemSlot.Food, 0);
-                Game.World.SetPersonWallY(0);
-
-                var food = Game.World.GetObject(ObjectSlot.Food);
-                if (food is FoodActor)
-                {
-                    food.IsDeleted = true;
-                }
+                food.IsDeleted = true;
             }
         }
     }
 
-    void UpdateWaitForLetter()
+    private void UpdateWaitForLetter()
     {
         var itemValue = Game.World.GetItem(ItemSlot.Letter);
         if (itemValue == 2)
@@ -434,7 +433,7 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    void UpdateWaitForFood()
+    private void UpdateWaitForFood()
     {
         var food = Game.World.GetObject(ObjectSlot.Food);
         if (food is FoodActor)
@@ -445,30 +444,26 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    private static readonly byte[] stairsXs = new byte[] { 0x50, 0x80, 0xB0 };
+    private static readonly byte[] _stairsXs = new byte[] { 0x50, 0x80, 0xB0 };
 
-    void CheckStairsHit()
+    private void CheckStairsHit()
     {
-
-        if (Game.Link.Y != 0x9D)
-            return;
+        if (Game.Link.Y != 0x9D) return;
 
         var rooms = Game.World.GetShortcutRooms();
         var playerX = Game.Link.X;
         var stairsIndex = -1;
 
-        for (var i = 0; i < stairsXs.Length; i++)
+        for (var i = 0; i < _stairsXs.Length; i++)
         {
-            if (playerX == stairsXs[i])
+            if (playerX == _stairsXs[i])
             {
                 stairsIndex = i;
                 break;
             }
         }
 
-        if (stairsIndex < 0)
-            return;
-
+        if (stairsIndex < 0) return;
 
         // JOE: I made a lot of sus changes here.
         for (var j = 0; j < rooms.Length; j++)
@@ -477,7 +472,9 @@ internal sealed class PersonActor : Actor
             {
                 var index = j + 1 + stairsIndex;
                 if (index >= rooms.Length)
+                {
                     index -= rooms.Length;
+                }
 
                 Game.World.LeaveCellarByShortcut(rooms[index]);
                 break;
@@ -489,44 +486,47 @@ internal sealed class PersonActor : Actor
     {
         if (_state == PersonState.PickedUp)
         {
-            if ((Game.GetFrameCounter() & 1) == 0)
-                return;
+            if ((Game.GetFrameCounter() & 1) == 0) return;
         }
-        else if (_state == PersonState.Idle || _state == PersonState.WaitingForFood || _state == PersonState.WaitingForStairs)
+        else if (_state is PersonState.Idle or PersonState.WaitingForFood or PersonState.WaitingForStairs)
         {
             DrawDialog();
         }
 
-        var animIndex = spec.DwellerType - ObjType.OldMan;
-        var palette = sPersonGraphics[animIndex].PaletteAttrs;
+        var animIndex = Spec.DwellerType - ObjType.OldMan;
+        var palette = _sPersonGraphics[animIndex].PaletteAttrs;
         palette = CalcPalette(palette);
-        image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
+        _image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
 
-        if (_state == PersonState.WaitingForLetter)
-            return;
+        if (_state == PersonState.WaitingForLetter) return;
 
         for (var i = 0; i < 3; i++)
         {
-            var itemId = spec.GetItemId(i);
+            var itemId = Spec.GetItemId(i);
 
-            if (itemId < ItemId.MAX && (_state != PersonState.PickedUp || i != chosenIndex))
+            if (itemId < ItemId.MAX && (_state != PersonState.PickedUp || i != ChosenIndex))
             {
-                if (spec.GetShowItems())
-                    GlobalFunctions.DrawItemWide(Game, itemId, itemXs[i], ItemY);
-                if (spec.GetShowPrices() || showNumbers)
-                    GlobalFunctions.DrawString(GetPrice(i), priceXs[i], PriceY, 0);
+                if (Spec.GetShowItems())
+                {
+                    GlobalFunctions.DrawItemWide(Game, itemId, _itemXs[i], ItemY);
+                }
+                if (Spec.GetShowPrices() || ShowNumbers)
+                {
+                    GlobalFunctions.DrawString(GetPrice(i), _priceXs[i], PriceY, 0);
+                }
             }
         }
 
-        if (spec.GetShowPrices())
+        if (Spec.GetShowPrices())
         {
             GlobalFunctions.DrawItemWide(Game, ItemId.Rupee, 0x30, 0xAC);
             GlobalFunctions.DrawChar(Char.X, 0x40, 0xB0, 0);
         }
     }
 
-    void DrawDialog()
+    private void DrawDialog()
     {
-        textBox.Draw();
+        if (TextBox == null) throw new Exception();
+        TextBox.Draw();
     }
 }

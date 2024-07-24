@@ -355,7 +355,7 @@ internal sealed unsafe partial class World
             {
                 for (var x = 0; x < TileMap.Size; x++)
                 {
-                    tileMap.Refs(x) = (byte)BlockObjType.Tile_WallEdge;
+                    tileMap.Refs(x) = (byte)BlockObjType.TileWallEdge;
                 }
             }
         }
@@ -900,12 +900,12 @@ internal sealed unsafe partial class World
 
         if (pos != null && x == pos.Value.x && y == pos.Value.y)
         {
-            SetMobXY(x, y, BlockObjType.Mob_Stairs);
+            SetMobXY(x, y, BlockObjType.MobStairs);
             Game.Sound.PlayEffect(SoundEffect.Secret);
         }
         else
         {
-            SetMobXY(x, y, BlockObjType.Mob_Ground);
+            SetMobXY(x, y, BlockObjType.MobGround);
         }
 
         if (!GotItem())
@@ -1045,7 +1045,7 @@ internal sealed unsafe partial class World
         var index = owRoomAttrs.GetShortcutStairsIndex();
         var pos = infoBlock.ShortcutPosition[index];
         GetRoomCoord(pos, out var row, out var col);
-        SetMob(row * 2, col * 2, BlockObjType.Mob_Stairs);
+        SetMob(row * 2, col * 2, BlockObjType.MobStairs);
     }
 
     private void DrawMap(int roomId, int mapIndex, int offsetX, int offsetY)
@@ -1840,7 +1840,7 @@ internal sealed unsafe partial class World
                 for (var c = startCol; c < startCol + colCount; c += 2)
                 {
                     var tileRef = tileMaps[curTileMapIndex].Refs(UWBlockRow, c);
-                    if (tileRef == (byte)BlockObjType.Tile_Block)
+                    if (tileRef == (byte)BlockObjType.TileBlock)
                     {
                         sActionFuncs[(int)TileAction.Block](UWBlockRow, c, TileInteraction.Load);
                         break;
@@ -2263,7 +2263,7 @@ internal sealed unsafe partial class World
             if (posAttr != null)
             {
                 GetRoomCoord(posAttr.Value.pos, out var row, out var col);
-                SetMob(row * 2, col * 2, BlockObjType.Mob_Stairs);
+                SetMob(row * 2, col * 2, BlockObjType.MobStairs);
                 Game.Sound.PlayEffect(SoundEffect.Secret);
             }
             return;
@@ -2396,7 +2396,7 @@ internal sealed unsafe partial class World
 
     private void AddUWRoomStairs()
     {
-        SetMobXY(0xD0, 0x60, BlockObjType.Mob_UW_Stairs);
+        SetMobXY(0xD0, 0x60, BlockObjType.MobUWStairs);
     }
 
     public void KillAllObjects()
@@ -5031,7 +5031,7 @@ internal sealed unsafe partial class World
 
         if (GotSecret())
         {
-            SetMob(row, col, BlockObjType.Mob_Cave);
+            SetMob(row, col, BlockObjType.MobCave);
         }
         else
         {
@@ -5047,7 +5047,7 @@ internal sealed unsafe partial class World
 
         if (GotSecret())
         {
-            SetMob(row, col, BlockObjType.Mob_Stairs);
+            SetMob(row, col, BlockObjType.MobStairs);
         }
         else
         {

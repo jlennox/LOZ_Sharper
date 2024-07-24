@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace z1.GUI;
 
-internal class GLWindow : IDisposable
+internal sealed class GLWindow : IDisposable
 {
     private readonly Game _game = new();
     private readonly IWindow? _window;

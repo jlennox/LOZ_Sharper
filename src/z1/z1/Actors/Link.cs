@@ -977,14 +977,14 @@ internal sealed class Link : Actor, IThrower
 
         if (distance < 0x10)
         {
-            ladder.state = LadderStates.Unknown2;
+            ladder.State = LadderStates.Unknown2;
             dir = MoveOnLadder(dir, distance);
         }
         else if (distance != 0x10 || Facing != ladder.Facing)
         {
             Game.World.SetLadder(null);
         }
-        else if (ladder.state == LadderStates.Unknown1)
+        else if (ladder.State == LadderStates.Unknown1)
         {
             dir = MoveOnLadder(dir, distance);
         }

@@ -6,7 +6,7 @@ using z1.Actors;
 
 namespace z1;
 
-internal class GameCheats
+internal sealed class GameCheats
 {
     private abstract class Cheat
     {
