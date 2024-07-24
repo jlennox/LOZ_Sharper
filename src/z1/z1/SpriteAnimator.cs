@@ -144,4 +144,4 @@ internal sealed class SpriteImage
             Animation.FrameA.DrawingFlags | flags
         );
     }
-};
+}

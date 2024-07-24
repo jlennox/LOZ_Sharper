@@ -102,7 +102,7 @@ internal sealed class GameCheats
             {
                 case "w":
                     game.World.ShowShortcutStairs(7 * 16 + 9, 1);
-                    game.Toast($"Warping to stairs.");
+                    game.Toast("Warping to stairs.");
                     return;
             }
 
@@ -152,7 +152,7 @@ internal sealed class GameCheats
             // }
 
             var slot = ObjectSlot.Monster1;
-            game.World.curObjectSlot = slot;
+            game.World.CurObjectSlot = slot;
 
             var obj = Actor.FromType(objType, game, 80, 80);
             game.World.SetObject(slot, obj);
@@ -206,7 +206,7 @@ internal sealed class GameCheats
 
         public override void RunPayload(Game game, string[] args)
         {
-            var profile = game.World.profile;
+            var profile = game.World.Profile;
             if (profile == null) return;
             game.World.AddItem(ItemId.MagicShield);
             game.World.AddItem(ItemId.MagicShield);

@@ -18,7 +18,7 @@ internal sealed class Link : Actor, IThrower
     public bool IsParalyzed;
 
     private int _walkFrame = 0;
-    private int _state = 0; // JOE: TODO: Enumify this.
+    private int _state; // JOE: TODO: Enumify this.
     private byte _speed;
     private TileBehavior _tileBehavior;
     private byte _animTimer;
@@ -34,7 +34,7 @@ internal sealed class Link : Actor, IThrower
         Facing = facing;
         Decoration = 0;
 
-        Animator = new SpriteAnimator() { Time = 0, DurationFrames = WalkDurationFrames };
+        Animator = new SpriteAnimator { Time = 0, DurationFrames = WalkDurationFrames };
     }
 
     public void DecInvincibleTimer()
@@ -179,7 +179,7 @@ internal sealed class Link : Actor, IThrower
             if ((TileOffset & 7) != 0) return;
             TileOffset = 0;
             if (mode != GameMode.Play) return;
-            Game.World.fromUnderground = 0;
+            Game.World.FromUnderground = 0;
         }
 
         if (mode != GameMode.Play) return;
@@ -189,7 +189,7 @@ internal sealed class Link : Actor, IThrower
             if (!Game.World.DoesRoomSupportLadder()) return;
         }
 
-        if (Game.World.doorwayDir != Direction.None
+        if (Game.World.DoorwayDir != Direction.None
             || Game.World.GetItem(ItemSlot.Ladder) == 0
             || (_state & 0xC0) == 0x40
             || Game.World.GetLadder() != null)
@@ -215,9 +215,9 @@ internal sealed class Link : Actor, IThrower
 
     private void CheckWarp()
     {
-        if (Game.World.fromUnderground != 0 || TileOffset != 0) return;
+        if (Game.World.FromUnderground != 0 || TileOffset != 0) return;
 
-        if (Game.World.IsOverworld() && Game.World.curRoomId == 0x22)
+        if (Game.World.IsOverworld() && Game.World.CurRoomId == 0x22)
         {
             if ((X & 7) != 0) return;
         }
@@ -240,16 +240,16 @@ internal sealed class Link : Actor, IThrower
 
         if (collision.TileBehavior == TileBehavior.Doorway)
         {
-            if (Game.World.doorwayDir == Direction.None)
+            if (Game.World.DoorwayDir == Direction.None)
             {
-                Game.World.doorwayDir = Facing;
+                Game.World.DoorwayDir = Facing;
             }
         }
         else
         {
-            if (Game.World.doorwayDir != Direction.None)
+            if (Game.World.DoorwayDir != Direction.None)
             {
-                Game.World.doorwayDir = Direction.None;
+                Game.World.DoorwayDir = Direction.None;
             }
         }
     }
@@ -328,7 +328,7 @@ internal sealed class Link : Actor, IThrower
 
     private void SetMovingInDoorway()
     {
-        if (Game.World.doorwayDir != Direction.None && Moving != 0)
+        if (Game.World.DoorwayDir != Direction.None && Moving != 0)
         {
             var dir = MovingDirection & Facing;
             if (dir == 0)
@@ -502,16 +502,14 @@ internal sealed class Link : Actor, IThrower
         _speed = newSpeed;
     }
 
-    private static readonly AnimationId[] _thrustAnimMap = new[]
-    {
+    private static readonly AnimationId[] _thrustAnimMap = {
         AnimationId.LinkThrust_Right,
         AnimationId.LinkThrust_Left,
         AnimationId.LinkThrust_Down,
         AnimationId.LinkThrust_Up
     };
 
-    private static readonly AnimationId[][] _animMap = new[]
-    {
+    private static readonly AnimationId[][] _animMap = {
         new[] {
             AnimationId.LinkWalk_NoShield_Right,
             AnimationId.LinkWalk_NoShield_Left,
@@ -669,10 +667,10 @@ internal sealed class Link : Actor, IThrower
     public int UseCandle(int x, int y, Direction facingDir)
     {
         var itemValue = Game.World.GetItem(ItemSlot.Candle);
-        if (itemValue == 1 && Game.World.candleUsed)
+        if (itemValue == 1 && Game.World.CandleUsed)
             return 0;
 
-        Game.World.candleUsed = true;
+        Game.World.CandleUsed = true;
 
         // Rewrite findfreeslot to allow this to work.
         for (var i = ObjectSlot.FirstFire; i < ObjectSlot.LastFire; i++)
@@ -905,7 +903,7 @@ internal sealed class Link : Actor, IThrower
         dir = StopAtBlock(dir);
         dir = StopAtPersonWallUW(dir);
 
-        if (Game.World.doorwayDir == Direction.None)
+        if (Game.World.DoorwayDir == Direction.None)
         {
             var mode = Game.World.GetMode();
 
@@ -1055,7 +1053,7 @@ internal sealed class Link : Actor, IThrower
 
     private new Direction CheckTileCollision(Direction dir) // JOE: TODO: Is this supposed to be "new"'ed?
     {
-        if (Game.World.doorwayDir != Direction.None) return CheckWorldBounds(dir);
+        if (Game.World.DoorwayDir != Direction.None) return CheckWorldBounds(dir);
         // Original, but seemingly never triggered: if [$E] < 0, leave
 
         if (TileOffset != 0) return dir;
@@ -1094,7 +1092,7 @@ internal sealed class Link : Actor, IThrower
         {
             if (HitsWorldLimit())
             {
-                Game.World.LeaveRoom(Facing, Game.World.curRoomId);
+                Game.World.LeaveRoom(Facing, Game.World.CurRoomId);
                 dir = Direction.None;
                 StopPlayer();
             }

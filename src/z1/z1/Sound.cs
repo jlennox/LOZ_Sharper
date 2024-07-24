@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.PerformanceData;
-
-namespace z1;
+﻿namespace z1;
 
 internal enum SoundEffect
 {
@@ -55,7 +53,7 @@ internal enum SongStream
 {
     MainSong,
     EventSong,
-};
+}
 
 internal enum StopEffect
 {

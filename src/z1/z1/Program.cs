@@ -4,6 +4,9 @@ namespace z1;
 
 // Bugs:
 // * Blue Wizzrobes crash the game.
+// * Eliminate menu.
+// * Mirrored player.
+// * Win game.
 
 // To check:
 // * Check `IsReoccuring` is proper.

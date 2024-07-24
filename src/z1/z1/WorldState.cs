@@ -277,7 +277,7 @@ internal struct DeathState
         GameOver,
 
         MaxSubstate
-    };
+    }
 
     public Substates Substate;
     public int Timer;
@@ -293,7 +293,7 @@ internal struct ContinueState
         Chosen,
 
         MaxSubstate
-    };
+    }
 
     public Substates Substate;
     public int Timer;

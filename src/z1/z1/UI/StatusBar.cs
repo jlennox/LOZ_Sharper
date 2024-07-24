@@ -47,8 +47,7 @@ internal sealed class StatusBar
     public const int Tile_EmptyHeart = 0x66;
 
 
-    private static readonly TileInst[] uiTiles = new TileInst[]
-    {
+    private static readonly TileInst[] uiTiles = {
         new(0xF7, 88, 24, 1),
         new(0xF9, 88, 40, 1),
         new(0x61, 88, 48, 0),
@@ -118,11 +117,11 @@ internal sealed class StatusBar
         DrawItems(baseY);
     }
 
-    private static readonly byte[] _levelStr = new byte[] { 0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x62, 0 };
+    private static readonly byte[] _levelStr = { 0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x62, 0 };
 
     private void DrawMiniMap(int baseY)
     {
-        var roomId = _world.curRoomId;
+        var roomId = _world.CurRoomId;
         var row = (roomId >> 4) & 0xF;
         var col = roomId & 0xF;
         var cursorX = MiniMapX;

@@ -78,4 +78,4 @@ internal enum TileBehavior : byte
 
     FirstWalkable = GenericWalkable,
     FirstSolid = Doorway,
-};
+}

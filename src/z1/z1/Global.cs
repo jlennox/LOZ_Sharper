@@ -84,8 +84,7 @@ internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette
     public Palette GetPalette() => PaletteAttrs & Palette.Mask;
     public bool HasFlashAttr() => ((int)PaletteAttrs & FlashPalAttr) != 0;
 
-    public static readonly ItemGraphics[] Items = new[]
-    {
+    public static readonly ItemGraphics[] Items = {
         new ItemGraphics(AnimationId.BombItem, Palette.Blue),
         new ItemGraphics(AnimationId.SwordItem, Palette.Player),
         new ItemGraphics(AnimationId.SwordItem, Palette.Blue),
@@ -201,8 +200,8 @@ internal static class GlobalFunctions
     public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, ObjectSlot slot)
     {
         Actor? obj;
-        var origSlot = world.curObjSlot;
-        world.curObjSlot = (int)slot;
+        var origSlot = world.CurObjSlot;
+        world.CurObjSlot = (int)slot;
 
         switch (type)
         {
@@ -214,17 +213,17 @@ internal static class GlobalFunctions
             default: throw new Exception();
         }
 
-        world.curObjSlot = origSlot;
+        world.CurObjSlot = origSlot;
         return obj;
     }
 
     public static BoomerangProjectile MakeBoomerang(
         Game game, int x, int y, Direction moving, int distance, float speed, Actor? owner, ObjectSlot slot)
     {
-        var origSlot = game.World.curObjSlot;
-        game.World.curObjSlot = (int)slot;
+        var origSlot = game.World.CurObjSlot;
+        game.World.CurObjSlot = (int)slot;
         var boomerang = new BoomerangProjectile(game, x, y, moving, distance, speed, owner);
-        game.World.curObjSlot = origSlot;
+        game.World.CurObjSlot = origSlot;
         return boomerang;
     }
 

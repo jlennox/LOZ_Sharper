@@ -114,4 +114,4 @@ internal sealed class PlayerProfile
     }
 
     public static int GetMaxHeartsValue(int heartContainers) => (heartContainers << 8) - 1;
-};
+}

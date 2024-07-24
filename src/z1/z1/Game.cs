@@ -98,7 +98,7 @@ internal sealed class Game
 
         surface.Canvas.GetLocalClipBounds(out var bounds);
 
-        var scale = Math.Min((float)bounds.Width / NesResX, (float)bounds.Height / NesResY);
+        var scale = Math.Min(bounds.Width / NesResX, bounds.Height / NesResY);
         var offsetX = (bounds.Width - scale * NesResX) / 2;
         var offsetY = (bounds.Height - scale * NesResY) / 2;
 

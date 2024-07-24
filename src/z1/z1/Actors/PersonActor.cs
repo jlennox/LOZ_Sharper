@@ -11,7 +11,7 @@ internal sealed class PersonActor : Actor
         WaitingForLetter,
         WaitingForFood,
         WaitingForStairs,
-    };
+    }
 
     private const int ItemY = 0x98;
     private const int PriceY = 0xB0;
@@ -19,11 +19,10 @@ internal sealed class PersonActor : Actor
     private const int MaxItemCount = 3;
     private const int PriceLength = 4;
 
-    private static readonly byte[] _itemXs = new byte[] { 0x58, 0x78, 0x98 };
-    private static readonly byte[] _priceXs = new byte[] { 0x48, 0x68, 0x88 };
+    private static readonly byte[] _itemXs = { 0x58, 0x78, 0x98 };
+    private static readonly byte[] _priceXs = { 0x48, 0x68, 0x88 };
 
-    private static readonly ItemGraphics[] _sPersonGraphics = new[]
-    {
+    private static readonly ItemGraphics[] _sPersonGraphics = {
         new ItemGraphics(AnimationId.OldMan,       Palette.Red),
         new ItemGraphics(AnimationId.OldWoman,     Palette.Red),
         new ItemGraphics(AnimationId.Merchant,     Palette.Player),
@@ -444,7 +443,7 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    private static readonly byte[] _stairsXs = new byte[] { 0x50, 0x80, 0xB0 };
+    private static readonly byte[] _stairsXs = { 0x50, 0x80, 0xB0 };
 
     private void CheckStairsHit()
     {
@@ -468,7 +467,7 @@ internal sealed class PersonActor : Actor
         // JOE: I made a lot of sus changes here.
         for (var j = 0; j < rooms.Length; j++)
         {
-            if (rooms[j] == Game.World.curRoomId)
+            if (rooms[j] == Game.World.CurRoomId)
             {
                 var index = j + 1 + stairsIndex;
                 if (index >= rooms.Length)

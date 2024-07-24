@@ -29,8 +29,7 @@ internal sealed class SubmenuType
     private readonly record struct PassiveItemSpec(ItemSlot ItemSlot, byte X);
     private readonly record struct TriforcePieceSpec(byte X, byte Y, byte[][] OffTiles, byte[][] OnTiles);
 
-    private static readonly byte[] equippedUISlots = new byte[]
-    {
+    private static readonly byte[] equippedUISlots = {
         0,          // Sword
         1,          // Bombs
         2,          // Arrow
@@ -61,8 +60,7 @@ internal sealed class SubmenuType
         0,          // Boomerang
     };
 
-    private static readonly TileInst[] uiTiles = new TileInst[]
-    {
+    private static readonly TileInst[] uiTiles = {
         // INVENTORY
         new(0x12, 0x20, 0x10, 1),
         new(0x17, 0x28, 0x10, 1),
@@ -168,8 +166,7 @@ internal sealed class SubmenuType
         new(ItemSlot.Bracelet, PassiveItemX + 0x50),
     };
 
-    private static readonly ItemSlot[] inventoryOrder = new[]
-    {
+    private static readonly ItemSlot[] inventoryOrder = {
         ItemSlot.Boomerang,
         ItemSlot.Bombs,
         ItemSlot.Arrow,
@@ -439,8 +436,7 @@ internal sealed class SubmenuType
         }
     }
 
-    private static readonly TriforcePieceSpec[] pieceSpecs = new TriforcePieceSpec[]
-    {
+    private static readonly TriforcePieceSpec[] pieceSpecs = {
         new(0x70, 0x70, new[]{ new byte[]{ 0xED, 0xE9 }, new byte[]{ 0xE9, 0x24 } }, new[]{ new byte[]{ 0xED, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
         new(0x80, 0x70, new[]{ new byte[]{ 0xEA, 0xEE }, new byte[]{ 0x24, 0xEA } }, new[]{ new byte[]{ 0xE8, 0xEE }, new byte[]{ 0xF5, 0xE8 } }),
         new(0x60, 0x80, new[]{ new byte[]{ 0xED, 0xE9 }, new byte[]{ 0xE9, 0x24 } }, new[]{ new byte[]{ 0xED, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
@@ -451,7 +447,7 @@ internal sealed class SubmenuType
         new(0x80, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0x24, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
      };
 
-    private static readonly byte[] Triforce = new byte[] { 0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E };
+    private static readonly byte[] Triforce = { 0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E };
 
     private void DrawTriforce(int top)
     {
@@ -511,10 +507,10 @@ internal sealed class SubmenuType
         }
     }
 
-    private static readonly byte[] Map = new byte[] { 0x16, 0x0A, 0x19 };
-    private static readonly byte[] Compass = new byte[] { 0x0C, 0x18, 0x16, 0x19, 0x0A, 0x1C, 0x1C };
-    private static readonly byte[] TopMapLine = new byte[] { 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5 };
-    private static readonly byte[] BottomMapLine = new byte[] { 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5 };
+    private static readonly byte[] Map = { 0x16, 0x0A, 0x19 };
+    private static readonly byte[] Compass = { 0x0C, 0x18, 0x16, 0x19, 0x0A, 0x1C, 0x1C };
+    private static readonly byte[] TopMapLine = { 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5 };
+    private static readonly byte[] BottomMapLine = { 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5 };
 
     private unsafe void DrawMap(int top)
     {
@@ -576,7 +572,7 @@ internal sealed class SubmenuType
             }
         }
 
-        var curRoomId = _game.World.curRoomId;
+        var curRoomId = _game.World.CurRoomId;
         var playerRow = (curRoomId >> 4) & 0xF;
         var playerCol = curRoomId & 0xF;
         playerCol = (playerCol + levelInfo.DrawnMapOffset) & 0xF;

@@ -5,8 +5,8 @@ internal sealed class FpsCalculator
 {
     public double FramesPerSecond { get; private set; }
 
-    private int _tickindex = 0;
-    private long _ticksum = 0;
+    private int _tickindex;
+    private long _ticksum;
     private readonly long[] _ticklist = new long[100];
 
     public bool Add(long newtick)

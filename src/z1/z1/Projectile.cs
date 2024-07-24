@@ -13,7 +13,7 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
 {
     public ProjectileState State = ProjectileState.Flying;
 
-    public bool IsPlayerWeapon => Game.World.curObjectSlot > ObjectSlot.Buffer;
+    public bool IsPlayerWeapon => Game.World.CurObjectSlot > ObjectSlot.Buffer;
     public virtual bool IsBlockedByMagicShield => true;
 
     private Direction _bounceDir = Direction.None;
@@ -23,7 +23,7 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
     {
         if (!IsPlayerWeapon)
         {
-            ++Game.World.activeShots;
+            ++Game.World.ActiveShots;
         }
     }
 
@@ -31,7 +31,7 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
     {
         if (!IsPlayerWeapon)
         {
-            --Game.World.activeShots;
+            --Game.World.ActiveShots;
         }
     }
 
@@ -163,7 +163,7 @@ internal sealed class PlayerSwordProjectile : Projectile
                 var top = Y - 2 - d + yOffset;
                 var bottom = Y + 2 + d + yOffset;
 
-                _image.Draw(TileSheet.PlayerAndItems, left, top, palette, 0);
+                _image.Draw(TileSheet.PlayerAndItems, left, top, palette);
                 _image.Draw(TileSheet.PlayerAndItems, right, top, palette, DrawingFlags.FlipHorizontal);
                 _image.Draw(TileSheet.PlayerAndItems, left, bottom, palette, DrawingFlags.FlipVertical);
                 _image.Draw(TileSheet.PlayerAndItems, right, bottom, palette,
@@ -238,8 +238,7 @@ internal enum FireballState { Unknown0, Unknown1 }
 
 internal sealed class FireballProjectile : Actor
 {
-    private static readonly Direction[] _sector16Dirs = new[]
-    {
+    private static readonly Direction[] _sector16Dirs = {
         Direction.Right,
         Direction.Right | Direction.Down,
         Direction.Right | Direction.Down,
@@ -318,7 +317,6 @@ internal sealed class FireballProjectile : Actor
         if (collision.Collides || collision.ShotCollides)
         {
             IsDeleted = true;
-            return;
         }
     }
 
@@ -374,21 +372,21 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
 
         if (!IsPlayerWeapon())
         {
-            ++Game.World.activeShots;
+            ++Game.World.ActiveShots;
         }
     }
 
     // JOE: TODO: This is a global function in the original code and feels a bit off being repeated a few times.
     public bool IsPlayerWeapon()
     {
-        return Game.World.curObjSlot > (int)ObjectSlot.Buffer;
+        return Game.World.CurObjSlot > (int)ObjectSlot.Buffer;
     }
 
     public void OnDelete()
     {
         if (!IsPlayerWeapon())
         {
-            --Game.World.activeShots;
+            --Game.World.ActiveShots;
         }
     }
 
@@ -584,8 +582,7 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
 
 internal sealed class MagicWaveProjectile : Projectile
 {
-    private static readonly AnimationId[] _waveAnimMap = new[]
-    {
+    private static readonly AnimationId[] _waveAnimMap = {
         AnimationId.Wave_Right,
         AnimationId.Wave_Left,
         AnimationId.Wave_Down,
@@ -663,8 +660,7 @@ internal sealed class MagicWaveProjectile : Projectile
 
 internal sealed class ArrowProjectile : Projectile
 {
-    private static readonly AnimationId[] _arrowAnimMap = new[]
-    {
+    private static readonly AnimationId[] _arrowAnimMap = {
         AnimationId.Arrow_Right,
         AnimationId.Arrow_Left,
         AnimationId.Arrow_Down,

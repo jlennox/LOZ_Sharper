@@ -10,11 +10,11 @@ internal sealed class TextBox
     private int _top = StartY;
     private int _height = 8;
     private readonly int _charDelay;
-    private int _charTimer = 0;
+    private int _charTimer;
     private bool _drawingDialog = true;
     private readonly Game _game;
     private string _text;
-    public int _currentIndex = 0;
+    public int _currentIndex;
     private byte[] startCharPtr;
     private int curCharIndex;
 

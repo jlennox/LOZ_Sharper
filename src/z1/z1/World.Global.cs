@@ -88,25 +88,25 @@ internal partial class World
 
     void ClearDeadObjectQueue()
     {
-        for (var i = 0; i < objectsToDeleteCount; i++)
+        for (var i = 0; i < ObjectsToDeleteCount; i++)
         {
-            objectsToDelete[i] = null;
+            ObjectsToDelete[i] = null;
         }
 
-        objectsToDeleteCount = 0;
+        ObjectsToDeleteCount = 0;
     }
 
     void SetOnlyObject(ObjectSlot slot, Actor? obj)
     {
         // TODO assert(slot >= 0 && slot < (int)ObjectSlot.MaxObjects);
-        if (objects[(int)slot] != null)
+        if (Objects[(int)slot] != null)
         {
-            if (objectsToDeleteCount == (int)ObjectSlot.MaxObjects)
+            if (ObjectsToDeleteCount == (int)ObjectSlot.MaxObjects)
                 ClearDeadObjectQueue();
-            objectsToDelete[objectsToDeleteCount] = objects[(int)slot];
-            objectsToDeleteCount++;
+            ObjectsToDelete[ObjectsToDeleteCount] = Objects[(int)slot];
+            ObjectsToDeleteCount++;
         }
-        objects[(int)slot] = obj;
+        Objects[(int)slot] = obj;
     }
 
     LadderActor? GetLadderObj()
@@ -128,7 +128,7 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            objects[i] = null;
+            Objects[i] = null;
         }
 
         ClearDeadObjectQueue();
@@ -144,10 +144,10 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            var obj = objects[i];
+            var obj = Objects[i];
             if (obj != null && obj.IsDeleted)
             {
-                objects[i] = null;
+                Objects[i] = null;
             }
         }
 
@@ -158,7 +158,7 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            objectTimers[i] = 0;
+            ObjectTimers[i] = 0;
         }
     }
 
@@ -166,10 +166,10 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            if (objectTimers[i] != 0)
-                objectTimers[i]--;
+            if (ObjectTimers[i] != 0)
+                ObjectTimers[i]--;
 
-            objects[i]?.DecrementObjectTimer();
+            Objects[i]?.DecrementObjectTimer();
         }
 
         // ORIGINAL: Here the player isn't part of the array, but in the original it's the first element.
@@ -178,29 +178,29 @@ internal partial class World
 
     void InitStunTimers()
     {
-        longTimer = 0;
+        LongTimer = 0;
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            stunTimers[i] = 0;
+            StunTimers[i] = 0;
         }
     }
 
     void DecrementStunTimers()
     {
-        if (longTimer > 0)
+        if (LongTimer > 0)
         {
-            longTimer--;
+            LongTimer--;
             return;
         }
 
-        longTimer = 9;
+        LongTimer = 9;
 
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            if (stunTimers[i] != 0)
-                stunTimers[i]--;
+            if (StunTimers[i] != 0)
+                StunTimers[i]--;
 
-            objects[i]?.DecrementStunTimer();
+            Objects[i]?.DecrementStunTimer();
         }
 
         // ORIGINAL: Here the player isn't part of the array, but in the original it's the first element.
@@ -209,14 +209,14 @@ internal partial class World
 
     void InitPlaceholderTypes()
     {
-        Array.Clear(placeholderTypes);
+        Array.Clear(PlaceholderTypes);
     }
 
     public ObjectSlot FindEmptyMonsterSlot()
     {
         for (var i = (int)ObjectSlot.LastMonster; i >= 0; i--)
         {
-            if (objects[i] == null) return (ObjectSlot)i;
+            if (Objects[i] == null) return (ObjectSlot)i;
         }
         return ObjectSlot.NoneFound;
     }
@@ -229,19 +229,19 @@ internal partial class World
 
     void ClearRoomItemData()
     {
-        recorderUsed = 0;
-        candleUsed = false;
-        summonedWhirlwind = false;
-        shuttersPassedDirs = Direction.None;
-        brightenRoom = false;
-        activeShots = 0;
+        RecorderUsed = 0;
+        CandleUsed = false;
+        SummonedWhirlwind = false;
+        ShuttersPassedDirs = Direction.None;
+        BrightenRoom = false;
+        ActiveShots = 0;
     }
 
     void SetPlayerColor()
     {
         static ReadOnlySpan<byte> palette() => new byte[] { 0x29, 0x32, 0x16 };
 
-        var value = profile.Items[ItemSlot.Ring];
+        var value = Profile.Items[ItemSlot.Ring];
         Graphics.SetColorIndexed(Palette.Player, 1, palette()[value]);
     }
 

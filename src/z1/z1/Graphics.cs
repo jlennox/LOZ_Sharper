@@ -271,7 +271,7 @@ internal static class Graphics
         }
     }
 
-    public static unsafe void DrawTile(
+    public static void DrawTile(
         TileSheet slot,
         int srcX,
         int srcY,

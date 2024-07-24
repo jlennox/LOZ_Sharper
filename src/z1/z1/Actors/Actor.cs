@@ -71,14 +71,14 @@ internal abstract class Actor
     }
 
     private bool _isDeleted;
-    private bool _ranDeletedEvent = false;
+    private bool _ranDeletedEvent;
 
     public byte Decoration = 1;
     protected byte HP;
     public byte InvincibilityTimer;
     protected byte InvincibilityMask;
     protected Direction ShoveDirection = Direction.None;
-    protected byte ShoveDistance = 0;
+    protected byte ShoveDistance;
     public Direction Facing
     {
         get => _facing;
@@ -92,7 +92,7 @@ internal abstract class Actor
         }
     }
     public Direction _facing = Direction.None;
-    public sbyte TileOffset = 0;
+    public sbyte TileOffset;
     protected byte Fraction;
     public byte Moving;
     public Direction MovingDirection
@@ -138,7 +138,7 @@ internal abstract class Actor
         if (type < ObjType.PersonEnd
             && type != ObjType.Armos && type != ObjType.FlyingGhini)
         {
-            var slot = game.World.curObjSlot;
+            var slot = game.World.CurObjSlot;
             var time = slot + 1;
             ObjTimer = (byte)time;
         }
@@ -337,7 +337,7 @@ internal abstract class Actor
 
     protected void InitCommonStateTimer()
     {
-        var t = Game.World.curObjSlot;
+        var t = Game.World.CurObjSlot;
         t = (t + 2) * 16;
         ObjTimer = (byte)t;
     }
@@ -365,7 +365,7 @@ internal abstract class Actor
 
             if (Decoration == 0)
             {
-                var slot = Game.World.curObjectSlot;
+                var slot = Game.World.CurObjectSlot;
                 if (slot < ObjectSlot.Buffer && !Attributes.GetCustomCollision())
                 {
                     // ORIGINAL: flag 4 if custom draw. If not set, then call $77D4.
@@ -696,7 +696,8 @@ internal abstract class Actor
             Game.Sound.PlayEffect(SoundEffect.Parry);
             return;
         }
-        else if (this is ZolActor || this is VireActor)
+
+        if (this is ZolActor || this is VireActor)
         {
             if (context.WeaponSlot != ObjectSlot.Boomerang)
             {
@@ -827,7 +828,7 @@ internal abstract class Actor
         player.InvincibilityTimer = 0x18;
         player.ShoveDistance = 0x20;
 
-        if (Game.World.curObjectSlot >= ObjectSlot.Buffer) return;
+        if (Game.World.CurObjectSlot >= ObjectSlot.Buffer) return;
         if (Attributes.GetUnknown80__() || this is VireActor) return;
 
         Facing = Facing.GetOppositeDirection();
@@ -994,7 +995,7 @@ internal abstract class Actor
 
     protected Direction CheckWorldMargin(Direction dir)
     {
-        var slot = Game.World.curObjectSlot;
+        var slot = Game.World.CurObjectSlot;
         var adjust = slot > ObjectSlot.Buffer || this is LadderActor;
 
         // ORIGINAL: This isn't needed, because the player is first (slot=0).
@@ -1358,15 +1359,15 @@ internal abstract class Actor
         var slot = Game.World.FindEmptyMonsterSlot();
         if (slot < 0) return ObjectSlot.NoneFound;
 
-        var thisSlot = Game.World.curObjectSlot;
-        var oldActiveShots = Game.World.activeShots;
+        var thisSlot = Game.World.CurObjectSlot;
+        var oldActiveShots = Game.World.ActiveShots;
         var thisPtr = Game.World.GetObject(thisSlot);
 
         var shot = shotType == ObjType.Boomerang
             ? GlobalFunctions.MakeBoomerang(Game, x, y, facing, 0x51, 2.5f, thisPtr, slot)
             : GlobalFunctions.MakeProjectile(Game.World, shotType, x, y, facing, slot);
 
-        var newActiveShots = Game.World.activeShots;
+        var newActiveShots = Game.World.ActiveShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)
         {
             return ObjectSlot.NoneFound;
@@ -1537,4 +1538,4 @@ internal enum ObjType
     PersonTypes = PersonEnd - Person1,
     CaveMedicineShop = Cave11,
     CaveShortcut = Cave5,
-};
+}

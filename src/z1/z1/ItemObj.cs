@@ -354,8 +354,7 @@ internal sealed class BombActor : Actor
     private const int Clouds = 4;
     private const int CloudFrames = 2;
 
-    private static readonly Point[][] _cloudPositions = new[]
-    {
+    private static readonly Point[][] _cloudPositions = {
         new[] {
             new Point(0, 0 ),
             new Point(-13, 0 ),
@@ -486,8 +485,7 @@ internal sealed class PlayerSwordActor : Actor
     private const int SwordStates = 5;
     private const int LastSwordState = SwordStates - 1;
 
-    private static readonly Point[][] _swordOffsets = new Point[][]
-    {
+    private static readonly Point[][] _swordOffsets = {
         new[] { new Point(-8, -11), new Point(0, -11), new Point(1, -14), new Point(-1, -9) },
         new[] { new Point(11, 3), new Point(-11, 3), new Point(1, 13), new Point(-1, -10) },
         new[] { new Point(7, 3), new Point(-7, 3), new Point(1, 9), new Point(-1, -9) },
@@ -510,14 +508,14 @@ internal sealed class PlayerSwordActor : Actor
         AnimationId.Wand_Up,
     };
 
-    private static readonly byte[] _swordStateDurations = new byte[] { 5, 8, 1, 1, 1 };
+    private static readonly byte[] _swordStateDurations = { 5, 8, 1, 1, 1 };
 
     public int State;
     private int _timer;
     private readonly SpriteImage _image = new();
 
     public PlayerSwordActor(Game game, ObjType type)
-        : base(game, type, 0, 0)
+        : base(game, type)
     {
         Put();
         _timer = _swordStateDurations[State];
@@ -677,12 +675,12 @@ internal struct CaveSpec
     public readonly StringId GetStringId() => (StringId)(StringId & 0x3F);
     public readonly bool GetPay() => (StringId & 0x80) != 0;
     public readonly bool GetPickUp() => (StringId & 0x40) != 0;
-    public readonly bool GetShowNegative() => ((int)ItemA & 0x80) != 0;
-    public readonly bool GetCheckHearts() => ((int)ItemA & 0x40) != 0;
-    public readonly bool GetSpecial() => ((int)ItemB & 0x80) != 0;
-    public readonly bool GetHint() => ((int)ItemB & 0x40) != 0;
-    public readonly bool GetShowPrices() => ((int)ItemC & 0x80) != 0;
-    public readonly bool GetShowItems() => ((int)ItemC & 0x40) != 0;
+    public readonly bool GetShowNegative() => (ItemA & 0x80) != 0;
+    public readonly bool GetCheckHearts() => (ItemA & 0x40) != 0;
+    public readonly bool GetSpecial() => (ItemB & 0x80) != 0;
+    public readonly bool GetHint() => (ItemB & 0x40) != 0;
+    public readonly bool GetShowPrices() => (ItemC & 0x80) != 0;
+    public readonly bool GetShowItems() => (ItemC & 0x40) != 0;
 
     public void ClearPickUp() { unchecked { StringId &= (byte)~0x40; } }
     public void ClearShowPrices() { unchecked { ItemC &= (byte)~0x80; } }
@@ -695,7 +693,7 @@ internal struct CaveSpec
 
 internal sealed class ItemObjActor : Actor
 {
-    private static readonly ObjectSlot[] _weaponSlots = new[] { ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow };
+    private static readonly ObjectSlot[] _weaponSlots = { ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow };
 
     private readonly ItemId _itemId;
     private readonly bool _isRoomItem;
@@ -734,7 +732,8 @@ internal sealed class ItemObjActor : Actor
                 IsDeleted = true;
                 return;
             }
-            else if (_timer >= 0x1E0)
+
+            if (_timer >= 0x1E0)
             {
                 return;
             }
@@ -878,7 +877,7 @@ internal sealed class WhirlwindActor : Actor
 
 internal sealed class DockActor : Actor
 {
-    private int _state = 0;
+    private int _state;
     private readonly SpriteImage _raftImage;
 
     public DockActor(Game game, int x, int y)
@@ -897,7 +896,7 @@ internal sealed class DockActor : Actor
 
         if (_state == 0)
         {
-            var x = Game.World.curRoomId == 0x55 ? 0x80 : 0x60;
+            var x = Game.World.CurRoomId == 0x55 ? 0x80 : 0x60;
             if (x != player.X) return;
 
             X = x;
@@ -940,7 +939,7 @@ internal sealed class DockActor : Actor
 
             if (player.Y == 0x3D)
             {
-                Game.World.LeaveRoom(player.Facing, Game.World.curRoomId);
+                Game.World.LeaveRoom(player.Facing, Game.World.CurRoomId);
                 player.SetState(PlayerState.Idle);
                 _state = 0;
             }

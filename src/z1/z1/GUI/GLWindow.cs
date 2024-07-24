@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
-using Silk.NET.Windowing;
 using Silk.NET.Input;
-using Silk.NET.OpenGL;
 using Silk.NET.Maths;
+using Silk.NET.OpenGL;
+using Silk.NET.Windowing;
 using SkiaSharp;
 
 namespace z1.GUI;

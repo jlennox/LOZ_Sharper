@@ -1,17 +1,18 @@
-﻿namespace z1.Actors;
+﻿using System.Diagnostics;
+
+namespace z1.Actors;
 
 internal abstract class BlueWizzrobeBase : WizzrobeBase
 {
-    public static readonly AnimationId[] wizzrobeAnimMap = new[]
-    {
+    public static readonly AnimationId[] wizzrobeAnimMap = {
         AnimationId.UW_Wizzrobe_Right,
         AnimationId.UW_Wizzrobe_Left,
         AnimationId.UW_Wizzrobe_Right,
         AnimationId.UW_Wizzrobe_Up
     };
 
-    private static readonly int[] blueWizzrobeXSpeeds = new int[] { 0, 1, -1, 0, 0, 1, -1, 0, 0, 1, -1 };
-    private static readonly int[] blueWizzrobeYSpeeds = new int[] { 0, 0, 0, 0, 1, 1, 1, 0, -1, -1, -1 };
+    private static readonly int[] blueWizzrobeXSpeeds = { 0, 1, -1, 0, 0, 1, -1, 0, 0, 1, -1 };
+    private static readonly int[] blueWizzrobeYSpeeds = { 0, 0, 0, 0, 1, 1, 1, 0, -1, -1, -1 };
 
     protected byte flashTimer;
     protected byte turnTimer;
@@ -149,9 +150,9 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         TruncatePosition();
     }
 
-    private static readonly int[] blueWizzrobeTeleportXOffsets = new[] { -0x20, 0x20, -0x20, 0x20 };
-    private static readonly int[] blueWizzrobeTeleportYOffsets = new[] { -0x20, -0x20, 0x20, 0x20 };
-    private static readonly int[] blueWizzrobeTeleportDirs = new[] { 0xA, 9, 6, 5 };
+    private static readonly int[] blueWizzrobeTeleportXOffsets = { -0x20, 0x20, -0x20, 0x20 };
+    private static readonly int[] blueWizzrobeTeleportYOffsets = { -0x20, -0x20, 0x20, 0x20 };
+    private static readonly int[] blueWizzrobeTeleportDirs = { 0xA, 9, 6, 5 };
 
     void TryTeleporting()
     {
@@ -183,8 +184,8 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
 internal abstract class WizzrobeBase : Actor
 {
-    private static readonly int[] allWizzrobeCollisionXOffsets = new[] { 0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0 };
-    private static readonly int[] allWizzrobeCollisionYOffsets = new[] { 4, 4, 0, 8, 8, 8, 0, -8, 0, 0 };
+    private static readonly int[] allWizzrobeCollisionXOffsets = { 0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0 };
+    private static readonly int[] allWizzrobeCollisionYOffsets = { 4, 4, 0, 8, 8, 8, 0, -8, 0, 0 };
 
     protected int CheckWizzrobeTileCollision(int x, int y, Direction dir)
     {
@@ -211,7 +212,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 
     public BlueWizzrobeActor(Game game, int x, int y) : base(game, ObjType.BlueWizzrobe, x, y)
     {
-        System.Diagnostics.Debug.WriteLine($"BLUEWIZZ.ctor {game.World.curObjectSlot} ObjTimer: {ObjTimer}");
+        Debug.WriteLine($"BLUEWIZZ.ctor {game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
         Animator = new SpriteAnimator
         {
             DurationFrames = 16,
@@ -221,7 +222,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 
     public override void Update()
     {
-        System.Diagnostics.Debug.WriteLine($"BLUEWIZZ.update {Game.World.curObjectSlot} ObjTimer: {ObjTimer}");
+        Debug.WriteLine($"BLUEWIZZ.update {Game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
         if (Game.World.GetItem(ItemSlot.Clock) != 0)
         {
             AnimateAndCheckCollisions();

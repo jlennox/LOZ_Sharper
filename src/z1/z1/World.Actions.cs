@@ -2,15 +2,14 @@
 
 internal partial class World
 {
-    private static readonly byte[] levelGroups = new byte[] { 0, 0, 1, 1, 0, 1, 0, 1, 2 };
+    private static readonly byte[] levelGroups = { 0, 0, 1, 1, 0, 1, 0, 1, 2 };
 
     private readonly record struct EquipValue(byte Value, ItemSlot Slot);
 
     // The item ID to item slot map is at $6B14, and copied to RAM at $72A4.
     // The item ID to item value map is at $6B38, and copied to RAM at $72C8.
     // They're combined here.
-    private static readonly EquipValue[] sItemToEquipment = new[]
-    {
+    private static readonly EquipValue[] sItemToEquipment = {
         new EquipValue(4, ItemSlot.Bombs),
         new EquipValue(1, ItemSlot.Sword),
         new EquipValue(2, ItemSlot.Sword),
@@ -51,8 +50,7 @@ internal partial class World
 
     private readonly record struct DoorStateBehaviors(TileBehavior Closed, TileBehavior Open);
 
-    private static readonly DoorStateBehaviors[] doorBehaviors = new[]
-    {
+    private static readonly DoorStateBehaviors[] doorBehaviors = {
         new DoorStateBehaviors(TileBehavior.Doorway, TileBehavior.Doorway),     // Open
         new DoorStateBehaviors(TileBehavior.Wall, TileBehavior.Wall),           // Wall (None)
         new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Door),           // False Wall
@@ -63,18 +61,16 @@ internal partial class World
         new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Doorway),        // Shutter
     };
 
-    private static readonly Point[] doorMiddles = new[]
-    {
+    private static readonly Point[] doorMiddles = {
         new Point(0xE0, 0x98 ),
         new Point(0x20, 0x98 ),
         new Point(0x80, 0xD0 ),
         new Point(0x80, 0x60),
     };
 
-    private static readonly int[] doorSrcYs = new[] { 64, 96, 0, 32 };
+    private static readonly int[] doorSrcYs = { 64, 96, 0, 32 };
 
-    private static readonly Point[] doorPos = new[]
-    {
+    private static readonly Point[] doorPos = {
         new Point(224,  136),
         new Point(0,    136),
         new Point(112,  208),
@@ -83,8 +79,7 @@ internal partial class World
 
     private readonly record struct DoorStateFaces(byte Closed, byte Open);
 
-    private static readonly DoorStateFaces[] doorFaces = new[]
-    {
+    private static readonly DoorStateFaces[] doorFaces = {
         new DoorStateFaces(0, 0),
         new DoorStateFaces(3, 3),
         new DoorStateFaces(3, 3),
@@ -95,16 +90,14 @@ internal partial class World
         new DoorStateFaces(2, 0),
     };
 
-    private static readonly Cell[] doorCorners = new[]
-    {
+    private static readonly Cell[] doorCorners = {
         new Cell(0x0A, 0x1C),
         new Cell(0x0A, 0x02),
         new Cell(0x12, 0x0F),
         new Cell(0x02, 0x0F),
     };
 
-    private static readonly Cell[] behindDoorCorners = new[]
-    {
+    private static readonly Cell[] behindDoorCorners = {
         new Cell(0x0A, 0x1E),
         new Cell(0x0A, 0x00),
         new Cell(0x14, 0x0F),
