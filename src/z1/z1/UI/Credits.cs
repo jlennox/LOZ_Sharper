@@ -1,7 +1,9 @@
 ﻿namespace z1.UI;
 
-internal sealed class Credits
+internal sealed class CreditsType
 {
+    public const int StartY = Global.StdViewHeight;
+
     private const int AllLines = 96;
     private const int AllLineBytes = 12;
 

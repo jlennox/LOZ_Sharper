@@ -21,7 +21,7 @@ internal struct SpriteAnimationStruct : ILoadVariableLengthData<SpriteAnimation>
     public byte Width;
     public byte Height;
 
-    public SpriteAnimation LoadVariableData(ReadOnlySpan<byte> buf)
+    public readonly SpriteAnimation LoadVariableData(ReadOnlySpan<byte> buf)
     {
         var frames = MemoryMarshal.Cast<byte, SpriteFrame>(buf)[..Length].ToArray();
         return new SpriteAnimation(this, frames);

@@ -1,48 +1,45 @@
-﻿using SkiaSharp;
+﻿using System.Diagnostics;
+using SkiaSharp;
 using z1.Actors;
 
 namespace z1;
 
 internal partial class World
 {
-    void GetWorldCoord(int roomId, out int row, out int col )
+    private static void GetWorldCoord(int roomId, out int row, out int col)
     {
         row = (roomId & 0xF0) >> 4;
         col = roomId & 0x0F;
     }
 
-    int MakeRoomId(int row, int col)
+    private static int MakeRoomId(int row, int col)
     {
         return (row << 4) | col;
     }
 
-    int GetNextRoomId(int curRoomId, Direction dir)
+    private static int GetNextRoomId(int curRoomId, Direction dir)
     {
         GetWorldCoord(curRoomId, out var row, out var col);
 
         switch (dir)
         {
             case Direction.Left:
-                if (col == 0)
-                    return curRoomId;
+                if (col == 0) return curRoomId;
                 col--;
                 break;
 
             case Direction.Right:
-                if (col == WorldWidth - 1)
-                    return curRoomId;
+                if (col == WorldWidth - 1) return curRoomId;
                 col++;
                 break;
 
             case Direction.Up:
-                if (row == 0)
-                    return curRoomId;
+                if (row == 0) return curRoomId;
                 row--;
                 break;
 
             case Direction.Down:
-                if (row == WorldHeight - 1)
-                    return curRoomId;
+                if (row == WorldHeight - 1) return curRoomId;
                 row++;
                 break;
         }
@@ -51,42 +48,41 @@ internal partial class World
         return nextRoomId;
     }
 
-    static void GetRoomCoord(int position, out int row, out int col)
+    private static void GetRoomCoord(int position, out int row, out int col)
     {
         row = position & 0x0F;
         col = (position & 0xF0) >> 4;
         row -= 4;
     }
 
-    static void GetRSpotCoord(int position, ref int x, ref int y)
+    private static void GetRSpotCoord(int position, ref int x, ref int y)
     {
         x = (position & 0x0F) << 4;
         y = (position & 0xF0) | 0xD;
     }
 
-    Point GetRoomItemPosition(byte position)
+    private static Point GetRoomItemPosition(byte position)
     {
-        return new(position & 0xF0, (byte)(position << 4));
+        return new Point(position & 0xF0, (byte)(position << 4));
     }
 
-    int GetDoorStateFace(DoorType type, bool state)
+    private static int GetDoorStateFace(DoorType type, bool state)
     {
-        if (state)
-            return doorFaces[(int)type].Open;
-        return doorFaces[(int)type].Closed;
+        var doorface = doorFaces[(int)type];
+        return state ? doorface.Open : doorface.Closed;
     }
 
-    void ClearScreen()
+    private static void ClearScreen()
     {
         Graphics.Clear(SKColors.Black);
     }
 
-    void ClearScreen(int sysColor)
+    private static void ClearScreen(int sysColor)
     {
         Graphics.Clear(Graphics.GetSystemColor(sysColor));
     }
 
-    void ClearDeadObjectQueue()
+    private void ClearDeadObjectQueue()
     {
         for (var i = 0; i < ObjectsToDeleteCount; i++)
         {
@@ -96,35 +92,38 @@ internal partial class World
         ObjectsToDeleteCount = 0;
     }
 
-    void SetOnlyObject(ObjectSlot slot, Actor? obj)
+    private void SetOnlyObject(ObjectSlot slot, Actor? obj)
     {
-        // TODO assert(slot >= 0 && slot < (int)ObjectSlot.MaxObjects);
+        Debug.Assert(slot >= 0 && slot < ObjectSlot.MaxObjects);
+
         if (Objects[(int)slot] != null)
         {
             if (ObjectsToDeleteCount == (int)ObjectSlot.MaxObjects)
+            {
                 ClearDeadObjectQueue();
+            }
             ObjectsToDelete[ObjectsToDeleteCount] = Objects[(int)slot];
             ObjectsToDeleteCount++;
         }
         Objects[(int)slot] = obj;
     }
 
-    LadderActor? GetLadderObj()
+    private LadderActor? GetLadderObj()
     {
         return GetObject(ObjectSlot.Ladder) as LadderActor;
     }
 
-    void SetLadderObj(LadderActor? ladder)
+    private void SetLadderObj(LadderActor? ladder)
     {
         SetOnlyObject(ObjectSlot.Ladder, ladder);
     }
 
-    void SetBlockObj(Actor block)
+    private void SetBlockObj(Actor block)
     {
         SetOnlyObject(ObjectSlot.Block, block);
     }
 
-    void DeleteObjects()
+    private void DeleteObjects()
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
@@ -134,13 +133,13 @@ internal partial class World
         ClearDeadObjectQueue();
     }
 
-    void CleanUpRoomItems()
+    private void CleanUpRoomItems()
     {
         DeleteObjects();
         SetItem(ItemSlot.Clock, 0);
     }
 
-    void DeleteDeadObjects()
+    private void DeleteDeadObjects()
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
@@ -154,7 +153,7 @@ internal partial class World
         ClearDeadObjectQueue();
     }
 
-    void InitObjectTimers()
+    private void InitObjectTimers()
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
@@ -162,12 +161,14 @@ internal partial class World
         }
     }
 
-    void DecrementObjectTimers()
+    private void DecrementObjectTimers()
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
             if (ObjectTimers[i] != 0)
+            {
                 ObjectTimers[i]--;
+            }
 
             Objects[i]?.DecrementObjectTimer();
         }
@@ -176,7 +177,7 @@ internal partial class World
         Game.Link.DecrementObjectTimer();
     }
 
-    void InitStunTimers()
+    private void InitStunTimers()
     {
         LongTimer = 0;
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
@@ -185,7 +186,7 @@ internal partial class World
         }
     }
 
-    void DecrementStunTimers()
+    private void DecrementStunTimers()
     {
         if (LongTimer > 0)
         {
@@ -198,7 +199,9 @@ internal partial class World
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
             if (StunTimers[i] != 0)
+            {
                 StunTimers[i]--;
+            }
 
             Objects[i]?.DecrementStunTimer();
         }
@@ -207,7 +210,7 @@ internal partial class World
         Game.Link.DecrementStunTimer();
     }
 
-    void InitPlaceholderTypes()
+    private void InitPlaceholderTypes()
     {
         Array.Clear(PlaceholderTypes);
     }
@@ -227,7 +230,7 @@ internal partial class World
         return slot != ObjectSlot.NoneFound;
     }
 
-    void ClearRoomItemData()
+    private void ClearRoomItemData()
     {
         RecorderUsed = 0;
         CandleUsed = false;
@@ -237,27 +240,27 @@ internal partial class World
         ActiveShots = 0;
     }
 
-    void SetPlayerColor()
+    private void SetPlayerColor()
     {
-        static ReadOnlySpan<byte> palette() => new byte[] { 0x29, 0x32, 0x16 };
+        ReadOnlySpan<byte> palette = [0x29, 0x32, 0x16];
 
         var value = Profile.Items[ItemSlot.Ring];
-        Graphics.SetColorIndexed(Palette.Player, 1, palette()[value]);
+        Graphics.SetColorIndexed(Palette.Player, 1, palette[value]);
     }
 
-    void SetFlashPalette()
+    private void SetFlashPalette()
     {
-        static ReadOnlySpan<byte> palette() => new byte[] { 0x0F, 0x30, 0x30, 0x30 };
+        ReadOnlySpan<byte> palette = [0x0F, 0x30, 0x30, 0x30];
 
         for (var i = 2; i < Global.BackgroundPalCount; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)i, palette());
+            Graphics.SetPaletteIndexed((Palette)i, palette);
         }
 
         Graphics.UpdatePalettes();
     }
 
-    void SetLevelPalettes(byte[][] palettes) // const byte palettes[2][PaletteLength] )
+    private static void SetLevelPalettes(byte[][] palettes) // const byte palettes[2][PaletteLength] )
     {
         for (var i = 0; i < 2; i++)
         {
@@ -267,7 +270,7 @@ internal partial class World
         Graphics.UpdatePalettes();
     }
 
-    void SetLevelPalette()
+    private void SetLevelPalette()
     {
         var infoBlock = GetLevelInfo();
 
@@ -279,7 +282,7 @@ internal partial class World
         Graphics.UpdatePalettes();
     }
 
-    void SetLevelFgPalette()
+    private void SetLevelFgPalette()
     {
         var infoBlock = GetLevelInfo();
         Graphics.SetPaletteIndexed(Palette.LevelFgPalette, infoBlock.GetPalette((int)Palette.LevelFgPalette));

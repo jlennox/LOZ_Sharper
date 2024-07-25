@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using z1.Actors;
+using z1.UI;
 
 namespace z1;
 
@@ -297,11 +298,13 @@ internal static class GlobalFunctions
         }
     }
 
-    public static void DrawString(string str, int x, int y, Palette palette)
+    public static void DrawString(string? str, int x, int y, Palette palette)
     {
-        foreach (var t in str)
+        if (str == null) return;
+
+        foreach (var t in ZeldaString.ToBytes(str))
         {
-            DrawChar((byte)((byte)char.ToLower(t) - (byte)'a' + 0x0A), x, y, palette);
+            DrawChar(t, x, y, palette);
             x += 8;
         }
     }
@@ -423,6 +426,12 @@ internal static class GlobalFunctions
         BouldersActor.ClearRoomData();
         ManhandlaActor.ClearRoomData();
         Statues.Init();
+    }
+
+    // TODO: Make these use a saner .ToString/ZeldaString method that allows arbitrary lengths.
+    public static byte[] NumberToStringR(int number, NumberSign sign, ref Span<byte> charBuf)
+    {
+        return NumberToStringR((byte)number, sign, ref charBuf);
     }
 
     public static byte[] NumberToStringR(byte number, NumberSign sign, ref Span<byte> charBuf)

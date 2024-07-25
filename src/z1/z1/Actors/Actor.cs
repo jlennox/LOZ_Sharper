@@ -418,7 +418,7 @@ internal abstract class Actor
         {
             var counter = (Game.GetFrameCounter() >> 1) & 3;
             var frame = (Decoration + 1) % 2;
-            var pal = Palette.Player + (Palettes.ForegroundPalCount - counter - 1);
+            var pal = Palette.Player + (Global.ForegroundPalCount - counter - 1);
             var animator = Graphics.GetSpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Sparkle);
             animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, pal, frame);
         }

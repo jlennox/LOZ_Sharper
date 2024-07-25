@@ -667,8 +667,7 @@ internal struct CaveSpec
     };
 
     public ObjType DwellerType
-    {
-        get => (ObjType)Dweller;
+    { readonly get => (ObjType)Dweller;
         set => Dweller = (byte)value;
     }
 

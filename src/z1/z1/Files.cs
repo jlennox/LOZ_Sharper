@@ -241,10 +241,7 @@ internal unsafe struct LevelInfoBlock
     public const int FadeLength = 4;
     public const int FadePals = 2;
     public const int MapLength = 16;
-    public const int PaletteCount = 8;
     public const int PaletteLength = Global.PaletteLength;
-    public const int ForegroundPalCount = 4;
-    public const int BackgroundPalCount = 4;
 
     public fixed byte Palettes[LevelPaletteCount * PaletteLength];
     public byte StartY;
@@ -264,7 +261,7 @@ internal unsafe struct LevelInfoBlock
     public fixed byte DarkPaletteSeq[FadeLength * FadePals * PaletteLength];
     public fixed byte DeathPaletteSeq[FadeLength * FadePals * PaletteLength];
 
-    public SongId SongId => (SongId)Song;
+    public readonly SongId SongId => (SongId)Song;
 
     public ReadOnlySpan<byte> GetPalette(int index)
     {
@@ -379,7 +376,7 @@ internal struct SparseRoomItem
     public readonly byte y;
     public readonly byte itemId;
 
-    public ItemId AsItemId => (ItemId)itemId;
+    public readonly ItemId AsItemId => (ItemId)itemId;
 }
 
 public enum Sparse
@@ -435,7 +432,7 @@ internal struct CaveSpecListStruct : ILoadVariableLengthData<CaveSpecList>
 {
     public readonly int Count;
 
-    public CaveSpecList LoadVariableData(ReadOnlySpan<byte> buf)
+    public readonly CaveSpecList LoadVariableData(ReadOnlySpan<byte> buf)
     {
         var frames = MemoryMarshal.Cast<byte, CaveSpec>(buf)[..Count].ToArray();
         return new CaveSpecList(this, frames);

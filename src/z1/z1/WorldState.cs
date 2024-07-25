@@ -317,3 +317,10 @@ internal sealed class WorldState
     public ContinueState Continue = new();
     public DeathState Death = new();
 }
+
+internal enum LevelBlock
+{
+    Width = 16,
+    Height = 8,
+    Rooms = 128,
+}

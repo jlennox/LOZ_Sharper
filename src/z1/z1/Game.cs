@@ -19,15 +19,6 @@ internal enum Direction
     OppositeHorizontals = HorizontalMask,
 }
 
-internal enum TileSheet { Background, PlayerAndItems, Npcs, Boss, Font, Max }
-
-internal enum LevelBlock
-{
-    Width = 16,
-    Height = 8,
-    Rooms = 128,
-}
-
 internal enum GameMode
 {
     Demo,
@@ -75,7 +66,7 @@ internal sealed class Game
 
     public bool Enhancements = true;
 
-    // TODO:
+    // JOE: TODO: Also note there's World.FakePlayerPos
     public Actor ObservedPlayer => Link;
 
     public World World;
@@ -88,7 +79,7 @@ internal sealed class Game
     public Game()
     {
         World = new World(this);
-        GameCheats = new(this);
+        GameCheats = new GameCheats(this);
     }
 
     public void UpdateScreenSize(SKSurface surface)

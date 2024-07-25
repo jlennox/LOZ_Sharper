@@ -1,6 +1,7 @@
 ﻿namespace z1;
 
 // This is so we don't need to reference winforms.
+// JOE: TODO: Errrr. We're still referencing it for the mean time because otherwise a console window pops up.
 
 internal struct Point
 {
