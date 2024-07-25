@@ -55,7 +55,6 @@ internal sealed class Game
     public Link Link;
 
     public readonly Sound Sound = new();
-    public readonly PlayerProfile Profile = new();
 
     public static class Cheats
     {

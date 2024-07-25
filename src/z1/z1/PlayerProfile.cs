@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json.Serialization;
 
 namespace z1;
 
@@ -93,21 +94,28 @@ internal sealed class PlayerProfile
     public const int DefaultHearts = 3;
     public const int DefaultBombs = 8;
 
-    public int Version { get; set; } = 0;
+    public int Version { get; set; }
     public string? Name { get; set; }
     public int Index { get; set; }
     public int Quest { get; set; }
     public int Deaths { get; set; }
     public ItemSlot SelectedItem { get; set; }
-    public int Hearts { get; set; } = DefaultHearts;
-    public Dictionary<ItemSlot, int> Items { get; set; } = new();
+    [JsonIgnore]
+    public int Hearts { get; set; }
+    public Dictionary<ItemSlot, int> Items { get; set; }
     public int UsedCheats { get; set; }
-    public OWRoomFlags[] OverworldFlags { get; set; } = new OWRoomFlags[Global.LevelBlockRooms];
-    public UWRoomFlags[] LevelFlags1 { get; set; } = new UWRoomFlags[Global.LevelBlockRooms];
-    public UWRoomFlags[] LevelFlags2 { get; set; } = new UWRoomFlags[Global.LevelBlockRooms];
+    public OWRoomFlags[] OverworldFlags { get; set; }
+    public UWRoomFlags[] LevelFlags1 { get; set; }
+    public UWRoomFlags[] LevelFlags2 { get; set; }
 
     public PlayerProfile()
     {
+        if (Hearts == 0) Hearts = DefaultHearts;
+        Items ??= new Dictionary<ItemSlot, int>();
+        OverworldFlags ??= new OWRoomFlags[Global.LevelBlockRooms];
+        LevelFlags1 ??= new UWRoomFlags[Global.LevelBlockRooms];
+        LevelFlags2 ??= new UWRoomFlags[Global.LevelBlockRooms];
+
         foreach (var slot in Enum.GetValues<ItemSlot>())
         {
             Items[slot] = 0;

@@ -10,15 +10,14 @@ internal abstract class Menu
 
 internal sealed class GameMenu : Menu
 {
-    private readonly Game game;
-
-    public PlayerProfile[] summaries;
-    public int selectedIndex;
+    private int _selectedIndex;
+    private readonly PlayerProfile[] _summaries;
+    private readonly Game _game;
 
     public GameMenu(Game game, PlayerProfile[] summaries)
     {
-        this.game = game;
-        this.summaries = summaries;
+        _game = game;
+        _summaries = summaries;
 
         var palettes = new[] {
             new byte[] { 0x0F, 0x30, 0x00, 0x12 },
@@ -46,29 +45,23 @@ internal sealed class GameMenu : Menu
     private void StartWorld(int fileIndex)
     {
         var profile = SaveFolder.ReadProfile(fileIndex);
-        game.World.Start(fileIndex, profile);
+        _game.World.Start(profile);
     }
 
     public override void Update()
     {
-        if (game.Input.IsButtonPressing(Button.Select))
+        if (_game.Input.IsButtonPressing(Button.Select))
         {
             SelectNext();
-            game.Sound.PlayEffect(SoundEffect.Cursor);
+            _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (game.Input.IsButtonPressing(Button.Start))
+        else if (_game.Input.IsButtonPressing(Button.Start))
         {
-            if (selectedIndex < 3)
+            switch (_selectedIndex)
             {
-                StartWorld(selectedIndex);
-            }
-            else if (selectedIndex == 3)
-            {
-                game.World.RegisterFile(summaries);
-            }
-            else if (selectedIndex == 4)
-            {
-                game.World.EliminateFile(summaries);
+                case < 3: StartWorld(_selectedIndex); break;
+                case 3: _game.World.RegisterFile(_summaries); break;
+                case 4: _game.World.EliminateFile(_summaries); break;
             }
         }
     }
@@ -80,7 +73,7 @@ internal sealed class GameMenu : Menu
         Graphics.Clear(SKColors.Black);
         GlobalFunctions.DrawBox(0x18, 0x40, 0xD0, 0x90);
 
-        // JOE: TOOD: Use normal strings.
+        // JOE: TODO: Use normal strings.
         GlobalFunctions.DrawString("- s e l e c t  -", 0x40, 0x28, 0);
         GlobalFunctions.DrawString(" name ", 0x50, 0x40, 0);
         GlobalFunctions.DrawString(" life ", 0x98, 0x40, 0);
@@ -90,14 +83,14 @@ internal sealed class GameMenu : Menu
         var y = 0x58;
         for (var i = 0; i < 3; i++)
         {
-            var summary = summaries[i];
+            var summary = _summaries[i];
             if (summary.IsActive())
             {
                 var numBuf = new byte[3].AsSpan();
                 GlobalFunctions.NumberToStringR(summary.Deaths, NumberSign.None, ref numBuf);
                 GlobalFunctions.DrawString(numBuf, 0x48, y + 8, 0);
                 GlobalFunctions.DrawString(summary.Name, 0x48, y, 0);
-                var totalHearts = summary.Hearts;
+                var totalHearts = summary.GetItem(ItemSlot.HeartContainers);
                 var heartsValue = PlayerProfile.GetMaxHeartsValue(totalHearts);
                 GlobalFunctions.DrawHearts(heartsValue, totalHearts, 0x90, y + 8);
                 GlobalFunctions.DrawFileIcon(0x30, y, summary.Quest);
@@ -106,13 +99,13 @@ internal sealed class GameMenu : Menu
             y += 24;
         }
 
-        if (selectedIndex < 3)
+        if (_selectedIndex < 3)
         {
-            y = 0x58 + selectedIndex * 24 + 5;
+            y = 0x58 + _selectedIndex * 24 + 5;
         }
         else
         {
-            y = 0xA8 + (selectedIndex - 3) * 16;
+            y = 0xA8 + (_selectedIndex - 3) * 16;
         }
         GlobalFunctions.DrawChar(Char.FullHeart, 0x28, y, (Palette)7);
 
@@ -123,35 +116,34 @@ internal sealed class GameMenu : Menu
     {
         do
         {
-            selectedIndex++;
-            if (selectedIndex >= 5) selectedIndex = 0;
-        } while (selectedIndex < 3 && !summaries[selectedIndex].IsActive());
+            _selectedIndex++;
+            if (_selectedIndex >= 5) _selectedIndex = 0;
+        } while (_selectedIndex < 3 && !_summaries[_selectedIndex].IsActive());
     }
 }
 
 internal sealed class EliminateMenu : Menu
 {
-    private static readonly byte[] EliminateStr =
+    private static readonly byte[] _eliminateStr =
     {
         0x6A, 0x6A, 0x6A, 0x6A,
         0x0E, 0x15, 0x12, 0x16, 0x12, 0x17, 0x0A, 0x1D, 0x12, 0x18, 0x17, 0x24, 0x24, 0x16, 0x18, 0x0D, 0x0E,
         0x6A, 0x6A, 0x6A, 0x6A
     };
 
-    private static readonly byte[] EliminationEndStr =
+    private static readonly byte[] _eliminationEndStr =
     {
         0x0E, 0x15, 0x12, 0x16, 0x12, 0x17, 0x0A, 0x1D, 0x12, 0x18, 0x17, 0x24, 0x0E, 0x17, 0x0D,
     };
 
-    private readonly Game game;
-
-    public PlayerProfile[] summaries;
-    public int selectedIndex;
+    private readonly Game _game;
+    private readonly PlayerProfile[] _summaries;
+    private int _selectedIndex;
 
     public EliminateMenu(Game game, PlayerProfile[] summaries)
     {
-        this.game = game;
-        this.summaries = summaries;
+        _game = game;
+        _summaries = summaries;
 
         SelectNext();
     }
@@ -160,37 +152,37 @@ internal sealed class EliminateMenu : Menu
     {
         do
         {
-            selectedIndex++;
-            if (selectedIndex >= 4)
+            _selectedIndex++;
+            if (_selectedIndex >= 4)
             {
-                selectedIndex = 0;
+                _selectedIndex = 0;
             }
-        } while (selectedIndex < 3 && !summaries[selectedIndex].IsActive());
+        } while (_selectedIndex < 3 && !_summaries[_selectedIndex].IsActive());
     }
 
     private void DeleteCurrentProfile()
     {
-        summaries[selectedIndex].Name = null;
+        _summaries[_selectedIndex].Name = null;
         SaveFolder.Save();
-        game.Sound.PlayEffect(SoundEffect.PlayerHit);
+        _game.Sound.PlayEffect(SoundEffect.PlayerHit);
     }
 
     public override void Update()
     {
-        if (game.Input.IsButtonPressing(Button.Select))
+        if (_game.Input.IsButtonPressing(Button.Select))
         {
             SelectNext();
-            game.Sound.PlayEffect(SoundEffect.Cursor);
+            _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (game.Input.IsButtonPressing(Button.Start))
+        else if (_game.Input.IsButtonPressing(Button.Start))
         {
-            if (selectedIndex < 3)
+            if (_selectedIndex < 3)
             {
                 DeleteCurrentProfile();
             }
-            else if (selectedIndex == 3)
+            else if (_selectedIndex == 3)
             {
-                game.World.ChooseFile(summaries);
+                _game.World.ChooseFile(_summaries);
             }
         }
     }
@@ -202,8 +194,8 @@ internal sealed class EliminateMenu : Menu
         Graphics.Clear(SKColors.Black);
 
         // JOE: TODO: Use actual strings.
-        var asd = ZeldaString.FromBytes(EliminateStr);
-        var asd2 = ZeldaString.FromBytes(EliminationEndStr);
+        var asd = ZeldaString.FromBytes(_eliminateStr);
+        var asd2 = ZeldaString.FromBytes(_eliminationEndStr);
         ;
         GlobalFunctions.DrawString("---Elimination  Mode----", 0x20, 0x18, 0);
         GlobalFunctions.DrawString("Elimination End", 0x50, 0x78, 0);
@@ -211,7 +203,7 @@ internal sealed class EliminateMenu : Menu
         var y = 0x30;
         for (var i = 0; i < 3; i++)
         {
-            var summary = summaries[i];
+            var summary = _summaries[i];
             if (summary.IsActive())
             {
                 GlobalFunctions.DrawString(summary.Name, 0x70, y, 0);
@@ -220,13 +212,13 @@ internal sealed class EliminateMenu : Menu
             y += 24;
         }
 
-        if (selectedIndex < 3)
+        if (_selectedIndex < 3)
         {
-            y = 0x30 + selectedIndex * 24 + 4;
+            y = 0x30 + _selectedIndex * 24 + 4;
         }
         else
         {
-            y = 0x78 + (selectedIndex - 3) * 16;
+            y = 0x78 + (_selectedIndex - 3) * 16;
         }
         GlobalFunctions.DrawChar(Char.FullHeart, 0x44, y, Palette.LevelFgPalette);
 
@@ -236,6 +228,8 @@ internal sealed class EliminateMenu : Menu
 
 internal sealed class RegisterMenu : Menu
 {
+    private const string Quest2Name = "zelda";
+
     private static readonly byte[] _registerStr = {
         0x6A, 0x6A, 0x6A, 0x6A,
         0x1B, 0x0E, 0x10, 0x12, 0x1C, 0x1D, 0x0E, 0x1B, 0x24, 0x22, 0x18, 0x1E, 0x1B, 0x24, 0x17, 0x0A,
@@ -329,8 +323,7 @@ internal sealed class RegisterMenu : Menu
 
     private byte GetSelectedChar()
     {
-        var ch = _charSetStrs[_charPosRow][_charPosCol];
-        return ch;
+        return _charSetStrs[_charPosRow][_charPosCol];
     }
 
     private void MoveCharSetCursorH(int dir)
@@ -375,24 +368,22 @@ internal sealed class RegisterMenu : Menu
         }
     }
 
-    private static readonly string _quest2Name = "zelda";
-
     private void CommitFiles()
     {
         for (var i = 0; i < SaveFolder.MaxProfiles; i++)
         {
             if (!_origActive[i] && _summaries[i].IsActive())
             {
-                var summary = _summaries[i];
-                PlayerProfile profile = new();
-                if (summary.Name == _quest2Name)
+                var profile = _summaries[i];
+                // JOE: TODO: Move to be profile method, make it case insensitive.
+                if (profile.Name == Quest2Name)
                 {
-                    summary.Quest = 1;
+                    profile.Quest = 1;
                 }
 
-                profile.Name = summary.Name ?? throw new Exception("name missing.");
-                profile.Quest = summary.Quest;
-                profile.Items[ItemSlot.HeartContainers] = summary.Hearts;
+                profile.Name = profile.Name ?? throw new Exception("name missing."); // JOE: TODO: Uhhh :)
+                profile.Quest = profile.Quest;
+                profile.Items[ItemSlot.HeartContainers] = PlayerProfile.DefaultHearts;
                 profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultBombs;
                 // Leave deaths set 0.
                 SaveFolder.Save();

@@ -193,8 +193,7 @@ internal static class GlobalFunctions
 
     public static ItemId ItemValueToItemId(World world, ItemSlot slot)
     {
-        var profile = world.GetProfile();
-        return ItemValueToItemId(slot, profile.Items[slot]);
+        return ItemValueToItemId(slot, world.Profile.Items[slot]);
     }
 
     // JOE: TODO: These should take Game to make them uniform.

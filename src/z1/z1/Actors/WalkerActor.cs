@@ -1089,7 +1089,7 @@ internal sealed class PondFairyActor : Actor
             }
         }
 
-        var profile = Game.World.GetProfile();
+        var profile = Game.World.Profile;
         var maxHeartsValue = profile.GetMaxHeartsValue();
 
         Game.Sound.PlayEffect(SoundEffect.Character);
@@ -1282,7 +1282,7 @@ internal sealed class StalfosActor : StdWanderer
         CheckCollisions();
         Animator.Advance();
 
-        if (Game.World.GetProfile().Quest == 1)
+        if (Game.World.Profile.Quest == 1)
         {
             TryShooting();
         }
@@ -3410,7 +3410,7 @@ internal sealed class RopeActor : Actor
         InitCommonFacing();
         SetFacingAnimation();
 
-        var profile = Game.World.GetProfile();
+        var profile = Game.World.Profile;
 
         HP = (byte)(profile.Quest == 0 ? 0x10 : 0x40);
     }
@@ -3475,7 +3475,7 @@ internal sealed class RopeActor : Actor
 
     public override void Draw()
     {
-        var profile = Game.World.GetProfile();
+        var profile = Game.World.Profile;
         var pal = profile.Quest == 0
             ? CalcPalette(Palette.Red)
             : Palette.Player + (Game.GetFrameCounter() & 3);

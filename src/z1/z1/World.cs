@@ -221,7 +221,6 @@ internal sealed unsafe partial class World
     public bool CandleUsed;         // 513
     public Direction ShuttersPassedDirs; // 519
     public bool BrightenRoom;       // 51E
-    public int ProfileSlot;
     public PlayerProfile Profile;
     public UWRoomFlags[] CurUWBlockFlags = { };
     public int GhostCount;
@@ -407,11 +406,10 @@ internal sealed unsafe partial class World
         GotoFileMenu();
     }
 
-    public void Start(int slot, PlayerProfile profile)
+    public void Start(PlayerProfile profile)
     {
         Profile = profile;
         Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHearts);
-        ProfileSlot = slot;
 
         GotoLoadLevel(0, true);
     }
@@ -1162,11 +1160,6 @@ internal sealed unsafe partial class World
                 outerPalette,
                 0);
         }
-    }
-
-    public PlayerProfile GetProfile()
-    {
-        return Profile;
     }
 
     public bool HasItem(ItemSlot itemSlot) => GetItem(itemSlot) > 0;
@@ -3148,12 +3141,11 @@ internal sealed unsafe partial class World
     {
         Game.Sound.PlayEffect(SoundEffect.Character);
 
-        var profile = GetProfile();
-        var maxHeartsValue = profile.GetMaxHeartsValue();
+        var maxHeartsValue = Profile.GetMaxHeartsValue();
 
         FillHearts(6);
 
-        if (profile.Hearts == maxHeartsValue)
+        if (Profile.Hearts == maxHeartsValue)
         {
             Pause = 0;
             SwordBlocked = false;

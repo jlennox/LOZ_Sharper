@@ -563,7 +563,7 @@ internal sealed class PlayerSwordActor : Actor
                     // The original game skips checking hearts, and shoots, if [$529] is set.
                     // But, I haven't found any code that sets it.
 
-                    var profile = Game.World.GetProfile();
+                    var profile = Game.World.Profile;
                     var neededHeartsValue = (profile.Items[ItemSlot.HeartContainers] << 8) - 0x80;
 
                     if (profile.Hearts >= neededHeartsValue)
