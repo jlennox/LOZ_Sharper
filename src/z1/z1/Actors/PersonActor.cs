@@ -2,6 +2,18 @@
 
 namespace z1.Actors;
 
+internal enum PersonType
+{
+    Shop,
+    Grumble,
+    MoneyOrLife,
+    DoorRepair,
+    Gambling,
+    Level9,
+    CaveShortcut,
+    MoreBombs,
+}
+
 internal sealed class PersonActor : Actor
 {
     public enum PersonState
@@ -23,10 +35,10 @@ internal sealed class PersonActor : Actor
     private static readonly byte[] _priceXs = { 0x48, 0x68, 0x88 };
 
     private static readonly ItemGraphics[] _sPersonGraphics = {
-        new ItemGraphics(AnimationId.OldMan,       Palette.Red),
-        new ItemGraphics(AnimationId.OldWoman,     Palette.Red),
-        new ItemGraphics(AnimationId.Merchant,     Palette.Player),
-        new ItemGraphics(AnimationId.Moblin,       Palette.Red),
+        new(AnimationId.OldMan,       Palette.Red),
+        new(AnimationId.OldWoman,     Palette.Red),
+        new(AnimationId.Merchant,     Palette.Player),
+        new(AnimationId.Moblin,       Palette.Red),
     };
 
     private PersonState _state = PersonState.Idle;
@@ -56,29 +68,34 @@ internal sealed class PersonActor : Actor
         Game.World.SetPersonWallY(0x8D);
 
         if (!Game.World.IsOverworld())
+        {
             Game.Sound.PlayEffect(SoundEffect.Item);
+        }
 
         var stringId = spec.GetStringId();
 
-        if (stringId == StringId.DoorRepair && Game.World.GotItem())
+        if (Game.World.GotItem())
         {
-            IsDeleted = true;
-            return;
-        }
+            if (stringId == StringId.DoorRepair)
+            {
+                IsDeleted = true;
+                return;
+            }
 
-        if (stringId == StringId.MoneyOrLife && Game.World.GotItem())
-        {
-            Game.World.OpenShutters();
-            Game.World.SetPersonWallY(0);
-            IsDeleted = true;
-            return;
-        }
+            if (stringId == StringId.MoneyOrLife)
+            {
+                Game.World.OpenShutters();
+                Game.World.SetPersonWallY(0);
+                IsDeleted = true;
+                return;
+            }
 
-        if (type == ObjType.Grumble && Game.World.GotItem())
-        {
-            Game.World.SetPersonWallY(0);
-            IsDeleted = true;
-            return;
+            if (type == ObjType.Grumble)
+            {
+                Game.World.SetPersonWallY(0);
+                IsDeleted = true;
+                return;
+            }
         }
 
         if (stringId == StringId.EnterLevel9)
@@ -136,6 +153,20 @@ internal sealed class PersonActor : Actor
         {
             Game.Link.SetState(PlayerState.Paused);
         }
+    }
+
+    // JOE: TODO: Start using this. I think "Shop" might be an boolean out argument?
+    private PersonType GetPersonType()
+    {
+        if (IsGambling()) return PersonType.Gambling;
+        var stringId = Spec.GetStringId();
+        if (stringId == StringId.DoorRepair) return PersonType.DoorRepair;
+        if (stringId == StringId.MoneyOrLife) return PersonType.MoneyOrLife;
+        if (stringId == StringId.EnterLevel9) return PersonType.Level9;
+        if (stringId == StringId.MoreBombs) return PersonType.MoreBombs;
+        if (ObjType == ObjType.CaveShortcut) return PersonType.CaveShortcut;
+        if (ObjType == ObjType.Grumble) return PersonType.Grumble;
+        return PersonType.Shop;
     }
 
     public override void Update()
@@ -320,8 +351,11 @@ internal sealed class PersonActor : Actor
             {
                 Game.World.PostRupeeLoss(GamblingAmounts[finalIndex]);
             }
+
+            return;
         }
-        else if (Spec.GetStringId() == StringId.MoreBombs)
+
+        if (Spec.GetStringId() == StringId.MoreBombs)
         {
             var price = Spec.GetPrice(index);
             if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
@@ -333,8 +367,10 @@ internal sealed class PersonActor : Actor
             ShowNumbers = false;
             _state = PersonState.PickedUp;
             ObjTimer = 0x40;
+            return;
         }
-        else if (Spec.GetStringId() == StringId.MoneyOrLife)
+
+        if (Spec.GetStringId() == StringId.MoneyOrLife)
         {
             var price = Spec.GetPrice(index);
             var itemId = Spec.GetItemId(index);
@@ -350,6 +386,7 @@ internal sealed class PersonActor : Actor
                 if (price > Game.World.GetItem(ItemSlot.HeartContainers)) return;
 
                 var profile = Game.World.GetProfile();
+                // JOE: TODO: This needs to emulate the original "zombie link" game behavior.
                 if (profile.Items[ItemSlot.HeartContainers] > 1)
                 {
                     profile.Items[ItemSlot.HeartContainers]--;
@@ -371,16 +408,16 @@ internal sealed class PersonActor : Actor
             ShowNumbers = false;
             _state = PersonState.PickedUp;
             ObjTimer = 0x40;
+            return;
         }
-        else  // Give money
-        {
-            var amount = Spec.GetPrice(index);
 
-            Game.World.PostRupeeWin(amount);
-            Game.World.MarkItem();
-            Spec.ClearPickUp();
-            ShowNumbers = true;
-        }
+        // Give money
+        var amount = Spec.GetPrice(index);
+
+        Game.World.PostRupeeWin(amount);
+        Game.World.MarkItem();
+        Spec.ClearPickUp();
+        ShowNumbers = true;
     }
 
     private bool IsGambling()
@@ -443,19 +480,19 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    private static readonly byte[] _stairsXs = { 0x50, 0x80, 0xB0 };
-
     private void CheckStairsHit()
     {
+        ReadOnlySpan<byte> stairsXs = [ 0x50, 0x80, 0xB0 ];
+
         if (Game.Link.Y != 0x9D) return;
 
         var rooms = Game.World.GetShortcutRooms();
         var playerX = Game.Link.X;
         var stairsIndex = -1;
 
-        for (var i = 0; i < _stairsXs.Length; i++)
+        for (var i = 0; i < stairsXs.Length; i++)
         {
-            if (playerX == _stairsXs[i])
+            if (playerX == stairsXs[i])
             {
                 stairsIndex = i;
                 break;

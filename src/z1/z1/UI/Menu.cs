@@ -12,10 +12,10 @@ internal sealed class GameMenu : Menu
 {
     private readonly Game game;
 
-    public ProfileSummarySnapshot summaries;
+    public PlayerProfile[] summaries;
     public int selectedIndex;
 
-    public GameMenu(Game game, ProfileSummarySnapshot summaries)
+    public GameMenu(Game game, PlayerProfile[] summaries)
     {
         this.game = game;
         this.summaries = summaries;
@@ -43,7 +43,7 @@ internal sealed class GameMenu : Menu
         SelectNext();
     }
 
-    void StartWorld(int fileIndex)
+    private void StartWorld(int fileIndex)
     {
         var profile = SaveFolder.ReadProfile(fileIndex);
         game.World.Start(fileIndex, profile);
@@ -59,49 +59,45 @@ internal sealed class GameMenu : Menu
         else if (game.Input.IsButtonPressing(Button.Start))
         {
             if (selectedIndex < 3)
+            {
                 StartWorld(selectedIndex);
+            }
             else if (selectedIndex == 3)
+            {
                 game.World.RegisterFile(summaries);
+            }
             else if (selectedIndex == 4)
+            {
                 game.World.EliminateFile(summaries);
+            }
         }
     }
-
-    private static readonly byte[] _selectStr = { 0x62, 0x24, 0x1C, 0x24, 0x0E, 0x24, 0x15, 0x24, 0x0E, 0x24, 0x0C, 0x24, 0x1D, 0x24, 0x62 };
-    private static readonly byte[] _nameStr = { 0x24, 0x17, 0x0A, 0x16, 0x0E, 0x24 };
-    private static readonly byte[] _lifeStr = { 0x24, 0x15, 0x12, 0x0F, 0x0E, 0x24 };
-    private static readonly byte[] _eliminateStr = { 0x0E, 0x15, 0x12, 0x16, 0x12, 0x17, 0x0A, 0x1D, 0x12, 0x18, 0x17, 0x24, 0x16, 0x18, 0x0D, 0x0E };
-    private static readonly byte[] _registerStr = {
-        0x1B, 0x0E, 0x10, 0x12, 0x1C, 0x1D, 0x0E, 0x1B, 0x24, 0x22, 0x18, 0x1E, 0x1B, 0x24, 0x17, 0x0A,
-        0x16, 0x0E
-    };
 
     public override void Draw()
     {
         Graphics.Begin();
 
         Graphics.Clear(SKColors.Black);
-
         GlobalFunctions.DrawBox(0x18, 0x40, 0xD0, 0x90);
 
         // JOE: TOOD: Use normal strings.
-        GlobalFunctions.DrawString(_selectStr, 0x40, 0x28, 0);
-        GlobalFunctions.DrawString(_nameStr, 0x50, 0x40, 0);
-        GlobalFunctions.DrawString(_lifeStr, 0x98, 0x40, 0);
-        GlobalFunctions.DrawString(_registerStr, 0x30, 0xA8, 0);
-        GlobalFunctions.DrawString(_eliminateStr, 0x30, 0xB8, 0);
+        GlobalFunctions.DrawString("- s e l e c t  -", 0x40, 0x28, 0);
+        GlobalFunctions.DrawString(" name ", 0x50, 0x40, 0);
+        GlobalFunctions.DrawString(" life ", 0x98, 0x40, 0);
+        GlobalFunctions.DrawString("register your name", 0x30, 0xA8, 0);
+        GlobalFunctions.DrawString("elimination mode", 0x30, 0xB8, 0);
 
         var y = 0x58;
         for (var i = 0; i < 3; i++)
         {
-            var summary = summaries.Summaries[i];
+            var summary = summaries[i];
             if (summary.IsActive())
             {
                 var numBuf = new byte[3].AsSpan();
                 GlobalFunctions.NumberToStringR(summary.Deaths, NumberSign.None, ref numBuf);
                 GlobalFunctions.DrawString(numBuf, 0x48, y + 8, 0);
                 GlobalFunctions.DrawString(summary.Name, 0x48, y, 0);
-                var totalHearts = summary.HeartContainers;
+                var totalHearts = summary.Hearts;
                 var heartsValue = PlayerProfile.GetMaxHeartsValue(totalHearts);
                 GlobalFunctions.DrawHearts(heartsValue, totalHearts, 0x90, y + 8);
                 GlobalFunctions.DrawFileIcon(0x30, y, summary.Quest);
@@ -129,31 +125,112 @@ internal sealed class GameMenu : Menu
         {
             selectedIndex++;
             if (selectedIndex >= 5) selectedIndex = 0;
-        } while (selectedIndex < 3 && !summaries.Summaries[selectedIndex].IsActive());
+        } while (selectedIndex < 3 && !summaries[selectedIndex].IsActive());
     }
 }
 
 internal sealed class EliminateMenu : Menu
 {
+    private static readonly byte[] EliminateStr =
+    {
+        0x6A, 0x6A, 0x6A, 0x6A,
+        0x0E, 0x15, 0x12, 0x16, 0x12, 0x17, 0x0A, 0x1D, 0x12, 0x18, 0x17, 0x24, 0x24, 0x16, 0x18, 0x0D, 0x0E,
+        0x6A, 0x6A, 0x6A, 0x6A
+    };
+
+    private static readonly byte[] EliminationEndStr =
+    {
+        0x0E, 0x15, 0x12, 0x16, 0x12, 0x17, 0x0A, 0x1D, 0x12, 0x18, 0x17, 0x24, 0x0E, 0x17, 0x0D,
+    };
+
     private readonly Game game;
 
-    public ProfileSummarySnapshot summaries;
+    public PlayerProfile[] summaries;
     public int selectedIndex;
 
-    public EliminateMenu(Game game, ProfileSummarySnapshot summaries)
+    public EliminateMenu(Game game, PlayerProfile[] summaries)
     {
         this.game = game;
         this.summaries = summaries;
+
+        SelectNext();
     }
 
-    public override void Draw()
+    private void SelectNext()
     {
-        throw new NotImplementedException();
+        do
+        {
+            selectedIndex++;
+            if (selectedIndex >= 4)
+            {
+                selectedIndex = 0;
+            }
+        } while (selectedIndex < 3 && !summaries[selectedIndex].IsActive());
+    }
+
+    private void DeleteCurrentProfile()
+    {
+        summaries[selectedIndex].Name = null;
+        SaveFolder.Save();
+        game.Sound.PlayEffect(SoundEffect.PlayerHit);
     }
 
     public override void Update()
     {
-        throw new NotImplementedException();
+        if (game.Input.IsButtonPressing(Button.Select))
+        {
+            SelectNext();
+            game.Sound.PlayEffect(SoundEffect.Cursor);
+        }
+        else if (game.Input.IsButtonPressing(Button.Start))
+        {
+            if (selectedIndex < 3)
+            {
+                DeleteCurrentProfile();
+            }
+            else if (selectedIndex == 3)
+            {
+                game.World.ChooseFile(summaries);
+            }
+        }
+    }
+
+    public override void Draw()
+    {
+        Graphics.Begin();
+
+        Graphics.Clear(SKColors.Black);
+
+        // JOE: TODO: Use actual strings.
+        var asd = ZeldaString.FromBytes(EliminateStr);
+        var asd2 = ZeldaString.FromBytes(EliminationEndStr);
+        ;
+        GlobalFunctions.DrawString("---Elimination  Mode----", 0x20, 0x18, 0);
+        GlobalFunctions.DrawString("Elimination End", 0x50, 0x78, 0);
+
+        var y = 0x30;
+        for (var i = 0; i < 3; i++)
+        {
+            var summary = summaries[i];
+            if (summary.IsActive())
+            {
+                GlobalFunctions.DrawString(summary.Name, 0x70, y, 0);
+                GlobalFunctions.DrawFileIcon(0x50, y, summary.Quest);
+            }
+            y += 24;
+        }
+
+        if (selectedIndex < 3)
+        {
+            y = 0x30 + selectedIndex * 24 + 4;
+        }
+        else
+        {
+            y = 0x78 + (selectedIndex - 3) * 16;
+        }
+        GlobalFunctions.DrawChar(Char.FullHeart, 0x44, y, Palette.LevelFgPalette);
+
+        Graphics.End();
     }
 }
 
@@ -204,56 +281,59 @@ internal sealed class RegisterMenu : Menu
     };
 
     private readonly Game _game;
-    private readonly ProfileSummarySnapshot _summaries;
+    private readonly PlayerProfile[] _summaries;
     private int _selectedIndex;
     private int _namePos;
     private int _charPosCol;
     private int _charPosRow;
     private readonly bool[] _origActive = new bool[SaveFolder.MaxProfiles];
 
-    public RegisterMenu(Game game, ProfileSummarySnapshot summaries)
+    public RegisterMenu(Game game, PlayerProfile[] summaries)
     {
         _game = game;
         _summaries = summaries;
     }
 
-    void SelectNext()
+    private void SelectNext()
     {
         do
         {
             _selectedIndex++;
             if (_selectedIndex >= 4)
+            {
                 _selectedIndex = 0;
+            }
         } while (_selectedIndex < 3 && _origActive[_selectedIndex]);
     }
 
-    void MoveNextNamePosition()
+    private void MoveNextNamePosition()
     {
         _namePos++;
         if (_namePos >= PlayerProfile.MaxNameLength)
+        {
             _namePos = 0;
+        }
     }
 
-    void AddCharToName(byte ch)
+    private void AddCharToName(byte ch)
     {
-        var summary = _summaries.Summaries[_selectedIndex];
-        if (summary.NameLength == 0)
+        var summary = _summaries[_selectedIndex];
+        if (summary.Name == null)
         {
-            Array.Fill(summary.Name, (byte)Char.Space);
-            summary.NameLength = PlayerProfile.MaxNameLength;
-            summary.HeartContainers = PlayerProfile.DefaultHearts;
+            summary.Name = "";
+            summary.Hearts = PlayerProfile.DefaultHearts;
         }
-        summary.Name[_namePos] = ch;
+        summary.Name += ZeldaString.CharFromByte(ch);
         MoveNextNamePosition();
     }
 
-    byte GetSelectedChar()
+    private byte GetSelectedChar()
     {
         var ch = _charSetStrs[_charPosRow][_charPosCol];
         return ch;
     }
 
-    void MoveCharSetCursorH(int dir)
+    private void MoveCharSetCursorH(int dir)
     {
         var fullSize = _charSetStr0.Length * _charSetStrs.Length;
 
@@ -272,14 +352,13 @@ internal sealed class RegisterMenu : Menu
                 MoveCharSetCursorV(1, false);
             }
 
-            if (GetSelectedChar() != 0x60)
-                break;
+            if (GetSelectedChar() != 0x60) break;
         }
     }
 
-    void MoveCharSetCursorV(int dir, bool skip = true)
+    private void MoveCharSetCursorV(int dir, bool skip = true)
     {
-        for (var i = 0; i < _charSetStrs.Length; i++)
+        foreach (var _ in _charSetStrs)
         {
             _charPosRow += dir;
 
@@ -292,34 +371,31 @@ internal sealed class RegisterMenu : Menu
                 _charPosRow = 0;
             }
 
-            if (GetSelectedChar() != 0x60 || !skip)
-                break;
+            if (GetSelectedChar() != 0x60 || !skip) break;
         }
     }
 
-    private static readonly byte[] _quest2Name = { 0x23, 0x0E, 0x15, 0x0D, 0x0A, 0x24, 0x24, 0x24 };
+    private static readonly string _quest2Name = "zelda";
 
-    void CommitFiles()
+    private void CommitFiles()
     {
         for (var i = 0; i < SaveFolder.MaxProfiles; i++)
         {
-            if (!_origActive[i] && _summaries.Summaries[i].IsActive())
+            if (!_origActive[i] && _summaries[i].IsActive())
             {
-                var summary = _summaries.Summaries[i];
+                var summary = _summaries[i];
                 PlayerProfile profile = new();
-
-                if (summary.Name.SequenceEqual(_quest2Name))
+                if (summary.Name == _quest2Name)
                 {
                     summary.Quest = 1;
                 }
 
-                profile.NameLength = summary.NameLength;
-                Buffer.BlockCopy(summary.Name, 0, profile.Name, 0, summary.NameLength);
+                profile.Name = summary.Name ?? throw new Exception("name missing.");
                 profile.Quest = summary.Quest;
-                profile.Items[ItemSlot.HeartContainers] = summary.HeartContainers;
+                profile.Items[ItemSlot.HeartContainers] = summary.Hearts;
                 profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultBombs;
                 // Leave deaths set 0.
-                SaveFolder.WriteProfile(i, profile);
+                SaveFolder.Save();
             }
         }
     }
@@ -411,8 +487,8 @@ internal sealed class RegisterMenu : Menu
         }
 
         GlobalFunctions.DrawBox(0x28, 0x80, 0xB8, 0x48);
-        GlobalFunctions.DrawString(_registerStr, 0x20, 0x18, 0);
-        GlobalFunctions.DrawString(_registerEndStr, 0x50, 0x78, 0);
+        GlobalFunctions.DrawString(ZeldaString.FromBytes(_registerStr), 0x20, 0x18, 0);
+        GlobalFunctions.DrawString(ZeldaString.FromBytes(_registerEndStr), 0x50, 0x78, 0);
 
         y = 0x88;
         for (var i = 0; i < _charSetStrs.Length; i++, y += 8)
@@ -423,19 +499,22 @@ internal sealed class RegisterMenu : Menu
         y = 0x30;
         for (var i = 0; i < 3; i++)
         {
-            var summary = _summaries.Summaries[i];
-            GlobalFunctions.DrawString(summary.Name[..summary.NameLength], 0x70, y, 0);
+            var summary = _summaries[i];
+            GlobalFunctions.DrawString(summary.Name, 0x70, y, 0);
             GlobalFunctions.DrawFileIcon(0x50, y, 0);
             y += 24;
         }
 
         if (_selectedIndex < 3)
+        {
             y = 0x30 + _selectedIndex * 24 + 4;
+        }
         else
+        {
             y = 0x78 + (_selectedIndex - 3) * 16;
+        }
         GlobalFunctions.DrawChar(Char.FullHeart, 0x44, y, (Palette)7);
 
         Graphics.End();
     }
-
 }

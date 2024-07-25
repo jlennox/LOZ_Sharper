@@ -35,6 +35,8 @@ internal sealed class GLWindow : IDisposable
         _window.Render += Render;
         _window.Closing += OnClosing;
         _window.FocusChanged += OnFocusChanged;
+        _window.Initialize();
+        _window.SetWindowIcon([Assets.RawImageIconFromResource("icon.ico")]);
         _window.Run();
     }
 
@@ -65,15 +67,18 @@ internal sealed class GLWindow : IDisposable
         _inputContext = window.CreateInput();
 
         // JOE: TODO: Use _inputContext.ConnectionChanged and yadda yadda yadda.
-        var targetkb = _inputContext.Keyboards[0];
-        targetkb.KeyDown += OnKeyDown;
-        targetkb.KeyUp += OnKeyUp;
+        foreach (var targetkb in _inputContext.Keyboards)
+        {
+            targetkb.KeyDown += OnKeyDown;
+            targetkb.KeyUp += OnKeyUp;
+        }
 
         var gamepad = _inputContext.Gamepads.FirstOrDefault();
         if (gamepad != null)
         {
             gamepad.ButtonDown += OnGamepadButtonDown;
             gamepad.ButtonUp += OnGamepadButtonUp;
+            gamepad.TriggerMoved += OnGamePadTriggerMoved;
         }
 
         var surface = CreateSkSurface();
@@ -84,8 +89,8 @@ internal sealed class GLWindow : IDisposable
     {
         { ButtonName.Start, Button.Start },
         { ButtonName.Back, Button.Select },
-        { ButtonName.A, Button.A },
-        { ButtonName.B, Button.B },
+        { ButtonName.B, Button.A }, // A/B are spacially B/A on NES.
+        { ButtonName.A, Button.B },
         { ButtonName.DPadLeft, Button.Left },
         { ButtonName.DPadRight, Button.Right },
         { ButtonName.DPadDown, Button.Down },
@@ -99,8 +104,12 @@ internal sealed class GLWindow : IDisposable
             _game.Input.SetButton(b);
         }
 
-        if (button.Name == ButtonName.LeftBumper) _game.GameCheats.TriggerCheat<GameCheats.KillAllCheat>();
-        if (button.Name == ButtonName.RightBumper) _game.GameCheats.TriggerCheat<GameCheats.SpeedUpCheat>();
+        // JOE: TODO: This logic does not belong here, make buttons for "SelectNextItem" and "SelectPreviousItem".
+        if (_game.Enhancements)
+        {
+            if (button.Name == ButtonName.LeftBumper) _game.World.Menu.SelectNextItem(-1);
+            if (button.Name == ButtonName.RightBumper) _game.World.Menu.SelectNextItem(1);
+        }
     }
 
     private void OnGamepadButtonUp(IGamepad gamepad, Silk.NET.Input.Button button)
@@ -108,6 +117,16 @@ internal sealed class GLWindow : IDisposable
         if (_gamepadMap.TryGetValue(button.Name, out var b))
         {
             _game.Input.UnsetButton(b);
+        }
+    }
+
+    private void OnGamePadTriggerMoved(IGamepad gamepad, Trigger trigger)
+    {
+        if (Math.Abs(trigger.Position - 1) > .01) return;
+        switch (trigger.Index)
+        {
+            case 0: _game.GameCheats.TriggerCheat<GameCheats.KillAllCheat>(); break;
+            case 1: _game.GameCheats.TriggerCheat<GameCheats.SpeedUpCheat>(); break;
         }
     }
 

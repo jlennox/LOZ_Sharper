@@ -7,6 +7,12 @@ namespace z1;
 // * Eliminate menu.
 // * Mirrored player.
 // * Win game.
+// * Credits.
+// * Make profiles save/work.
+// * Make text usually have an opaque background. Use flags, because we want the OSD to still be transparent.
+// * Nuke byte strings.
+// * Red leevers can crash.
+// * The dungeon old men use the same sprite as the overworld old men.
 
 // To check:
 // * Check `IsReoccuring` is proper.

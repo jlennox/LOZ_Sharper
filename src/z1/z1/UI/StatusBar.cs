@@ -103,7 +103,7 @@ internal sealed class StatusBar
         Draw(baseY, SKColors.Black);
     }
 
-    private void Draw(int baseY, SKColor backColor)
+    public void Draw(int baseY, SKColor backColor)
     {
         using var _ = Graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
         Graphics.Clear(backColor, 0, baseY, StatusBarWidth, StatusBarHeight);

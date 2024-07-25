@@ -4181,7 +4181,7 @@ internal sealed unsafe partial class World
                 Profile.Quest = 1;
                 Profile.Items[ItemSlot.HeartContainers] = PlayerProfile.DefaultHearts;
                 Profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultBombs;
-                SaveFolder.WriteProfile(ProfileSlot, Profile);
+                SaveFolder.Save();
 
                 Game.Sound.StopAll();
                 GotoFileMenu();
@@ -4903,7 +4903,7 @@ internal sealed unsafe partial class World
                 }
                 else if (State.Continue.SelectedIndex == 1)
                 {
-                    SaveFolder.WriteProfile(ProfileSlot, Profile);
+                    SaveFolder.Save();
                     GotoFileMenu();
                 }
                 else if (State.Continue.SelectedIndex == 2)
@@ -4944,8 +4944,7 @@ internal sealed unsafe partial class World
 
     private void GotoFileMenu()
     {
-        var summaries = SaveFolder.ReadSummaries();
-        GotoFileMenu(summaries);
+        GotoFileMenu(SaveFolder.Profiles);
     }
 
     private void GotoFileMenu(PlayerProfile[] summaries)
