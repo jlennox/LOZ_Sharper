@@ -65,9 +65,6 @@ internal sealed class Game
 
     public bool Enhancements = true;
 
-    // JOE: TODO: Also note there's World.FakePlayerPos
-    public Actor ObservedPlayer => Link;
-
     public World World;
     public Input Input = new();
     public GameCheats GameCheats;

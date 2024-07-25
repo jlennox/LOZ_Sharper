@@ -50,7 +50,7 @@ internal sealed class Link : Actor, IThrower
         // Do this in order to flash while you have the clock. It doesn't matter if it becomes zero,
         // because foes will check invincibilityTimer AND the clock item.
         // I suspect that the original game did this in the drawing code.
-        var profile = Game.World.GetProfile();
+        var profile = Game.World.Profile;
         if (profile.GetItem(ItemSlot.Clock) != 0)
         {
             InvincibilityTimer += 0x10;
@@ -59,8 +59,7 @@ internal sealed class Link : Actor, IThrower
         _curButtons = Game.Input.GetButtons();
 
         // It looks like others set player's state to $40. They don't bitwise-and it with $40.
-        if ((_state & 0xC0) == 0x40)
-            return;
+        if ((_state & 0xC0) == 0x40) return;
 
         HandleInput();
 
@@ -624,22 +623,22 @@ internal sealed class Link : Actor, IThrower
             Game.Sound.PlayEffect(SoundEffect.PlayerHit);
         }
 
-        var ringValue = Game.Profile.Items.GetValueOrDefault(ItemSlot.Ring, 0);
+        var ringValue = Game.World.Profile.Items.GetValueOrDefault(ItemSlot.Ring, 0);
 
         damage >>= ringValue;
 
         Game.World.ResetKilledObjectCount();
 
-        if (Game.Profile.Hearts <= damage)
+        if (Game.World.Profile.Hearts <= damage)
         {
-            Game.Profile.Hearts = 0;
+            Game.World.Profile.Hearts = 0;
             _state = 0;
             Facing = Direction.Down;
             Game.World.GotoDie();
         }
         else
         {
-            Game.Profile.Hearts -= damage;
+            Game.World.Profile.Hearts -= damage;
         }
     }
 
@@ -667,8 +666,7 @@ internal sealed class Link : Actor, IThrower
     public int UseCandle(int x, int y, Direction facingDir)
     {
         var itemValue = Game.World.GetItem(ItemSlot.Candle);
-        if (itemValue == 1 && Game.World.CandleUsed)
-            return 0;
+        if (itemValue == 1 && Game.World.CandleUsed) return 0;
 
         Game.World.CandleUsed = true;
 
@@ -802,7 +800,7 @@ internal sealed class Link : Actor, IThrower
     // JOE: NOTE: Return value is properly unused?
     private int UseItem()
     {
-        var profile = Game.World.GetProfile();
+        var profile = Game.World.Profile;
         if (profile.SelectedItem == 0) return 0;
 
         var itemValue = profile.Items[profile.SelectedItem];
@@ -827,10 +825,7 @@ internal sealed class Link : Actor, IThrower
             case ItemSlot.Boomerang: waitFrames = UseBoomerang(X, Y, Facing); break;
         }
 
-        if (waitFrames == 0)
-        {
-            return 0;
-        }
+        if (waitFrames == 0) return 0;
         Animator.Time = 0;
         _animTimer = 6;
         _state = 0x16;

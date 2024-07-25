@@ -171,7 +171,7 @@ internal abstract class ChaseWalkerActor : WalkerActor
         // ORIGINAL: If player.state = $FF, then skip all this, go to the end (moving := Facing).
         //           But, I don't see how the player can get in that state.
 
-        var observedPos = Game.ObservedPlayer.Position;
+        var observedPos = Game.World.GetObservedPlayerPos();
         var xDiff = Math.Abs(X - observedPos.X);
         var yDiff = Math.Abs(Y - observedPos.Y);
         int maxDiff;
@@ -285,7 +285,7 @@ internal abstract class WandererWalkerActor : WalkerActor
         }
         else
         {
-            var playerPos = Game.ObservedPlayer.Position;
+            var playerPos = Game.World.GetObservedPlayerPos();
 
             if (Math.Abs(X - playerPos.X) < 9)
             {
@@ -346,9 +346,9 @@ internal sealed class OctorokActor : DelayedWanderer
         AnimationId.OW_Octorock_Up,
     };
 
-    private static readonly WalkerSpec _blueSlowOctorockSpec = new(_octorockAnimMap, 12, Palette.Blue, Global.StdSpeed, ShotFromOctorock);
+    private static readonly WalkerSpec _blueSlowOctorockSpec = new(_octorockAnimMap, 12, Palette.Blue, StandardSpeed, ShotFromOctorock);
     private static readonly WalkerSpec _blueFastOctorockSpec = new(_octorockAnimMap, 12, Palette.Blue, FastSpeed, ShotFromOctorock);
-    private static readonly WalkerSpec _redSlowOctorockSpec = new(_octorockAnimMap, 12, Palette.Red, Global.StdSpeed, ShotFromOctorock);
+    private static readonly WalkerSpec _redSlowOctorockSpec = new(_octorockAnimMap, 12, Palette.Red, StandardSpeed, ShotFromOctorock);
     private static readonly WalkerSpec _redFastOctorockSpec = new(_octorockAnimMap, 12, Palette.Red, FastSpeed, ShotFromOctorock);
 
     protected override bool HasProjectile => true;
@@ -388,14 +388,14 @@ internal sealed class GanonActor : BlueWizzrobeBase
     private static readonly byte[] _ganonRedPalette = { 0x07, 0x17, 0x30 };
 
     private readonly SlashSpec[] _slashSpecs = {
-        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_U, 0),
-        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      1),
-        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_L, 1),
-        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      3),
-        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_U, 2),
-        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      2),
-        new SlashSpec(TileSheet.Boss,           AnimationId.B3_Slash_L, 0),
-        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      0),
+        new(TileSheet.Boss,           AnimationId.B3_Slash_U, 0),
+        new(TileSheet.PlayerAndItems, AnimationId.Slash,      1),
+        new(TileSheet.Boss,           AnimationId.B3_Slash_L, 1),
+        new(TileSheet.PlayerAndItems, AnimationId.Slash,      3),
+        new(TileSheet.Boss,           AnimationId.B3_Slash_U, 2),
+        new(TileSheet.PlayerAndItems, AnimationId.Slash,      2),
+        new(TileSheet.Boss,           AnimationId.B3_Slash_L, 0),
+        new(TileSheet.PlayerAndItems, AnimationId.Slash,      0),
     };
 
     public override bool IsReoccuring => false;
@@ -703,8 +703,8 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
     private void MoveAround()
     {
-        flashTimer = 1;
-        turnTimer++;
+        FlashTimer = 1;
+        TurnTimer++;
         TurnIfNeeded();
         MoveAndCollide();
     }
@@ -768,9 +768,6 @@ internal sealed class ZeldaActor : Actor
     private int _state;
     private readonly SpriteImage _image;
 
-    private static readonly byte[] _xs = { 0x60, 0x70, 0x80, 0x90 };
-    private static readonly byte[] _ys = { 0xB5, 0x9D, 0x9D, 0xB5 };
-
     private ZeldaActor(Game game, int x = ZeldaX, int y = ZeldaY)
         : base(game, ObjType.Zelda, x, y)
     {
@@ -779,11 +776,12 @@ internal sealed class ZeldaActor : Actor
 
     public static ZeldaActor Make(Game game)
     {
-        for (var i = 0; i < _xs.Length; i++)
-        {
-            var y = _ys[i];
+        ReadOnlySpan<byte> xs = [0x60, 0x70, 0x80, 0x90];
+        ReadOnlySpan<byte> ys = [0xB5, 0x9D, 0x9D, 0xB5];
 
-            var fire = new GuardFireActor(game, _xs[i], y);
+        for (var i = 0; i < xs.Length; i++)
+        {
+            var fire = new GuardFireActor(game, xs[i], ys[i]);
             game.World.SetObject(ObjectSlot.Monster1 + 1 + i, fire);
         }
 
@@ -892,17 +890,19 @@ internal sealed class GuardFireActor : Actor
 
 internal sealed class RupeeStashActor : Actor
 {
-    private static readonly byte[] _xs = { 0x78, 0x70, 0x80, 0x60, 0x70, 0x80, 0x90, 0x70, 0x80, 0x78 };
-    private static readonly byte[] _ys = { 0x70, 0x80, 0x80, 0x90, 0x90, 0x90, 0x90, 0xA0, 0xA0, 0xB0 };
-
     private RupeeStashActor(Game game, int x, int y)
         : base(game, ObjType.RupieStash, x, y) { }
 
     public static RupeeStashActor Make(Game game)
     {
-        for (var i = 0; i < _xs.Length; i++)
+        ReadOnlySpan<Point> points = [
+            new(0x78, 0x70), new(0x70, 0x80), new(0x80, 0x80), new(0x60, 0x90), new(0x70, 0x90), new(0x80, 0x90),
+            new(0x90, 0x90), new(0x70, 0xA0), new(0x80, 0xA0), new(0x78, 0xB0)];
+
+        for (var i = 0; i < points.Length; i++)
         {
-            var rupee = new RupeeStashActor(game, _xs[i], _ys[i]);
+            var point = points[i];
+            var rupee = new RupeeStashActor(game, point.X, point.Y);
             game.World.SetObject((ObjectSlot)i, rupee);
         }
 
@@ -1019,8 +1019,6 @@ internal sealed class PondFairyActor : Actor
 
     private enum PondFairyState { Idle, Healing, Healed }
 
-    private static readonly byte[] _entryAngles = { 0, 11, 22, 33, 44, 55, 66, 77 };
-
     private readonly byte[] _heartState = new byte[8];
     private readonly byte[] _heartAngle = new byte[8];
 
@@ -1070,11 +1068,13 @@ internal sealed class PondFairyActor : Actor
 
     private void UpdateHealing()
     {
+        ReadOnlySpan<byte> entryAngles = [ 0, 11, 22, 33, 44, 55, 66, 77 ];
+
         for (var i = 0; i < _heartState.Length; i++)
         {
             if (_heartState[i] == 0)
             {
-                if (_heartAngle[0] == _entryAngles[i])
+                if (_heartAngle[0] == entryAngles[i])
                 {
                     _heartState[i] = 1;
                 }
@@ -1170,7 +1170,7 @@ internal sealed class GhiniActor : WandererWalkerActor
         AnimationId.OW_Ghini_UpRight,
     };
 
-    private static readonly WalkerSpec _ghiniSpec = new(_ghiniAnimMap, 12, Palette.Blue, Global.StdSpeed);
+    private static readonly WalkerSpec _ghiniSpec = new(_ghiniAnimMap, 12, Palette.Blue, StandardSpeed);
 
     public GhiniActor(Game game, int x, int y)
         : base(game, ObjType.Ghini, _ghiniSpec, 0xFF, x, y)
@@ -1205,7 +1205,7 @@ internal sealed class GibdoActor : StdWanderer
         AnimationId.UW_Gibdo
     };
 
-    private static readonly WalkerSpec _gibdoSpec = new(_gibdoAnimMap, 16, Palette.Blue, Global.StdSpeed);
+    private static readonly WalkerSpec _gibdoSpec = new(_gibdoAnimMap, 16, Palette.Blue, StandardSpeed);
 
     public override bool CanHoldRoomItem => true;
 
@@ -1224,7 +1224,7 @@ internal sealed class DarknutActor : StdWanderer
         AnimationId.UW_Darknut_Up
     };
 
-    private static readonly WalkerSpec _redDarknutSpec = new(_darknutAnimMap, 16, Palette.Red, Global.StdSpeed);
+    private static readonly WalkerSpec _redDarknutSpec = new(_darknutAnimMap, 16, Palette.Red, StandardSpeed);
     private static readonly WalkerSpec _blueDarknutSpec = new(_darknutAnimMap, 16, Palette.Blue, 0x28);
 
     private DarknutActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
@@ -1257,7 +1257,6 @@ internal sealed class DarknutActor : StdWanderer
     }
 }
 
-
 internal sealed class StalfosActor : StdWanderer
 {
     private static readonly AnimationId[] _stalfosAnimMap = {
@@ -1267,7 +1266,7 @@ internal sealed class StalfosActor : StdWanderer
         AnimationId.UW_Stalfos,
     };
 
-    private static readonly WalkerSpec _stalfosSpec = new(_stalfosAnimMap, 16, Palette.Red, Global.StdSpeed, ObjType.PlayerSwordShot);
+    private static readonly WalkerSpec _stalfosSpec = new(_stalfosAnimMap, 16, Palette.Red, StandardSpeed, ObjType.PlayerSwordShot);
 
     public override bool CanHoldRoomItem => true;
 
@@ -1335,11 +1334,9 @@ internal sealed class GelActor : WandererWalkerActor
                 ObjTimer = 5;
                 _state = 1;
                 break;
-
             case 1:
                 UpdateShove();
                 break;
-
             case 2:
                 UpdateWander();
                 break;
@@ -1351,10 +1348,8 @@ internal sealed class GelActor : WandererWalkerActor
 
     private void UpdateShove()
     {
-        if (ObjTimer != 0)
-        {
-            if (TryBigShove()) return;
-        }
+        if (ObjTimer != 0 && TryBigShove()) return;
+
         X = (X + 8) & 0xF0;
         Y = (Y + 8) & 0xF0;
         Y |= 0xD;
@@ -1457,15 +1452,15 @@ internal sealed class ZolActor : WandererWalkerActor
             _state = 2;
     }
 
-    private static readonly Direction[] _sHDirs = { Direction.Right, Direction.Left };
-    private static readonly Direction[] _sVDirs = { Direction.Down, Direction.Up };
-
     private void UpdateSplit()
     {
+        ReadOnlySpan<Direction> sHDirs = [ Direction.Right, Direction.Left ];
+        ReadOnlySpan<Direction> sVDirs = [ Direction.Down, Direction.Up ];
+
         IsDeleted = true;
         Game.World.RoomObjCount++;
 
-        var orthoDirs = Facing.IsHorizontal() ? _sVDirs : _sHDirs;
+        var orthoDirs = Facing.IsHorizontal() ? sVDirs : sHDirs;
 
         for (var i = 0; i < 2; i++)
         {
@@ -1491,6 +1486,7 @@ internal sealed class BubbleActor : WandererWalkerActor
     private static readonly WalkerSpec _bubbleSpec = new(_bubbleAnimMap, 2, Palette.Blue, FastSpeed);
 
     public override bool CountsAsLiving => false;
+
     public BubbleActor(Game game, ObjType type, int x, int y)
         : base(game, type, _bubbleSpec, 0x40, x, y)
     {
@@ -1543,8 +1539,6 @@ internal sealed class BubbleActor : WandererWalkerActor
 
 internal sealed class VireActor : WandererWalkerActor
 {
-    private static readonly int[] _vireOffsetY = { 0, -3, -2, -1, -1, 0, -1, 0, 0, 1, 0, 1, 1, 2, 3, 0 };
-
     private static readonly AnimationId[] _vireAnimMap = {
         AnimationId.UW_Vire_Down,
         AnimationId.UW_Vire_Down,
@@ -1552,7 +1546,7 @@ internal sealed class VireActor : WandererWalkerActor
         AnimationId.UW_Vire_Up,
     };
 
-    private static readonly WalkerSpec _vireSpec = new(_vireAnimMap, 20, Palette.Blue, Global.StdSpeed);
+    private static readonly WalkerSpec _vireSpec = new(_vireAnimMap, 20, Palette.Blue, StandardSpeed);
 
     private int _state;
 
@@ -1580,12 +1574,14 @@ internal sealed class VireActor : WandererWalkerActor
 
     private void UpdateWander()
     {
+        ReadOnlySpan<int> vireOffsetY = [ 0, -3, -2, -1, -1, 0, -1, 0, 0, 1, 0, 1, 1, 2, 3, 0 ];
+
         MoveIfNeeded();
 
         if (!IsStunned && Facing.IsHorizontal())
         {
             var offsetX = Math.Abs(TileOffset);
-            Y += _vireOffsetY[offsetX];
+            Y += vireOffsetY[offsetX];
         }
 
         CheckCollisions();
@@ -1631,7 +1627,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
         AnimationId.UW_LikeLike,
     };
 
-    private static readonly WalkerSpec _likeLikeSpec = new(_likeLikeAnimMap, 24, Palette.Red, Global.StdSpeed);
+    private static readonly WalkerSpec _likeLikeSpec = new(_likeLikeAnimMap, 24, Palette.Red, StandardSpeed);
 
     public override bool CanHoldRoomItem => true;
 
@@ -1829,7 +1825,7 @@ internal sealed class BlueLeeverActor : DigWanderer
     private static readonly WalkerSpec _blueLeeverHiddenSpec = new(null, 32, Palette.Blue, 0x8);
     private static readonly WalkerSpec _blueLeeverMoundSpec = new(MoundAnimMap, 22, Palette.Blue, 0xA);
     private static readonly WalkerSpec _blueLeeverHalfSpec = new(_leeverHalfAnimMap, 2, Palette.Blue, 0x10);
-    private static readonly WalkerSpec _blueLeeverFullSpec = new(_leeverAnimMap, 10, Palette.Blue, Global.StdSpeed);
+    private static readonly WalkerSpec _blueLeeverFullSpec = new(_leeverAnimMap, 10, Palette.Blue, StandardSpeed);
 
     private static readonly WalkerSpec[] _blueLeeverSpecs = {
         _blueLeeverHiddenSpec,
@@ -3722,7 +3718,7 @@ internal sealed class RedWizzrobeActor : Actor
     private void SetFacingAnimation()
     {
         var dirOrd = Facing.GetOrdinal();
-        _animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, BlueWizzrobeBase.wizzrobeAnimMap[dirOrd]);
+        _animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, BlueWizzrobeBase.WizzrobeAnimMap[dirOrd]);
     }
 
     private void UpdateHidden()
@@ -4393,7 +4389,7 @@ internal sealed class DodongoActor : WandererWalkerActor
         AnimationId.B1_Dodongo_Bloated_U
     };
 
-    private static readonly WalkerSpec _dodongoWalkSpec = new(_dodongoWalkAnimMap, 20, Palette.Red, Global.StdSpeed);
+    private static readonly WalkerSpec _dodongoWalkSpec = new(_dodongoWalkAnimMap, 20, Palette.Red, StandardSpeed);
 
     private static readonly byte[] _palette = { 0, 0x17, 0x27, 0x30 };
     private static readonly int[] _negBounds = { -0x10, 0, -8, 0, -8, -4, -4, -0x10, 0, 0 };
@@ -4709,6 +4705,11 @@ internal sealed class ManhandlaActor : Actor
     private static readonly int[] _xOffsets = { 0, 0, -0x10, 0x10, 0 };
     private static readonly int[] _yOffsets = { -0x10, 0x10, 0, 0, 0 };
 
+    // JOE: TODO: Destatic these.
+    private static int _sPartsDied;
+    private static Direction _sFacingAtFrameBegin;
+    private static Direction _sBounceDir;
+
     private readonly SpriteAnimator _animator;
 
     private ushort _curSpeedFix;
@@ -4716,10 +4717,6 @@ internal sealed class ManhandlaActor : Actor
     private ushort _frameAccum;
     private int _frame;
     private int _oldFrame;
-
-    private static int _sPartsDied;
-    private static Direction _sFacingAtFrameBegin;
-    private static Direction _sBounceDir;
 
     public override bool IsReoccuring => false;
 
@@ -5414,7 +5411,7 @@ internal sealed class ArmosActor : ChaseWalkerActor
         AnimationId.OW_Armos_Up
     };
 
-    private static readonly WalkerSpec _armosSpec = new(_armosAnimMap, 12, Palette.Red, Global.StdSpeed);
+    private static readonly WalkerSpec _armosSpec = new(_armosAnimMap, 12, Palette.Red, StandardSpeed);
 
     private int _state;
 
@@ -5491,8 +5488,8 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
         AnimationId.UW_Goriya_Up
     };
 
-    private static readonly WalkerSpec _blueGoriyaSpec = new(_goriyaAnimMap, 12, Palette.Blue, Global.StdSpeed);
-    private static readonly WalkerSpec _redGoriyaSpec = new(_goriyaAnimMap, 12, Palette.Red, Global.StdSpeed);
+    private static readonly WalkerSpec _blueGoriyaSpec = new(_goriyaAnimMap, 12, Palette.Blue, StandardSpeed);
+    private static readonly WalkerSpec _redGoriyaSpec = new(_goriyaAnimMap, 12, Palette.Red, StandardSpeed);
 
     private Actor? _shotRef;
 
@@ -5541,10 +5538,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
 
     private void TryThrowingBoomerang()
     {
-        if (ObjTimer != 0)
-        {
-            return;
-        }
+        if (ObjTimer != 0) return;
 
         if (ObjType == ObjType.RedGoriya)
         {
@@ -5642,8 +5636,8 @@ internal sealed class LynelActor : StdChaseWalker
         AnimationId.OW_Lynel_Up,
     };
 
-    private static readonly WalkerSpec _blueLynelSpec = new(_lynelAnimMap, 12, Palette.Blue, Global.StdSpeed, ObjType.PlayerSwordShot);
-    private static readonly WalkerSpec _redLynelSpec = new(_lynelAnimMap, 12, Palette.Red, Global.StdSpeed, ObjType.PlayerSwordShot);
+    private static readonly WalkerSpec _blueLynelSpec = new(_lynelAnimMap, 12, Palette.Blue, StandardSpeed, ObjType.PlayerSwordShot);
+    private static readonly WalkerSpec _redLynelSpec = new(_lynelAnimMap, 12, Palette.Red, StandardSpeed, ObjType.PlayerSwordShot);
 
     private LynelActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
         : base(game, type, spec, x, y)
@@ -5674,8 +5668,8 @@ internal sealed class MoblinActor : StdWanderer
         AnimationId.OW_Moblin_Up,
     };
 
-    private static readonly WalkerSpec _blueMoblinSpec = new(_moblinAnimMap, 12, (Palette)7, Global.StdSpeed, ObjType.Arrow);
-    private static readonly WalkerSpec _redMoblinSpec = new(_moblinAnimMap, 12, Palette.Red, Global.StdSpeed, ObjType.Arrow);
+    private static readonly WalkerSpec _blueMoblinSpec = new(_moblinAnimMap, 12, (Palette)7, StandardSpeed, ObjType.Arrow);
+    private static readonly WalkerSpec _redMoblinSpec = new(_moblinAnimMap, 12, Palette.Red, StandardSpeed, ObjType.Arrow);
 
     private MoblinActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
         : base(game, type, spec, 0xA0, x, y)

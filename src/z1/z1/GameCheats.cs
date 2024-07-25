@@ -236,7 +236,7 @@ internal sealed class GameCheats
             profile.Items[ItemSlot.Compass] = 0xFF;
             profile.Items[ItemSlot.Map9] = 0xFF;
             profile.Items[ItemSlot.Compass9] = 0xFF;
-            profile.Hearts = profile.Items[ItemSlot.HeartContainers];
+            profile.Hearts = PlayerProfile.GetMaxHeartsValue(16);
             profile.SelectedItem = ItemSlot.Bombs;
 
             game.Toast("All items added.");

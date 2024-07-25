@@ -2,27 +2,27 @@
 
 namespace z1.Actors;
 
-internal enum PersonType
-{
-    Shop,
-    Grumble,
-    MoneyOrLife,
-    DoorRepair,
-    Gambling,
-    Level9,
-    CaveShortcut,
-    MoreBombs,
-}
-
 internal sealed class PersonActor : Actor
 {
-    public enum PersonState
+    private enum PersonState
     {
         Idle,
         PickedUp,
         WaitingForLetter,
         WaitingForFood,
         WaitingForStairs,
+    }
+
+    internal enum PersonType
+    {
+        Shop,
+        Grumble,
+        MoneyOrLife,
+        DoorRepair,
+        Gambling,
+        Level9,
+        CaveShortcut,
+        MoreBombs,
     }
 
     private const int ItemY = 0x98;
@@ -361,8 +361,9 @@ internal sealed class PersonActor : Actor
             if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
 
             Game.World.PostRupeeLoss(price);
-            Game.World.GetProfile().Items[ItemSlot.MaxBombs] += 4;
-            Game.World.GetProfile().Items[ItemSlot.Bombs] = Game.World.GetProfile().Items[ItemSlot.MaxBombs];
+            var profile = Game.World.Profile;
+            profile.Items[ItemSlot.MaxBombs] += 4;
+            profile.Items[ItemSlot.Bombs] = profile.Items[ItemSlot.MaxBombs];
 
             ShowNumbers = false;
             _state = PersonState.PickedUp;
@@ -385,7 +386,7 @@ internal sealed class PersonActor : Actor
             {
                 if (price > Game.World.GetItem(ItemSlot.HeartContainers)) return;
 
-                var profile = Game.World.GetProfile();
+                var profile = Game.World.Profile;
                 // JOE: TODO: This needs to emulate the original "zombie link" game behavior.
                 if (profile.Items[ItemSlot.HeartContainers] > 1)
                 {

@@ -4,25 +4,23 @@ namespace z1.Actors;
 
 internal abstract class BlueWizzrobeBase : WizzrobeBase
 {
-    public static readonly AnimationId[] wizzrobeAnimMap = {
+    public static readonly AnimationId[] WizzrobeAnimMap = {
         AnimationId.UW_Wizzrobe_Right,
         AnimationId.UW_Wizzrobe_Left,
         AnimationId.UW_Wizzrobe_Right,
         AnimationId.UW_Wizzrobe_Up
     };
 
-    private static readonly int[] blueWizzrobeXSpeeds = { 0, 1, -1, 0, 0, 1, -1, 0, 0, 1, -1 };
-    private static readonly int[] blueWizzrobeYSpeeds = { 0, 0, 0, 0, 1, 1, 1, 0, -1, -1, -1 };
+    protected byte FlashTimer;
+    protected byte TurnTimer;
 
-    protected byte flashTimer;
-    protected byte turnTimer;
-
-    protected BlueWizzrobeBase(Game game, ObjType type, int x, int y) : base(game, type, x, y)
+    protected BlueWizzrobeBase(Game game, ObjType type, int x, int y)
+        : base(game, type, x, y)
     {
         Decoration = 0;
     }
 
-    void TruncatePosition()
+    private void TruncatePosition()
     {
         X = (X + 8) & 0xF0;
         Y = (Y + 8) & 0xF0;
@@ -41,7 +39,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
                 }
                 else
                 {
-                    turnTimer++;
+                    TurnTimer++;
                     TurnIfNeeded();
                     MoveAndCollide();
                 }
@@ -54,7 +52,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
             return;
         }
 
-        if (flashTimer == 0)
+        if (FlashTimer == 0)
         {
             var r = Random.Shared.GetByte();
             ObjTimer = (byte)(r | 0x70);
@@ -63,7 +61,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
             return;
         }
 
-        flashTimer--;
+        FlashTimer--;
         MoveAndCollide();
     }
 
@@ -75,48 +73,44 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
         if (collisionResult == 1)
         {
-            if (Facing.IsVertical())
-                Facing ^= Direction.VerticalMask;
-            if (Facing.IsHorizontal())
-                Facing ^= Direction.HorizontalMask;
+            if (Facing.IsVertical()) Facing ^= Direction.VerticalMask;
+            if (Facing.IsHorizontal()) Facing ^= Direction.HorizontalMask;
 
             Move();
         }
         else if (collisionResult == 2)
         {
-            if (flashTimer == 0)
+            if (FlashTimer == 0)
             {
-                flashTimer = 0x20;
-                turnTimer ^= 0x40;
+                FlashTimer = 0x20;
+                TurnTimer ^= 0x40;
                 ObjTimer = 0;
                 TruncatePosition();
             }
         }
     }
 
-    void Move()
+    private void Move()
     {
+        ReadOnlySpan<int> blueWizzrobeXSpeeds = [0, 1, -1, 0, 0, 1, -1, 0, 0, 1, -1];
+        ReadOnlySpan<int> blueWizzrobeYSpeeds = [0, 0, 0, 0, 1, 1, 1, 0, -1, -1, -1];
+
         X += blueWizzrobeXSpeeds[(int)Facing];
         Y += blueWizzrobeYSpeeds[(int)Facing];
     }
 
     protected void TryShooting()
     {
-        if (Game.World.GetItem(ItemSlot.Clock) != 0)
-            return;
-        if (flashTimer != 0)
-            return;
-        if ((Game.GetFrameCounter() % 0x20) != 0)
-            return;
+        if (Game.World.GetItem(ItemSlot.Clock) != 0) return;
+        if (FlashTimer != 0) return;
+        if ((Game.GetFrameCounter() % 0x20) != 0) return;
 
         var player = Game.Link;
         Direction dir;
 
         if ((player.Y & 0xF0) != (Y & 0xF0))
         {
-            if (player.X != (X & 0xF0))
-                return;
-
+            if (player.X != (X & 0xF0)) return;
             dir = GetYDirToTruePlayer(Y);
         }
         else
@@ -124,8 +118,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
             dir = GetXDirToTruePlayer(X);
         }
 
-        if (dir != Facing)
-            return;
+        if (dir != Facing) return;
 
         Game.Sound.PlayEffect(SoundEffect.MagicWave);
         Shoot(ObjType.MagicWave, X, Y, Facing);
@@ -133,34 +126,35 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
     protected void TurnIfNeeded()
     {
-        if ((turnTimer & 0x3F) == 0)
+        if ((TurnTimer & 0x3F) == 0)
+        {
             Turn();
+        }
     }
 
-    void Turn()
+    private void Turn()
     {
-        var dir = (turnTimer & 0x40) != 0
+        var dir = (TurnTimer & 0x40) != 0
             ? GetYDirToTruePlayer(Y)
             : GetXDirToTruePlayer(X);
 
-        if (dir == Facing)
-            return;
+        if (dir == Facing) return;
 
         Facing = dir;
         TruncatePosition();
     }
 
-    private static readonly int[] blueWizzrobeTeleportXOffsets = { -0x20, 0x20, -0x20, 0x20 };
-    private static readonly int[] blueWizzrobeTeleportYOffsets = { -0x20, -0x20, 0x20, 0x20 };
-    private static readonly int[] blueWizzrobeTeleportDirs = { 0xA, 9, 6, 5 };
+    private static readonly int[] _blueWizzrobeTeleportXOffsets = { -0x20, 0x20, -0x20, 0x20 };
+    private static readonly int[] _blueWizzrobeTeleportYOffsets = { -0x20, -0x20, 0x20, 0x20 };
+    private static readonly int[] _blueWizzrobeTeleportDirs = { 0xA, 9, 6, 5 };
 
-    void TryTeleporting()
+    private void TryTeleporting()
     {
         var index = Random.Shared.Next(4);
 
-        var teleportX = X + blueWizzrobeTeleportXOffsets[index];
-        var teleportY = Y + blueWizzrobeTeleportYOffsets[index];
-        var dir = (Direction)blueWizzrobeTeleportDirs[index];
+        var teleportX = X + _blueWizzrobeTeleportXOffsets[index];
+        var teleportY = Y + _blueWizzrobeTeleportYOffsets[index];
+        var dir = (Direction)_blueWizzrobeTeleportDirs[index];
 
         var collisionResult = CheckWizzrobeTileCollision(teleportX, teleportY, dir);
 
@@ -173,8 +167,8 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         {
             Facing = dir;
 
-            flashTimer = 0x20;
-            turnTimer ^= 0x40;
+            FlashTimer = 0x20;
+            TurnTimer ^= 0x40;
             ObjTimer = 0;
         }
 
@@ -184,36 +178,37 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
 internal abstract class WizzrobeBase : Actor
 {
-    private static readonly int[] allWizzrobeCollisionXOffsets = { 0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0 };
-    private static readonly int[] allWizzrobeCollisionYOffsets = { 4, 4, 0, 8, 8, 8, 0, -8, 0, 0 };
+    protected WizzrobeBase(Game game, ObjType type, int x, int y)
+        : base(game, type, x, y) { }
 
     protected int CheckWizzrobeTileCollision(int x, int y, Direction dir)
     {
+        ReadOnlySpan<int> allWizzrobeCollisionXOffsets = [0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0];
+        ReadOnlySpan<int> allWizzrobeCollisionYOffsets = [4, 4, 0, 8, 8, 8, 0, -8, 0, 0];
+
         // JOE: TODO: This can crash.
         var ord = dir - 1;
         x += allWizzrobeCollisionXOffsets[(int)ord];
         y += allWizzrobeCollisionYOffsets[(int)ord];
 
         var collision = Game.World.CollidesWithTileStill(x, y);
-        if (!collision.Collides)
-            return 0;
+        if (!collision.Collides) return 0;
 
         // This isn't quite the same as the original game, because the original contrasted
         // blocks and water together with everything else.
         return World.CollidesWall(collision.TileBehavior) ? 1 : 2;
     }
-
-    protected WizzrobeBase(Game game, ObjType type, int x, int y) : base(game, type, x, y) { }
 }
 
 internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 {
-    readonly SpriteAnimator Animator;
+    private readonly SpriteAnimator _animator;
 
-    public BlueWizzrobeActor(Game game, int x, int y) : base(game, ObjType.BlueWizzrobe, x, y)
+    public BlueWizzrobeActor(Game game, int x, int y)
+        : base(game, ObjType.BlueWizzrobe, x, y)
     {
         Debug.WriteLine($"BLUEWIZZ.ctor {game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
-        Animator = new SpriteAnimator
+        _animator = new SpriteAnimator
         {
             DurationFrames = 16,
             Time = 0
@@ -234,7 +229,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
         MoveOrTeleport();
         TryShooting();
 
-        if ((flashTimer & 1) == 0)
+        if ((FlashTimer & 1) == 0)
         {
             AnimateAndCheckCollisions();
         }
@@ -244,22 +239,22 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 
     public override void Draw()
     {
-        if ((flashTimer & 1) == 0 && Facing != Direction.None)
+        if ((FlashTimer & 1) == 0 && Facing != Direction.None)
         {
             var pal = CalcPalette(Palette.Blue);
-            Animator.Draw(TileSheet.Npcs, X, Y, pal);
+            _animator.Draw(TileSheet.Npcs, X, Y, pal);
         }
     }
 
-    void SetFacingAnimation()
+    private void SetFacingAnimation()
     {
         var dirOrd = Facing.GetOrdinal();
-        Animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, wizzrobeAnimMap[dirOrd]);
+        _animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, WizzrobeAnimMap[dirOrd]);
     }
 
-    void AnimateAndCheckCollisions()
+    private void AnimateAndCheckCollisions()
     {
-        Animator.Advance();
+        _animator.Advance();
 
         // If I really wanted, I could make a friend function or class to do this, which is the same
         // as in RedWizzrobe.

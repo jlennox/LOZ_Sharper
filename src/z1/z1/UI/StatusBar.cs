@@ -284,7 +284,7 @@ internal sealed class StatusBar
 
     private void DrawItemB(int baseY)
     {
-        var profile = _world.GetProfile();
+        var profile = _world.Profile;
         if (profile.SelectedItem == 0) return;
 
         var itemValue = profile.Items[profile.SelectedItem];
@@ -298,7 +298,7 @@ internal sealed class StatusBar
     private void DrawHearts(int baseY)
     {
         var totalHearts = _world.GetItem(ItemSlot.HeartContainers);
-        var heartsValue = _world.GetProfile().Hearts;
+        var heartsValue = _world.Profile.Hearts;
         var y = HeartsY + baseY;
         GlobalFunctions.DrawHearts(heartsValue, totalHearts, HeartsX, y);
     }

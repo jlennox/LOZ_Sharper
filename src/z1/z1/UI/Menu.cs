@@ -8,13 +8,13 @@ internal abstract class Menu
     public abstract void Draw();
 }
 
-internal sealed class GameMenu : Menu
+internal sealed class ProfileSelectMenu : Menu
 {
     private int _selectedIndex;
     private readonly PlayerProfile[] _summaries;
     private readonly Game _game;
 
-    public GameMenu(Game game, PlayerProfile[] summaries)
+    public ProfileSelectMenu(Game game, PlayerProfile[] summaries)
     {
         _game = game;
         _summaries = summaries;

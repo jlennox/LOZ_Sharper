@@ -29,7 +29,7 @@ internal sealed class SubmenuType
     private readonly record struct PassiveItemSpec(ItemSlot ItemSlot, byte X);
     private readonly record struct TriforcePieceSpec(byte X, byte Y, byte[][] OffTiles, byte[][] OnTiles);
 
-    private static readonly byte[] equippedUISlots = {
+    private static readonly byte[] _equippedUISlots = {
         0,          // Sword
         1,          // Bombs
         2,          // Arrow
@@ -60,7 +60,7 @@ internal sealed class SubmenuType
         0,          // Boomerang
     };
 
-    private static readonly TileInst[] uiTiles = {
+    private static readonly TileInst[] _uiTiles = {
         // INVENTORY
         new(0x12, 0x20, 0x10, 1),
         new(0x17, 0x28, 0x10, 1),
@@ -156,7 +156,7 @@ internal sealed class SubmenuType
         new(0x6D, 0xD8, 0x48, 0),
     };
 
-    private static readonly PassiveItemSpec[] passiveItems =
+    private static readonly PassiveItemSpec[] _passiveItems =
     {
         new(ItemSlot.Raft,     PassiveItemX),
         new(ItemSlot.Book,     PassiveItemX + 0x18),
@@ -166,7 +166,7 @@ internal sealed class SubmenuType
         new(ItemSlot.Bracelet, PassiveItemX + 0x50),
     };
 
-    private static readonly ItemSlot[] inventoryOrder = {
+    private static readonly ItemSlot[] _inventoryOrder = {
         ItemSlot.Boomerang,
         ItemSlot.Bombs,
         ItemSlot.Arrow,
@@ -178,15 +178,15 @@ internal sealed class SubmenuType
         ItemSlot.Rod,
     };
 
-    private static readonly int ArrowBowUISlot = Array.IndexOf(inventoryOrder, ItemSlot.Arrow);
+    private static readonly int _arrowBowUISlot = Array.IndexOf(_inventoryOrder, ItemSlot.Arrow);
 
     private readonly Game _game;
-    private bool enabled;
-    private bool activated;
-    private int activeUISlot;
-    private readonly ItemSlot[] activeSlots = new ItemSlot[ActiveItems];
-    private readonly ItemId[] activeItems = new ItemId[ActiveItems];
-    private readonly SpriteImage cursor = new();
+    private bool _enabled;
+    private bool _activated;
+    private int _activeUISlot;
+    private readonly ItemSlot[] _activeSlots = new ItemSlot[ActiveItems];
+    private readonly ItemId[] _activeItems = new ItemId[ActiveItems];
+    private readonly SpriteImage _cursor = new();
 
     public SubmenuType(Game game)
     {
@@ -195,9 +195,9 @@ internal sealed class SubmenuType
 
     private ItemId GetItemIdForUISlot(int uiSlot, ref ItemSlot itemSlot)
     {
-        var profile = _game.World.GetProfile();
+        var profile = _game.World.Profile;
 
-        itemSlot = inventoryOrder[uiSlot];
+        itemSlot = _inventoryOrder[uiSlot];
 
         if (itemSlot == ItemSlot.Arrow)
         {
@@ -235,36 +235,36 @@ internal sealed class SubmenuType
         // JOE: TODO: Write an enumerator for this?
         for (var i = 0; i < ActiveItems; i++)
         {
-            activeItems[i] = GetItemIdForUISlot(i, ref activeSlots[i]);
+            _activeItems[i] = GetItemIdForUISlot(i, ref _activeSlots[i]);
         }
 
         // JOE: TODO: Can this be in the constructor?
-        cursor.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cursor);
+        _cursor.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cursor);
 
-        var profile = _game.World.GetProfile();
+        var profile = _game.World.Profile;
 
-        activeUISlot = equippedUISlots[(int)profile.SelectedItem];
-        enabled = true;
+        _activeUISlot = _equippedUISlots[(int)profile.SelectedItem];
+        _enabled = true;
     }
 
     public void Disable()
     {
-        enabled = false;
+        _enabled = false;
     }
 
     public void Activate()
     {
-        activated = true;
+        _activated = true;
     }
 
     public void Deactivate()
     {
-        activated = false;
+        _activated = false;
     }
 
     public void Update()
     {
-        if (!activated)
+        if (!_activated)
         {
             return;
         }
@@ -293,12 +293,12 @@ internal sealed class SubmenuType
             if (_game.Enhancements)
             {
                 var amount = ItemsPerRow * ydir;
-                var target = (activeUISlot + amount) % ActiveItems;
-                if (target < 0) target = activeUISlot - amount;
+                var target = (_activeUISlot + amount) % ActiveItems;
+                if (target < 0) target = _activeUISlot - amount;
 
-                if (activeItems[target] != ItemId.None)
+                if (_activeItems[target] != ItemId.None)
                 {
-                    activeUISlot = target;
+                    _activeUISlot = target;
                 }
             }
         }
@@ -307,32 +307,32 @@ internal sealed class SubmenuType
             SelectNextItem(xdir);
         }
 
-        var profile = _game.World.GetProfile();
-        profile.SelectedItem = activeSlots[activeUISlot];
+        var profile = _game.World.Profile;
+        profile.SelectedItem = _activeSlots[_activeUISlot];
     }
 
     public void SelectNextItem(int xdir = 1)
     {
         for (var i = 0; i < ActiveItems; i++)
         {
-            activeUISlot += xdir;
+            _activeUISlot += xdir;
+            _activeUISlot += _activeUISlot switch
+            {
+                < 0 => ActiveItems,
+                >= ActiveItems => -ActiveItems,
+                _ => 0,
+            };
 
-            if (activeUISlot < 0)
-                activeUISlot += ActiveItems;
-            else if (activeUISlot >= ActiveItems)
-                activeUISlot -= ActiveItems;
-
-            if (activeItems[activeUISlot] != ItemId.None)
-                break;
+            if (_activeItems[_activeUISlot] != ItemId.None) break;
         }
 
-        var profile = _game.World.GetProfile();
-        profile.SelectedItem = activeSlots[activeUISlot];
+        var profile = _game.World.Profile;
+        profile.SelectedItem = _activeSlots[_activeUISlot];
     }
 
     public void Draw(int bottom)
     {
-        if (!enabled) return;
+        if (!_enabled) return;
 
         var top = bottom - Height;
 
@@ -357,24 +357,23 @@ internal sealed class SubmenuType
     {
         Graphics.Clear(SKColors.Black);
 
-        for (var i = 0; i < uiTiles.Length; i++)
+        foreach (var tileInst in _uiTiles)
         {
-            var tileInst = uiTiles[i];
             GlobalFunctions.DrawChar(tileInst.Id, tileInst.X, tileInst.Y + top, tileInst.Palette);
         }
     }
 
     private void DrawActiveInventory(int top)
     {
-        var profile = _game.World.GetProfile();
+        var profile = _game.World.Profile;
         var x = ActiveItemX;
         var y = ActiveItemY + top;
 
         for (var i = 0; i < ActiveItems; i++)
         {
-            var itemId = activeItems[i];
+            var itemId = _activeItems[i];
 
-            if (i == ArrowBowUISlot)
+            if (i == _arrowBowUISlot)
             {
                 if (profile.Items[ItemSlot.Arrow] != 0)
                 {
@@ -399,34 +398,34 @@ internal sealed class SubmenuType
             }
         }
 
-        x = ActiveItemX + (activeUISlot % 4) * ActiveItemStrideX;
-        y = ActiveItemY + (activeUISlot / 4) * ActiveItemStrideY + top;
+        x = ActiveItemX + (_activeUISlot % 4) * ActiveItemStrideX;
+        y = ActiveItemY + (_activeUISlot / 4) * ActiveItemStrideY + top;
 
         var cursorPals = new[] { Palette.BlueFgPalette, Palette.RedFgPalette };
         var cursorPal = cursorPals[(_game.World.Game.GetFrameCounter() >> 3) & 1];
-        cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal);
+        _cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal);
     }
 
     private void DrawPassiveInventory(int top)
     {
-        var profile = _game.World.GetProfile();
+        var profile = _game.World.Profile;
 
         for (var i = 0; i < PassiveItems; i++)
         {
-            var slot = passiveItems[i].ItemSlot;
+            var slot = _passiveItems[i].ItemSlot;
             var value = profile.Items[slot];
 
             if (value != 0)
             {
                 var itemId = GlobalFunctions.ItemValueToItemId(slot, value);
-                GlobalFunctions.DrawItem(_game.World.Game, itemId, passiveItems[i].X, PassiveItemY + top, 0);
+                GlobalFunctions.DrawItem(_game.World.Game, itemId, _passiveItems[i].X, PassiveItemY + top, 0);
             }
         }
     }
 
     private void DrawCurrentSelection(int top)
     {
-        var profile = _game.World.GetProfile();
+        var profile = _game.World.Profile;
         var curSlot = profile.SelectedItem;
 
         if (curSlot != 0)
@@ -436,7 +435,7 @@ internal sealed class SubmenuType
         }
     }
 
-    private static readonly TriforcePieceSpec[] pieceSpecs = {
+    private static readonly TriforcePieceSpec[] _pieceSpecs = {
         new(0x70, 0x70, new[]{ new byte[]{ 0xED, 0xE9 }, new byte[]{ 0xE9, 0x24 } }, new[]{ new byte[]{ 0xED, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
         new(0x80, 0x70, new[]{ new byte[]{ 0xEA, 0xEE }, new byte[]{ 0x24, 0xEA } }, new[]{ new byte[]{ 0xE8, 0xEE }, new byte[]{ 0xF5, 0xE8 } }),
         new(0x60, 0x80, new[]{ new byte[]{ 0xED, 0xE9 }, new byte[]{ 0xE9, 0x24 } }, new[]{ new byte[]{ 0xED, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
@@ -447,7 +446,7 @@ internal sealed class SubmenuType
         new(0x80, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0x24, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
      };
 
-    private static readonly byte[] Triforce = { 0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E };
+    private static readonly byte[] _triforce = { 0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E };
 
     private void DrawTriforce(int top)
     {
@@ -465,7 +464,7 @@ internal sealed class SubmenuType
         GlobalFunctions.DrawChar(0xF0, 0xA0, 0x90 + top, Palette.RedBgPalette);
         GlobalFunctions.DrawChar(0xEC, 0xA8, 0x90 + top, Palette.RedBgPalette);
 
-        GlobalFunctions.DrawString(Triforce, 0x60, 0xA0 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawString(_triforce, 0x60, 0xA0 + top, Palette.RedBgPalette);
 
         var x = 0x60;
         for (var i = 0; i < 8; i++, x += 8)
@@ -479,15 +478,15 @@ internal sealed class SubmenuType
         for (var i = 0; i < 8; i++, piece >>= 1)
         {
             var have = (piece & 1) != 0;
-            var tiles = have ? pieceSpecs[i].OnTiles : pieceSpecs[i].OffTiles;
+            var tiles = have ? _pieceSpecs[i].OnTiles : _pieceSpecs[i].OffTiles;
 
             var ii = 0;
             for (var r = 0; r < 2; r++)
             {
                 for (var c = 0; c < 2; c++, ii++)
                 {
-                    var xx = pieceSpecs[i].X + (c * 8);
-                    var yy = pieceSpecs[i].Y + (r * 8) + top;
+                    var xx = _pieceSpecs[i].X + (c * 8);
+                    var yy = _pieceSpecs[i].Y + (r * 8) + top;
                     // JOE: TODO: Uh, is this right? Maybe just flatten the array?
                     GlobalFunctions.DrawChar(tiles[ii / tiles.Length][ii % tiles.Length], xx, yy, Palette.RedBgPalette);
                 }
@@ -507,17 +506,17 @@ internal sealed class SubmenuType
         }
     }
 
-    private static readonly byte[] Map = { 0x16, 0x0A, 0x19 };
-    private static readonly byte[] Compass = { 0x0C, 0x18, 0x16, 0x19, 0x0A, 0x1C, 0x1C };
-    private static readonly byte[] TopMapLine = { 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5 };
-    private static readonly byte[] BottomMapLine = { 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5 };
+    private static readonly byte[] _map = { 0x16, 0x0A, 0x19 };
+    private static readonly byte[] _compass = { 0x0C, 0x18, 0x16, 0x19, 0x0A, 0x1C, 0x1C };
+    private static readonly byte[] _topMapLine = { 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5 };
+    private static readonly byte[] _bottomMapLine = { 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5 };
 
     private unsafe void DrawMap(int top)
     {
-        GlobalFunctions.DrawString(Map, 0x28, 0x58 + top, (Palette)1);
-        GlobalFunctions.DrawString(Compass, 0x18, 0x80 + top, (Palette)1);
-        GlobalFunctions.DrawString(TopMapLine, 0x60, 0x50 + top, (Palette)1);
-        GlobalFunctions.DrawString(BottomMapLine, 0x60, 0x98 + top, (Palette)1);
+        GlobalFunctions.DrawString(_map, 0x28, 0x58 + top, (Palette)1);
+        GlobalFunctions.DrawString(_compass, 0x18, 0x80 + top, (Palette)1);
+        GlobalFunctions.DrawString(_topMapLine, 0x60, 0x50 + top, (Palette)1);
+        GlobalFunctions.DrawString(_bottomMapLine, 0x60, 0x98 + top, (Palette)1);
 
         var y = 0x58 + top;
         for (var r = 0; r < 8; r++, y += 8)
@@ -534,10 +533,8 @@ internal sealed class SubmenuType
         var hasMap = _game.World.HasCurrentMap();
         var hasCompass = _game.World.HasCurrentCompass();
 
-        if (hasMap)
-            GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Map, 0x30, 0x68 + top);
-        if (hasCompass)
-            GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Compass, 0x30, 0x90 + top);
+        if (hasMap) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Map, 0x30, 0x68 + top);
+        if (hasCompass) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Compass, 0x30, 0x90 + top);
 
         var x = ActiveMapX;
         for (var c = 0; c < 8; c++, x += 8)
