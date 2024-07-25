@@ -64,14 +64,14 @@ internal struct InputButtons
 
 internal sealed class Input
 {
-    private InputButtons oldInputState = new();
-    private InputButtons inputState = new();
+    private InputButtons _oldInputState = new();
+    private InputButtons _inputState = new();
 
     public InputButtons GetButtons()
     {
-        var buttons = (oldInputState.ButtonsInt ^ inputState.ButtonsInt)
-            & inputState.ButtonsInt
-            | (inputState.ButtonsInt & 0xF);
+        var buttons = (_oldInputState.ButtonsInt ^ _inputState.ButtonsInt)
+            & _inputState.ButtonsInt
+            | (_inputState.ButtonsInt & 0xF);
 
         return new InputButtons { Buttons = (Button)buttons };
     }
@@ -88,12 +88,14 @@ internal sealed class Input
         { Key.Right, Button.Right }
     };
 
+    public void SetButton(Button button) => _inputState.Buttons |= button;
+    public void UnsetButton(Button button) => _inputState.Buttons &= ~button;
+
     public bool SetKey(Key keys)
     {
         if (_map.TryGetValue(keys, out var button))
         {
-
-            inputState.Buttons |= button;
+            _inputState.Buttons |= button;
             return true;
         }
 
@@ -104,7 +106,7 @@ internal sealed class Input
     {
         if (char.IsLetter(letter))
         {
-            inputState.Characters.Add(letter);
+            _inputState.Characters.Add(letter);
             return true;
         }
 
@@ -116,7 +118,7 @@ internal sealed class Input
         if (_map.TryGetValue(keys, out var button))
         {
             // oldInputState = new InputButtons { Buttons = inputState.Buttons };
-            inputState.Buttons &= ~button;
+            _inputState.Buttons &= ~button;
             return true;
         }
 
@@ -125,25 +127,25 @@ internal sealed class Input
 
     public void UnsetAllKeys()
     {
-        inputState.Buttons = Button.None;
+        _inputState.Buttons = Button.None;
     }
 
     public void UnsetLetter(char letter)
     {
-        inputState.Characters.Remove(letter);
+        _inputState.Characters.Remove(letter);
     }
 
     public bool IsKeyDown(int keyCode) => throw new NotImplementedException();
     public bool IsKeyPressing(int keyCode) => throw new NotImplementedException();
     public ButtonState GetKey(int keyCode) => throw new NotImplementedException();
 
-    public bool IsButtonDown(Button buttonCode) => inputState.Has(buttonCode);
+    public bool IsButtonDown(Button buttonCode) => _inputState.Has(buttonCode);
     public bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
     public IEnumerable<char> GetCharactersPressing()
     {
-        foreach (var c in inputState.Characters)
+        foreach (var c in _inputState.Characters)
         {
-            if (!oldInputState.Characters.Contains(c))
+            if (!_oldInputState.Characters.Contains(c))
             {
                 yield return c;
             }
@@ -152,8 +154,8 @@ internal sealed class Input
 
     private ButtonState GetButton(Button buttonCode)
     {
-        var isDown = inputState.Has(buttonCode);
-        var wasDown = oldInputState.Has(buttonCode);
+        var isDown = _inputState.Has(buttonCode);
+        var wasDown = _oldInputState.Has(buttonCode);
 
         return (isDown, wasDown) switch {
             (false, false) => ButtonState.Lifted,
@@ -174,9 +176,9 @@ internal sealed class Input
 
     public void Update()
     {
-        oldInputState = new InputButtons {
-            Buttons = inputState.Buttons,
-            Characters = inputState.Characters == null ? new() : new(inputState.Characters)
+        _oldInputState = new InputButtons {
+            Buttons = _inputState.Buttons,
+            Characters = _inputState.Characters == null ? new() : new(_inputState.Characters)
         };
     }
 }

@@ -69,8 +69,46 @@ internal sealed class GLWindow : IDisposable
         targetkb.KeyDown += OnKeyDown;
         targetkb.KeyUp += OnKeyUp;
 
+        var gamepad = _inputContext.Gamepads.FirstOrDefault();
+        if (gamepad != null)
+        {
+            gamepad.ButtonDown += OnGamepadButtonDown;
+            gamepad.ButtonUp += OnGamepadButtonUp;
+        }
+
         var surface = CreateSkSurface();
         _game.UpdateScreenSize(surface);
+    }
+
+    private static readonly Dictionary<ButtonName, Button> _gamepadMap = new()
+    {
+        { ButtonName.Start, Button.Start },
+        { ButtonName.Back, Button.Select },
+        { ButtonName.A, Button.A },
+        { ButtonName.B, Button.B },
+        { ButtonName.DPadLeft, Button.Left },
+        { ButtonName.DPadRight, Button.Right },
+        { ButtonName.DPadDown, Button.Down },
+        { ButtonName.DPadUp, Button.Up }
+    };
+
+    private void OnGamepadButtonDown(IGamepad gamepad, Silk.NET.Input.Button button)
+    {
+        if (_gamepadMap.TryGetValue(button.Name, out var b))
+        {
+            _game.Input.SetButton(b);
+        }
+
+        if (button.Name == ButtonName.LeftBumper) _game.GameCheats.TriggerCheat<GameCheats.KillAllCheat>();
+        if (button.Name == ButtonName.RightBumper) _game.GameCheats.TriggerCheat<GameCheats.SpeedUpCheat>();
+    }
+
+    private void OnGamepadButtonUp(IGamepad gamepad, Silk.NET.Input.Button button)
+    {
+        if (_gamepadMap.TryGetValue(button.Name, out var b))
+        {
+            _game.Input.UnsetButton(b);
+        }
     }
 
     private void OnFocusChanged(bool focused)

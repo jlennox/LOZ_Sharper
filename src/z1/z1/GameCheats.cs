@@ -8,13 +8,13 @@ namespace z1;
 
 internal sealed class GameCheats
 {
-    private abstract class Cheat
+    public abstract class Cheat
     {
         public abstract bool OnKeyPressed(char key, [MaybeNullWhen(false)] out string[] args);
         public abstract void RunPayload(Game game, string[] args);
     }
 
-    private abstract class RegexCheat : Cheat
+    public abstract class RegexCheat : Cheat
     {
         protected const RegexOptions DefaultRegexOptions =
             RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.NonBacktracking;
@@ -48,7 +48,7 @@ internal sealed class GameCheats
         }
     }
 
-    private abstract class SingleWordCheat : RegexCheat
+    public abstract class SingleWordCheat : RegexCheat
     {
         protected override Regex FullMatch { get; }
         protected override Regex PartialMatch { get; }
@@ -66,7 +66,7 @@ internal sealed class GameCheats
         }
     }
 
-    private sealed class OverworldWarpCheat : RegexCheat
+    public sealed class OverworldWarpCheat : RegexCheat
     {
         private static readonly Regex _full = new(@"^w(\d+)x(\d+);$", DefaultRegexOptions);
         private static readonly Regex _partial = new(@"^w(\d*)x?(\d*);?$", DefaultRegexOptions);
@@ -87,7 +87,7 @@ internal sealed class GameCheats
         }
     }
 
-    private sealed class DungeonWarpCheat : RegexCheat
+    public sealed class DungeonWarpCheat : RegexCheat
     {
         private static readonly Regex _full = new(@"^w(w|\d+);$", DefaultRegexOptions);
         private static readonly Regex _partial = new(@"^w(w?|\d*);?$", DefaultRegexOptions);
@@ -117,7 +117,7 @@ internal sealed class GameCheats
         }
     }
 
-    private sealed class SpawnCheat : RegexCheat
+    public sealed class SpawnCheat : RegexCheat
     {
         private static readonly Regex _full = new(@"^s(\w+);$", DefaultRegexOptions);
         private static readonly Regex _partial = new(@"^s\w*;?$", DefaultRegexOptions);
@@ -160,7 +160,7 @@ internal sealed class GameCheats
         }
     }
 
-    private sealed class GodModeCheat : SingleWordCheat
+    public sealed class GodModeCheat : SingleWordCheat
     {
         public GodModeCheat() : base("iddqd", true) { }
         public override void RunPayload(Game game, string[] args)
@@ -170,7 +170,7 @@ internal sealed class GameCheats
         }
     }
 
-    private sealed class KillAllCheat : SingleWordCheat
+    public sealed class KillAllCheat : SingleWordCheat
     {
         public KillAllCheat() : base("ka", true) { }
         public override void RunPayload(Game game, string[] args)
@@ -180,7 +180,7 @@ internal sealed class GameCheats
         }
     }
 
-    private sealed class SpeedUpCheat : SingleWordCheat
+    public sealed class SpeedUpCheat : SingleWordCheat
     {
         public SpeedUpCheat() : base("su", true) { }
         public override void RunPayload(Game game, string[] args)
@@ -190,7 +190,7 @@ internal sealed class GameCheats
         }
     }
 
-    private sealed class WalkThroughWallsCheat : SingleWordCheat
+    public sealed class WalkThroughWallsCheat : SingleWordCheat
     {
         public WalkThroughWallsCheat() : base("idclip", true) { }
         public override void RunPayload(Game game, string[] args)
@@ -200,7 +200,7 @@ internal sealed class GameCheats
         }
     }
 
-    private sealed class ItemsCheat : SingleWordCheat
+    public sealed class ItemsCheat : SingleWordCheat
     {
         public ItemsCheat() : base("idkfa", true) { }
 
@@ -271,6 +271,17 @@ internal sealed class GameCheats
             if (cheat.OnKeyPressed(chr, out var args))
             {
                 cheat.RunPayload(_game, args);
+            }
+        }
+    }
+
+    public void TriggerCheat<T>() where T : Cheat
+    {
+        foreach (var cheat in _cheats)
+        {
+            if (cheat is T t)
+            {
+                t.RunPayload(_game, Array.Empty<string>());
             }
         }
     }
