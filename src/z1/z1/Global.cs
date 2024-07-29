@@ -279,13 +279,13 @@ internal static class GlobalFunctions
         DrawItem(game, itemId, x, y, 16);
     }
 
-    public static void DrawChar(Char ch, int x, int y, Palette palette) => DrawChar((byte)ch, x, y, palette);
-    public static void DrawChar(byte ch, int x, int y, Palette palette)
+    public static void DrawChar(Char ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency) => DrawChar((byte)ch, x, y, palette, flags);
+    public static void DrawChar(byte ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
     {
         var srcX = (ch & 0x0F) * 8;
         var srcY = (ch & 0xF0) / 2;
 
-        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, 0);
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags);
     }
 
     public static void DrawString(ReadOnlySpan<byte> str, int x, int y, Palette palette)
@@ -297,13 +297,13 @@ internal static class GlobalFunctions
         }
     }
 
-    public static void DrawString(string? str, int x, int y, Palette palette)
+    public static void DrawString(string? str, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
     {
         if (str == null) return;
 
         foreach (var t in ZeldaString.ToBytes(str))
         {
-            DrawChar(t, x, y, palette);
+            DrawChar(t, x, y, palette, flags);
             x += 8;
         }
     }

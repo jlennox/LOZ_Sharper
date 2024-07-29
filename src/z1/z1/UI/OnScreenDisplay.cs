@@ -25,7 +25,7 @@ internal sealed class OnScreenDisplay
                 continue;
             }
 
-            GlobalFunctions.DrawString(osd.Text, osd.X, osd.Y, 0);
+            GlobalFunctions.DrawString(osd.Text, osd.X, osd.Y, 0, DrawingFlags.None);
         }
     }
 }

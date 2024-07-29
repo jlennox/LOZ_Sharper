@@ -9,9 +9,10 @@ namespace z1;
 [Flags]
 internal enum DrawingFlags
 {
-    None = 0,
-    FlipHorizontal = 0x00001,
-    FlipVertical = 0x00002
+    None = 1 << 0,
+    FlipHorizontal = 1 << 1,
+    FlipVertical = 1 << 2,
+    NoTransparency = 1 << 3,
 }
 
 internal enum TileSheet { Background, PlayerAndItems, Npcs, Boss, Font, Max }
@@ -51,6 +52,7 @@ internal static class Graphics
             {
                 var sheet = Bitmap ?? _tileSheets[(int)Slot] ?? throw new Exception();
                 tile = sheet.Extract(X, Y, width, height, null, Flags);
+                var makeTransparent = !Flags.HasFlag(DrawingFlags.NoTransparency);
 
                 var locked = tile.Lock();
                 for (var y = 0; y < locked.Height; ++y)
@@ -59,7 +61,7 @@ internal static class Graphics
                     for (var x = 0; x < locked.Width; ++x, ++px)
                     {
                         var r = px->Blue;
-                        if (r == 0)
+                        if (makeTransparent && r == 0)
                         {
                             *px = SKColors.Transparent;
                             continue;
