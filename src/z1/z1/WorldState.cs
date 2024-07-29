@@ -1,7 +1,10 @@
-﻿namespace z1;
+﻿using System.Diagnostics;
+
+namespace z1;
 
 internal enum RoomType { Regular, Cellar, Cave }
 
+[DebuggerDisplay("{Substate}")]
 internal struct PlayState
 {
     public enum Substates { Active }
@@ -18,6 +21,7 @@ internal struct PlayState
     public int PersonWallY;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct PlayCellarState
 {
     public enum Substates
@@ -38,6 +42,7 @@ internal struct PlayCellarState
     public int FadeStep;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct LeaveCellarState
 {
     public enum Substates
@@ -60,6 +65,7 @@ internal struct LeaveCellarState
     public int Timer;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct PlayCaveState
 {
     public enum Substates
@@ -78,6 +84,7 @@ internal struct PlayCaveState
     // public SpritePriority playerPriority; // JOE: Unused in the orignal.
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct ScrollState
 {
     public enum Substates
@@ -119,6 +126,7 @@ internal struct LeaveState
     public int CurRoomId;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct EnterState
 {
     public enum Substates
@@ -145,6 +153,7 @@ internal struct EnterState
     public bool GotoPlay;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct LoadLevelState
 {
     public enum Substates
@@ -161,6 +170,7 @@ internal struct LoadLevelState
     public bool RestartOW;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct UnfurlState
 {
     public enum Substates
@@ -179,6 +189,7 @@ internal struct UnfurlState
     public bool RestartOW;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct EndLevelState
 {
     public enum Substates
@@ -206,6 +217,7 @@ internal struct EndLevelState
     public int Right;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct WinGameState
 {
     public enum Substates
@@ -241,6 +253,7 @@ internal struct WinGameState
     public NpcVisualState NpcVisual;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct StairsState
 {
     public enum Substates
@@ -262,6 +275,7 @@ internal struct StairsState
     public SpritePriority PlayerPriority;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct DeathState
 {
     public enum Substates
@@ -284,6 +298,7 @@ internal struct DeathState
     public int Step;
 }
 
+[DebuggerDisplay("{Substate}")]
 internal struct ContinueState
 {
     public enum Substates

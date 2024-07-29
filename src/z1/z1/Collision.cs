@@ -23,7 +23,7 @@ internal readonly record struct PlayerCollision(bool Collides, bool ShotCollides
     public static implicit operator bool(PlayerCollision b) => b.Collides;
 }
 
-internal record struct TileCollision(bool Collides, TileBehavior TileBehavior, byte FineCol, byte FineRow)
+internal record struct TileCollision(bool Collides, TileBehavior TileBehavior, int FineCol, int FineRow)
 {
     public static implicit operator bool(TileCollision b) => b.Collides;
 }

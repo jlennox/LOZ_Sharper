@@ -31,11 +31,8 @@ internal sealed class TileMap
     public TileBehavior AsBehaviors(int row, int col)
     {
         // JOE: TODO: Think this through properly. The checks should be against World.Rows/World.Columns.
-        if (row > 15)
-        {
-            Debug.WriteLine($"Row greater than 15 being accessed {row}.");
-            // row = 15;
-        }
+        row = Math.Max(0, Math.Min(row, World.Rows - 1));
+        col = Math.Max(0, Math.Min(col, World.Columns - 1));
 
         return (TileBehavior)_tileBehaviors[row * World.Columns + col];
     }
@@ -830,10 +827,10 @@ internal sealed unsafe partial class World
         y += 3;
 
         var behavior = TileBehavior.FirstWalkable;
-        var fineRow1 = (byte)((y - TileMapBaseY) / 8);
-        var fineRow2 = (byte)((y + 15 - TileMapBaseY) / 8);
-        var fineCol1 = (byte)(x / 8);
-        var fineCol2 = (byte)((x + 15) / 8);
+        var fineRow1 = (y - TileMapBaseY) / 8;
+        var fineRow2 = (y + 15 - TileMapBaseY) / 8;
+        var fineCol1 = x / 8;
+        var fineCol2 = (x + 15) / 8;
         var hitFineCol = fineCol1;
         var hitFineRow = fineRow1;
 
@@ -1901,10 +1898,7 @@ internal sealed unsafe partial class World
             case RoomType.Regular: _curMode = GameMode.Play; break;
             case RoomType.Cave: _curMode = GameMode.PlayCave; break;
             case RoomType.Cellar: _curMode = GameMode.PlayCellar; break;
-            default:
-                throw new Exception();
-                _curMode = GameMode.Play;
-                break;
+            default: throw new ArgumentOutOfRangeException(nameof(roomType), roomType, "Unknown room type.");
         }
         _curColorSeqNum = 0;
         _tempShutters = false;
@@ -3562,7 +3556,7 @@ internal sealed unsafe partial class World
                 _state.Enter.PlayerPriority = SpritePriority.BelowBg;
                 _state.Enter.ScrollDir = Direction.Up;
                 _state.Enter.TargetX = Game.Link.X;
-                _state.Enter.TargetY = Game.Link.Y - 0x10;
+                _state.Enter.TargetY = Game.Link.Y - (Game.Cheats.SpeedUp ? 0 : 0x10);
                 _state.Enter.Substate = EnterState.Substates.WalkCave;
 
                 Game.Sound.StopAll();
@@ -4287,7 +4281,7 @@ internal sealed unsafe partial class World
                     Game.Link.Facing = Direction.Up;
 
                     _state.Stairs.TargetX = Game.Link.X;
-                    _state.Stairs.TargetY = Game.Link.Y + 0x10;
+                    _state.Stairs.TargetY = Game.Link.Y + (Game.Cheats.SpeedUp ? 0 : 0x10);
                     _state.Stairs.ScrollDir = Direction.Down;
                     _state.Stairs.PlayerSpeed = 0x40;
                     _state.Stairs.PlayerFraction = 0;

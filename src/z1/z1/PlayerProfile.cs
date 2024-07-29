@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
 
 namespace z1;
@@ -50,20 +49,20 @@ internal class OWRoomFlags
     private const int CountMask = 7;
     private const int CountShift = 0;
 
-    private byte Data;
+    private byte _data;
 
     // JOE: TODO: Use getters/setters.
-    public bool GetItemState() => (Data & ItemState) != 0;
-    public void SetItemState() => Data |= ItemState;
+    public bool GetItemState() => (_data & ItemState) != 0;
+    public void SetItemState() => _data |= ItemState;
 
-    public bool GetShortcutState() => (Data & ShortcutState) != 0;
-    public void SetShortcutState() => Data |= ShortcutState;
+    public bool GetShortcutState() => (_data & ShortcutState) != 0;
+    public void SetShortcutState() => _data |= ShortcutState;
 
-    public bool GetSecretState() => (Data & SecretState) != 0;
-    public void SetSecretState() => Data |= SecretState;
+    public bool GetSecretState() => (_data & SecretState) != 0;
+    public void SetSecretState() => _data |= SecretState;
 
-    public int GetObjCount() => (Data & CountMask) >> CountShift;
-    public void SetObjCount(int count) => Data = (byte)((Data & ~CountMask) | (count << CountShift));
+    public int GetObjCount() => (_data & CountMask) >> CountShift;
+    public void SetObjCount(int count) => _data = (byte)((_data & ~CountMask) | (count << CountShift));
 }
 
 internal class UWRoomFlags
@@ -73,20 +72,20 @@ internal class UWRoomFlags
     private const byte CountMask = 0xC0;
     private const byte CountShift = 6;
 
-    private byte Data;
+    private byte _data;
 
     // JOE: TODO: Use getters/setters.
-    public bool GetItemState() => (Data & ItemState) != 0;
-    public void SetItemState() => Data |= ItemState;
+    public bool GetItemState() => (_data & ItemState) != 0;
+    public void SetItemState() => _data |= ItemState;
 
-    public bool GetVisitState() => (Data & VisitState) != 0;
-    public void SetVisitState() => Data |= VisitState;
+    public bool GetVisitState() => (_data & VisitState) != 0;
+    public void SetVisitState() => _data |= VisitState;
 
-    public bool GetDoorState(Direction dir) => (Data & (int)dir) != 0;
-    public void SetDoorState(Direction dir) => Data |= (byte)dir;
+    public bool GetDoorState(Direction dir) => (_data & (int)dir) != 0;
+    public void SetDoorState(Direction dir) => _data |= (byte)dir;
 
-    public int GetObjCount() => (Data & CountMask) >> CountShift;
-    public void SetObjCount(byte count) => Data = (byte)((Data & ~CountMask) | (byte)(count << CountShift));
+    public int GetObjCount() => (_data & CountMask) >> CountShift;
+    public void SetObjCount(byte count) => _data = (byte)((_data & ~CountMask) | (byte)(count << CountShift));
 }
 
 [DebuggerDisplay("{Name} ({Hearts})")]
@@ -115,8 +114,8 @@ internal sealed class PlayerProfile
         if (Hearts == 0) Hearts = DefaultHearts;
         Items ??= new Dictionary<ItemSlot, int>();
         OverworldFlags ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new OWRoomFlags()).ToArray();
-        LevelFlags1 ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new UWRoomFlags()).ToArray();;
-        LevelFlags2 ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new UWRoomFlags()).ToArray(); ;
+        LevelFlags1 ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new UWRoomFlags()).ToArray();
+        LevelFlags2 ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new UWRoomFlags()).ToArray();
 
         foreach (var slot in Enum.GetValues<ItemSlot>())
         {
