@@ -387,8 +387,12 @@ internal sealed class PersonActor : Actor
                 if (price > Game.World.GetItem(ItemSlot.HeartContainers)) return;
 
                 var profile = Game.World.Profile;
-                // JOE: TODO: This needs to emulate the original "zombie link" game behavior.
-                if (profile.Items[ItemSlot.HeartContainers] > 1)
+                if (profile.Items[ItemSlot.HeartContainers] <= PlayerProfile.DefaultHearts)
+                {
+                    // This is to emulate the zombie link game behavior.
+                    profile.Hearts = 0;
+                }
+                else
                 {
                     profile.Items[ItemSlot.HeartContainers]--;
                     if (profile.Hearts > 0x100)
