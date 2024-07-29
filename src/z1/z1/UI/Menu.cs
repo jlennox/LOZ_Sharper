@@ -229,54 +229,28 @@ internal sealed class EliminateMenu : Menu
 internal sealed class RegisterMenu : Menu
 {
     private const string Quest2Name = "zelda";
+    private const string RegisterStr = "    register your name";
+    private const string RegisterEndStr = "register    end";
 
-    private static readonly byte[] _registerStr = {
-        0x6A, 0x6A, 0x6A, 0x6A,
-        0x1B, 0x0E, 0x10, 0x12, 0x1C, 0x1D, 0x0E, 0x1B, 0x24, 0x22, 0x18, 0x1E, 0x1B, 0x24, 0x17, 0x0A,
-        0x16, 0x0E,
-        0x6A, 0x6A, 0x6A,
-    };
+    private const string CharSetStrBlank = "                     ";
+    private const string CharSetStr0 = "A B C D E F G H I J K";
+    private const string CharSetStr1 = "L M N O P Q R S T U V";
+    private const string CharSetStr2 = "W X Y Z - . , ! ' & .";
+    private const string CharSetStr3 = "0 1 2 3 4 5 6 7 8 9  ";
 
-    private static readonly byte[] _registerEndStr = { 0x1B, 0x0E, 0x10, 0x12, 0x1C, 0x1D, 0x0E, 0x1B, 0x24, 0x24, 0x24, 0x24, 0x0E, 0x17, 0x0D };
-
-    private static readonly byte[] _charSetStrBlank = {
-        0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60,
-        0x60, 0x60, 0x60, 0x60, 0x60
-    };
-
-    private static readonly byte[] _charSetStr0 = {
-        0x0A, 0x60, 0x0B, 0x60, 0x0C, 0x60, 0x0D, 0x60, 0x0E, 0x60, 0x0F, 0x60, 0x10, 0x60, 0x11, 0x60,
-        0x12, 0x60, 0x13, 0x60, 0x14
-    };
-
-    private static readonly byte[] _charSetStr1 = {
-        0x15, 0x60, 0x16, 0x60, 0x17, 0x60, 0x18, 0x60, 0x19, 0x60, 0x1A, 0x60, 0x1B, 0x60, 0x1C, 0x60,
-        0x1D, 0x60, 0x1E, 0x60, 0x1F
-    };
-
-    private static readonly byte[] _charSetStr2 = {
-        0x20, 0x60, 0x21, 0x60, 0x22, 0x60, 0x23, 0x60, 0x62, 0x60, 0x63, 0x60, 0x28, 0x60, 0x29, 0x60,
-        0x2A, 0x60, 0x2B, 0x60, 0x2C
-    };
-
-    private static readonly byte[] _charSetStr3 = {
-        0x00, 0x60, 0x01, 0x60, 0x02, 0x60, 0x03, 0x60, 0x04, 0x60, 0x05, 0x60, 0x06, 0x60, 0x07, 0x60,
-        0x08, 0x60, 0x09, 0x60, 0x24
-    };
-
-    private static readonly byte[][] _charSetStrs = {
-        _charSetStr0,
-        _charSetStrBlank,
-        _charSetStr1,
-        _charSetStrBlank,
-        _charSetStr2,
-        _charSetStrBlank,
-        _charSetStr3,
+    private static readonly string[] _charSetStrs = {
+        CharSetStr0,
+        CharSetStrBlank,
+        CharSetStr1,
+        CharSetStrBlank,
+        CharSetStr2,
+        CharSetStrBlank,
+        CharSetStr3,
     };
 
     private readonly Game _game;
     private readonly PlayerProfile[] _summaries;
-    private int _selectedIndex;
+    private int _selectedProfileIndex;
     private int _namePos;
     private int _charPosCol;
     private int _charPosRow;
@@ -292,12 +266,12 @@ internal sealed class RegisterMenu : Menu
     {
         do
         {
-            _selectedIndex++;
-            if (_selectedIndex >= 4)
+            _selectedProfileIndex++;
+            if (_selectedProfileIndex >= 4)
             {
-                _selectedIndex = 0;
+                _selectedProfileIndex = 0;
             }
-        } while (_selectedIndex < 3 && _origActive[_selectedIndex]);
+        } while (_selectedProfileIndex < 3 && _origActive[_selectedProfileIndex]);
     }
 
     private void MoveNextNamePosition()
@@ -309,26 +283,26 @@ internal sealed class RegisterMenu : Menu
         }
     }
 
-    private void AddCharToName(byte ch)
+    private void AddCharToName(char ch)
     {
-        var summary = _summaries[_selectedIndex];
+        var summary = _summaries[_selectedProfileIndex];
         if (summary.Name == null)
         {
             summary.Name = "";
             summary.Hearts = PlayerProfile.DefaultHearts;
         }
-        summary.Name += ZeldaString.CharFromByte(ch);
+        summary.Name += ch;
         MoveNextNamePosition();
     }
 
-    private byte GetSelectedChar()
+    private char GetSelectedChar()
     {
         return _charSetStrs[_charPosRow][_charPosCol];
     }
 
     private void MoveCharSetCursorH(int dir)
     {
-        var fullSize = _charSetStr0.Length * _charSetStrs.Length;
+        var fullSize = CharSetStr0.Length * _charSetStrs.Length;
 
         for (var i = 0; i < fullSize; i++)
         {
@@ -336,16 +310,16 @@ internal sealed class RegisterMenu : Menu
 
             if (_charPosCol < 0)
             {
-                _charPosCol = _charSetStr0.Length - 1;
+                _charPosCol = CharSetStr0.Length - 1;
                 MoveCharSetCursorV(-1, false);
             }
-            else if (_charPosCol >= _charSetStr0.Length)
+            else if (_charPosCol >= CharSetStr0.Length)
             {
                 _charPosCol = 0;
                 MoveCharSetCursorV(1, false);
             }
 
-            if (GetSelectedChar() != 0x60) break;
+            if (GetSelectedChar() != ' ') break;
         }
     }
 
@@ -364,7 +338,7 @@ internal sealed class RegisterMenu : Menu
                 _charPosRow = 0;
             }
 
-            if (GetSelectedChar() != 0x60 || !skip) break;
+            if (GetSelectedChar() != ' ' || !skip) break;
         }
     }
 
@@ -376,7 +350,7 @@ internal sealed class RegisterMenu : Menu
             {
                 var profile = _summaries[i];
                 // JOE: TODO: Move to be profile method, make it case insensitive.
-                if (profile.Name == Quest2Name)
+                if (profile.Name.IEquals(Quest2Name))
                 {
                     profile.Quest = 1;
                 }
@@ -393,7 +367,7 @@ internal sealed class RegisterMenu : Menu
 
     public override void Update()
     {
-        var inTextEntry = _selectedIndex < 3;
+        var inTextEntry = _selectedProfileIndex < 3;
 
         if (_game.Input.IsButtonPressing(Button.Select))
         {
@@ -403,7 +377,7 @@ internal sealed class RegisterMenu : Menu
         }
         else if (_game.Input.IsButtonPressing(Button.Start))
         {
-            if (_selectedIndex == 3)
+            if (_selectedProfileIndex == 3)
             {
                 CommitFiles();
                 _game.World.ChooseFile(_summaries);
@@ -449,7 +423,7 @@ internal sealed class RegisterMenu : Menu
         {
             foreach (var c in _game.Input.GetCharactersPressing())
             {
-                AddCharToName((byte)(char.ToLower(c) - (byte)'a' + 0x0A));
+                AddCharToName(c);
                 _game.Sound.PlayEffect(SoundEffect.PutBomb);
             }
         }
@@ -462,13 +436,13 @@ internal sealed class RegisterMenu : Menu
 
         int y;
 
-        if (_selectedIndex < 3)
+        if (_selectedProfileIndex < 3)
         {
             var showCursor = ((_game.GetFrameCounter() >> 3) & 1) != 0;
             if (showCursor)
             {
                 var x = 0x70 + (_namePos * 8);
-                y = 0x30 + (_selectedIndex * 24);
+                y = 0x30 + (_selectedProfileIndex * 24);
                 GlobalFunctions.DrawChar(0x25, x, y, (Palette)7);
 
                 x = 0x30 + (_charPosCol * 8);
@@ -478,31 +452,30 @@ internal sealed class RegisterMenu : Menu
         }
 
         GlobalFunctions.DrawBox(0x28, 0x80, 0xB8, 0x48);
-        GlobalFunctions.DrawString(ZeldaString.FromBytes(_registerStr), 0x20, 0x18, 0);
-        GlobalFunctions.DrawString(ZeldaString.FromBytes(_registerEndStr), 0x50, 0x78, 0);
+        GlobalFunctions.DrawString(RegisterStr, 0x20, 0x18, 0);
+        GlobalFunctions.DrawString(RegisterEndStr, 0x50, 0x78, 0);
 
         y = 0x88;
         for (var i = 0; i < _charSetStrs.Length; i++, y += 8)
         {
-            GlobalFunctions.DrawString(_charSetStrs[i], 0x30, y, 0);
+            GlobalFunctions.DrawString(_charSetStrs[i], 0x30, y, 0, DrawingFlags.None);
         }
 
         y = 0x30;
-        for (var i = 0; i < 3; i++)
+        foreach (var summary in _summaries)
         {
-            var summary = _summaries[i];
             GlobalFunctions.DrawString(summary.Name, 0x70, y, 0);
             GlobalFunctions.DrawFileIcon(0x50, y, 0);
             y += 24;
         }
 
-        if (_selectedIndex < 3)
+        if (_selectedProfileIndex < 3)
         {
-            y = 0x30 + _selectedIndex * 24 + 4;
+            y = 0x30 + _selectedProfileIndex * 24 + 4;
         }
         else
         {
-            y = 0x78 + (_selectedIndex - 3) * 16;
+            y = 0x78 + (_selectedProfileIndex - 3) * 16;
         }
         GlobalFunctions.DrawChar(Char.FullHeart, 0x44, y, (Palette)7);
 

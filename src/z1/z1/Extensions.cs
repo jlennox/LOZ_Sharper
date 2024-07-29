@@ -172,4 +172,9 @@ internal static class Extensions
         }
         return (char)key;
     }
+
+    public static bool IEquals(this string? a, string? b)
+    {
+        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    }
 }
