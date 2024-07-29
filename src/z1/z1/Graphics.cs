@@ -9,10 +9,10 @@ namespace z1;
 [Flags]
 internal enum DrawingFlags
 {
-    None = 1 << 0,
-    FlipHorizontal = 1 << 1,
-    FlipVertical = 1 << 2,
-    NoTransparency = 1 << 3,
+    None = 0,
+    FlipHorizontal = 1 << 0,
+    FlipVertical = 1 << 1,
+    NoTransparency = 1 << 2,
 }
 
 internal enum TileSheet { Background, PlayerAndItems, Npcs, Boss, Font, Max }

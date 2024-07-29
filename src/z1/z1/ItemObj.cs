@@ -626,13 +626,12 @@ internal sealed class PlayerSwordActor : Actor
 
     public override void Draw()
     {
-        if (State > 0 && State < LastSwordState)
-        {
-            var weaponValue = Game.World.GetItem(ItemSlot.Sword);
-            var palette = ObjType == ObjType.Rod ? Palette.BlueFgPalette : (Palette.Player + weaponValue - 1);
-            var xOffset = (16 - _image.Animation.Width) / 2;
-            _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y, palette);
-        }
+        if (State is <= 0 or >= LastSwordState) return;
+
+        var weaponValue = Game.World.GetItem(ItemSlot.Sword);
+        var palette = ObjType == ObjType.Rod ? Palette.BlueFgPalette : (Palette.Player + weaponValue - 1);
+        var xOffset = (16 - _image.Animation.Width) / 2;
+        _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y, palette);
     }
 }
 
