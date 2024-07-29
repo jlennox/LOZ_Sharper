@@ -2,11 +2,10 @@
 
 namespace z1;
 
-// Bugs:
+// Milestone 1:
 // * Blue Wizzrobes crash the game.
 // * Red leevers can crash.
 // * The dungeon old men use the same sprite as the overworld old men.
-// * Map history is borked.
 
 // To check:
 // * Check `IsReoccuring` is proper.
@@ -14,6 +13,8 @@ namespace z1;
 // * Do bubbles work properly?
 
 // TODO:
+// * GEtter/setter OWRoomFlags.
+// * Move history out of World.
 // * SIMD the palettes?
 // * Try this for the palettes? https://skia.org/docs/user/sksl/
 // * Eliminate parameterless SpriteImage constructor?

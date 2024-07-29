@@ -42,8 +42,7 @@ internal enum ItemSlot
     MaxItems
 }
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct OWRoomFlags
+internal class OWRoomFlags
 {
     private const int ItemState = 0x10;
     private const int ShortcutState = 0x20;
@@ -53,18 +52,21 @@ internal struct OWRoomFlags
 
     private byte Data;
 
-    public readonly bool GetItemState() => (Data & ItemState) != 0;
+    // JOE: TODO: Use getters/setters.
+    public bool GetItemState() => (Data & ItemState) != 0;
     public void SetItemState() => Data |= ItemState;
-    public readonly bool GetShortcutState() => (Data & ShortcutState) != 0;
+
+    public bool GetShortcutState() => (Data & ShortcutState) != 0;
     public void SetShortcutState() => Data |= ShortcutState;
-    public readonly bool GetSecretState() => (Data & SecretState) != 0;
+
+    public bool GetSecretState() => (Data & SecretState) != 0;
     public void SetSecretState() => Data |= SecretState;
-    public readonly int GetObjCount() => (Data & CountMask) >> CountShift;
+
+    public int GetObjCount() => (Data & CountMask) >> CountShift;
     public void SetObjCount(int count) => Data = (byte)((Data & ~CountMask) | (count << CountShift));
 }
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct UWRoomFlags
+internal class UWRoomFlags
 {
     private const byte ItemState = 0x10;
     private const byte VisitState = 0x20;
@@ -74,16 +76,16 @@ internal struct UWRoomFlags
     private byte Data;
 
     // JOE: TODO: Use getters/setters.
-    public readonly bool GetItemState() => (Data & ItemState) != 0;
+    public bool GetItemState() => (Data & ItemState) != 0;
     public void SetItemState() => Data |= ItemState;
 
-    public readonly bool GetVisitState() => (Data & VisitState) != 0;
+    public bool GetVisitState() => (Data & VisitState) != 0;
     public void SetVisitState() => Data |= VisitState;
 
-    public readonly bool GetDoorState(Direction dir) => (Data & (int)dir) != 0;
+    public bool GetDoorState(Direction dir) => (Data & (int)dir) != 0;
     public void SetDoorState(Direction dir) => Data |= (byte)dir;
 
-    public readonly int GetObjCount() => (Data & CountMask) >> CountShift;
+    public int GetObjCount() => (Data & CountMask) >> CountShift;
     public void SetObjCount(byte count) => Data = (byte)((Data & ~CountMask) | (byte)(count << CountShift));
 }
 
@@ -112,9 +114,9 @@ internal sealed class PlayerProfile
     {
         if (Hearts == 0) Hearts = DefaultHearts;
         Items ??= new Dictionary<ItemSlot, int>();
-        OverworldFlags ??= new OWRoomFlags[Global.LevelBlockRooms];
-        LevelFlags1 ??= new UWRoomFlags[Global.LevelBlockRooms];
-        LevelFlags2 ??= new UWRoomFlags[Global.LevelBlockRooms];
+        OverworldFlags ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new OWRoomFlags()).ToArray();
+        LevelFlags1 ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new UWRoomFlags()).ToArray();;
+        LevelFlags2 ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new UWRoomFlags()).ToArray(); ;
 
         foreach (var slot in Enum.GetValues<ItemSlot>())
         {

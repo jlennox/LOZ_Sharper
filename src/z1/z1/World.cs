@@ -2569,7 +2569,7 @@ internal sealed unsafe partial class World
         }
         else // Is Underworld
         {
-            // JOE: TODO: Otherone reads from Profile.OverworldFlags. Feels weird.
+            // JOE: TODO: The IsOverworld() one reads from Profile.OverworldFlags. Feels weird.
             var flags = _curUWBlockFlags[CurRoomId];
 
             if (IsRoomInHistory() || flags.GetObjCount() != 3)
