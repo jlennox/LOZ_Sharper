@@ -230,13 +230,18 @@ internal sealed class SubmenuType
         return ItemId.None;
     }
 
-    public void Enable()
+    private void UpdateActiveItems()
     {
         // JOE: TODO: Write an enumerator for this?
         for (var i = 0; i < ActiveItems; i++)
         {
             _activeItems[i] = GetItemIdForUISlot(i, ref _activeSlots[i]);
         }
+    }
+
+    public void Enable()
+    {
+        UpdateActiveItems();
 
         // JOE: TODO: Can this be in the constructor?
         _cursor.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cursor);
@@ -290,7 +295,7 @@ internal sealed class SubmenuType
 
         if (ydir != 0)
         {
-            if (_game.Enhancements)
+            if (Game.Enhancements)
             {
                 var amount = ItemsPerRow * ydir;
                 var target = (_activeUISlot + amount) % ActiveItems;
@@ -313,6 +318,8 @@ internal sealed class SubmenuType
 
     public void SelectNextItem(int xdir = 1)
     {
+        UpdateActiveItems();
+
         for (var i = 0; i < ActiveItems; i++)
         {
             _activeUISlot += xdir;
@@ -334,10 +341,9 @@ internal sealed class SubmenuType
     {
         if (!_enabled) return;
 
-        var top = bottom - Height;
-
         using var _ = Graphics.SetClip(0, 0, Width, bottom);
 
+        var top = bottom - Height;
         DrawBackground(top);
         DrawPassiveInventory(top);
         DrawActiveInventory(top);

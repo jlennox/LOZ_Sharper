@@ -4,15 +4,14 @@ namespace z1;
 
 // Bugs:
 // * Blue Wizzrobes crash the game.
-// * Eliminate menu.
-// * Mirrored player.
-// * Win game.
-// * Credits.
-// * Make text usually have an opaque background. Use flags, because we want the OSD to still be transparent.
+// * Fix Eliminate menu.
+// * Fix Win game.
+// * Fix Credits.
 // * Nuke byte strings.
 // * Red leevers can crash.
 // * The dungeon old men use the same sprite as the overworld old men.
 // * Make sure mugger room works correctly with 3 hearts.
+// * Map history is borked.
 
 // To check:
 // * Check `IsReoccuring` is proper.

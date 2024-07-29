@@ -105,7 +105,7 @@ internal sealed class GLWindow : IDisposable
         }
 
         // JOE: TODO: This logic does not belong here, make buttons for "SelectNextItem" and "SelectPreviousItem".
-        if (_game.Enhancements)
+        if (Game.Enhancements)
         {
             if (button.Name == ButtonName.LeftBumper) _game.World.Menu.SelectNextItem(-1);
             if (button.Name == ButtonName.RightBumper) _game.World.Menu.SelectNextItem(1);

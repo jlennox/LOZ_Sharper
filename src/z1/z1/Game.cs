@@ -63,7 +63,7 @@ internal sealed class Game
         public static bool NoClip = true;
     }
 
-    public bool Enhancements = true;
+    public static bool Enhancements = true;
 
     public World World;
     public Input Input = new();

@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Drawing;
 using System.Runtime.InteropServices;
 using SkiaSharp;
 using z1.Actors;
@@ -29,7 +28,17 @@ internal sealed class TileMap
     public ref byte Refs(int row, int col) => ref _tileRefs[row * World.Columns + col];
     public ref byte Behaviors(int row, int col) => ref _tileBehaviors[row * World.Columns + col];
     public ref byte Behaviors(int index) => ref _tileBehaviors[index];
-    public TileBehavior AsBehaviors(int row, int col) => (TileBehavior)_tileBehaviors[row * World.Columns + col];
+    public TileBehavior AsBehaviors(int row, int col)
+    {
+        // JOE: TODO: Think this through properly. The checks should be against World.Rows/World.Columns.
+        if (row > 15)
+        {
+            Debug.WriteLine($"Row greater than 15 being accessed {row}.");
+            row = 15;
+        }
+
+        return (TileBehavior)_tileBehaviors[row * World.Columns + col];
+    }
 }
 
 internal sealed unsafe partial class World
@@ -212,7 +221,7 @@ internal sealed unsafe partial class World
     public int TriggeredDoorCmd;   // 54
     public Direction TriggeredDoorDir;   // 55
     public int FromUnderground;    // 5A
-    // JOE: TODO: This doesn't need to be reference counted anymore and should be based on the object table.
+    // JOE: TODO: ActiveShots doesn't need to be reference counted anymore and should be based on the object table.
     // Though note that ones owned by Link should be excluded.
     public int ActiveShots;        // 34C
     public bool TriggerShutters;    // 4CE
@@ -222,7 +231,7 @@ internal sealed unsafe partial class World
     public bool CandleUsed;         // 513
     public Direction ShuttersPassedDirs; // 519
     public bool BrightenRoom;       // 51E
-    public PlayerProfile Profile;
+    public PlayerProfile Profile { get; private set; }
     public UWRoomFlags[] CurUWBlockFlags = { };
     public int GhostCount;
     public int ArmosCount;
@@ -523,13 +532,13 @@ internal sealed unsafe partial class World
 
         if (IsPlaying() && State.Play.RoomType == RoomType.Regular)
         {
-            static ReadOnlySpan<byte> RoomIds() => new byte[] { 0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72 };
+            ReadOnlySpan<byte> RoomIds = [ 0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72 ];
 
             var makeWhirlwind = true;
 
-            for (var i = 0; i < RoomIds().Length; i++)
+            for (var i = 0; i < RoomIds.Length; i++)
             {
-                if (RoomIds()[i] == CurRoomId)
+                if (RoomIds[i] == CurRoomId)
                 {
                     if ((i == 0 && Profile.Quest == 0)
                         || (i != 0 && Profile.Quest != 0))
@@ -1442,7 +1451,9 @@ internal sealed unsafe partial class World
     public void BeginFadeIn()
     {
         if (DarkRoomFadeStep > 0)
+        {
             BrightenRoom = true;
+        }
     }
 
     public void FadeIn()
@@ -3340,7 +3351,7 @@ internal sealed unsafe partial class World
         LoadRoom(nextRoomId, nextTileMapIndex);
 
         var uwRoomAttrs = GetUWRoomAttrs(nextRoomId);
-        if (uwRoomAttrs.IsDark() && DarkRoomFadeStep == 0)
+        if (uwRoomAttrs.IsDark() && DarkRoomFadeStep == 0 && !Profile.PreventDarkRooms())
         {
             State.Scroll.Substate = ScrollState.Substates.FadeOut;
             State.Scroll.Timer = Game.Cheats.SpeedUp ? 1 : 9;
