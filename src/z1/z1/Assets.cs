@@ -35,6 +35,11 @@ internal sealed class Assets
             ?? throw new FileNotFoundException($"Resource not found: {name}"); ;
     }
 
+    public static byte[] ReadAllBytes(string name)
+    {
+        return File.ReadAllBytes(Root.GetPath("out", name));
+    }
+
     public static unsafe RawImage RawImageIconFromResource(string name)
     {
         using var stream = GetEmbeddedResource(name);

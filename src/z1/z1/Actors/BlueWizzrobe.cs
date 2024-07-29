@@ -186,6 +186,9 @@ internal abstract class WizzrobeBase : Actor
         ReadOnlySpan<int> allWizzrobeCollisionXOffsets = [0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0];
         ReadOnlySpan<int> allWizzrobeCollisionYOffsets = [4, 4, 0, 8, 8, 8, 0, -8, 0, 0];
 
+        // JOE: TODO: Research and fix this hacky workaround.
+        if (dir == Direction.None) return 0;
+
         // JOE: TODO: This can crash.
         var ord = dir - 1;
         x += allWizzrobeCollisionXOffsets[(int)ord];

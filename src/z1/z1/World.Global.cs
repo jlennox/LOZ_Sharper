@@ -27,17 +27,14 @@ internal partial class World
                 if (col == 0) return curRoomId;
                 col--;
                 break;
-
             case Direction.Right:
                 if (col == WorldWidth - 1) return curRoomId;
                 col++;
                 break;
-
             case Direction.Up:
                 if (row == 0) return curRoomId;
                 row--;
                 break;
-
             case Direction.Down:
                 if (row == WorldHeight - 1) return curRoomId;
                 row++;

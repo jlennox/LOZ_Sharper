@@ -4146,7 +4146,7 @@ internal sealed unsafe partial class World
         State.WinGame.Timer--;
         if (State.WinGame.Timer == 0)
         {
-            Credits = new CreditsType();
+            Credits = new CreditsType(Game);
             State.WinGame.Substate = WinGameState.Substates.Credits;
         }
     }
