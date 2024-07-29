@@ -66,23 +66,57 @@ internal sealed class GLWindow : IDisposable
         _gl = window.CreateOpenGL();
         _inputContext = window.CreateInput();
 
-        // JOE: TODO: Use _inputContext.ConnectionChanged and yadda yadda yadda.
+        _inputContext.ConnectionChanged += OnConnectionChanged;
         foreach (var targetkb in _inputContext.Keyboards)
         {
-            targetkb.KeyDown += OnKeyDown;
-            targetkb.KeyUp += OnKeyUp;
+            BindKeyboard(targetkb);
         }
 
         var gamepad = _inputContext.Gamepads.FirstOrDefault();
         if (gamepad != null)
         {
-            gamepad.ButtonDown += OnGamepadButtonDown;
-            gamepad.ButtonUp += OnGamepadButtonUp;
-            gamepad.TriggerMoved += OnGamePadTriggerMoved;
+            BindGamepad(gamepad);
         }
 
         var surface = CreateSkSurface();
         _game.UpdateScreenSize(surface);
+    }
+
+    private void OnConnectionChanged(IInputDevice device, bool connected)
+    {
+        if (!connected)
+        {
+            Debug.WriteLine($"Input: Device disconnected {device.Name} ({device.GetType().Name})");
+            return;
+        }
+
+        switch (device)
+        {
+            case IKeyboard kb:
+                BindKeyboard(kb);
+                break;
+            case IGamepad gamepad:
+                BindGamepad(gamepad);
+                break;
+            default:
+                Debug.WriteLine($"Input: Unsupported device connected {device.Name} ({device.GetType().Name})");
+                break;
+        }
+    }
+
+    private void BindKeyboard(IKeyboard kb)
+    {
+        Debug.WriteLine($"Input: Binding keyboard {kb.Name}");
+        kb.KeyDown += OnKeyDown;
+        kb.KeyUp += OnKeyUp;
+    }
+
+    private void BindGamepad(IGamepad gamepad)
+    {
+        Debug.WriteLine($"Input: Binding gamepad {gamepad.Name}");
+        gamepad.ButtonDown += OnGamepadButtonDown;
+        gamepad.ButtonUp += OnGamepadButtonUp;
+        gamepad.TriggerMoved += OnGamePadTriggerMoved;
     }
 
     private static readonly Dictionary<ButtonName, Button> _gamepadMap = new()
@@ -105,7 +139,7 @@ internal sealed class GLWindow : IDisposable
         }
 
         // JOE: TODO: This logic does not belong here, make buttons for "SelectNextItem" and "SelectPreviousItem".
-        if (Game.Enhancements)
+        if (Game.Enhancements && _game.World.Profile != null)
         {
             if (button.Name == ButtonName.LeftBumper) _game.World.Menu.SelectNextItem(-1);
             if (button.Name == ButtonName.RightBumper) _game.World.Menu.SelectNextItem(1);

@@ -5,7 +5,6 @@ namespace z1;
 // Milestone 1:
 // * Blue Wizzrobes crash the game.
 // * Red leevers can crash.
-// * The dungeon old men use the same sprite as the overworld old men.
 
 // To check:
 // * Check `IsReoccuring` is proper.
@@ -13,7 +12,9 @@ namespace z1;
 // * Do bubbles work properly?
 
 // TODO:
-// * GEtter/setter OWRoomFlags.
+// * The dungeon old men use the same sprite as the overworld old men.
+// * Getter/setter OWRoomFlags.
+// * Refactor World enough so that Profile can not be null.
 // * Move history out of World.
 // * SIMD the palettes?
 // * Try this for the palettes? https://skia.org/docs/user/sksl/
