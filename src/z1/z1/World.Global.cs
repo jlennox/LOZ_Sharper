@@ -81,28 +81,28 @@ internal partial class World
 
     private void ClearDeadObjectQueue()
     {
-        for (var i = 0; i < ObjectsToDeleteCount; i++)
+        for (var i = 0; i < _objectsToDeleteCount; i++)
         {
-            ObjectsToDelete[i] = null;
+            _objectsToDelete[i] = null;
         }
 
-        ObjectsToDeleteCount = 0;
+        _objectsToDeleteCount = 0;
     }
 
     private void SetOnlyObject(ObjectSlot slot, Actor? obj)
     {
         Debug.Assert(slot >= 0 && slot < ObjectSlot.MaxObjects);
 
-        if (Objects[(int)slot] != null)
+        if (_objects[(int)slot] != null)
         {
-            if (ObjectsToDeleteCount == (int)ObjectSlot.MaxObjects)
+            if (_objectsToDeleteCount == (int)ObjectSlot.MaxObjects)
             {
                 ClearDeadObjectQueue();
             }
-            ObjectsToDelete[ObjectsToDeleteCount] = Objects[(int)slot];
-            ObjectsToDeleteCount++;
+            _objectsToDelete[_objectsToDeleteCount] = _objects[(int)slot];
+            _objectsToDeleteCount++;
         }
-        Objects[(int)slot] = obj;
+        _objects[(int)slot] = obj;
     }
 
     private LadderActor? GetLadderObj()
@@ -124,7 +124,7 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            Objects[i] = null;
+            _objects[i] = null;
         }
 
         ClearDeadObjectQueue();
@@ -140,10 +140,10 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            var obj = Objects[i];
+            var obj = _objects[i];
             if (obj != null && obj.IsDeleted)
             {
-                Objects[i] = null;
+                _objects[i] = null;
             }
         }
 
@@ -154,7 +154,7 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            ObjectTimers[i] = 0;
+            _objectTimers[i] = 0;
         }
     }
 
@@ -162,12 +162,12 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            if (ObjectTimers[i] != 0)
+            if (_objectTimers[i] != 0)
             {
-                ObjectTimers[i]--;
+                _objectTimers[i]--;
             }
 
-            Objects[i]?.DecrementObjectTimer();
+            _objects[i]?.DecrementObjectTimer();
         }
 
         // ORIGINAL: Here the player isn't part of the array, but in the original it's the first element.
@@ -176,31 +176,31 @@ internal partial class World
 
     private void InitStunTimers()
     {
-        LongTimer = 0;
+        _longTimer = 0;
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            StunTimers[i] = 0;
+            _stunTimers[i] = 0;
         }
     }
 
     private void DecrementStunTimers()
     {
-        if (LongTimer > 0)
+        if (_longTimer > 0)
         {
-            LongTimer--;
+            _longTimer--;
             return;
         }
 
-        LongTimer = 9;
+        _longTimer = 9;
 
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            if (StunTimers[i] != 0)
+            if (_stunTimers[i] != 0)
             {
-                StunTimers[i]--;
+                _stunTimers[i]--;
             }
 
-            Objects[i]?.DecrementStunTimer();
+            _objects[i]?.DecrementStunTimer();
         }
 
         // ORIGINAL: Here the player isn't part of the array, but in the original it's the first element.
@@ -209,14 +209,14 @@ internal partial class World
 
     private void InitPlaceholderTypes()
     {
-        Array.Clear(PlaceholderTypes);
+        Array.Clear(_placeholderTypes);
     }
 
     public ObjectSlot FindEmptyMonsterSlot()
     {
         for (var i = (int)ObjectSlot.LastMonster; i >= 0; i--)
         {
-            if (Objects[i] == null) return (ObjectSlot)i;
+            if (_objects[i] == null) return (ObjectSlot)i;
         }
         return ObjectSlot.NoneFound;
     }
@@ -231,9 +231,9 @@ internal partial class World
     {
         RecorderUsed = 0;
         CandleUsed = false;
-        SummonedWhirlwind = false;
-        ShuttersPassedDirs = Direction.None;
-        BrightenRoom = false;
+        _summonedWhirlwind = false;
+        _shuttersPassedDirs = Direction.None;
+        _brightenRoom = false;
         ActiveShots = 0;
     }
 
