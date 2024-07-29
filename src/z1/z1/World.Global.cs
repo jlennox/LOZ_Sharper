@@ -232,7 +232,6 @@ internal partial class World
         RecorderUsed = 0;
         CandleUsed = false;
         _summonedWhirlwind = false;
-        _shuttersPassedDirs = Direction.None;
         _brightenRoom = false;
         ActiveShots = 0;
     }

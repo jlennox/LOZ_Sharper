@@ -1,14 +1,11 @@
-﻿using System.Collections.Immutable;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace z1.UI;
 
 internal sealed class CreditsType
 {
     public const int StartY = Global.StdViewHeight;
-
     private const int AllLines = 96;
-    private const int AllLineBytes = 12;
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct LineStruct : ILoadVariableLengthData<Line>
@@ -27,65 +24,64 @@ internal sealed class CreditsType
 
     private readonly Game _game;
 
-    private TableResource<LineStruct> textTable;
-    private byte[] lineBmp;
-    private int fraction;
-    private int tileOffset;
-    private int top = StartY;
-    private int windowTop = StartY;
-    private int windowTopLine;
-    private int windowBottomLine = 1;
-    private int windowFirstMappedLine;
-    private byte[]? playerLine;
-    private bool madePlayerLine;
+    private readonly TableResource<LineStruct> _textTable;
+    private readonly byte[] _lineBmp;
+    private int _fraction;
+    private int _tileOffset;
+    private int _top = StartY;
+    private int _windowTop = StartY;
+    private int _windowTopLine;
+    private int _windowBottomLine = 1;
+    private int _windowFirstMappedLine;
+    private byte[]? _playerLine;
 
     public CreditsType(Game game)
     {
         _game = game;
 
-        textTable = TableResource<LineStruct>.Load("credits.tab");
-        lineBmp = Assets.ReadAllBytes("creditsLinesBmp.dat");
+        _textTable = TableResource<LineStruct>.Load("credits.tab");
+        _lineBmp = Assets.ReadAllBytes("creditsLinesBmp.dat");
     }
 
-    public bool IsDone() => windowTopLine == GetTopLineAtEnd();
-    public int GetTop() => top;
-    private int GetTopLineAtEnd() => _game.World.Profile.Quest == 0 ? 46 : 61;
+    public bool IsDone() => _windowTopLine == GetTopLineAtEnd();
+    public int GetTop() => _top;
+    private int GetTopLineAtEnd() => _game.World.GetProfile().Quest == 0 ? 46 : 61;
 
     public void Update()
     {
-        if (windowTopLine == GetTopLineAtEnd()) return;
+        if (_windowTopLine == GetTopLineAtEnd()) return;
 
-        fraction++;
-        if (fraction == 2)
+        _fraction++;
+        if (_fraction == 2)
         {
-            fraction = 0;
-            tileOffset++;
-            windowTop--;
-            top--;
+            _fraction = 0;
+            _tileOffset++;
+            _windowTop--;
+            _top--;
 
-            if (tileOffset >= 8)
+            if (_tileOffset >= 8)
             {
-                tileOffset -= 8;
+                _tileOffset -= 8;
 
-                if (windowTop < 0)
+                if (_windowTop < 0)
                 {
-                    windowTop += 8;
-                    if (windowTopLine < (AllLines - 1))
+                    _windowTop += 8;
+                    if (_windowTopLine < (AllLines - 1))
                     {
-                        var b = windowTopLine / 8;
-                        var bit = windowTopLine % 8;
-                        var show = lineBmp[b] & (0x80 >> bit);
+                        var b = _windowTopLine / 8;
+                        var bit = _windowTopLine % 8;
+                        var show = _lineBmp[b] & (0x80 >> bit);
                         if (show != 0)
                         {
-                            windowFirstMappedLine++;
+                            _windowFirstMappedLine++;
                         }
-                        windowTopLine++;
+                        _windowTopLine++;
                     }
                 }
 
-                if (windowBottomLine < AllLines)
+                if (_windowBottomLine < AllLines)
                 {
-                    windowBottomLine++;
+                    _windowBottomLine++;
                 }
             }
         }
@@ -93,9 +89,9 @@ internal sealed class CreditsType
 
     private byte[] GetPlayerLine(Line line)
     {
-        var profile = _game.World.Profile;
-        playerLine ??= ZeldaString.ToBytes($"{ZeldaString.FromBytes(line.Text)} {profile.Name} {profile.Deaths}").ToArray();
-        return playerLine;
+        var profile = _game.World.GetProfile();
+        _playerLine ??= ZeldaString.ToBytes($"{ZeldaString.FromBytes(line.Text)} {profile.Name} {profile.Deaths}").ToArray();
+        return _playerLine;
     }
 
     private static void DrawHorizWallLine(int x, int y, int length)
@@ -109,27 +105,30 @@ internal sealed class CreditsType
 
     public void Draw()
     {
-        var mappedLine = windowFirstMappedLine;
-        var y = windowTop;
+        var mappedLine = _windowFirstMappedLine;
+        var y = _windowTop;
+        var profile = _game.World.GetProfile();
 
-        for (var i = windowTopLine; i < windowBottomLine; i++)
+        for (var i = _windowTopLine; i < _windowBottomLine; i++)
         {
-            if ((mappedLine >= (int)textTable.Length)
-                || (_game.World.Profile.Quest == 0 && mappedLine >= 0x10))
+            if (mappedLine >= _textTable.Length
+                || (profile.Quest == 0 && mappedLine >= 0x10))
+            {
                 break;
+            }
 
             var b = i / 8;
             var bit = i % 8;
-            var show = lineBmp[b] & (0x80 >> bit);
+            var show = _lineBmp[b] & (0x80 >> bit);
             var pal = 0;
 
-            if (i > 1 && i < 44)
+            if (i is > 1 and < 44)
             {
                 GlobalFunctions.DrawChar(0xFA, 24, y, 0);
                 GlobalFunctions.DrawChar(0xFA, 224, y, 0);
                 pal = ((i + 6) / 7) % 3 + 1;
             }
-            else if (_game.World.Profile.Quest == 1)
+            else if (profile.Quest == 1)
             {
                 pal = mappedLine switch {
                     13 => 1,
@@ -140,14 +139,14 @@ internal sealed class CreditsType
             if (show != 0)
             {
                 var effMappedLine = mappedLine;
-                if (_game.World.Profile.Quest == 1 && mappedLine >= 12)
+                if (profile.Quest == 1 && mappedLine >= 12)
                 {
                     effMappedLine += 4;
                 }
-                var line = textTable.LoadVariableLengthData<LineStruct, Line>(effMappedLine);
-                byte[] text = line.Text;
+                var line = _textTable.LoadVariableLengthData<LineStruct, Line>(effMappedLine);
+                var text = line.Text;
                 var x = line.Col * 8;
-                if (_game.World.Profile.Quest == 1 && mappedLine == 13)
+                if (profile.Quest == 1 && mappedLine == 13)
                 {
                     text = GetPlayerLine(line);
                 }
