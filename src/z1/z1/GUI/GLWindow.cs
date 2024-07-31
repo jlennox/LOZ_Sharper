@@ -1,8 +1,12 @@
 ﻿using System.Diagnostics;
+using System.Windows.Forms;
+using ImGuiNET;
+using Silk.NET.GLFW;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
+using Silk.NET.OpenGL.Extensions.ImGui;
 using SkiaSharp;
 
 namespace z1.GUI;
@@ -19,6 +23,8 @@ internal sealed class GLWindow : IDisposable
     private GRContext? _grcontext;
     private SKSurface? _surface;
     private GRBackendRenderTarget? _rendertarget;
+    private ImGuiController _controller;
+    private System.Drawing.Rectangle _windowedRect;
 
     public GLWindow()
     {
@@ -38,6 +44,7 @@ internal sealed class GLWindow : IDisposable
         _window.Initialize();
         _window.SetWindowIcon([Assets.RawImageIconFromResource("icon.ico")]);
         _window.Run();
+        _windowedRect = _window.GetRect();
     }
 
     private SKSurface CreateSkSurface()
@@ -51,12 +58,40 @@ internal sealed class GLWindow : IDisposable
         _rendertarget?.Dispose();
 
         var framebuffer = gl.GetInteger(GLEnum.FramebufferBinding);
+
         _glinterface = GRGlInterface.Create();
         _grcontext = GRContext.CreateGl(_glinterface);
 
         var framebufferinfo = new GRGlFramebufferInfo((uint)framebuffer, SKColorType.Rgba8888.ToGlSizedFormat());
         _rendertarget = new GRBackendRenderTarget(window.Size.X, window.Size.Y, 0, 8, framebufferinfo);
         return _surface = SKSurface.Create(_grcontext, _rendertarget, GRSurfaceOrigin.BottomLeft, SKColorType.Rgba8888);
+    }
+
+    private void ToggleFullscreen()
+    {
+        var window = _window ?? throw new Exception();
+
+        var isFullscreen = window.WindowBorder == WindowBorder.Hidden;
+
+        if (isFullscreen)
+        {
+            var width = _windowedRect.Width;
+            var height = _windowedRect.Height;
+            if (width < 20) width = 400;
+            if (height < 20) height = 400;
+            window.WindowBorder = WindowBorder.Resizable;
+            window.Size = new Vector2D<int>(width, height);
+            window.Position = new Vector2D<int>(_windowedRect.X, _windowedRect.Y);
+        }
+        else
+        {
+            _windowedRect = window.GetRect();
+
+            var screen = Screen.FromRectangle(window.GetRect()).Bounds;
+            window.WindowBorder = WindowBorder.Hidden;
+            window.Size = new Vector2D<int>(screen.Width, screen.Height);
+            window.Position = new Vector2D<int>(screen.X, screen.Y);
+        }
     }
 
     private void OnLoad()
@@ -80,6 +115,12 @@ internal sealed class GLWindow : IDisposable
 
         var surface = CreateSkSurface();
         _game.UpdateScreenSize(surface);
+
+        _controller = new ImGuiController(_gl, window, _inputContext);
+
+        // ImGui.CreateContext();
+        // ImGui.GetIO().ConfigFlags |= ImGuiConfigFlags.DockingEnable;
+        // ImGui.StyleColorsDark();
     }
 
     private void OnConnectionChanged(IInputDevice device, bool connected)
@@ -171,6 +212,13 @@ internal sealed class GLWindow : IDisposable
 
     private void OnKeyDown(IKeyboard kb, Key key, int whoknows)
     {
+        var isAltPressed = kb.IsKeyPressed(Key.AltLeft) || kb.IsKeyPressed(Key.AltRight);
+        if (isAltPressed && key == Key.Enter)
+        {
+            ToggleFullscreen();
+            return;
+        }
+
         if (!_game.Input.SetKey(key)) _game.Input.SetLetter(key.GetKeyCharacter());
         _game.GameCheats.OnKeyPressed(key);
     }
@@ -196,6 +244,9 @@ internal sealed class GLWindow : IDisposable
     private void Render(double deltaSeconds)
     {
         var surface = _surface ?? throw new Exception();
+        var gl = _gl ?? throw new Exception();
+
+        _controller.Update((float)deltaSeconds);
 
         var updated = false;
         var frameTime = TimeSpan.FromSeconds(1 / 60d);
@@ -219,9 +270,37 @@ internal sealed class GLWindow : IDisposable
 
         if (updated)
         {
+            // JOE: TODO: Fix that clearing the surface causes flicker.
             _game.World.Draw();
             surface.Flush();
         }
+
+        return;
+        // https://github.com/ocornut/imgui/blob/master/imgui_demo.cpp#L644
+        // https://github.com/dotnet/Silk.NET/blob/main/examples/CSharp/OpenGL%20Demos/ImGui/Program.cs
+        ImGui.ShowDemoWindow();
+        ImGui.NewFrame();
+        if (ImGui.BeginMainMenuBar())
+        {
+            if (ImGui.BeginMenu("File"))
+            {
+                if (ImGui.MenuItem("Open", "Ctrl+O"))
+                {
+                    Debug.WriteLine("OPEN");
+                }
+                if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
+                ImGui.EndMenu();
+            }
+            if (ImGui.BeginMenu("File2"))
+            {
+                if (ImGui.MenuItem("Open", "Ctrl+O")) { /* Handle open */ }
+                if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
+                ImGui.EndMenu();
+            }
+            ImGui.EndMainMenuBar();
+        }
+
+        _controller.Render();
     }
 
     public void OnClosing()
