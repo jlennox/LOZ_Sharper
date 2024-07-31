@@ -2,27 +2,39 @@
 using System.Drawing.Imaging;
 using System.Reflection;
 using Silk.NET.Core;
+using SkiaSharp;
 
 namespace z1;
 
-internal sealed class Assets
+internal readonly struct Asset
 {
     // https://github.com/joshbirnholz/cardconjurer
     private static readonly Lazy<string> _baseAssetsDir = new(() => Path.Combine(
-        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "assets"));
+        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "assets", "out"));
 
-    public static readonly Assets Root = new();
+    public readonly string FullPath;
 
-    private readonly string _base;
-
-    public Assets(params string[] dirs)
+    public Asset(string filename)
     {
-        _base = dirs.Length > 0
-            ? Path.Combine(_baseAssetsDir.Value, Path.Combine(dirs))
-            : _baseAssetsDir.Value;
+        if (Path.IsPathRooted(filename)) throw new ArgumentOutOfRangeException(nameof(filename), filename, "filename must be relative path.");
+
+        FullPath = Path.Combine(_baseAssetsDir.Value, filename);
     }
 
-    public string GetPath(params string[] path) => Path.Combine(_base, Path.Combine(path));
+    public static string GetPath(string file)
+    {
+        return new Asset(file).FullPath;
+    }
+
+    public byte[] ReadAllBytes()
+    {
+        return File.ReadAllBytes(FullPath);
+    }
+
+    public SKBitmap DecodeSKBitmap()
+    {
+        return SKBitmap.Decode(FullPath);
+    }
 
     private static readonly Lazy<string[]> _resourceNames = new(() => Assembly.GetExecutingAssembly().GetManifestResourceNames());
 
@@ -33,11 +45,6 @@ internal sealed class Assets
 
         return Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
             ?? throw new FileNotFoundException($"Resource not found: {name}"); ;
-    }
-
-    public static byte[] ReadAllBytes(string name)
-    {
-        return File.ReadAllBytes(Root.GetPath("out", name));
     }
 
     public static unsafe RawImage RawImageIconFromResource(string name)

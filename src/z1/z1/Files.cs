@@ -8,22 +8,23 @@ namespace z1;
 internal readonly struct TableResource<T>
     where T : struct
 {
-    public readonly string Filename; // for debugging purposes.
+    public readonly Asset Asset; // for debugging purposes.
     public readonly int Length;
     public readonly short[] Offsets;
     public readonly byte[] Heap;
 
-    public TableResource(string filename, int length, short[] offsets, byte[] heap)
+    public TableResource(Asset asset, int length, short[] offsets, byte[] heap)
     {
-        Filename = filename;
+        Asset = asset;
         Length = length;
         Offsets = offsets;
         Heap = heap;
     }
 
-    public static TableResource<T> Load(string file)
+    public static TableResource<T> Load(string file) => Load(new Asset(file));
+    public static TableResource<T> Load(Asset file)
     {
-        Span<byte> bytes = File.ReadAllBytes(Assets.Root.GetPath("out", file));
+        Span<byte> bytes = file.ReadAllBytes();
 
         var length = BitConverter.ToInt16(bytes);
         bytes = bytes[sizeof(short)..];
@@ -126,24 +127,25 @@ internal readonly struct ListResource<T>
         _backing = backing;
     }
 
-    public static ListResource<T> Load(string file)
+    public static ListResource<T> Load(string file) => Load(new Asset(file));
+    public static ListResource<T> Load(Asset file)
     {
-        file = Assets.Root.GetPath("out", file);
-        Span<byte> bytes = File.ReadAllBytes(file);
+        Span<byte> bytes = file.ReadAllBytes();
         var length = BitConverter.ToInt16(bytes);
         bytes = bytes[sizeof(short)..];
         if (bytes.Length != length) throw new InvalidOperationException();
         return new ListResource<T>(MemoryMarshal.Cast<byte, T>(bytes).ToArray());
     }
 
-    public static ReadOnlySpan<T> LoadList(string file, int amount)
+    public static ReadOnlySpan<T> LoadList(string file, int amount) => LoadList(new Asset(file), amount);
+    public static ReadOnlySpan<T> LoadList(Asset file, int amount)
     {
-        file = Assets.Root.GetPath("out", file);
-        Span<byte> bytes = File.ReadAllBytes(file);
+        Span<byte> bytes = file.ReadAllBytes();
         return MemoryMarshal.Cast<byte, T>(bytes)[..amount];
     }
 
-    public static T LoadSingle(string file) => LoadList(file, 1)[0];
+    public static T LoadSingle(string file) => LoadSingle(new Asset(file));
+    public static T LoadSingle(Asset file) => LoadList(file, 1)[0];
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1, Size = Length)]
@@ -167,9 +169,9 @@ internal unsafe struct FixedString
         }
     }
 
-    public string FullPath()
+    public Asset ToAsset()
     {
-        return Assets.Root.GetPath("out", ToString());
+        return new Asset(ToString());
     }
 }
 

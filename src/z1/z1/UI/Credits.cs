@@ -40,7 +40,7 @@ internal sealed class CreditsType
         _game = game;
 
         _textTable = TableResource<LineStruct>.Load("credits.tab");
-        _lineBmp = Assets.ReadAllBytes("creditsLinesBmp.dat");
+        _lineBmp = new Asset("creditsLinesBmp.dat").ReadAllBytes();
     }
 
     public bool IsDone() => _windowTopLine == GetTopLineAtEnd();

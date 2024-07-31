@@ -42,7 +42,7 @@ internal sealed class GLWindow : IDisposable
         _window.Closing += OnClosing;
         _window.FocusChanged += OnFocusChanged;
         _window.Initialize();
-        _window.SetWindowIcon([Assets.RawImageIconFromResource("icon.ico")]);
+        _window.SetWindowIcon([Asset.RawImageIconFromResource("icon.ico")]);
         _window.Run();
         _windowedRect = _window.GetRect();
     }

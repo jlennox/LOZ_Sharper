@@ -97,7 +97,7 @@ internal static class Graphics
     public static void Begin() { }
     public static void End() { }
 
-    public static void LoadTileSheet(TileSheet sheet, string file)
+    public static void LoadTileSheet(TileSheet sheet, Asset file)
     {
         var slot = (int)sheet;
         ref var foundRef = ref _tileSheets[slot];
@@ -107,11 +107,11 @@ internal static class Graphics
             foundRef = null;
         }
 
-        var bitmap = SKBitmap.Decode(Assets.Root.GetPath("out", file)) ?? throw new Exception();
+        var bitmap = file.DecodeSKBitmap();
         _tileSheets[slot] = bitmap;
     }
 
-    public static void LoadTileSheet(TileSheet sheet, string path, string animationFile)
+    public static void LoadTileSheet(TileSheet sheet, Asset path, Asset animationFile)
     {
         LoadTileSheet(sheet, path);
         _animSpecs[(int)sheet] = TableResource<SpriteAnimationStruct>.Load(animationFile);

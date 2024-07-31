@@ -6,7 +6,6 @@ namespace z1;
 // * Blue Wizzrobes crash the game.
 // * Red leevers can crash.
 // * Audio
-// * Make file paths not be so wonky.
 // * Configurable keys.
 
 // To check:

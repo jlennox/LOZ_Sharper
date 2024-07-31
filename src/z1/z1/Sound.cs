@@ -236,13 +236,13 @@ internal sealed class Sound
         effects = ListResource<SoundInfo>.LoadList("Effects.dat", Effects).ToArray();
         for (var i = 0; i < Effects; i++)
         {
-            effectSamples[i] = new CachedSound(Assets.Root.GetPath("out", effects[i].GetFilename()));
+            effectSamples[i] = new CachedSound(Asset.GetPath(effects[i].GetFilename()));
         }
 
         songs = ListResource<SoundInfo>.LoadList("Songs.dat", Songs).ToArray();
         for (var i = 0; i < Songs; i++)
         {
-            songFiles[i] = new AudioFileReader(Assets.Root.GetPath("out", songs[i].GetFilename()));
+            songFiles[i] = new AudioFileReader(Asset.GetPath(songs[i].GetFilename()));
         }
     }
 

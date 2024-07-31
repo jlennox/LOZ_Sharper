@@ -281,28 +281,28 @@ internal sealed unsafe partial class World
 
     private void LoadMapResourcesFromDirectory(int uniqueRoomCount)
     {
-        _roomCols = ListResource<RoomCols>.LoadList(_directory.RoomCols.ToString(), uniqueRoomCount).ToArray();
-        _colTables = TableResource<byte>.Load(_directory.ColTables.ToString());
-        _tileAttrs = ListResource<byte>.LoadList(_directory.TileAttrs.ToString(), _tileTypeCount).ToArray();
+        _roomCols = ListResource<RoomCols>.LoadList(_directory.RoomCols.ToAsset(), uniqueRoomCount).ToArray();
+        _colTables = TableResource<byte>.Load(_directory.ColTables.ToAsset());
+        _tileAttrs = ListResource<byte>.LoadList(_directory.TileAttrs.ToAsset(), _tileTypeCount).ToArray();
 
-        Graphics.LoadTileSheet(TileSheet.Background, _directory.TilesImage.ToString());
+        Graphics.LoadTileSheet(TileSheet.Background, _directory.TilesImage.ToAsset());
     }
 
     private void LoadOverworldContext()
     {
         LoadOpenRoomContext();
         LoadMapResourcesFromDirectory(124);
-        _primaryMobs = ListResource<byte>.Load("owPrimaryMobs.list");
-        _secondaryMobs = ListResource<byte>.Load("owSecondaryMobs.list");
-        _tileBehaviors = ListResource<byte>.LoadList("owTileBehaviors.dat", TileTypes).ToArray();
+        _primaryMobs = ListResource<byte>.Load(new Asset("owPrimaryMobs.list"));
+        _secondaryMobs = ListResource<byte>.Load(new Asset("owSecondaryMobs.list"));
+        _tileBehaviors = ListResource<byte>.LoadList(new Asset("owTileBehaviors.dat"), TileTypes).ToArray();
     }
 
     private void LoadUnderworldContext()
     {
         LoadClosedRoomContext();
         LoadMapResourcesFromDirectory(64);
-        _primaryMobs = ListResource<byte>.Load("uwPrimaryMobs.list");
-        _tileBehaviors = ListResource<byte>.LoadList("uwTileBehaviors.dat", TileTypes).ToArray();
+        _primaryMobs = ListResource<byte>.Load(new Asset("uwPrimaryMobs.list"));
+        _tileBehaviors = ListResource<byte>.LoadList(new Asset("uwTileBehaviors.dat"), TileTypes).ToArray();
     }
 
     private void LoadCellarContext()
@@ -314,7 +314,7 @@ internal sealed unsafe partial class World
 
         _tileAttrs = ListResource<byte>.LoadList("underworldCellarTileAttrs.dat", _tileTypeCount).ToArray();
 
-        Graphics.LoadTileSheet(TileSheet.Background, "underworldTiles.png");
+        Graphics.LoadTileSheet(TileSheet.Background, new Asset("underworldTiles.png"));
 
         _primaryMobs = ListResource<byte>.Load("uwCellarPrimaryMobs.list");
         _secondaryMobs = ListResource<byte>.Load("uwCellarSecondaryMobs.list");
@@ -351,8 +351,8 @@ internal sealed unsafe partial class World
         else
         {
             LoadUnderworldContext();
-            _wallsBmp = SKBitmap.Decode(_directory.Extra2.FullPath());
-            _doorsBmp = SKBitmap.Decode(_directory.Extra3.FullPath());
+            _wallsBmp = _directory.Extra2.ToAsset().DecodeSKBitmap();
+            _doorsBmp = _directory.Extra3.ToAsset().DecodeSKBitmap();
             _curUWBlockFlags = level < 7 ? profile.LevelFlags1 : profile.LevelFlags2;
 
             foreach (var tileMap in _tileMaps)
@@ -364,18 +364,18 @@ internal sealed unsafe partial class World
             }
         }
 
-        Graphics.LoadTileSheet(TileSheet.PlayerAndItems, _directory.PlayerImage.ToString(), _directory.PlayerSheet.ToString());
-        Graphics.LoadTileSheet(TileSheet.Npcs, _directory.NpcImage.ToString(), _directory.NpcSheet.ToString());
+        Graphics.LoadTileSheet(TileSheet.PlayerAndItems, _directory.PlayerImage.ToAsset(), _directory.PlayerSheet.ToAsset());
+        Graphics.LoadTileSheet(TileSheet.Npcs, _directory.NpcImage.ToAsset(), _directory.NpcSheet.ToAsset());
 
         if (!_directory.BossImage.IsNull)
         {
-            Graphics.LoadTileSheet(TileSheet.Boss, _directory.BossImage.ToString(), _directory.BossSheet.ToString());
+            Graphics.LoadTileSheet(TileSheet.Boss, _directory.BossImage.ToAsset(), _directory.BossSheet.ToAsset());
         }
 
-        _roomAttrs = ListResource<RoomAttrs>.LoadList(_directory.RoomAttrs.ToString(), Rooms).ToArray();
-        _extraData = TableResource<byte>.Load(_directory.LevelInfoEx.ToString());
-        _objLists = TableResource<byte>.Load(_directory.ObjLists.ToString());
-        _sparseRoomAttrs = TableResource<byte>.Load(_directory.Extra1.ToString());
+        _roomAttrs = ListResource<RoomAttrs>.LoadList(_directory.RoomAttrs.ToAsset(), Rooms).ToArray();
+        _extraData = TableResource<byte>.Load(_directory.LevelInfoEx.ToAsset());
+        _objLists = TableResource<byte>.Load(_directory.ObjLists.ToAsset());
+        _sparseRoomAttrs = TableResource<byte>.Load(_directory.Extra1.ToAsset());
 
         var facing = Game.Link?.Facing ?? Direction.Up;
 
@@ -399,13 +399,13 @@ internal sealed unsafe partial class World
 
     private void Init()
     {
-        var sysPal = ListResource<int>.LoadList("pal.dat", Global.SysPaletteLength).ToArray();
+        var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
         Graphics.LoadSystemPalette(sysPal);
 
-        Graphics.LoadTileSheet(TileSheet.Font, "font.png");
-        Graphics.LoadTileSheet(TileSheet.PlayerAndItems, "playerItem.png", "playerItemsSheet.tab");
+        Graphics.LoadTileSheet(TileSheet.Font, new Asset("font.png"));
+        Graphics.LoadTileSheet(TileSheet.PlayerAndItems, new Asset("playerItem.png"), new Asset("playerItemsSheet.tab"));
 
-        _textTable = TableResource<byte>.Load("text.tab");
+        _textTable = TableResource<byte>.Load(new Asset("text.tab"));
 
         GotoFileMenu();
     }
