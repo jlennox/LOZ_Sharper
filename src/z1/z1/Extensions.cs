@@ -1,4 +1,5 @@
 ﻿using Silk.NET.Input;
+using Silk.NET.Windowing;
 using z1.Actors;
 
 namespace z1;
@@ -173,8 +174,12 @@ internal static class Extensions
         return (char)key;
     }
 
-    public static bool IEquals(this string? a, string? b)
+    public static bool IEquals(this string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    public static bool IStartsWith(this string? a, string? b) => a?.StartsWith(b ?? "", StringComparison.OrdinalIgnoreCase) ?? false;
+    public static bool IContains(this string? a, string? b) => a?.Contains(b ?? "", StringComparison.OrdinalIgnoreCase) ?? false;
+
+    public static System.Drawing.Rectangle GetRect(this IWindow window)
     {
-        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        return new System.Drawing.Rectangle(window.Position.X, window.Position.Y, window.Size.X, window.Size.Y);
     }
 }

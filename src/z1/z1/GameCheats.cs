@@ -127,16 +127,13 @@ internal sealed class GameCheats
 
         public override void RunPayload(Game game, string[] args)
         {
-            var type = Enum.GetNames<ObjType>()
+            var validTypes = Enum.GetNames<ObjType>()
                 .Where(t => !t.Contains("Child"))
-                .FirstOrDefault(x => x.StartsWith(args[0], StringComparison.OrdinalIgnoreCase));
+                .ToArray();
 
-            if (type == null)
-            {
-                type = Enum.GetNames<ObjType>()
-                    .Where(t => !t.Contains("Child"))
-                    .FirstOrDefault(x => x.Contains(args[0], StringComparison.OrdinalIgnoreCase));
-            }
+            var type =
+                validTypes.FirstOrDefault(x => x.IStartsWith(args[0]))
+                ?? validTypes.FirstOrDefault(x => x.IContains(args[0]));
 
             if (type == null)
             {
@@ -151,7 +148,9 @@ internal sealed class GameCheats
             //     return;
             // }
 
-            var slot = ObjectSlot.Monster1;
+            // Ultimately, we want to support TryFindEmptyMonsterSlot but some monsters demand to be spawned
+            // into the first slot, making it a problem.
+            const ObjectSlot slot = ObjectSlot.Monster1;
             game.World.CurObjectSlot = slot;
 
             var obj = Actor.FromType(objType, game, 80, 80);
@@ -224,8 +223,6 @@ internal sealed class GameCheats
             game.World.AddItem(ItemId.RedCandle);
             game.World.AddItem(ItemId.Rod);
             game.World.AddItem(ItemId.MagicSword);
-            // game.World.AddItem(ItemId.Bomb);
-            // game.World.AddItem(ItemId.Key);
             game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
             game.World.PostRupeeWin(0xFF);

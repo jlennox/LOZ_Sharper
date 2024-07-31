@@ -5,6 +5,9 @@ namespace z1;
 // Milestone 1:
 // * Blue Wizzrobes crash the game.
 // * Red leevers can crash.
+// * Audio
+// * Make file paths not be so wonky.
+// * Configurable keys.
 
 // To check:
 // * Check `IsReoccuring` is proper.
