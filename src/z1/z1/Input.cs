@@ -11,50 +11,86 @@ internal enum ButtonState
     Held = 3,
 }
 
-[Flags]
 internal enum GameButton
 {
-    None = 0,
-    Right = 1 << 0,
-    Left = 1 << 1,
-    Down = 1 << 2,
-    Up = 1 << 3,
-    Start = 1 << 4,
-    Select = 1 << 5,
-    B = 1 << 6,
-    A = 1 << 7,
+    None,
+    Right,
+    Left,
+    Down,
+    Up,
+    Start,
+    Select,
+    Pause,
+    B,
+    A,
 
-    PreviousItem = 1 << 8,
-    NextItem = 1 << 9,
+    ItemPrevious,
+    ItemNext,
 
-    CheatKillAll = 1 << 20,
-    CheatSpeedUp = 1 << 21,
+    FullScreenToggle,
 
-    MovingMask = 0xF,
+    CheatKillAll,
+    CheatSpeedUp,
+
+    AudioMuteToggle,
+    AudioIncreaseVolume,
+    AudioDecreaseVolume,
 }
 
-internal struct InputButtons
+internal static class InputButtonsExtensions
 {
-    public GameButton Buttons;
-    public readonly int ButtonsInt => (int)Buttons;
+    public static Direction GetDirection(this HashSet<GameButton> buttons)
+    {
+        var direction = Direction.None;
+        if (buttons.Contains(GameButton.Up)) direction |= Direction.Up;
+        if (buttons.Contains(GameButton.Down)) direction |= Direction.Down;
+        if (buttons.Contains(GameButton.Left)) direction |= Direction.Left;
+        if (buttons.Contains(GameButton.Right)) direction |= Direction.Right;
+        return direction;
+    }
 
-    public HashSet<char> Characters;
+    public static void Mask(this HashSet<GameButton> buttons, GameButton value)
+    {
+        var had = buttons.Contains(value);
+        buttons.Clear();
+        if (had) buttons.Add(value);
+    }
+}
+
+internal readonly struct InputButtons
+{
+    public readonly HashSet<GameButton> Buttons;
+    public readonly HashSet<char> Characters;
 
     public InputButtons()
     {
-        Buttons = GameButton.None;
-        Characters = new();
+        Buttons = new HashSet<GameButton>();
+        Characters = new HashSet<char>();
     }
 
-    public readonly bool Has(GameButton value) => Buttons.HasFlag(value);
-    public void Mask(GameButton value) => Buttons &= value;
-    public void Clear(GameButton value) => Buttons = (GameButton)((int)Buttons ^ (int)value);
+    public bool Set(GameButton value) => Buttons.Add(value);
+    public bool Has(GameButton value) => Buttons.Contains(value);
+    public void Remove(GameButton value) => Buttons.Remove(value);
+    public void ClearButtons() => Buttons.Clear();
+    public void ClearAll()
+    {
+        Buttons.Clear();
+        Characters.Clear();
+    }
+
+    public void CloneTo(InputButtons other)
+    {
+        other.Buttons.Clear();
+        other.Buttons.UnionWith(Buttons);
+        other.Characters.Clear();
+        other.Characters.UnionWith(Characters);
+    }
 }
 
 internal sealed class Input
 {
-    private InputButtons _oldInputState = new();
-    private InputButtons _inputState = new();
+    private readonly InputButtons _oldInputState = new();
+    private readonly InputButtons _inputState = new();
 
     private readonly InputConfiguration _configuration;
 
@@ -63,20 +99,36 @@ internal sealed class Input
         _configuration = configuration;
     }
 
-    public InputButtons GetButtons()
+    public HashSet<GameButton> GetButtons()
     {
-        var buttons = (_oldInputState.ButtonsInt ^ _inputState.ButtonsInt)
-            & _inputState.ButtonsInt
-            | (_inputState.ButtonsInt & 0xF);
+        var resultButtons = new HashSet<GameButton>();
 
-        return new InputButtons { Buttons = (GameButton)buttons };
+        foreach (var button in _inputState.Buttons)
+        {
+            if (!_oldInputState.Buttons.Contains(button))
+            {
+                resultButtons.Add(button);
+            }
+        }
+
+        foreach (var button in _oldInputState.Buttons)
+        {
+            if (_inputState.Buttons.Contains(button))
+            {
+                resultButtons.Add(button);
+            }
+        }
+
+        return resultButtons;
     }
+
+    public void SetButton(GameButton button) => _inputState.Set(button);
 
     private bool SetGameButton<TKey>(IReadOnlyDictionary<TKey, GameButton> map, TKey key)
         where TKey : notnull
     {
         if (!map.TryGetValue(key, out var button)) return false;
-        _inputState.Buttons |= button;
+        _inputState.Set(button);
         return true;
     }
 
@@ -84,22 +136,35 @@ internal sealed class Input
         where TKey : notnull
     {
         if (!map.TryGetValue(key, out var button)) return false;
-        _inputState.Buttons &= ~button;
+        _inputState.Remove(button);
         return true;
     }
 
-    public bool SetKey(Key key)
+    public bool SetKey(KeyboardMapping map)
     {
-        if (SetGameButton(_configuration.Keyboard, key)) return true;
-        SetLetter(key.GetKeyCharacter());
+        if (SetGameButton(_configuration.Keyboard, map)) return true;
+        SetLetter(map.Key.GetKeyCharacter());
         return false;
     }
 
-    public bool UnsetKey(Key key)
+    public bool UnsetKey(KeyboardMapping map)
     {
-        if (UnsetGameButton(_configuration.Keyboard, key)) return true;
-        UnsetLetter(key.GetKeyCharacter());
-        return false;
+        // We need to clear any game input that's using this key. IE, if mute is set to control+m,
+        // then the user releases ctrl, then the user releases m, we're not seeing "control+m", we're
+        // seeing each action.
+        var found = false;
+        foreach (var kv in _configuration.Keyboard)
+        {
+            if (kv.Key.Key == map.Key || kv.Key.Modifiers == map.Modifiers)
+            {
+                _inputState.Remove(kv.Value);
+                found = true;
+            }
+        }
+
+        // Always unset the character, as it's always being released regardless of being a game input.
+        UnsetLetter(map.Key.GetKeyCharacter());
+        return found;
     }
 
     public bool SetGamepadButton(ButtonName button) => SetGameButton(_configuration.Gamepad, (GamepadButton)button);
@@ -117,16 +182,9 @@ internal sealed class Input
         _inputState.Characters.Add(letter);
         return true;
     }
+    private void UnsetLetter(char letter) => _inputState.Characters.Remove(letter);
 
-    private void UnsetLetter(char letter)
-    {
-        _inputState.Characters.Remove(letter);
-    }
-
-    public void UnsetAllKeys()
-    {
-        _inputState.Buttons = GameButton.None;
-    }
+    public void UnsetAllInput() => _inputState.ClearAll();
 
     public bool IsButtonDown(GameButton buttonCode) => _inputState.Has(buttonCode);
     public bool IsButtonPressing(GameButton buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
@@ -165,9 +223,6 @@ internal sealed class Input
 
     public void Update()
     {
-        _oldInputState = new InputButtons {
-            Buttons = _inputState.Buttons,
-            Characters = _inputState.Characters == null ? new() : new(_inputState.Characters)
-        };
+        _inputState.CloneTo(_oldInputState);
     }
 }

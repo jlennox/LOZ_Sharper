@@ -124,13 +124,13 @@ internal class CachedSound
     }
 }
 
-internal class CachedSoundSampleProvider : ISampleProvider
+internal class CachedSampleProvider : ISampleProvider
 {
     private readonly CachedSound _cachedSound;
     private readonly bool _loop;
     private int _position;
 
-    public CachedSoundSampleProvider(CachedSound cachedSound, bool loop)
+    public CachedSampleProvider(CachedSound cachedSound, bool loop)
     {
         _cachedSound = cachedSound;
         _loop = loop;
@@ -202,13 +202,14 @@ internal sealed class LoopStream : WaveStream
 #pragma warning disable CA1822 // Mark members as static
 internal sealed class Sound
 {
+    public const int AmbientInstance = 4;
+
     private const int Instances = 5;
     private const int Streams = (int)SongStream.MAX;
     private const int LoPriStreams = Streams - 1;
     private const int Songs = (int)SongId.MAX;
     private const int Effects = (int)SoundEffect.MAX;
-    private const int NoSound = 0xFF;
-    public const int AmbientInstance = 4;
+    private const int VolumeIncrements = 5;
 
     private readonly bool _disableAudio = false;
 
@@ -223,7 +224,11 @@ internal sealed class Sound
 
     private readonly ISampleProvider?[] _playingSongSamples = new ISampleProvider[Streams];
 
-    public Sound()
+    private int _volume; // 0 to 100.
+    private bool _isMuted = false;
+
+    /// <param name="volume">0 to 100</param>
+    public Sound(int volume)
     {
         _waveOutDevice = new WaveOutEvent();
         _mixer = new MixingSampleProvider(WaveFormat.CreateIeeeFloatWaveFormat(44100, 2))
@@ -244,6 +249,34 @@ internal sealed class Sound
         {
             songFiles[i] = new AudioFileReader(Asset.GetPath(songs[i].GetFilename()));
         }
+
+        SetVolume(volume);
+    }
+
+    public void SetVolume(int volume)
+    {
+        _volume = Math.Clamp(volume, 0, 100);
+        _waveOutDevice.Volume = _volume / 100f;
+    }
+
+    public int IncreaseVolume()
+    {
+        _volume = Math.Clamp(_volume + VolumeIncrements, 0, 100);
+        _waveOutDevice.Volume = _volume / 100f;
+        return _volume;
+    }
+
+    public int DecreaseVolume()
+    {
+        _volume = Math.Clamp(_volume - VolumeIncrements, 0, 100);
+        _waveOutDevice.Volume = _volume / 100f;
+        return _volume;
+    }
+
+    public bool ToggleMute()
+    {
+        _waveOutDevice.Volume = _isMuted ? _volume / 100f : 0;
+        return _isMuted = !_isMuted;
     }
 
     private void PlaySongInternal(SongId song, SongStream stream, bool loop, bool play)
@@ -279,7 +312,7 @@ internal sealed class Sound
             // if (!effects[(int)id].HasPlayIfQuietSlot)
             {
                 var sample = effectSamples[(int)id];
-                var input = new CachedSoundSampleProvider(sample, request.Loop);
+                var input = new CachedSampleProvider(sample, request.Loop);
                 _mixer.AddMixerInput(input);
             }
 

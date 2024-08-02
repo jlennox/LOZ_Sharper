@@ -116,7 +116,6 @@ internal sealed unsafe partial class World
     private enum UniqueRoomIds { TopRightOverworldSecret = 0x0F }
 
     public Game Game { get; }
-    public readonly OnScreenDisplay OnScreenDisplay = new();
     public Link Player => Game.Link;
     public int CurRoomId;
     public SubmenuType Menu;
@@ -452,8 +451,6 @@ internal sealed unsafe partial class World
         }
 
         sDrawFuncs[(int)_curMode]!();
-
-        OnScreenDisplay.Draw();
     }
 
     private void DrawRoom()
@@ -1977,11 +1974,11 @@ internal sealed unsafe partial class World
         {
             if (Game.Enhancements)
             {
-                if (Game.Input.IsButtonPressing(GameButton.NextItem)) Menu.SelectNextItem();
-                if (Game.Input.IsButtonPressing(GameButton.PreviousItem)) Menu.SelectPreviousItem();
+                if (Game.Input.IsButtonPressing(GameButton.ItemNext)) Menu.SelectNextItem();
+                if (Game.Input.IsButtonPressing(GameButton.ItemPrevious)) Menu.SelectPreviousItem();
             }
 
-            if (Game.Input.IsButtonPressing(GameButton.Select))
+            if (Game.Input.IsButtonPressing(GameButton.Select) || Game.Input.IsButtonPressing(GameButton.Pause))
             {
                 _pause = PauseState.Paused;
                 Game.Sound.Pause();
@@ -1996,7 +1993,7 @@ internal sealed unsafe partial class World
         }
         else if (_pause == PauseState.Paused)
         {
-            if (Game.Input.IsButtonPressing(GameButton.Select))
+            if (Game.Input.IsButtonPressing(GameButton.Select) || Game.Input.IsButtonPressing(GameButton.Pause))
             {
                 _pause = 0;
                 Game.Sound.Unpause();

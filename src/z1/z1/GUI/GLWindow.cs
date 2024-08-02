@@ -184,25 +184,42 @@ internal sealed class GLWindow : IDisposable
     private void OnFocusChanged(bool focused)
     {
         // This is to prevent keys from getting stuck due to the lack of focus causing an OnKeyUp event to be missed.
-        if (!focused) _game.Input.UnsetAllKeys();
+        if (!focused) _game.Input.UnsetAllInput();
+    }
+
+    private static KeyboardMapping GetKeyMapping(IKeyboard kb, Key key)
+    {
+        var isShiftPressed = kb.IsKeyPressed(Key.ShiftLeft) || kb.IsKeyPressed(Key.ShiftRight);
+        var isAltPressed = kb.IsKeyPressed(Key.AltLeft) || kb.IsKeyPressed(Key.AltRight);
+        var isCtrlPressed = kb.IsKeyPressed(Key.ControlLeft) || kb.IsKeyPressed(Key.ControlRight);
+
+        var isShift = key is Key.ShiftLeft or Key.ShiftRight;
+        var isAlt = key is Key.AltLeft or Key.AltRight;
+        var isCtrl = key is Key.ControlLeft or Key.ControlRight;
+
+        var shiftModifier = isShiftPressed || isShift ? KeyboardModifiers.Shift : KeyboardModifiers.None;
+        var altModifier = isAltPressed || isAlt? KeyboardModifiers.Alt : KeyboardModifiers.None;
+        var ctrlModifier = isCtrlPressed || isCtrl ? KeyboardModifiers.Control : KeyboardModifiers.None;
+
+        return  new KeyboardMapping(key, shiftModifier | altModifier | ctrlModifier);
     }
 
     private void OnKeyDown(IKeyboard kb, Key key, int whoknows)
     {
-        var isAltPressed = kb.IsKeyPressed(Key.AltLeft) || kb.IsKeyPressed(Key.AltRight);
-        if (isAltPressed && key == Key.Enter)
+        var mapping = GetKeyMapping(kb, key);
+
+        _game.Input.SetKey(mapping);
+        _game.GameCheats.OnKeyPressed(key);
+
+        if (_game.Input.IsButtonDown(GameButton.FullScreenToggle))
         {
             ToggleFullscreen();
-            return;
         }
-
-        _game.Input.SetKey(key);
-        _game.GameCheats.OnKeyPressed(key);
     }
 
     private void OnKeyUp(IKeyboard kb, Key key, int whoknows)
     {
-        _game.Input.UnsetKey(key);
+        _game.Input.UnsetKey(GetKeyMapping(kb, key));
     }
 
     private void OnFramebufferResize(Vector2D<int> s)
@@ -237,9 +254,7 @@ internal sealed class GLWindow : IDisposable
         {
             _game.FrameCounter++;
 
-            _game.World.Update();
-            _game.Sound.Update();
-            _game.Input.Update();
+            _game.Update();
 
             _renderedTime += frameTime;
             updated = true;
@@ -248,7 +263,7 @@ internal sealed class GLWindow : IDisposable
         if (updated)
         {
             // JOE: TODO: Fix that clearing the surface causes flicker.
-            _game.World.Draw();
+            _game.Draw();
             surface.Flush();
         }
 

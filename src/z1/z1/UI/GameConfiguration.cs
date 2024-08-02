@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 using Silk.NET.Input;
-using KeyboardMap = System.Collections.Generic.IReadOnlyDictionary<Silk.NET.Input.Key, z1.GameButton>;
+using KeyboardMap = System.Collections.Generic.IReadOnlyDictionary<z1.UI.KeyboardMapping, z1.GameButton>;
 using GamepadMap = System.Collections.Generic.IReadOnlyDictionary<z1.UI.GamepadButton, z1.GameButton>;
 
 namespace z1.UI;
@@ -38,30 +38,55 @@ internal sealed class GameConfiguration
 
     public int Version { get; set; } = 1;
     public bool EnableEnhancements { get; set; } = true;
-    public bool EnableAudio { get; set; } = true;
+    public bool MuteAudio { get; set; } = false;
     public bool? IsJoe { get; set; }
-    public int AudioVolume { get; set; } = 100;
+    public int AudioVolume { get; set; } = 80; // It sounds really loud at 100?
 
     [JsonPropertyName("Input")]
     private readonly InputConfiguration? _input;
+
+    public void Save()
+    {
+        SaveFolder.SaveConfiguration(this);
+    }
 }
+
+[Flags]
+internal enum KeyboardModifiers
+{
+    None,
+    Shift = 1,
+    Control = 2,
+    Alt = 4,
+}
+
+internal readonly record struct KeyboardMapping(Key Key, KeyboardModifiers Modifiers = KeyboardModifiers.None);
 
 internal sealed class InputConfiguration
 {
     public static InputConfiguration MakeDefaults() => new(_defaultKeyboardMap, _defaultGamepadMap);
 
-    private static readonly KeyboardMap _defaultKeyboardMap = new Dictionary<Key, GameButton>
+    private static readonly KeyboardMap _defaultKeyboardMap = new Dictionary<KeyboardMapping, GameButton>
     {
-        { Key.Z, GameButton.B },
-        { Key.X, GameButton.A },
-        { Key.A, GameButton.PreviousItem },
-        { Key.S, GameButton.NextItem },
-        { Key.Q, GameButton.Select },
-        { Key.Space, GameButton.Start },
-        { Key.Up, GameButton.Up },
-        { Key.Down, GameButton.Down },
-        { Key.Left, GameButton.Left },
-        { Key.Right, GameButton.Right },
+        { new KeyboardMapping(Key.Z), GameButton.B },
+        { new KeyboardMapping(Key.X), GameButton.A },
+        { new KeyboardMapping(Key.LeftBracket), GameButton.ItemPrevious },
+        { new KeyboardMapping(Key.RightBracket), GameButton.ItemNext },
+        { new KeyboardMapping(Key.Q), GameButton.Select },
+        { new KeyboardMapping(Key.Space), GameButton.Start },
+        { new KeyboardMapping(Key.Up), GameButton.Up },
+        { new KeyboardMapping(Key.Down), GameButton.Down },
+        { new KeyboardMapping(Key.Left), GameButton.Left },
+        { new KeyboardMapping(Key.Right), GameButton.Right },
+
+        { new KeyboardMapping(Key.Enter, KeyboardModifiers.Alt), GameButton.FullScreenToggle },
+        { new KeyboardMapping(Key.F, KeyboardModifiers.Control), GameButton.FullScreenToggle },
+        { new KeyboardMapping(Key.M, KeyboardModifiers.Control), GameButton.AudioMuteToggle },
+
+        { new KeyboardMapping(Key.Pause), GameButton.Pause },
+        { new KeyboardMapping(Key.Minus), GameButton.AudioDecreaseVolume },
+        { new KeyboardMapping(Key.Equal), GameButton.AudioIncreaseVolume },
+        { new KeyboardMapping(Key.Equal, KeyboardModifiers.Shift), GameButton.AudioIncreaseVolume },
     };
 
     private static readonly GamepadMap _defaultGamepadMap = new Dictionary<GamepadButton, GameButton>
@@ -77,8 +102,8 @@ internal sealed class InputConfiguration
         { GamepadButton.DPadDown, GameButton.Down },
         { GamepadButton.DPadUp, GameButton.Up },
         { GamepadButton.Home, GameButton.None },
-        { GamepadButton.BumperLeft, GameButton.PreviousItem },
-        { GamepadButton.BumperRight, GameButton.NextItem },
+        { GamepadButton.BumperLeft, GameButton.ItemPrevious },
+        { GamepadButton.BumperRight, GameButton.ItemNext },
         { GamepadButton.StickLeft, GameButton.None },
         { GamepadButton.StickRight, GameButton.None },
         { GamepadButton.TriggerLeft, GameButton.CheatKillAll },

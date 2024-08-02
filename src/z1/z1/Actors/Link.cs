@@ -1,8 +1,16 @@
 ﻿using z1.Player;
+using LinkState = z1.Actors.Link.LinkState;
 
 namespace z1.Actors;
 
 internal enum PlayerState { Idle, Wielding, Paused }
+
+internal static class LinkStateExtensions
+{
+    // (_state & 0xC0) == 0x40;
+    public static bool IsPaused(this LinkState state) => (state & LinkState.PausedMask) == LinkState.Paused;
+    public static bool IsAttacking(this LinkState state) => (int)(state & LinkState.AttackMask) is 0x10 or 0x20;
+}
 
 internal sealed class Link : Actor, IThrower
 {
@@ -11,20 +19,29 @@ internal sealed class Link : Actor, IThrower
 
     private const int WalkDurationFrames = 12;
 
-    public static ReadOnlySpan<byte> PlayerLimits => new byte[] { 0xF0, 0x00, 0xDD, 0x3D };
+    [Flags]
+    internal enum LinkState
+    {
+        AttackMask = 0x30,
+
+        Paused = 0x40,
+        PausedMask = 0xC0, // I do not know what the other bit on this mask does.
+    }
+
+    public static ReadOnlySpan<byte> PlayerLimits => [ 0xF0, 0x00, 0xDD, 0x3D ];
 
     public override bool IsPlayer => true;
 
     public bool IsParalyzed;
 
     private int _walkFrame = 0;
-    private int _state; // JOE: TODO: Enumify this.
+    private int _state; // JOE: TODO: Enumify this as using LinkState.
     private byte _speed;
     private TileBehavior _tileBehavior;
     private byte _animTimer;
     private byte _avoidTurningWhenDiag;   // 56
     private byte _keepGoingStraight;      // 57
-    private InputButtons _curButtons;
+    private HashSet<GameButton> _curButtons;
 
     public readonly SpriteAnimator Animator;
 
@@ -50,7 +67,7 @@ internal sealed class Link : Actor, IThrower
         // Do this in order to flash while you have the clock. It doesn't matter if it becomes zero,
         // because foes will check invincibilityTimer AND the clock item.
         // I suspect that the original game did this in the drawing code.
-        var profile = Game.World.Profile;
+        var profile = Game.World.Profile ?? throw new Exception();
         if (profile.GetItem(ItemSlot.Clock) != 0)
         {
             InvincibilityTimer += 0x10;
@@ -100,31 +117,29 @@ internal sealed class Link : Actor, IThrower
     private void Animate()
     {
         // The original game also didn't animate if gameMode was 4 or $10
-        if (_state != 0)
+        if (_state == 0)
         {
-            if (_animTimer != 0)
-            {
-                _animTimer--;
-            }
+            if (Moving != 0) Animator.Advance();
+            return;
+        }
 
-            if (_animTimer == 0)
+        if (_animTimer != 0) _animTimer--;
+
+        if (_animTimer == 0)
+        {
+            switch (_state & 0x30)
             {
-                if ((_state & 0x30) == 0x10 || (_state & 0x30) == 0x20)
-                {
+                case 0x10:
+                case 0x20:
                     Animator.Time = 0;
                     _animTimer = (byte)(_state & 0xF);
                     _state |= 0x30;
-                }
-                else if ((_state & 0x30) == 0x30)
-                {
+                    break;
+                case 0x30:
                     Animator.AdvanceFrame();
                     _state &= 0xC0;
-                }
+                    break;
             }
-        }
-        else if (Moving != 0)
-        {
-            Animator.Advance();
         }
     }
 
@@ -136,11 +151,9 @@ internal sealed class Link : Actor, IThrower
         }
 
         var collision1 = Game.World.CollidesWithTileMoving(x, y, dir, true);
-
         if (dir.IsHorizontal() && collision1.TileBehavior != TileBehavior.Wall)
         {
             var collision2 = Game.World.CollidesWithTileMoving(x, y - 8, dir, true);
-
             if (collision2.TileBehavior == TileBehavior.Wall)
             {
                 return collision2;
@@ -276,7 +289,7 @@ internal sealed class Link : Actor, IThrower
 
         if (IsInBorder(coord, Facing, outerBorder))
         {
-            _curButtons.Buttons = 0;
+            _curButtons.Clear();
             if (!Game.World.IsOverworld())
             {
                 var mask = Facing.IsVertical() ? Direction.VerticalMask : Direction.HorizontalMask;
@@ -291,18 +304,18 @@ internal sealed class Link : Actor, IThrower
 
     private void HandleInput()
     {
-        Moving = (byte)(_curButtons.Buttons & GameButton.MovingMask);
+        Moving = (byte)_curButtons.GetDirection();
 
         if (_state == 0)
         {
             FilterBorderInput();
 
-            if (_curButtons.Has(GameButton.A))
+            if (_curButtons.Contains(GameButton.A))
             {
                 UseWeapon();
             }
 
-            if (_curButtons.Has(GameButton.B))
+            if (_curButtons.Contains(GameButton.B))
             {
                 UseItem();
             }
@@ -694,7 +707,7 @@ internal sealed class Link : Actor, IThrower
         for (i = ObjectSlot.FirstBomb; i < ObjectSlot.LastBomb; i++)
         {
             var obj = Game.World.GetObject(i);
-            if (obj == null || obj is not BombActor) break;
+            if (obj is not BombActor) break;
         }
 
         if (i == ObjectSlot.LastBomb) return 0;

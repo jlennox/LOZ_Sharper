@@ -55,7 +55,7 @@ internal sealed class Game
 
     public Link Link;
 
-    public readonly Sound Sound = new();
+    public readonly Sound Sound;
 
     public static class Cheats
     {
@@ -70,6 +70,7 @@ internal sealed class Game
     public Input Input;
     public GameCheats GameCheats;
     public GameConfiguration Configuration = SaveFolder.Configuration;
+    public readonly OnScreenDisplay OnScreenDisplay = new();
 
     public int FrameCounter = 0;
     public int GetFrameCounter() => FrameCounter;
@@ -77,17 +78,45 @@ internal sealed class Game
     public Game()
     {
         World = new World(this);
-        Input = new(Configuration.Input);
+        Input = new Input(Configuration.Input);
         GameCheats = new GameCheats(this, Input);
-
+        Sound = new Sound(Configuration.AudioVolume);
     }
 
     public void Update()
     {
+        WorldUpdate();
         World.Update();
         Sound.Update();
-        Input.Update();
         GameCheats.Update();
+
+        // Input comes last because it marks the buttons as old.
+        Input.Update();
+    }
+
+    private void WorldUpdate()
+    {
+        if (Input.IsButtonPressing(GameButton.AudioDecreaseVolume))
+        {
+            var volume = Sound.DecreaseVolume();
+            Toast($"Volume: {volume}%");
+        }
+        else if (Input.IsButtonPressing(GameButton.AudioIncreaseVolume))
+        {
+            var volume = Sound.IncreaseVolume();
+            Toast($"Volume: {volume}%");
+        }
+        else if (Input.IsButtonPressing(GameButton.AudioMuteToggle))
+        {
+            var isMuted = Sound.ToggleMute();
+            Toast(isMuted ? "Sound muted" : "Sound unmuted");
+        }
+    }
+
+    public void Draw()
+    {
+        World.Draw();
+        OnScreenDisplay.Draw();
     }
 
     // JOE: TODO: This function is a bit weird now.
@@ -116,5 +145,5 @@ internal sealed class Game
         }
     }
 
-    public void Toast(string text) => World.OnScreenDisplay.Toast(text);
+    public void Toast(string text) => OnScreenDisplay.Toast(text);
 }
