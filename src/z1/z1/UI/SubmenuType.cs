@@ -295,7 +295,7 @@ internal sealed class SubmenuType
 
         if (ydir != 0)
         {
-            if (Game.Enhancements)
+            if (_game.Enhancements)
             {
                 var amount = ItemsPerRow * ydir;
                 var target = (_activeUISlot + amount) % ActiveItems;
@@ -315,6 +315,8 @@ internal sealed class SubmenuType
         var profile = _game.World.Profile;
         profile.SelectedItem = _activeSlots[_activeUISlot];
     }
+
+    public void SelectPreviousItem() => SelectNextItem(-1);
 
     public void SelectNextItem(int xdir = 1)
     {

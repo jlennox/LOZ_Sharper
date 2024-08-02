@@ -1,13 +1,14 @@
 ﻿using System.Diagnostics;
 using System.Windows.Forms;
 using ImGuiNET;
-using Silk.NET.GLFW;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using SkiaSharp;
+using z1.UI;
+using Button = Silk.NET.Input.Button;
 
 namespace z1.GUI;
 
@@ -160,53 +161,29 @@ internal sealed class GLWindow : IDisposable
         gamepad.TriggerMoved += OnGamePadTriggerMoved;
     }
 
-    private static readonly Dictionary<ButtonName, Button> _gamepadMap = new()
+    private void OnGamepadButtonDown(IGamepad gamepad, Button button)
     {
-        { ButtonName.Start, Button.Start },
-        { ButtonName.Back, Button.Select },
-        { ButtonName.B, Button.A }, // A/B are spacially B/A on NES.
-        { ButtonName.A, Button.B },
-        { ButtonName.DPadLeft, Button.Left },
-        { ButtonName.DPadRight, Button.Right },
-        { ButtonName.DPadDown, Button.Down },
-        { ButtonName.DPadUp, Button.Up }
-    };
-
-    private void OnGamepadButtonDown(IGamepad gamepad, Silk.NET.Input.Button button)
-    {
-        if (_gamepadMap.TryGetValue(button.Name, out var b))
-        {
-            _game.Input.SetButton(b);
-        }
-
-        // JOE: TODO: This logic does not belong here, make buttons for "SelectNextItem" and "SelectPreviousItem".
-        if (Game.Enhancements && _game.World.Profile != null)
-        {
-            if (button.Name == ButtonName.LeftBumper) _game.World.Menu.SelectNextItem(-1);
-            if (button.Name == ButtonName.RightBumper) _game.World.Menu.SelectNextItem(1);
-        }
+        _game.Input.SetGamepadButton(button.Name);
     }
 
-    private void OnGamepadButtonUp(IGamepad gamepad, Silk.NET.Input.Button button)
+    private void OnGamepadButtonUp(IGamepad gamepad, Button button)
     {
-        if (_gamepadMap.TryGetValue(button.Name, out var b))
-        {
-            _game.Input.UnsetButton(b);
-        }
+        _game.Input.UnsetGamepadButton(button.Name);
     }
 
     private void OnGamePadTriggerMoved(IGamepad gamepad, Trigger trigger)
     {
-        if (Math.Abs(trigger.Position - 1) > .01) return;
+        var set = Math.Abs(trigger.Position - 1) > .01;
         switch (trigger.Index)
         {
-            case 0: _game.GameCheats.TriggerCheat<GameCheats.KillAllCheat>(); break;
-            case 1: _game.GameCheats.TriggerCheat<GameCheats.SpeedUpCheat>(); break;
+            case 0: _game.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;
+            case 1: _game.Input.ToggleGamepadButton(GamepadButton.TriggerRight, set); break;
         }
     }
 
     private void OnFocusChanged(bool focused)
     {
+        // This is to prevent keys from getting stuck due to the lack of focus causing an OnKeyUp event to be missed.
         if (!focused) _game.Input.UnsetAllKeys();
     }
 
@@ -219,13 +196,13 @@ internal sealed class GLWindow : IDisposable
             return;
         }
 
-        if (!_game.Input.SetKey(key)) _game.Input.SetLetter(key.GetKeyCharacter());
+        _game.Input.SetKey(key);
         _game.GameCheats.OnKeyPressed(key);
     }
 
     private void OnKeyUp(IKeyboard kb, Key key, int whoknows)
     {
-        if (!_game.Input.UnsetKey(key)) _game.Input.UnsetLetter(key.GetKeyCharacter());
+        _game.Input.UnsetKey(key);
     }
 
     private void OnFramebufferResize(Vector2D<int> s)

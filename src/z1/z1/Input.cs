@@ -1,4 +1,5 @@
 ﻿using Silk.NET.Input;
+using z1.UI;
 
 namespace z1;
 
@@ -11,55 +12,43 @@ internal enum ButtonState
 }
 
 [Flags]
-internal enum Button
+internal enum GameButton
 {
     None = 0,
-    A = 0x80,
-    B = 0x40,
-    Select = 0x20,
-    Start = 0x10,
-    Up = 8,
-    Down = 4,
-    Left = 2,
-    Right = 1,
+    Right = 1 << 0,
+    Left = 1 << 1,
+    Down = 1 << 2,
+    Up = 1 << 3,
+    Start = 1 << 4,
+    Select = 1 << 5,
+    B = 1 << 6,
+    A = 1 << 7,
+
+    PreviousItem = 1 << 8,
+    NextItem = 1 << 9,
+
+    CheatKillAll = 1 << 20,
+    CheatSpeedUp = 1 << 21,
 
     MovingMask = 0xF,
 }
 
-internal enum InputAxis { None, Horizontal, Vertical }
-
-internal struct ButtonMapping
-{
-    public byte SrcCode;
-    public byte DstCode;
-    public string SettingName;
-}
-
-internal struct AxisMapping
-{
-    public byte Stick;
-    public byte SrcAxis;
-    public byte DstAxis;
-    public string StickSettingName;
-    public string AxisSettingName;
-}
-
 internal struct InputButtons
 {
-    public Button Buttons;
+    public GameButton Buttons;
     public readonly int ButtonsInt => (int)Buttons;
 
     public HashSet<char> Characters;
 
     public InputButtons()
     {
-        Buttons = Button.None;
+        Buttons = GameButton.None;
         Characters = new();
     }
 
-    public readonly bool Has(Button value) => Buttons.HasFlag(value);
-    public void Mask(Button value) => Buttons &= value;
-    public void Clear(Button value) => Buttons = (Button)((int)Buttons ^ (int)value);
+    public readonly bool Has(GameButton value) => Buttons.HasFlag(value);
+    public void Mask(GameButton value) => Buttons &= value;
+    public void Clear(GameButton value) => Buttons = (GameButton)((int)Buttons ^ (int)value);
 }
 
 internal sealed class Input
@@ -67,80 +56,80 @@ internal sealed class Input
     private InputButtons _oldInputState = new();
     private InputButtons _inputState = new();
 
+    private readonly InputConfiguration _configuration;
+
+    public Input(InputConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
     public InputButtons GetButtons()
     {
         var buttons = (_oldInputState.ButtonsInt ^ _inputState.ButtonsInt)
             & _inputState.ButtonsInt
             | (_inputState.ButtonsInt & 0xF);
 
-        return new InputButtons { Buttons = (Button)buttons };
+        return new InputButtons { Buttons = (GameButton)buttons };
     }
 
-    private static readonly Dictionary<Key, Button> _map = new()
+    private bool SetGameButton<TKey>(IReadOnlyDictionary<TKey, GameButton> map, TKey key)
+        where TKey : notnull
     {
-        { Key.Z, Button.A },
-        { Key.X, Button.B },
-        { Key.Q, Button.Select },
-        { Key.Space, Button.Start },
-        { Key.Up, Button.Up },
-        { Key.Down, Button.Down },
-        { Key.Left, Button.Left },
-        { Key.Right, Button.Right }
-    };
+        if (!map.TryGetValue(key, out var button)) return false;
+        _inputState.Buttons |= button;
+        return true;
+    }
 
-    public void SetButton(Button button) => _inputState.Buttons |= button;
-    public void UnsetButton(Button button) => _inputState.Buttons &= ~button;
-
-    public bool SetKey(Key keys)
+    private bool UnsetGameButton<TKey>(IReadOnlyDictionary<TKey, GameButton> map, TKey key)
+        where TKey : notnull
     {
-        if (_map.TryGetValue(keys, out var button))
-        {
-            _inputState.Buttons |= button;
-            return true;
-        }
+        if (!map.TryGetValue(key, out var button)) return false;
+        _inputState.Buttons &= ~button;
+        return true;
+    }
 
+    public bool SetKey(Key key)
+    {
+        if (SetGameButton(_configuration.Keyboard, key)) return true;
+        SetLetter(key.GetKeyCharacter());
         return false;
     }
 
-    public bool SetLetter(char letter)
+    public bool UnsetKey(Key key)
     {
-        if (char.IsLetter(letter))
-        {
-            _inputState.Characters.Add(letter);
-            return true;
-        }
-
+        if (UnsetGameButton(_configuration.Keyboard, key)) return true;
+        UnsetLetter(key.GetKeyCharacter());
         return false;
     }
 
-    public bool UnsetKey(Key keys)
-    {
-        if (_map.TryGetValue(keys, out var button))
-        {
-            // oldInputState = new InputButtons { Buttons = inputState.Buttons };
-            _inputState.Buttons &= ~button;
-            return true;
-        }
+    public bool SetGamepadButton(ButtonName button) => SetGameButton(_configuration.Gamepad, (GamepadButton)button);
+    public bool UnsetGamepadButton(ButtonName button) => UnsetGameButton(_configuration.Gamepad, (GamepadButton)button);
 
-        return false;
+    public bool SetGamepadButton(GamepadButton button) => SetGameButton(_configuration.Gamepad, button);
+    public bool UnsetGamepadButton(GamepadButton button) => UnsetGameButton(_configuration.Gamepad, button);
+
+    public bool ToggleGamepadButton(GamepadButton button, bool set) => set ? SetGamepadButton(button) : UnsetGamepadButton(button);
+
+    private bool SetLetter(char letter)
+    {
+        // JOE: TODO: Add ZeldaString.IsValid or what have you.
+        if (!char.IsLetterOrDigit(letter)) return false;
+        _inputState.Characters.Add(letter);
+        return true;
     }
 
-    public void UnsetAllKeys()
-    {
-        _inputState.Buttons = Button.None;
-    }
-
-    public void UnsetLetter(char letter)
+    private void UnsetLetter(char letter)
     {
         _inputState.Characters.Remove(letter);
     }
 
-    public bool IsKeyDown(int keyCode) => throw new NotImplementedException();
-    public bool IsKeyPressing(int keyCode) => throw new NotImplementedException();
-    public ButtonState GetKey(int keyCode) => throw new NotImplementedException();
+    public void UnsetAllKeys()
+    {
+        _inputState.Buttons = GameButton.None;
+    }
 
-    public bool IsButtonDown(Button buttonCode) => _inputState.Has(buttonCode);
-    public bool IsButtonPressing(Button buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
+    public bool IsButtonDown(GameButton buttonCode) => _inputState.Has(buttonCode);
+    public bool IsButtonPressing(GameButton buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
     public IEnumerable<char> GetCharactersPressing()
     {
         foreach (var c in _inputState.Characters)
@@ -152,7 +141,7 @@ internal sealed class Input
         }
     }
 
-    private ButtonState GetButton(Button buttonCode)
+    private ButtonState GetButton(GameButton buttonCode)
     {
         var isDown = _inputState.Has(buttonCode);
         var wasDown = _oldInputState.Has(buttonCode);
@@ -167,10 +156,10 @@ internal sealed class Input
 
     public Direction GetDirectionPressing()
     {
-        if (IsButtonPressing(Button.Up)) return Direction.Up;
-        if (IsButtonPressing(Button.Down)) return Direction.Down;
-        if (IsButtonPressing(Button.Left)) return Direction.Left;
-        if (IsButtonPressing(Button.Right)) return Direction.Right;
+        if (IsButtonPressing(GameButton.Up)) return Direction.Up;
+        if (IsButtonPressing(GameButton.Down)) return Direction.Down;
+        if (IsButtonPressing(GameButton.Left)) return Direction.Left;
+        if (IsButtonPressing(GameButton.Right)) return Direction.Right;
         return Direction.None;
     }
 

@@ -1,5 +1,6 @@
 ﻿using SkiaSharp;
 using z1.Actors;
+using z1.UI;
 
 namespace z1;
 
@@ -63,11 +64,12 @@ internal sealed class Game
         public static bool NoClip = true;
     }
 
-    public static bool Enhancements = true;
+    public bool Enhancements => Configuration.EnableEnhancements;
 
     public World World;
-    public Input Input = new();
+    public Input Input;
     public GameCheats GameCheats;
+    public GameConfiguration Configuration = SaveFolder.Configuration;
 
     public int FrameCounter = 0;
     public int GetFrameCounter() => FrameCounter;
@@ -75,9 +77,20 @@ internal sealed class Game
     public Game()
     {
         World = new World(this);
-        GameCheats = new GameCheats(this);
+        Input = new(Configuration.Input);
+        GameCheats = new GameCheats(this, Input);
+
     }
 
+    public void Update()
+    {
+        World.Update();
+        Sound.Update();
+        Input.Update();
+        GameCheats.Update();
+    }
+
+    // JOE: TODO: This function is a bit weird now.
     public void UpdateScreenSize(SKSurface surface)
     {
         const int NesResX = 256;

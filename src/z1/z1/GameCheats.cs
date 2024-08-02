@@ -241,6 +241,8 @@ internal sealed class GameCheats
     }
 
     private readonly Game _game;
+    private readonly Input _input;
+
     private readonly Cheat[] _cheats =
     {
         new OverworldWarpCheat(),
@@ -253,9 +255,10 @@ internal sealed class GameCheats
         new SpawnCheat(),
     };
 
-    public GameCheats(Game game)
+    public GameCheats(Game game, Input input)
     {
         _game = game;
+        _input = input;
     }
 
     public void OnKeyPressed(Key key)
@@ -270,6 +273,12 @@ internal sealed class GameCheats
                 cheat.RunPayload(_game, args);
             }
         }
+    }
+
+    public void Update()
+    {
+        if (_input.IsButtonPressing(GameButton.CheatKillAll)) TriggerCheat<KillAllCheat>();
+        if (_input.IsButtonPressing(GameButton.CheatSpeedUp)) TriggerCheat<SpeedUpCheat>();
     }
 
     public void TriggerCheat<T>() where T : Cheat

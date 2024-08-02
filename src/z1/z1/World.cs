@@ -1961,7 +1961,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if (Game.Enhancements && Game.Input.IsButtonDown(Button.Select) && Game.Input.IsButtonDown(Button.Start))
+        if (Game.Enhancements && Game.Input.IsButtonDown(GameButton.Select) && Game.Input.IsButtonDown(GameButton.Start))
         {
             GotoContinueQuestion();
             return;
@@ -1975,21 +1975,20 @@ internal sealed unsafe partial class World
 
         if (_pause == 0)
         {
-            if (Game.Input.IsButtonPressing(Button.Select))
+            if (Game.Enhancements)
             {
-                if (Game.Enhancements)
-                {
-                    Menu.SelectNextItem();
-                }
-                else
-                {
-                    _pause = PauseState.Paused;
-                    Game.Sound.Pause();
-                }
+                if (Game.Input.IsButtonPressing(GameButton.NextItem)) Menu.SelectNextItem();
+                if (Game.Input.IsButtonPressing(GameButton.PreviousItem)) Menu.SelectPreviousItem();
+            }
+
+            if (Game.Input.IsButtonPressing(GameButton.Select))
+            {
+                _pause = PauseState.Paused;
+                Game.Sound.Pause();
                 return;
             }
 
-            if (Game.Input.IsButtonPressing(Button.Start))
+            if (Game.Input.IsButtonPressing(GameButton.Start))
             {
                 _submenu = SubmenuState.StartOpening;
                 return;
@@ -1997,7 +1996,7 @@ internal sealed unsafe partial class World
         }
         else if (_pause == PauseState.Paused)
         {
-            if (Game.Input.IsButtonPressing(Button.Select))
+            if (Game.Input.IsButtonPressing(GameButton.Select))
             {
                 _pause = 0;
                 Game.Sound.Unpause();
@@ -2092,7 +2091,7 @@ internal sealed unsafe partial class World
         }
         else if (_submenu == SubmenuState.IdleOpen)
         {
-            if (Game.Input.IsButtonPressing(Button.Start))
+            if (Game.Input.IsButtonPressing(GameButton.Start))
             {
                 Menu.Deactivate();
                 _submenu++;
@@ -2393,16 +2392,6 @@ internal sealed unsafe partial class World
             }
 
         }
-        // for (var i = (int)ObjectSlot.Monster1; i < (int)ObjectSlot.MonsterEnd; i++)
-        // {
-        //     var obj = Objects[i];
-        //     if (obj != null
-        //         && obj.ObjType < ObjType.PersonEnd
-        //         && obj.Decoration == 0)
-        //     {
-        //         obj.Decoration = 0x10;
-        //     }
-        // }
     }
 
     private void MoveRoomItem()
@@ -2446,7 +2435,7 @@ internal sealed unsafe partial class World
 
         if (pattern >= 0)
         {
-            Statues.Update(Game, (Statues.PatternType)pattern);
+            Statues.Update(Game, pattern);
         }
     }
 
@@ -3345,7 +3334,7 @@ internal sealed unsafe partial class World
         LoadRoom(nextRoomId, nextTileMapIndex);
 
         var uwRoomAttrs = GetUWRoomAttrs(nextRoomId);
-        if (uwRoomAttrs.IsDark() && _darkRoomFadeStep == 0 && !Profile.PreventDarkRooms())
+        if (uwRoomAttrs.IsDark() && _darkRoomFadeStep == 0 && !Profile.PreventDarkRooms(Game))
         {
             _state.Scroll.Substate = ScrollState.Substates.FadeOut;
             _state.Scroll.Timer = Game.Cheats.SpeedUp ? 1 : 9;
@@ -4174,7 +4163,7 @@ internal sealed unsafe partial class World
         _credits.Update();
         if (_credits.IsDone())
         {
-            if (Game.Input.IsButtonPressing(Button.Start))
+            if (Game.Input.IsButtonPressing(GameButton.Start))
             {
                 _credits = null;
                 Game.Link = null;
@@ -4187,7 +4176,7 @@ internal sealed unsafe partial class World
                 Profile.Quest = 1;
                 Profile.Items[ItemSlot.HeartContainers] = PlayerProfile.DefaultHearts;
                 Profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultBombs;
-                SaveFolder.Save();
+                SaveFolder.SaveProfiles();
 
                 Game.Sound.StopAll();
                 GotoFileMenu();
@@ -4880,13 +4869,13 @@ internal sealed unsafe partial class World
         }
         else if (_state.Continue.Substate == ContinueState.Substates.Idle)
         {
-            if (Game.Input.IsButtonPressing(Button.Select))
+            if (Game.Input.IsButtonPressing(GameButton.Select))
             {
                 _state.Continue.SelectedIndex++;
                 if (_state.Continue.SelectedIndex == 3)
                     _state.Continue.SelectedIndex = 0;
             }
-            else if (Game.Input.IsButtonPressing(Button.Start))
+            else if (Game.Input.IsButtonPressing(GameButton.Start))
             {
                 _state.Continue.Substate = ContinueState.Substates.Chosen;
                 _state.Continue.Timer = 0x40;
@@ -4909,7 +4898,7 @@ internal sealed unsafe partial class World
                 }
                 else if (_state.Continue.SelectedIndex == 1)
                 {
-                    SaveFolder.Save();
+                    SaveFolder.SaveProfiles();
                     GotoFileMenu();
                 }
                 else if (_state.Continue.SelectedIndex == 2)

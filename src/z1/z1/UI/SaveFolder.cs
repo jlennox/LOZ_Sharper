@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace z1.UI;
 
@@ -12,6 +11,9 @@ internal static class SaveFolder
     public static PlayerProfile[] Profiles => _profiles.Value;
     private static readonly Lazy<PlayerProfile[]> _profiles = new(LoadProfiles);
 
+    public static GameConfiguration Configuration => _config.Value;
+    private static readonly Lazy<GameConfiguration> _config = new(LoadGameConfiguration);
+
     private static readonly Lazy<string> _saveDirectory = new(() =>
     {
         // TODO: Handle/report errors.
@@ -20,38 +22,80 @@ internal static class SaveFolder
         return path;
     });
 
+    private static readonly Lazy<string> _logFile = new(() => Path.Combine(_saveDirectory.Value, Path.Combine("logs.txt")));
     private static readonly Lazy<string> _savesFile = new(() => Path.Combine(_saveDirectory.Value, Path.Combine("saves.json")));
+    private static readonly Lazy<string> _configFile = new(() => Path.Combine(_saveDirectory.Value, Path.Combine("config.json")));
 
-    private static PlayerProfile[] MakeDefaults() => Enumerable.Range(0, MaxProfiles).Select(_ => new PlayerProfile()).ToArray();
+    private static readonly DebugLog _log = new(nameof(SaveFolder));
+
+    static SaveFolder()
+    {
+        DebugLog.Initialize(_logFile.Value);
+    }
 
     private static PlayerProfile[] LoadProfiles()
     {
-        if (!File.Exists(_savesFile.Value)) return MakeDefaults();
+        if (!File.Exists(_savesFile.Value)) return PlayerProfile.MakeDefaults();
 
         try
         {
             var json = File.ReadAllText(_savesFile.Value);
-            return JsonSerializer.Deserialize<PlayerProfile[]>(json) ?? MakeDefaults();
+            return JsonSerializer.Deserialize<PlayerProfile[]>(json) ?? PlayerProfile.MakeDefaults();
         }
         catch (JsonException e)
         {
-            Debug.WriteLine($"Error parsing profiles: {e}");
-            return MakeDefaults();
+            _log.Write($"Error parsing profiles: {e}");
+            return PlayerProfile.MakeDefaults();
         }
         catch (FileNotFoundException e)
         {
-            Debug.WriteLine($"Error loading profiles: {e}");
-            return MakeDefaults();
+            _log.Write($"Error loading profiles: {e}");
+            return PlayerProfile.MakeDefaults();
+        }
+        catch (Exception e)
+        {
+            _log.Write($"Error loading profiles: {e}");
+            return PlayerProfile.MakeDefaults();
         }
     }
 
-    public static PlayerProfile ReadProfile(int index) => Profiles[index];
-
-    public static bool Save()
+    public static bool SaveProfiles()
     {
         var json = JsonSerializer.Serialize(Profiles, _jsonOptions);
-        // TODO: Handle/report errors.
-        File.WriteAllText(_savesFile.Value, json);
+        // TODO: Report errors to UI somehow.
+        try
+        {
+            File.WriteAllText(_savesFile.Value, json);
+        }
+        catch (Exception e)
+        {
+            _log.Write($"Error saving profiles: {e}");
+            throw;
+        }
         return true;
+    }
+
+    private static GameConfiguration LoadGameConfiguration()
+    {
+        try
+        {
+            var json = File.ReadAllText(_configFile.Value);
+            return JsonSerializer.Deserialize<GameConfiguration>(json) ?? GameConfiguration.MakeDefaults();
+        }
+        catch (JsonException e)
+        {
+            _log.Write($"Error parsing configuration: {e}");
+            return GameConfiguration.MakeDefaults();
+        }
+        catch (FileNotFoundException e)
+        {
+            _log.Write($"Error loading configuration: {e}");
+            return GameConfiguration.MakeDefaults();
+        }
+        catch (Exception e)
+        {
+            _log.Write($"Error loading configuration: {e}");
+            return GameConfiguration.MakeDefaults();
+        }
     }
 }

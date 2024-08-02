@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text.Json.Serialization;
+using z1.UI;
 
 namespace z1;
 
@@ -123,10 +124,10 @@ internal sealed class PlayerProfile
         }
     }
 
+    public static PlayerProfile[] MakeDefaults() => Enumerable.Range(0, SaveFolder.MaxProfiles).Select(_ => new PlayerProfile()).ToArray();
+
     public int GetItem(ItemSlot slot) => Items[slot];
-
-    public bool PreventDarkRooms() => Game.Enhancements && GetItem(ItemSlot.Candle) >= 2;
-
+    public bool PreventDarkRooms(Game game) => game.Enhancements && GetItem(ItemSlot.Candle) >= 2;
     public int GetMaxHeartsValue() => GetMaxHeartsValue(Items[ItemSlot.HeartContainers]);
     public static int GetMaxHeartsValue(int heartContainers) => (heartContainers << 8) - 1;
 }

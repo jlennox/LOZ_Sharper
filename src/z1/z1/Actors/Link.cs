@@ -285,24 +285,24 @@ internal sealed class Link : Actor, IThrower
         }
         else if (IsInBorder(coord, Facing, innerBorder))
         {
-            _curButtons.Mask(Button.A);
+            _curButtons.Mask(GameButton.A);
         }
     }
 
     private void HandleInput()
     {
-        Moving = (byte)(_curButtons.Buttons & Button.MovingMask);
+        Moving = (byte)(_curButtons.Buttons & GameButton.MovingMask);
 
         if (_state == 0)
         {
             FilterBorderInput();
 
-            if (_curButtons.Has(Button.A))
+            if (_curButtons.Has(GameButton.A))
             {
                 UseWeapon();
             }
 
-            if (_curButtons.Has(Button.B))
+            if (_curButtons.Has(GameButton.B))
             {
                 UseItem();
             }

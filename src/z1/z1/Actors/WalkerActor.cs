@@ -5563,11 +5563,8 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
 
 internal static class Statues
 {
-    public enum PatternType
-    {
-        Patterns = 3,
-        MaxStatues = 4,
-    }
+    private const int Patterns = 3;
+    private const int MaxStatues = 4;
 
     private static readonly byte[] _statueCounts = { 4, 2, 2 };
     private static readonly byte[] _startTimers = { 0x50, 0x80, 0xF0, 0x60 };
@@ -5575,16 +5572,19 @@ internal static class Statues
     private static readonly byte[] _xs = { 0x24, 0xC8, 0x24, 0xC8, 0x64, 0x88, 0x48, 0xA8 };
     private static readonly byte[] _ys = { 0xC0, 0xBC, 0x64, 0x5C, 0x94, 0x8C, 0x82, 0x86 };
 
-    public static readonly byte[] Timers = new byte[(int)PatternType.MaxStatues];
+    private static readonly byte[] _timers = new byte[MaxStatues];
 
     public static void Init()
     {
-        Array.Fill(Timers, (byte)0);
+        Array.Fill(_timers, (byte)0);
     }
 
-    public static void Update(Game game, PatternType pattern)
+    public static void Update(Game game, int pattern)
     {
-        if (pattern is < 0 or >= PatternType.Patterns) return;
+        if (pattern is < 0 or >= Patterns)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pattern), pattern, "Pattern is out of range.");
+        }
 
         var slot = game.World.FindEmptyMonsterSlot();
         if (slot < ObjectSlot.Monster1 + 5) return;
@@ -5594,8 +5594,8 @@ internal static class Statues
 
         for (var i = 0; i < statueCount; i++)
         {
-            var timer = Timers[i];
-            Timers[i]--;
+            var timer = _timers[i];
+            _timers[i]--;
 
             if (timer != 0) continue;
 
@@ -5603,7 +5603,7 @@ internal static class Statues
             if (r >= 0xF0) continue;
 
             var j = r & 3;
-            Timers[i] = _startTimers[j];
+            _timers[i] = _startTimers[j];
 
             var offset = i + _patternOffsets[(int)pattern];
             var x = _xs[offset];

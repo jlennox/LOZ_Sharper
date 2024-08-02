@@ -7,6 +7,7 @@ namespace z1;
 // * Red leevers can crash.
 // * Audio
 // * Configurable keys.
+// * Proper error about being unable to find assets.
 
 // To check:
 // * Check `IsReoccuring` is proper.

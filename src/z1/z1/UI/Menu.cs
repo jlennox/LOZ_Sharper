@@ -42,24 +42,23 @@ internal sealed class ProfileSelectMenu : Menu
         SelectNext();
     }
 
-    private void StartWorld(int fileIndex)
+    private void StartWorld(PlayerProfile profile)
     {
-        var profile = SaveFolder.ReadProfile(fileIndex);
         _game.World.Start(profile);
     }
 
     public override void Update()
     {
-        if (_game.Input.IsButtonPressing(Button.Select))
+        if (_game.Input.IsButtonPressing(GameButton.Select))
         {
             SelectNext();
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(Button.Start))
+        else if (_game.Input.IsButtonPressing(GameButton.Start))
         {
             switch (_selectedIndex)
             {
-                case < 3: StartWorld(_selectedIndex); break;
+                case < 3: StartWorld(_summaries[_selectedIndex]); break;
                 case 3: _game.World.RegisterFile(_summaries); break;
                 case 4: _game.World.EliminateFile(_summaries); break;
             }
@@ -163,18 +162,18 @@ internal sealed class EliminateMenu : Menu
     private void DeleteCurrentProfile()
     {
         _summaries[_selectedIndex].Name = null;
-        SaveFolder.Save();
+        SaveFolder.SaveProfiles();
         _game.Sound.PlayEffect(SoundEffect.PlayerHit);
     }
 
     public override void Update()
     {
-        if (_game.Input.IsButtonPressing(Button.Select))
+        if (_game.Input.IsButtonPressing(GameButton.Select))
         {
             SelectNext();
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(Button.Start))
+        else if (_game.Input.IsButtonPressing(GameButton.Start))
         {
             if (_selectedIndex < 3)
             {
@@ -360,7 +359,7 @@ internal sealed class RegisterMenu : Menu
                 profile.Items[ItemSlot.HeartContainers] = PlayerProfile.DefaultHearts;
                 profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultBombs;
                 // Leave deaths set 0.
-                SaveFolder.Save();
+                SaveFolder.SaveProfiles();
             }
         }
     }
@@ -369,13 +368,13 @@ internal sealed class RegisterMenu : Menu
     {
         var inTextEntry = _selectedProfileIndex < 3;
 
-        if (_game.Input.IsButtonPressing(Button.Select))
+        if (_game.Input.IsButtonPressing(GameButton.Select))
         {
             SelectNext();
             _namePos = 0;
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(Button.Start))
+        else if (_game.Input.IsButtonPressing(GameButton.Start))
         {
             if (_selectedProfileIndex == 3)
             {
@@ -383,7 +382,7 @@ internal sealed class RegisterMenu : Menu
                 _game.World.ChooseFile(_summaries);
             }
         }
-        else if (_game.Input.IsButtonPressing(Button.A))
+        else if (_game.Input.IsButtonPressing(GameButton.A))
         {
             if (inTextEntry)
             {
@@ -391,35 +390,35 @@ internal sealed class RegisterMenu : Menu
                 _game.Sound.PlayEffect(SoundEffect.PutBomb);
             }
         }
-        else if (_game.Input.IsButtonPressing(Button.B))
+        else if (_game.Input.IsButtonPressing(GameButton.B))
         {
             if (inTextEntry)
             {
                 MoveNextNamePosition();
             }
         }
-        else if (_game.Input.IsButtonPressing(Button.Right))
+        else if (_game.Input.IsButtonPressing(GameButton.Right))
         {
             MoveCharSetCursorH(1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(Button.Left))
+        else if (_game.Input.IsButtonPressing(GameButton.Left))
         {
             MoveCharSetCursorH(-1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(Button.Down))
+        else if (_game.Input.IsButtonPressing(GameButton.Down))
         {
             MoveCharSetCursorV(1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(Button.Up))
+        else if (_game.Input.IsButtonPressing(GameButton.Up))
         {
             MoveCharSetCursorV(-1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
 
-        if (Game.Enhancements && inTextEntry)
+        if (_game.Enhancements && inTextEntry)
         {
             foreach (var c in _game.Input.GetCharactersPressing())
             {
