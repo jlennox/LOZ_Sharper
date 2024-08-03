@@ -1,4 +1,5 @@
-﻿using z1.Player;
+﻿using System.Collections.Immutable;
+using z1.Player;
 
 namespace z1.Actors;
 
@@ -13,14 +14,14 @@ internal sealed class PersonActor : Actor
         WaitingForStairs,
     }
 
-    internal enum PersonType
+    private enum PersonType
     {
         Shop,
         Grumble,
         MoneyOrLife,
         DoorRepair,
         Gambling,
-        Level9,
+        EnterLevel9,
         CaveShortcut,
         MoreBombs,
     }
@@ -31,33 +32,34 @@ internal sealed class PersonActor : Actor
     private const int MaxItemCount = 3;
     private const int PriceLength = 4;
 
-    private static readonly byte[] _itemXs = { 0x58, 0x78, 0x98 };
-    private static readonly byte[] _priceXs = { 0x48, 0x68, 0x88 };
+    private static readonly ImmutableArray<byte> _itemXs = [0x58, 0x78, 0x98];
+    private static readonly ImmutableArray<byte> _priceXs = [0x48, 0x68, 0x88];
 
-    private static readonly ItemGraphics[] _sPersonGraphics = {
-        new(AnimationId.OldMan,       Palette.Red),
-        new(AnimationId.OldWoman,     Palette.Red),
-        new(AnimationId.Merchant,     Palette.Player),
-        new(AnimationId.Moblin,       Palette.Red),
-    };
+    private static readonly ImmutableArray<ItemGraphics> _sPersonGraphics = [
+        new(AnimationId.OldMan,   Palette.Red),
+        new(AnimationId.OldWoman, Palette.Red),
+        new(AnimationId.Merchant, Palette.Player),
+        new(AnimationId.Moblin,   Palette.Red)
+    ];
 
     private PersonState _state = PersonState.Idle;
     private readonly SpriteImage? _image;
 
-    public CaveSpec Spec;
-    public TextBox? TextBox;
+    public CaveSpec Spec; // Do not make readonly to avoid struct copies.
+    public readonly TextBox? TextBox;
     public int ChosenIndex;
     public bool ShowNumbers;
 
     private readonly byte[] _priceStrs = new byte[MaxItemCount * PriceLength];
-
     private Span<byte> GetPrice(int index) => _priceStrs.AsSpan(index * PriceLength, PriceLength);
 
-    public byte[] GamblingAmounts = new byte[3];
-    public byte[] GamblingIndexes = new byte[3];
+    public readonly byte[] GamblingAmounts = new byte[3];
+    public readonly byte[] GamblingIndexes = new byte[3];
 
     public override bool ShouldStopAtPersonWall => true;
     public override bool IsUnderworldPerson => true;
+
+    private readonly PersonType _personType;
 
     public PersonActor(Game game, ObjType type, CaveSpec spec, int x, int y)
         : base(game, type, x, y)
@@ -72,33 +74,32 @@ internal sealed class PersonActor : Actor
             Game.Sound.PlayEffect(SoundEffect.Item);
         }
 
-        var stringId = spec.GetStringId();
+        _personType = GetPersonType();
+        var stringId = Spec.GetStringId();
 
+        // Room has been previously paid for. Clear it out.
         if (Game.World.GotItem())
         {
-            if (stringId == StringId.DoorRepair)
+            switch (_personType)
             {
-                IsDeleted = true;
-                return;
-            }
+                case PersonType.DoorRepair:
+                    IsDeleted = true;
+                    return;
 
-            if (stringId == StringId.MoneyOrLife)
-            {
-                Game.World.OpenShutters();
-                Game.World.SetPersonWallY(0);
-                IsDeleted = true;
-                return;
-            }
+                case PersonType.MoneyOrLife:
+                    Game.World.OpenShutters();
+                    Game.World.SetPersonWallY(0);
+                    IsDeleted = true;
+                    return;
 
-            if (type == ObjType.Grumble)
-            {
-                Game.World.SetPersonWallY(0);
-                IsDeleted = true;
-                return;
+                case PersonType.Grumble:
+                    Game.World.SetPersonWallY(0);
+                    IsDeleted = true;
+                    return;
             }
         }
 
-        if (stringId == StringId.EnterLevel9)
+        if (_personType == PersonType.EnterLevel9)
         {
             if (Game.World.GetItem(ItemSlot.TriforcePieces) == 0xFF)
             {
@@ -136,7 +137,7 @@ internal sealed class PersonActor : Actor
             }
         }
 
-        if (IsGambling())
+        if (_personType == PersonType.Gambling)
         {
             InitGambling();
         }
@@ -160,12 +161,20 @@ internal sealed class PersonActor : Actor
     {
         if (IsGambling()) return PersonType.Gambling;
         var stringId = Spec.GetStringId();
-        if (stringId == StringId.DoorRepair) return PersonType.DoorRepair;
-        if (stringId == StringId.MoneyOrLife) return PersonType.MoneyOrLife;
-        if (stringId == StringId.EnterLevel9) return PersonType.Level9;
-        if (stringId == StringId.MoreBombs) return PersonType.MoreBombs;
-        if (ObjType == ObjType.CaveShortcut) return PersonType.CaveShortcut;
-        if (ObjType == ObjType.Grumble) return PersonType.Grumble;
+        switch (stringId)
+        {
+            case StringId.DoorRepair: return PersonType.DoorRepair;
+            case StringId.MoneyOrLife: return PersonType.MoneyOrLife;
+            case StringId.EnterLevel9: return PersonType.EnterLevel9;
+            case StringId.MoreBombs: return PersonType.MoreBombs;
+        }
+
+        switch (ObjType)
+        {
+            case ObjType.CaveShortcut: return PersonType.CaveShortcut;
+            case ObjType.Grumble: return PersonType.Grumble;
+        }
+
         return PersonType.Shop;
     }
 
@@ -174,7 +183,6 @@ internal sealed class PersonActor : Actor
         switch (_state)
         {
             case PersonState.Idle:
-            {
                 UpdateDialog();
                 CheckPlayerHit();
 
@@ -187,13 +195,13 @@ internal sealed class PersonActor : Actor
                         Game.World.EnablePersonFireballs = true;
                     }
                 }
-
                 break;
-            }
+
             case PersonState.PickedUp: UpdatePickUp(); break;
             case PersonState.WaitingForLetter: UpdateWaitForLetter(); break;
             case PersonState.WaitingForFood: UpdateWaitForFood(); break;
             case PersonState.WaitingForStairs: CheckStairsHit(); break;
+            default: throw new Exception($"Invalid state: {_state}");
         }
     }
 
@@ -206,18 +214,20 @@ internal sealed class PersonActor : Actor
 
         if (TextBox.IsDone())
         {
-            if (Spec.GetStringId() == StringId.DoorRepair)
+            switch (_personType)
             {
-                Game.World.PostRupeeLoss(20);
-                Game.World.MarkItem();
-            }
-            else if (ObjType == ObjType.Grumble)
-            {
-                _state = PersonState.WaitingForFood;
-            }
-            else if (ObjType == ObjType.CaveShortcut)
-            {
-                _state = PersonState.WaitingForStairs;
+                case PersonType.DoorRepair:
+                    Game.World.PostRupeeLoss(20);
+                    Game.World.MarkItem();
+                    break;
+
+                case PersonType.Grumble:
+                    _state = PersonState.WaitingForFood;
+                    break;
+
+                case PersonType.CaveShortcut:
+                    _state = PersonState.WaitingForStairs;
+                    break;
             }
 
             var player = Game.Link;
@@ -254,8 +264,8 @@ internal sealed class PersonActor : Actor
         {
             var expectedCount = ObjType switch
             {
-                ObjType.Cave3 => 5,
-                ObjType.Cave4 => 12,
+                ObjType.Cave3WhiteSword => 5,
+                ObjType.Cave4MagicSword => 12,
                 _ => throw new Exception()
             };
 
@@ -304,17 +314,13 @@ internal sealed class PersonActor : Actor
     {
         if (TextBox == null) throw new Exception();
 
-        var stringId = StringId.AintEnough;
-
-        if (index == 2)
+        var stringId = (index, ObjType) switch
         {
-            stringId = ObjType switch
-            {
-                ObjType.Cave12 => StringId.LostHillsHint,
-                ObjType.Cave13 => StringId.LostWoodsHint,
-                _ => throw new Exception()
-            };
-        }
+            (2, ObjType.Cave12LostHillsHint) => StringId.LostHillsHint,
+            (2, ObjType.Cave13LostWoodsHint) => StringId.LostWoodsHint,
+            (2, _) => throw new Exception(),
+            _ => StringId.AintEnough,
+        };
 
         TextBox.Reset(Game.World.GetString(stringId).ToArray());
 
@@ -324,11 +330,10 @@ internal sealed class PersonActor : Actor
 
     private void HandlePickUpSpecial(int index)
     {
-        if (IsGambling())
+        if (_personType == PersonType.Gambling)
         {
             var price = Spec.GetPrice(index);
-            if (price > Game.World.GetItem(ItemSlot.Rupees))
-                return;
+            if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
 
             int finalIndex;
 
@@ -355,7 +360,7 @@ internal sealed class PersonActor : Actor
             return;
         }
 
-        if (Spec.GetStringId() == StringId.MoreBombs)
+        if (_personType == PersonType.MoreBombs)
         {
             var price = Spec.GetPrice(index);
             if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
@@ -371,7 +376,7 @@ internal sealed class PersonActor : Actor
             return;
         }
 
-        if (Spec.GetStringId() == StringId.MoneyOrLife)
+        if (_personType == PersonType.MoneyOrLife)
         {
             var price = Spec.GetPrice(index);
             var itemId = Spec.GetItemId(index);
@@ -525,14 +530,19 @@ internal sealed class PersonActor : Actor
 
     public override void Draw()
     {
-        if (_state == PersonState.PickedUp)
+        switch (_state)
         {
-            if ((Game.GetFrameCounter() & 1) == 0) return;
+            case PersonState.PickedUp when (Game.GetFrameCounter() & 1) == 0:
+                return;
+
+            case PersonState.Idle:
+            case PersonState.WaitingForFood:
+            case PersonState.WaitingForStairs:
+                DrawDialog();
+                break;
         }
-        else if (_state is PersonState.Idle or PersonState.WaitingForFood or PersonState.WaitingForStairs)
-        {
-            DrawDialog();
-        }
+
+        if (_image == null) throw new NullReferenceException("_image is null.");
 
         var animIndex = Spec.DwellerType - ObjType.OldMan;
         var palette = _sPersonGraphics[animIndex].PaletteAttrs;

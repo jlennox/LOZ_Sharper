@@ -1,15 +1,16 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 
 namespace z1.Actors;
 
 internal sealed class GleeokHeadActor : FlyingActor
 {
-    private static readonly AnimationId[] _gleeokHeadAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _gleeokHeadAnimMap = [
         AnimationId.B2_Gleeok_Head2,
         AnimationId.B2_Gleeok_Head2,
         AnimationId.B2_Gleeok_Head2,
         AnimationId.B2_Gleeok_Head2,
-    };
+    ];
 
     private static readonly FlyerSpec _gleeokHeadSpec = new(_gleeokHeadAnimMap, TileSheet.Boss, Palette.Red, 0xE0);
 
@@ -71,7 +72,7 @@ internal sealed class GleeokNeck
         public int Value2;
     }
 
-    private static readonly byte[] _startYs = { 0x6F, 0x74, 0x79, 0x7E, 0x83 };
+    private static readonly byte[] _startYs = [0x6F, 0x74, 0x79, 0x7E, 0x83];
 
     public int HP;
 
@@ -407,7 +408,7 @@ internal sealed class GleeokActor : Actor
     private const int WrithingAnimFrames = 7 * 4;
     private const int TotalWrithingFrames = 7 * 7;
 
-    private static readonly byte[] _palette = { 0, 0x2A, 0x1A, 0x0C };
+    private static readonly byte[] _palette = [0, 0x2A, 0x1A, 0x0C];
 
     private readonly SpriteAnimator _animator;
     private int _writhingTimer;

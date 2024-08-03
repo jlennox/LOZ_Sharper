@@ -177,8 +177,7 @@ internal sealed class Input
 
     private bool SetLetter(char letter)
     {
-        // JOE: TODO: Add ZeldaString.IsValid or what have you.
-        if (!char.IsLetterOrDigit(letter)) return false;
+        if (ZeldaString.ByteFromChar(letter) == 0) return false;
         _inputState.Characters.Add(letter);
         return true;
     }

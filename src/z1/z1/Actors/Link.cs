@@ -41,7 +41,7 @@ internal sealed class Link : Actor, IThrower
     private byte _animTimer;
     private byte _avoidTurningWhenDiag;   // 56
     private byte _keepGoingStraight;      // 57
-    private HashSet<GameButton> _curButtons;
+    private HashSet<GameButton> _curButtons; // JOE: TODO: Can this be dropped and we instead directly access the input?
 
     public readonly SpriteAnimator Animator;
 
@@ -51,7 +51,10 @@ internal sealed class Link : Actor, IThrower
         Facing = facing;
         Decoration = 0;
 
-        Animator = new SpriteAnimator { Time = 0, DurationFrames = WalkDurationFrames };
+        Animator = new SpriteAnimator {
+            Time = 0,
+            DurationFrames = WalkDurationFrames
+        };
     }
 
     public void DecInvincibleTimer()
@@ -135,6 +138,7 @@ internal sealed class Link : Actor, IThrower
                     _animTimer = (byte)(_state & 0xF);
                     _state |= 0x30;
                     break;
+
                 case 0x30:
                     Animator.AdvanceFrame();
                     _state &= 0xC0;
@@ -636,7 +640,7 @@ internal sealed class Link : Actor, IThrower
             Game.Sound.PlayEffect(SoundEffect.PlayerHit);
         }
 
-        var ringValue = Game.World.Profile.Items.GetValueOrDefault(ItemSlot.Ring, 0);
+        var ringValue = Game.World.Profile.GetItem(ItemSlot.Ring);
 
         damage >>= ringValue;
 
@@ -716,7 +720,9 @@ internal sealed class Link : Actor, IThrower
         var otherSlot = ObjectSlot.FirstBomb;
 
         if (freeSlot == ObjectSlot.FirstBomb)
+        {
             otherSlot++;
+        }
 
         var otherBomb = Game.World.GetObject<BombActor>(otherSlot);
         if (otherBomb != null && otherBomb.BombState < BombState.Blasting)

@@ -80,48 +80,46 @@ internal enum ItemId
 
 internal readonly record struct ItemGraphics(AnimationId AnimId, Palette PaletteAttrs)
 {
-    public const byte FlashPalAttr = 0x80;
-
     public Palette GetPalette() => PaletteAttrs & Palette.Mask;
-    public bool HasFlashAttr() => ((int)PaletteAttrs & FlashPalAttr) != 0;
+    public bool HasFlashAttr() => (PaletteAttrs & Palette.FlashAttr) != 0;
 
     public static readonly ItemGraphics[] Items = {
-        new ItemGraphics(AnimationId.BombItem, Palette.Blue),
-        new ItemGraphics(AnimationId.SwordItem, Palette.Player),
-        new ItemGraphics(AnimationId.SwordItem, Palette.Blue),
-        new ItemGraphics(AnimationId.MSwordItem, Palette.Red),
-        new ItemGraphics(AnimationId.FleshItem, Palette.Red),
-        new ItemGraphics(AnimationId.RecorderItem, Palette.Red),
-        new ItemGraphics(AnimationId.CandleItem, Palette.Blue),
-        new ItemGraphics(AnimationId.CandleItem, Palette.Red),
-        new ItemGraphics(AnimationId.ArrowItem, Palette.Player),
-        new ItemGraphics(AnimationId.ArrowItem, Palette.Blue),
-        new ItemGraphics(AnimationId.BowItem, Palette.Player),
-        new ItemGraphics(AnimationId.MKeyItem, Palette.Red),
-        new ItemGraphics(AnimationId.Raft, Palette.Player),
-        new ItemGraphics(AnimationId.Ladder, Palette.Player),
-        new ItemGraphics(AnimationId.PowerTriforce, Palette.Red | Palette.FlashAttr),
-        new ItemGraphics(AnimationId.RuppeeItem, Palette.Blue),
-        new ItemGraphics(AnimationId.WandItem, Palette.Blue),
-        new ItemGraphics(AnimationId.BookItem, Palette.Red),
-        new ItemGraphics(AnimationId.RingItem, Palette.Blue),
-        new ItemGraphics(AnimationId.RingItem, Palette.Red),
-        new ItemGraphics(AnimationId.BraceletItem, Palette.Red),
-        new ItemGraphics(AnimationId.MapItem, Palette.Blue),
-        new ItemGraphics(AnimationId.Compass, Palette.Red),
-        new ItemGraphics(AnimationId.MapItem, Palette.Red),
-        new ItemGraphics(AnimationId.RuppeeItem, Palette.Red | Palette.FlashAttr),
-        new ItemGraphics(AnimationId.KeyItem, Palette.Red),
-        new ItemGraphics(AnimationId.HeartContainer, Palette.Red),
-        new ItemGraphics(AnimationId.TriforcePiece, Palette.Red | Palette.FlashAttr),
-        new ItemGraphics(AnimationId.MShieldItem, Palette.Player),
-        new ItemGraphics(AnimationId.Boomerang, Palette.Player),
-        new ItemGraphics(AnimationId.Boomerang, Palette.Blue),
-        new ItemGraphics(AnimationId.BottleItem, Palette.Blue),
-        new ItemGraphics(AnimationId.BottleItem, Palette.Red),
-        new ItemGraphics(AnimationId.Clock, Palette.Red),
-        new ItemGraphics(AnimationId.Heart, Palette.Red | Palette.FlashAttr),
-        new ItemGraphics(AnimationId.Fairy, Palette.Red),
+        new(AnimationId.BombItem, Palette.Blue),
+        new(AnimationId.SwordItem, Palette.Player),
+        new(AnimationId.SwordItem, Palette.Blue),
+        new(AnimationId.MSwordItem, Palette.Red),
+        new(AnimationId.FleshItem, Palette.Red),
+        new(AnimationId.RecorderItem, Palette.Red),
+        new(AnimationId.CandleItem, Palette.Blue),
+        new(AnimationId.CandleItem, Palette.Red),
+        new(AnimationId.ArrowItem, Palette.Player),
+        new(AnimationId.ArrowItem, Palette.Blue),
+        new(AnimationId.BowItem, Palette.Player),
+        new(AnimationId.MKeyItem, Palette.Red),
+        new(AnimationId.Raft, Palette.Player),
+        new(AnimationId.Ladder, Palette.Player),
+        new(AnimationId.PowerTriforce, Palette.Red | Palette.FlashAttr),
+        new(AnimationId.RuppeeItem, Palette.Blue),
+        new(AnimationId.WandItem, Palette.Blue),
+        new(AnimationId.BookItem, Palette.Red),
+        new(AnimationId.RingItem, Palette.Blue),
+        new(AnimationId.RingItem, Palette.Red),
+        new(AnimationId.BraceletItem, Palette.Red),
+        new(AnimationId.MapItem, Palette.Blue),
+        new(AnimationId.Compass, Palette.Red),
+        new(AnimationId.MapItem, Palette.Red),
+        new(AnimationId.RuppeeItem, Palette.Red | Palette.FlashAttr),
+        new(AnimationId.KeyItem, Palette.Red),
+        new(AnimationId.HeartContainer, Palette.Red),
+        new(AnimationId.TriforcePiece, Palette.Red | Palette.FlashAttr),
+        new(AnimationId.MShieldItem, Palette.Player),
+        new(AnimationId.Boomerang, Palette.Player),
+        new(AnimationId.Boomerang, Palette.Blue),
+        new(AnimationId.BottleItem, Palette.Blue),
+        new(AnimationId.BottleItem, Palette.Red),
+        new(AnimationId.Clock, Palette.Red),
+        new(AnimationId.Heart, Palette.Red | Palette.FlashAttr),
+        new(AnimationId.Fairy, Palette.Red),
     };
 }
 
@@ -145,6 +143,8 @@ internal enum Char
 
 internal static class GlobalFunctions
 {
+    private static readonly DebugLog _log = new(nameof(GlobalFunctions));
+
     public static ItemId ItemValueToItemId(ItemSlot slot, int value)
     {
         static ReadOnlySpan<ItemId> equippedItemIds() => new[]
@@ -180,7 +180,6 @@ internal static class GlobalFunctions
         };
 
         var itemValue = value;
-
         if (itemValue == 0) return ItemId.None;
 
         if (slot is ItemSlot.Bombs or ItemSlot.Letter)
@@ -199,19 +198,17 @@ internal static class GlobalFunctions
     // JOE: TODO: These should take Game to make them uniform.
     public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, ObjectSlot slot)
     {
-        Actor? obj;
         var origSlot = world.CurObjSlot;
         world.CurObjSlot = (int)slot;
 
-        switch (type)
-        {
-            case ObjType.FlyingRock: obj = new FlyingRockProjectile(world.Game, x, y, moving); break;
-            case ObjType.PlayerSwordShot: obj = new PlayerSwordProjectile(world.Game, x, y, moving); break;
-            case ObjType.Arrow: obj = new ArrowProjectile(world.Game, x, y, moving); break;
-            case ObjType.MagicWave: obj = new MagicWaveProjectile(world.Game, ObjType.MagicWave, x, y, moving); break;
-            case ObjType.MagicWave2: obj = new MagicWaveProjectile(world.Game, ObjType.MagicWave2, x, y, moving); break;
-            default: throw new Exception();
-        }
+        Actor obj = type switch {
+            ObjType.FlyingRock => new FlyingRockProjectile(world.Game, x, y, moving),
+            ObjType.PlayerSwordShot => new PlayerSwordProjectile(world.Game, x, y, moving),
+            ObjType.Arrow => new ArrowProjectile(world.Game, x, y, moving),
+            ObjType.MagicWave => new MagicWaveProjectile(world.Game, ObjType.MagicWave, x, y, moving),
+            ObjType.MagicWave2 => new MagicWaveProjectile(world.Game, ObjType.MagicWave2, x, y, moving),
+            _ => throw new Exception()
+        };
 
         world.CurObjSlot = origSlot;
         return obj;
@@ -242,12 +239,16 @@ internal static class GlobalFunctions
         return new ItemObjActor(game, itemId, isRoomItem, x, y);
     }
 
-    public static ItemGraphics? GetItemGraphics( int itemId )
+    public static ItemGraphics? GetItemGraphics(int itemId)
     {
-        if (itemId >= 0x3F )
-            return null;
+        if (itemId >= 0x3F) return null;
+
+        // JOE: TODO: Should this be an exception?
         if (itemId >= ItemGraphics.Items.Length)
+        {
+            _log.Write($"GetItemGraphics: Invalid item id: {itemId}");
             itemId = 0;
+        }
 
         return ItemGraphics.Items[itemId];
     }
@@ -255,11 +256,9 @@ internal static class GlobalFunctions
     public static void DrawItem(Game game, ItemId itemId, int x, int y, int width)
     {
         var graphics = GetItemGraphics((int)itemId);
-        if (graphics == null)
-            return;
+        if (graphics == null) return;
 
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, graphics.Value.AnimId);
-
         var xOffset = width != 0 ? (width - image.Animation.Width) / 2 : 0;
 
         var pal = graphics.Value.HasFlashAttr()
@@ -301,7 +300,7 @@ internal static class GlobalFunctions
     {
         if (str == null) return;
 
-        foreach (var t in ZeldaString.ToBytes(str))
+        foreach (var t in ZeldaString.EnumerateText(str))
         {
             DrawChar(t, x, y, palette, flags);
             x += 8;
@@ -310,9 +309,7 @@ internal static class GlobalFunctions
 
     public static void DrawSparkle(int x, int y, Palette palette, int frame)
     {
-        var animator = new SpriteAnimator {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Sparkle)
-        };
+        var animator = new SpriteAnimator(Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Sparkle));
         animator.DrawFrame(TileSheet.PlayerAndItems, x, y, palette, frame);
     }
 
@@ -353,7 +350,9 @@ internal static class GlobalFunctions
             fullAndPartialHearts++;
 
             if (partialValue >= 0x80)
+            {
                 fullHearts++;
+            }
         }
 
         var x = left;
@@ -364,11 +363,17 @@ internal static class GlobalFunctions
             Char tile;
 
             if (i < fullHearts)
+            {
                 tile = Char.FullHeart;
+            }
             else if (i < fullAndPartialHearts)
+            {
                 tile = Char.HalfHeart;
+            }
             else
+            {
                 tile = Char.EmptyHeart;
+            }
 
             DrawChar((byte)tile, x, y, Palette.RedBgPalette);
 
@@ -449,16 +454,12 @@ internal static class GlobalFunctions
             charBuf[pChar] = (byte)digit;
             pChar--;
             n /= 10;
-            if (n == 0)
-                break;
+            if (n == 0) break;
         }
 
         if (sign != NumberSign.None && number != 0)
         {
-            if (sign == NumberSign.Negative)
-                charBuf[pChar] = (byte)Char.Minus;
-            else
-                charBuf[pChar] = (byte)Char.Plus;
+            charBuf[pChar] = sign == NumberSign.Negative ? (byte)Char.Minus : (byte)Char.Plus;
             pChar--;
         }
 

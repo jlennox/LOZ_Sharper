@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 
 namespace z1.Actors;
 
@@ -23,7 +24,7 @@ internal interface IDeleteEvent
 
 internal abstract class Actor
 {
-    private static ReadOnlySpan<byte> _swordPowers => new byte[] { 0, 0x10, 0x20, 0x40 };
+    private static readonly ImmutableArray<byte> _swordPowers = [0, 0x10, 0x20, 0x40];
 
     public Game Game { get; }
 
@@ -293,18 +294,17 @@ internal abstract class Actor
 
     public static SizeF MoveSimple8(Direction dir, float speed)
     {
-        float x = 0, y = 0;
-        switch (dir & (Direction.Right | Direction.Left))
-        {
-            case Direction.Right: x = speed; break;
-            case Direction.Left: x = -speed; break;
-        }
+        var x = (dir & (Direction.Right | Direction.Left)) switch {
+            Direction.Right => speed,
+            Direction.Left => -speed,
+            _ => 0f
+        };
 
-        switch (dir & (Direction.Down | Direction.Up))
-        {
-            case Direction.Down: y = speed; break;
-            case Direction.Up: y = -speed; break;
-        }
+        var y = (dir & (Direction.Down | Direction.Up)) switch {
+            Direction.Down => speed,
+            Direction.Up => -speed,
+            _ => 0f
+        };
 
         return new SizeF(x, y);
     }
@@ -316,8 +316,7 @@ internal abstract class Actor
 
     private void InitCommonFacing(int x, int y, ref Direction facing)
     {
-        if (facing != Direction.None)
-            return;
+        if (facing != Direction.None) return;
 
         var playerPos = Game.World.GetObservedPlayerPos();
         // Why did the original game test these distances as unsigned?
@@ -498,14 +497,16 @@ internal abstract class Actor
         {
             ShoveCommon(context);
 
-            if (weaponObj is PlayerSwordProjectile swordShot)
+            switch (weaponObj)
             {
-                swordShot.SpreadOut();
-            }
-            else if (weaponObj is MagicWaveProjectile magicWave)
-            {
-                magicWave.AddFire();
-                magicWave.IsDeleted = true;
+                case PlayerSwordProjectile swordShot:
+                    swordShot.SpreadOut();
+                    break;
+
+                case MagicWaveProjectile magicWave:
+                    magicWave.AddFire();
+                    magicWave.IsDeleted = true;
+                    break;
             }
         }
     }
@@ -555,12 +556,11 @@ internal abstract class Actor
         switch (sword.ObjType)
         {
             case ObjType.PlayerSword:
-            {
                 var itemValue = Game.World.GetItem(ItemSlot.Sword);
                 var power = _swordPowers[itemValue];
                 context.Damage = power;
                 break;
-            }
+
             case ObjType.Rod:
                 context.Damage = 0x20;
                 break;
@@ -572,7 +572,6 @@ internal abstract class Actor
         }
     }
 
-    private static ReadOnlySpan<int> _arrowPowers => new[] { 0, 0x20, 0x40 };
 
     protected bool CheckArrow(ObjectSlot slot)
     {
@@ -583,7 +582,8 @@ internal abstract class Actor
         var itemValue = Game.World.GetItem(ItemSlot.Arrow);
         var box = new Point(0xB, 0xB);
 
-        var context = new CollisionContext(slot, DamageType.Arrow, _arrowPowers[itemValue], Point.Empty);
+        ReadOnlySpan<int> arrowPowers = [ 0, 0x20, 0x40 ];
+        var context = new CollisionContext(slot, DamageType.Arrow, arrowPowers[itemValue], Point.Empty);
 
         if (CheckCollisionNoShove(context, box))
         {
@@ -725,14 +725,13 @@ internal abstract class Actor
         if (HP < context.Damage)
         {
             KillObjectNormally(context);
+            return;
         }
-        else
+
+        HP -= (byte)context.Damage; // JOE: TODO: This is sus math and casting.
+        if (HP == 0)
         {
-            HP -= (byte)context.Damage; // TODO: This is sus math and casting.
-            if (HP == 0)
-            {
-                KillObjectNormally(context);
-            }
+            KillObjectNormally(context);
         }
     }
 
@@ -1106,11 +1105,14 @@ internal abstract class Actor
                 if ((r & 1) == 0) index++;
                 if (Facing.IsVertical()) index += 2;
                 return nextDirections[index];
+
             case 1:
                 return dir.GetOppositeDirection();
+
             case 2:
                 Facing = Facing.GetOppositeDirection();
                 return Facing;
+
             default:
                 seq = 0;
                 return Direction.None;
@@ -1507,8 +1509,8 @@ internal enum ObjType
 
     Cave1,
     Cave2,
-    Cave3,
-    Cave4,
+    Cave3WhiteSword,
+    Cave4MagicSword,
     Cave5,
     Cave6,
     Cave7,
@@ -1516,8 +1518,8 @@ internal enum ObjType
     Cave9,
     Cave10,
     Cave11,
-    Cave12,
-    Cave13,
+    Cave12LostHillsHint,
+    Cave13LostWoodsHint,
     Cave14,
     Cave15,
     Cave16,

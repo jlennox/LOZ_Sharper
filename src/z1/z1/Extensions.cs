@@ -1,4 +1,5 @@
-﻿using Silk.NET.Input;
+﻿using System.Collections.Immutable;
+using Silk.NET.Input;
 using Silk.NET.Windowing;
 using z1.Actors;
 
@@ -64,21 +65,23 @@ internal static class Extensions
         return index.GetDirection8();
     }
 
-    private static readonly Direction[] _allDirs = { (Direction)8, (Direction)9, (Direction)1, (Direction)5, (Direction)4, (Direction)6, (Direction)2, (Direction)10 };
+    private static ReadOnlySpan<Direction> _allDirs() => [
+        Direction.Up, Direction.Up | Direction.Right, Direction.Right,
+        Direction.Right | Direction.Down, Direction.Down,
+        Direction.Down | Direction.Left, Direction.Left, Direction.Left | Direction.Up];
 
     public static int GetDirection8Ord(this Direction dir)
     {
         // JOE: TODO: Use index of
-        for (var i = 0; i < _allDirs.Length; i++)
+        for (var i = 0; i < _allDirs().Length; i++)
         {
-            if (dir == _allDirs[i])
-                return i;
+            if (dir == _allDirs()[i]) return i;
         }
         return 0;
     }
 
-    public static Direction GetDirection8(this int ord) => _allDirs[ord];
-    public static Direction GetDirection8(this uint ord) => _allDirs[ord];
+    public static Direction GetDirection8(this int ord) => _allDirs()[ord];
+    public static Direction GetDirection8(this uint ord) => _allDirs()[(int)ord];
 
     public static Direction GetOppositeDir8(this Direction dir)
     {
@@ -96,14 +99,12 @@ internal static class Extensions
         for (var i = n - 1; i > 0; i--)
         {
             var j = Random.Shared.Next(i + 1);
-            var temp = array[i];
-            array[i] = array[j];
-            array[j] = temp;
+            (array[i], array[j]) = (array[j], array[i]);
         }
     }
 
     public static T GetRandom<T>(this T[] array) => array[Random.Shared.Next(array.Length)];
-
+    public static T GetRandom<T>(this ImmutableArray<T> array) => array[Random.Shared.Next(array.Length)];
     public static T GetRandom<T>(this Random random, T a, T b) => random.Next(2) == 0 ? a : b;
 
     public static bool IsBlueWalker(this ObjType type)
@@ -118,7 +119,7 @@ internal static class Extensions
         var sin = Math.Sin(angle);
         var cos = Math.Cos(angle);
 
-        // JOE: NOTE: The orignial had an unused variable of `y1` but I think
+        // JOE: NOTE: The original had an unused variable of `y1` but I think
         // that's ok, they only needed `x1` due to the reassignment.
 
         return new PointF((float)(x * cos - y * sin), (float)(x * sin + y * cos));
@@ -140,7 +141,7 @@ internal static class Extensions
         if (x < 0)
         {
             sector += 4;
-            float temp = x;
+            var temp = x;
             x = y;
             y = -temp;
         }
@@ -148,8 +149,8 @@ internal static class Extensions
         if (x < y)
         {
             sector += 2;
-            float temp = y - x;
-            x = x + y;
+            var temp = y - x;
+            x += y;
             y = temp;
             // Because we're only finding out the sector, only the angle matters, not the point along it.
             // So, we can skip multiplying x and y by 1/(2^.5)
@@ -158,8 +159,7 @@ internal static class Extensions
         var rotated = Rotate(new PointF(x, y), Global.NEG_PI_OVER_8);
         y = rotated.Y;
 
-        if (y > 0)
-            sector++;
+        if (y > 0) sector++;
 
         sector %= 16;
         return sector;

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 
 namespace z1.Actors;
 
@@ -8,7 +9,7 @@ internal interface IThrower
 }
 
 internal readonly record struct WalkerSpec(
-    AnimationId[]? AnimationMap,
+    ImmutableArray<AnimationId>? AnimationMap,
     int AnimationTime,
     Palette Palette,
     int Speed = 0,
@@ -21,7 +22,7 @@ internal abstract class WalkerActor : Actor
 
     protected WalkerSpec Spec { get; set; }
     protected SpriteAnimator Animator;
-    protected AnimationId[]? AnimationMap => Spec.AnimationMap;
+    protected ImmutableArray<AnimationId>? AnimationMap => Spec.AnimationMap;
     protected int AnimationTime => Spec.AnimationTime;
     protected int Speed => Spec.Speed;
 
@@ -58,7 +59,9 @@ internal abstract class WalkerActor : Actor
     protected void SetFacingAnimation()
     {
         var dirOrd = Facing.GetOrdinal();
-        Animator.Animation = AnimationMap != null ? Graphics.GetAnimation(TileSheet.Npcs, AnimationMap[dirOrd]) : null;
+        Animator.Animation = AnimationMap != null
+            ? Graphics.GetAnimation(TileSheet.Npcs, AnimationMap.Value[dirOrd])
+            : null;
     }
 
     protected void TryShooting()
@@ -339,12 +342,12 @@ internal sealed class OctorokActor : DelayedWanderer
 {
     public const ObjType ShotFromOctorock = ObjType.FlyingRock;
 
-    private static readonly AnimationId[] _octorockAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _octorockAnimMap = [
         AnimationId.OW_Octorock_Right,
         AnimationId.OW_Octorock_Left,
         AnimationId.OW_Octorock_Down,
-        AnimationId.OW_Octorock_Up,
-    };
+        AnimationId.OW_Octorock_Up
+    ];
 
     private static readonly WalkerSpec _blueSlowOctorockSpec = new(_octorockAnimMap, 12, Palette.Blue, StandardSpeed, ShotFromOctorock);
     private static readonly WalkerSpec _blueFastOctorockSpec = new(_octorockAnimMap, 12, Palette.Blue, FastSpeed, ShotFromOctorock);
@@ -366,7 +369,7 @@ internal sealed class OctorokActor : DelayedWanderer
             (ActorColor.Blue, true) => new OctorokActor(game, ObjType.BlueFastOctorock, _blueFastOctorockSpec, 0xA0, x, y),
             (ActorColor.Red, false) => new OctorokActor(game, ObjType.RedSlowOctorock, _redSlowOctorockSpec, 0x70, x, y),
             (ActorColor.Red, true) => new OctorokActor(game, ObjType.RedFastOctorock, _redFastOctorockSpec, 0x70, x, y),
-            _ => throw new ArgumentOutOfRangeException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, "Invalid color."),
         };
     }
 }
@@ -384,10 +387,10 @@ internal sealed class GanonActor : BlueWizzrobeBase
         Pieces = 4,
     }
 
-    private static readonly byte[] _ganonNormalPalette = { 0x16, 0x2C, 0x3C };
-    private static readonly byte[] _ganonRedPalette = { 0x07, 0x17, 0x30 };
+    private static readonly byte[] _ganonNormalPalette = [0x16, 0x2C, 0x3C];
+    private static readonly byte[] _ganonRedPalette = [0x07, 0x17, 0x30];
 
-    private readonly SlashSpec[] _slashSpecs = {
+    private readonly ImmutableArray<SlashSpec> _slashSpecs = [
         new(TileSheet.Boss,           AnimationId.B3_Slash_U, 0),
         new(TileSheet.PlayerAndItems, AnimationId.Slash,      1),
         new(TileSheet.Boss,           AnimationId.B3_Slash_L, 1),
@@ -395,8 +398,8 @@ internal sealed class GanonActor : BlueWizzrobeBase
         new(TileSheet.Boss,           AnimationId.B3_Slash_U, 2),
         new(TileSheet.PlayerAndItems, AnimationId.Slash,      2),
         new(TileSheet.Boss,           AnimationId.B3_Slash_L, 0),
-        new(TileSheet.PlayerAndItems, AnimationId.Slash,      0),
-    };
+        new(TileSheet.PlayerAndItems, AnimationId.Slash,      0)
+    ];
 
     public override bool IsReoccuring => false;
 
@@ -422,9 +425,9 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         _animator = new SpriteAnimator
         {
+            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Ganon),
             DurationFrames = 1,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Ganon)
         };
 
         _pileImage = new SpriteImage
@@ -434,9 +437,9 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         _cloudAnimator = new SpriteAnimator
         {
+            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cloud),
             DurationFrames = 1,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cloud)
         };
 
         Game.Link.SetState(PlayerState.Paused);
@@ -931,12 +934,12 @@ internal sealed class RupeeStashActor : Actor
 
 internal sealed class FairyActor : FlyingActor
 {
-    private static readonly AnimationId[] _fairyAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _fairyAnimMap = [
         AnimationId.Fairy,
         AnimationId.Fairy,
         AnimationId.Fairy,
         AnimationId.Fairy
-    };
+    ];
 
     private static readonly FlyerSpec _fairySpec = new(_fairyAnimMap, TileSheet.PlayerAndItems, Palette.Red, 0xA0);
 
@@ -968,23 +971,17 @@ internal sealed class FairyActor : FlyingActor
 
         UpdateStateAndMove();
 
-        var objSlots = new[] { ObjectSlot.Player, ObjectSlot.Boomerang };
-        var touchedItem = false;
+        ReadOnlySpan<ObjectSlot> canPickupFairy = [ ObjectSlot.Player, ObjectSlot.Boomerang ];
 
-        foreach (var slot in objSlots)
+        foreach (var slot in canPickupFairy)
         {
             var obj = Game.World.GetObject(slot);
             if (obj != null && !obj.IsDeleted && TouchesObject(obj))
             {
-                touchedItem = true;
+                Game.World.AddItem(ItemId.Fairy);
+                IsDeleted = true;
                 break;
             }
-        }
-
-        if (touchedItem)
-        {
-            Game.World.AddItem(ItemId.Fairy);
-            IsDeleted = true;
         }
     }
 
@@ -1117,10 +1114,7 @@ internal sealed class PondFairyActor : Actor
 
         if (_pondFairyState != PondFairyState.Healing) return;
 
-        var heart = new SpriteImage
-        {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Heart)
-        };
+        var heart = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Heart));
 
         for (var i = 0; i < _heartState.Length; i++)
         {
@@ -1163,12 +1157,12 @@ internal abstract class StdWanderer : WandererWalkerActor
 
 internal sealed class GhiniActor : WandererWalkerActor
 {
-    private static readonly AnimationId[] _ghiniAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _ghiniAnimMap = [
         AnimationId.OW_Ghini_Right,
         AnimationId.OW_Ghini_Left,
         AnimationId.OW_Ghini_Left,
-        AnimationId.OW_Ghini_UpRight,
-    };
+        AnimationId.OW_Ghini_UpRight
+    ];
 
     private static readonly WalkerSpec _ghiniSpec = new(_ghiniAnimMap, 12, Palette.Blue, StandardSpeed);
 
@@ -1190,6 +1184,7 @@ internal sealed class GhiniActor : WandererWalkerActor
         {
             foreach (var flying in Game.World.GetMonsters<FlyingGhiniActor>())
             {
+                // JOE: TODO: Is this a death state?
                 flying.Decoration = 0x11;
             }
         }
@@ -1198,12 +1193,12 @@ internal sealed class GhiniActor : WandererWalkerActor
 
 internal sealed class GibdoActor : StdWanderer
 {
-    private static readonly AnimationId[] _gibdoAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _gibdoAnimMap = [
         AnimationId.UW_Gibdo,
         AnimationId.UW_Gibdo,
         AnimationId.UW_Gibdo,
         AnimationId.UW_Gibdo
-    };
+    ];
 
     private static readonly WalkerSpec _gibdoSpec = new(_gibdoAnimMap, 16, Palette.Blue, StandardSpeed);
 
@@ -1217,12 +1212,12 @@ internal sealed class GibdoActor : StdWanderer
 
 internal sealed class DarknutActor : StdWanderer
 {
-    private static readonly AnimationId[] _darknutAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _darknutAnimMap = [
         AnimationId.UW_Darknut_Right,
         AnimationId.UW_Darknut_Left,
         AnimationId.UW_Darknut_Down,
         AnimationId.UW_Darknut_Up
-    };
+    ];
 
     private static readonly WalkerSpec _redDarknutSpec = new(_darknutAnimMap, 16, Palette.Red, StandardSpeed);
     private static readonly WalkerSpec _blueDarknutSpec = new(_darknutAnimMap, 16, Palette.Blue, 0x28);
@@ -1259,12 +1254,12 @@ internal sealed class DarknutActor : StdWanderer
 
 internal sealed class StalfosActor : StdWanderer
 {
-    private static readonly AnimationId[] _stalfosAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _stalfosAnimMap = [
         AnimationId.UW_Stalfos,
         AnimationId.UW_Stalfos,
         AnimationId.UW_Stalfos,
-        AnimationId.UW_Stalfos,
-    };
+        AnimationId.UW_Stalfos
+    ];
 
     private static readonly WalkerSpec _stalfosSpec = new(_stalfosAnimMap, 16, Palette.Red, StandardSpeed, ObjType.PlayerSwordShot);
 
@@ -1290,14 +1285,14 @@ internal sealed class StalfosActor : StdWanderer
 
 internal sealed class GelActor : WandererWalkerActor
 {
-    private static readonly byte[] _gelWaitTimes = { 0x08, 0x18, 0x28, 0x38 };
+    private static readonly ImmutableArray<byte> _gelWaitTimes = [0x08, 0x18, 0x28, 0x38];
 
-    private static readonly AnimationId[] _gelAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _gelAnimMap = [
         AnimationId.UW_Gel,
         AnimationId.UW_Gel,
         AnimationId.UW_Gel,
-        AnimationId.UW_Gel,
-    };
+        AnimationId.UW_Gel
+    ];
 
     private static readonly WalkerSpec _gelSpec = new(_gelAnimMap, 4, Palette.SeaPal, 0x40);
 
@@ -1374,14 +1369,14 @@ internal sealed class GelActor : WandererWalkerActor
 
 internal sealed class ZolActor : WandererWalkerActor
 {
-    private static readonly byte[] _zolWaitTimes = { 0x18, 0x28, 0x38, 0x48 };
+    private static readonly ImmutableArray<byte> _zolWaitTimes = [0x18, 0x28, 0x38, 0x48];
 
-    private static readonly AnimationId[] _zolAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _zolAnimMap = [
         AnimationId.UW_Zol,
         AnimationId.UW_Zol,
         AnimationId.UW_Zol,
-        AnimationId.UW_Zol,
-    };
+        AnimationId.UW_Zol
+    ];
 
     private static readonly WalkerSpec _zolSpec = new(_zolAnimMap, 16, Palette.SeaPal, 0x18);
 
@@ -1476,12 +1471,12 @@ internal sealed class ZolActor : WandererWalkerActor
 
 internal sealed class BubbleActor : WandererWalkerActor
 {
-    private static readonly AnimationId[] _bubbleAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _bubbleAnimMap = [
         AnimationId.UW_Bubble,
         AnimationId.UW_Bubble,
         AnimationId.UW_Bubble,
         AnimationId.UW_Bubble
-    };
+    ];
 
     private static readonly WalkerSpec _bubbleSpec = new(_bubbleAnimMap, 2, Palette.Blue, FastSpeed);
 
@@ -1539,12 +1534,12 @@ internal sealed class BubbleActor : WandererWalkerActor
 
 internal sealed class VireActor : WandererWalkerActor
 {
-    private static readonly AnimationId[] _vireAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _vireAnimMap = [
         AnimationId.UW_Vire_Down,
         AnimationId.UW_Vire_Down,
         AnimationId.UW_Vire_Down,
-        AnimationId.UW_Vire_Up,
-    };
+        AnimationId.UW_Vire_Up
+    ];
 
     private static readonly WalkerSpec _vireSpec = new(_vireAnimMap, 20, Palette.Blue, StandardSpeed);
 
@@ -1620,12 +1615,12 @@ internal sealed class VireActor : WandererWalkerActor
 
 internal sealed class LikeLikeActor : WandererWalkerActor
 {
-    private static readonly AnimationId[] _likeLikeAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _likeLikeAnimMap = [
         AnimationId.UW_LikeLike,
         AnimationId.UW_LikeLike,
         AnimationId.UW_LikeLike,
-        AnimationId.UW_LikeLike,
-    };
+        AnimationId.UW_LikeLike
+    ];
 
     private static readonly WalkerSpec _likeLikeSpec = new(_likeLikeAnimMap, 24, Palette.Red, StandardSpeed);
 
@@ -1693,18 +1688,18 @@ internal sealed class LikeLikeActor : WandererWalkerActor
 
 internal abstract class DigWanderer : WandererWalkerActor
 {
-    protected int[] StateTimes;
+    protected ImmutableArray<int> StateTimes;
     protected int State;
     private readonly WalkerSpec[] _stateSpecs;
 
-    public static readonly AnimationId[] MoundAnimMap = {
+    public static readonly ImmutableArray<AnimationId> MoundAnimMap = [
         AnimationId.OW_Mound,
         AnimationId.OW_Mound,
         AnimationId.OW_Mound,
-        AnimationId.OW_Mound,
-    };
+        AnimationId.OW_Mound
+    ];
 
-    protected DigWanderer(Game game, ObjType type, WalkerSpec[] specs, int[] stateTimes, int x, int y)
+    protected DigWanderer(Game game, ObjType type, WalkerSpec[] specs, ImmutableArray<int> stateTimes, int x, int y)
         : base(game, type, specs[0], 0xA0, x, y)
     {
         ObjTimer = 0;
@@ -1747,28 +1742,28 @@ internal abstract class DigWanderer : WandererWalkerActor
 
 internal sealed class ZoraActor : DigWanderer
 {
-    private static readonly AnimationId[] _zoraAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _zoraAnimMap = [
         AnimationId.OW_Zora_Down,
         AnimationId.OW_Zora_Down,
         AnimationId.OW_Zora_Down,
-        AnimationId.OW_Zora_Up,
-    };
+        AnimationId.OW_Zora_Up
+    ];
 
     private static readonly WalkerSpec _zoraHiddenSpec = new(null, 32, Palette.SeaPal);
     private static readonly WalkerSpec _zoraMoundSpec = new(MoundAnimMap, 22, Palette.SeaPal);
     private static readonly WalkerSpec _zoraHalfSpec = new(_zoraAnimMap, 2, Palette.SeaPal);
     private static readonly WalkerSpec _zoraFullSpec = new(_zoraAnimMap, 10, Palette.SeaPal);
 
-    private static readonly WalkerSpec[] _zoraSpecs = {
+    private static readonly WalkerSpec[] _zoraSpecs = [
         _zoraHiddenSpec,
         _zoraMoundSpec,
         _zoraHalfSpec,
         _zoraFullSpec,
         _zoraHalfSpec,
-        _zoraMoundSpec,
-    };
+        _zoraMoundSpec
+    ];
 
-    private static readonly int[] _zoraStateTimes = { 2, 0x20, 0x0F, 0x22, 0x10, 0x60 };
+    private static readonly ImmutableArray<int> _zoraStateTimes = [2, 0x20, 0x0F, 0x22, 0x10, 0x60];
 
     public ZoraActor(Game game, int x, int y)
         : base(game, ObjType.Zora, _zoraSpecs, _zoraStateTimes, x, y)
@@ -1808,35 +1803,35 @@ internal sealed class ZoraActor : DigWanderer
 
 internal sealed class BlueLeeverActor : DigWanderer
 {
-    private static readonly AnimationId[] _leeverAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _leeverAnimMap = [
         AnimationId.OW_Leever,
         AnimationId.OW_Leever,
         AnimationId.OW_Leever,
-        AnimationId.OW_Leever,
-    };
+        AnimationId.OW_Leever
+    ];
 
-    private static readonly AnimationId[] _leeverHalfAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _leeverHalfAnimMap = [
         AnimationId.OW_LeeverHalf,
         AnimationId.OW_LeeverHalf,
         AnimationId.OW_LeeverHalf,
-        AnimationId.OW_LeeverHalf,
-    };
+        AnimationId.OW_LeeverHalf
+    ];
 
     private static readonly WalkerSpec _blueLeeverHiddenSpec = new(null, 32, Palette.Blue, 0x8);
     private static readonly WalkerSpec _blueLeeverMoundSpec = new(MoundAnimMap, 22, Palette.Blue, 0xA);
     private static readonly WalkerSpec _blueLeeverHalfSpec = new(_leeverHalfAnimMap, 2, Palette.Blue, 0x10);
     private static readonly WalkerSpec _blueLeeverFullSpec = new(_leeverAnimMap, 10, Palette.Blue, StandardSpeed);
 
-    private static readonly WalkerSpec[] _blueLeeverSpecs = {
+    private static readonly WalkerSpec[] _blueLeeverSpecs = [
         _blueLeeverHiddenSpec,
         _blueLeeverMoundSpec,
         _blueLeeverHalfSpec,
         _blueLeeverFullSpec,
         _blueLeeverHalfSpec,
-        _blueLeeverMoundSpec,
-    };
+        _blueLeeverMoundSpec
+    ];
 
-    private static readonly int[] _blueLeeverStateTimes = { 0x80, 0x20, 0x0F, 0xFF, 0x10, 0x60 };
+    private static readonly ImmutableArray<int> _blueLeeverStateTimes = [0x80, 0x20, 0x0F, 0xFF, 0x10, 0x60];
 
     public BlueLeeverActor(Game game, int x, int y)
         : base(game, ObjType.BlueLeever, _blueLeeverSpecs, _blueLeeverStateTimes, x, y)
@@ -1850,35 +1845,35 @@ internal sealed class BlueLeeverActor : DigWanderer
 
 internal sealed class RedLeeverActor : Actor
 {
-    private static readonly AnimationId[] _leeverAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _leeverAnimMap = [
         AnimationId.OW_Leever,
         AnimationId.OW_Leever,
         AnimationId.OW_Leever,
-        AnimationId.OW_Leever,
-    };
+        AnimationId.OW_Leever
+    ];
 
-    private static readonly AnimationId[] _leeverHalfAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _leeverHalfAnimMap = [
         AnimationId.OW_LeeverHalf,
         AnimationId.OW_LeeverHalf,
         AnimationId.OW_LeeverHalf,
-        AnimationId.OW_LeeverHalf,
-    };
+        AnimationId.OW_LeeverHalf
+    ];
 
     private static readonly WalkerSpec _redLeeverHiddenSpec = new(null, 32, Palette.Red);
     private static readonly WalkerSpec _redLeeverMoundSpec = new(DigWanderer.MoundAnimMap, 16, Palette.Red);
     private static readonly WalkerSpec _redLeeverHalfSpec = new(_leeverHalfAnimMap, 16, Palette.Red);
     private static readonly WalkerSpec _redLeeverFullSpec = new(_leeverAnimMap, 10, Palette.Red, Global.StdSpeed);
 
-    private static readonly WalkerSpec[] _redLeeverSpecs = {
+    private static readonly WalkerSpec[] _redLeeverSpecs = [
         _redLeeverHiddenSpec,
         _redLeeverMoundSpec,
         _redLeeverHalfSpec,
         _redLeeverFullSpec,
         _redLeeverHalfSpec,
-        _redLeeverMoundSpec,
-    };
+        _redLeeverMoundSpec
+    ];
 
-    private static readonly int[] _redLeeverStateTimes = { 0x00, 0x10, 0x08, 0xFF, 0x08, 0x10 };
+    private static readonly ImmutableArray<int> _redLeeverStateTimes = [0x00, 0x10, 0x08, 0xFF, 0x08, 0x10];
 
     private static int _count;
 
@@ -1989,7 +1984,7 @@ internal sealed class RedLeeverActor : Actor
     {
         var dirOrd = Facing.GetOrdinal();
         _animator.Animation = _spec.AnimationMap != null
-            ? Graphics.GetAnimation(TileSheet.Npcs, _spec.AnimationMap[dirOrd])
+            ? Graphics.GetAnimation(TileSheet.Npcs, _spec.AnimationMap.Value[dirOrd])
             : null;
     }
 
@@ -2037,7 +2032,7 @@ internal sealed class RedLeeverActor : Actor
     }
 }
 
-internal readonly record struct FlyerSpec(AnimationId[]? AnimationMap, TileSheet Sheet, Palette Palette, int Speed = 0);
+internal readonly record struct FlyerSpec(ImmutableArray<AnimationId> AnimationMap, TileSheet Sheet, Palette Palette, int Speed = 0);
 
 internal abstract class FlyingActor : Actor
 {
@@ -2056,14 +2051,14 @@ internal abstract class FlyingActor : Actor
         : base(game, type, x, y)
     {
         Spec = spec;
-        SStateFuncs = new Action[] {
+        SStateFuncs = [
             UpdateHastening,
             UpdateFullSpeed,
             UpdateChase,
             UpdateTurn,
             UpdateSlowing,
-            UpdateStill,
-        };
+            UpdateStill
+        ];
 
         Animator = new SpriteAnimator
         {
@@ -2250,12 +2245,12 @@ internal abstract class StdFlyerActor : FlyingActor
 
 internal sealed class PeahatActor : StdFlyerActor
 {
-    private static readonly AnimationId[] _peahatAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _peahatAnimMap = [
         AnimationId.OW_Peahat,
         AnimationId.OW_Peahat,
         AnimationId.OW_Peahat,
         AnimationId.OW_Peahat
-    };
+    ];
 
     private static readonly FlyerSpec _peahatSpec = new(_peahatAnimMap, TileSheet.Npcs, Palette.Red, 0xA0);
 
@@ -2291,12 +2286,12 @@ internal sealed class PeahatActor : StdFlyerActor
 
 internal sealed class FlyingGhiniActor : FlyingActor
 {
-    private static readonly AnimationId[] _flyingGhiniAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _flyingGhiniAnimMap = [
         AnimationId.OW_Ghini_Right,
         AnimationId.OW_Ghini_Left,
         AnimationId.OW_Ghini_UpRight,
-        AnimationId.OW_Ghini_UpLeft,
-    };
+        AnimationId.OW_Ghini_UpLeft
+    ];
 
     private static readonly FlyerSpec _flyingGhiniSpec = new(_flyingGhiniAnimMap, TileSheet.Npcs, Palette.Blue, 0xA0);
 
@@ -2364,12 +2359,12 @@ internal sealed class FlyingGhiniActor : FlyingActor
 
 internal sealed class KeeseActor : FlyingActor
 {
-    private static readonly AnimationId[] _keeseAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _keeseAnimMap = [
         AnimationId.UW_Keese,
         AnimationId.UW_Keese,
         AnimationId.UW_Keese,
-        AnimationId.UW_Keese,
-    };
+        AnimationId.UW_Keese
+    ];
 
     private static readonly FlyerSpec _blueKeeseSpec = new(_keeseAnimMap, TileSheet.Npcs, Palette.Blue, 0xC0);
     private static readonly FlyerSpec _redKeeseSpec = new(_keeseAnimMap, TileSheet.Npcs, Palette.Red, 0xC0);
@@ -2390,11 +2385,6 @@ internal sealed class KeeseActor : FlyingActor
             ActorColor.Black => new KeeseActor(game, ObjType.BlackKeese, _blackKeeseSpec, 0x7F, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(color))
         };
-    }
-
-    private void SetFacing(Direction dir)
-    {
-        Facing = dir;
     }
 
     public override void Update()
@@ -2423,7 +2413,6 @@ internal sealed class KeeseActor : FlyingActor
         GoToState(newstate, 6);
     }
 
-
     protected override int GetFrame()
     {
         return (MoveCounter & 2) >> 1;
@@ -2437,12 +2426,12 @@ internal sealed class MoldormActor : FlyingActor
     public const ObjectSlot TailSlot1 = ObjectSlot.Monster1;
     public const ObjectSlot TailSlot2 = TailSlot1 + 5;
 
-    private static readonly AnimationId[] _moldormAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _moldormAnimMap = [
         AnimationId.UW_Moldorm,
         AnimationId.UW_Moldorm,
         AnimationId.UW_Moldorm,
-        AnimationId.UW_Moldorm,
-    };
+        AnimationId.UW_Moldorm
+    ];
 
     private static readonly FlyerSpec _moldormSpec = new(_moldormAnimMap, TileSheet.Npcs, Palette.Red, 0x80);
 
@@ -2545,8 +2534,7 @@ internal sealed class MoldormActor : FlyingActor
     protected override void UpdateChaseImpl()
     {
         var slot = Game.World.CurObjectSlot;
-        if (slot != HeadSlot1 && slot != HeadSlot2)
-            return;
+        if (slot != HeadSlot1 && slot != HeadSlot2) return;
 
         base.UpdateChaseImpl();
         UpdateSubstates();
@@ -2567,7 +2555,9 @@ internal sealed class MoldormActor : FlyingActor
 
             var obj = Game.World.GetObject(prevSlot);
             if (obj is MoldormActor && obj.Facing != Direction.None)
+            {
                 ShiftFacings();
+            }
         }
         else
         {
@@ -2589,14 +2579,10 @@ internal sealed class MoldormActor : FlyingActor
 
         for (var i = 0; i < 4; i++, slot++)
         {
-            var curObj = Game.World.GetObject<MoldormActor>(slot);
-            var nextObj = Game.World.GetObject<MoldormActor>(slot + 1);
+            var curMoldorm = Game.World.GetObject<MoldormActor>(slot);
+            var nextMoldorm = Game.World.GetObject<MoldormActor>(slot + 1);
 
-            if (curObj == null || nextObj == null)
-                continue;
-
-            var curMoldorm = curObj;
-            var nextMoldorm = nextObj;
+            if (curMoldorm == null || nextMoldorm == null) continue;
 
             var nextOldFacing = nextMoldorm._oldFacing;
             curMoldorm._oldFacing = nextOldFacing;
@@ -2622,12 +2608,12 @@ internal sealed class PatraActor : FlyingActor
     private const ObjectSlot FirstChildSlot = ObjectSlot.Monster1;
     private const ObjectSlot LastChildSlot = ObjectSlot.Monster9;
 
-    private static readonly AnimationId[] _patraAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _patraAnimMap = [
         AnimationId.B3_Patra,
         AnimationId.B3_Patra,
         AnimationId.B3_Patra,
         AnimationId.B3_Patra
-    };
+    ];
 
     private static readonly FlyerSpec _patraSpec = new(_patraAnimMap, TileSheet.Boss, Palette.Blue, 0x40);
 
@@ -2660,7 +2646,7 @@ internal sealed class PatraActor : FlyingActor
         {
             PatraType.Circle => ObjType.Patra1,
             PatraType.Spin => ObjType.Patra2,
-            _ => throw new ArgumentOutOfRangeException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(patraType), patraType, "patraType unknown."),
         };
 
         var patra = new PatraActor(game, type);
@@ -2682,7 +2668,9 @@ internal sealed class PatraActor : FlyingActor
     public override void Update()
     {
         if (_childStateTimer > 0)
+        {
             _childStateTimer--;
+        }
 
         var origX = X;
         var origY = Y;
@@ -2722,9 +2710,9 @@ internal sealed class PatraActor : FlyingActor
 
 internal sealed class PatraChildActor : Actor
 {
-    private static readonly byte[] _patraEntryAngles = { 0x14, 0x10, 0xC, 0x8, 0x4, 0, 0x1C };
-    private static readonly int[] _shiftCounts = { 6, 5, 6, 6 };
-    private static readonly byte[] _sinCos = { 0x00, 0x18, 0x30, 0x47, 0x5A, 0x6A, 0x76, 0x7D, 0x80, 0x7D, 0x76, 0x6A, 0x5A, 0x47, 0x30, 0x18 };
+    private static readonly ImmutableArray<byte> _patraEntryAngles = [0x14, 0x10, 0xC, 0x8, 0x4, 0, 0x1C];
+    private static readonly ImmutableArray<int> _shiftCounts = [6, 5, 6, 6];
+    private static readonly ImmutableArray<byte> _sinCos = [0x00, 0x18, 0x30, 0x47, 0x5A, 0x6A, 0x76, 0x7D, 0x80, 0x7D, 0x76, 0x6A, 0x5A, 0x47, 0x30, 0x18];
 
     private int _x;
     private int _y;
@@ -2743,19 +2731,19 @@ internal sealed class PatraChildActor : Actor
 
         _animator = new SpriteAnimator
         {
+            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_PatraChild),
             DurationFrames = 4,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_PatraChild)
         };
     }
 
-    public static PatraChildActor Make(Game game, PatraType type, int x = 0, int y = 0)
+    public static PatraChildActor Make(Game game, PatraType patraType, int x = 0, int y = 0)
     {
-        var objtype = type switch
+        var objtype = patraType switch
         {
             PatraType.Circle => ObjType.PatraChild1,
             PatraType.Spin => ObjType.PatraChild2,
-            _ => throw new ArgumentOutOfRangeException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(patraType), patraType, "patraType unknown."),
         };
 
         return new PatraChildActor(game, objtype, x, y);
@@ -2903,17 +2891,17 @@ internal sealed class PatraChildActor : Actor
 }
 
 internal readonly record struct JumperSpec(
-    AnimationId[] AnimationMap,
+    ImmutableArray<AnimationId> AnimationMap,
     int AnimationTimer,
     int JumpFrame,
     Palette Palette,
     int Speed,
-    byte[] AccelMap);
+    ImmutableArray<byte> AccelMap);
 
 internal abstract class JumperActor : Actor, IDeleteEvent
 {
-    public static readonly int[] JumperStartDirs = { 1, 2, 5, 0xA };
-    private static readonly int[] _targetYOffset = { 0, 0, 0, 0, 0, 0x20, 0x20, 0, 0, -0x20, -0x20, };
+    public static readonly ImmutableArray<int> JumperStartDirs = [1, 2, 5, 0xA];
+    private static readonly ImmutableArray<int> _targetYOffset = [0, 0, 0, 0, 0, 0x20, 0x20, 0, 0, -0x20, -0x20];
 
     private int _curSpeed;
     private int _accelStep;
@@ -2929,10 +2917,10 @@ internal abstract class JumperActor : Actor, IDeleteEvent
     {
         _spec = spec;
 
-        _animator = new()
+        _animator = new SpriteAnimator
         {
-            Time = 0,
             Animation = Graphics.GetAnimation(TileSheet.Npcs, spec.AnimationMap[0]),
+            Time = 0,
             DurationFrames = spec.AnimationTimer
         };
 
@@ -3118,17 +3106,17 @@ internal abstract class JumperActor : Actor, IDeleteEvent
 
 internal sealed class BoulderActor : JumperActor
 {
-    private static readonly AnimationId[] _boulderAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _boulderAnimMap = [
         AnimationId.OW_Boulder,
         AnimationId.OW_Boulder,
         AnimationId.OW_Boulder,
         AnimationId.OW_Boulder
-    };
+    ];
 
-    private static readonly byte[] _boulderSpeeds = {
+    private static readonly ImmutableArray<byte> _boulderSpeeds = [
         0x60, 0x60,
         0x60, 0x60, 0x60, 0x60, 0x60
-    };
+    ];
 
     private static readonly JumperSpec _boulderSpec = new(_boulderAnimMap, 12, -1, Palette.Red, -2, _boulderSpeeds);
 
@@ -3140,15 +3128,15 @@ internal sealed class BoulderActor : JumperActor
 
 internal sealed class TektiteActor : JumperActor
 {
-    private static readonly AnimationId[] _tektiteAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _tektiteAnimMap = [
         AnimationId.OW_Tektite,
         AnimationId.OW_Tektite,
         AnimationId.OW_Tektite,
         AnimationId.OW_Tektite
-    };
+    ];
 
-    private static readonly byte[] _blueTektiteSpeeds = { 0, 0x40, 0x40, 0, 0, 0x40, 0x40, 0, 0, 0x30, 0x30 };
-    private static readonly byte[] _redTektiteSpeeds = { 0, 0x80, 0x80, 0, 0, 0x80, 0x80, 0, 0, 0x50, 0x50 };
+    private static readonly ImmutableArray<byte> _blueTektiteSpeeds = [0, 0x40, 0x40, 0, 0, 0x40, 0x40, 0, 0, 0x30, 0x30];
+    private static readonly ImmutableArray<byte> _redTektiteSpeeds = [0, 0x80, 0x80, 0, 0, 0x80, 0x80, 0, 0, 0x50, 0x50];
 
     private static readonly JumperSpec _blueTektiteSpec = new(_tektiteAnimMap, 32, 1, Palette.Blue, -3, _blueTektiteSpeeds);
     private static readonly JumperSpec _redTektiteSpec = new(_tektiteAnimMap, 32, 1, Palette.Red, -4, _redTektiteSpeeds);
@@ -3232,16 +3220,16 @@ internal sealed class BouldersActor : Actor
 
 internal sealed class TrapActor : Actor
 {
-    private static readonly Point[] _trapPos = {
+    private static readonly Point[] _trapPos = [
         new Point(0x20, 0x60),
         new Point(0x20, 0xC0),
         new Point(0xD0, 0x60),
         new Point(0xD0, 0xC0),
         new Point(0x40, 0x90),
-        new Point(0xB0, 0x90),
-    };
+        new Point(0xB0, 0x90)
+    ];
 
-    private static readonly int[] _trapAllowedDirs = { 5, 9, 6, 0xA, 1, 2 };
+    private static readonly ImmutableArray<int> _trapAllowedDirs = [5, 9, 6, 0xA, 1, 2];
 
     private int _state;
     private int _speed;
@@ -3381,12 +3369,12 @@ internal sealed class TrapActor : Actor
 
 internal sealed class RopeActor : Actor
 {
-    private static readonly AnimationId[] _ropeAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _ropeAnimMap = [
         AnimationId.UW_Rope_Right,
         AnimationId.UW_Rope_Left,
         AnimationId.UW_Rope_Right,
         AnimationId.UW_Rope_Right
-    };
+    ];
 
     private const int RopeNormalSpeed = 0x20;
     private const int RopeFastSpeed = 0x60;
@@ -3488,10 +3476,10 @@ internal sealed class RopeActor : Actor
 
 internal sealed class PolsVoiceActor : Actor
 {
-    private static readonly int[] _polsVoiceXSpeeds = { 1, -1, 0, 0 };
-    private static readonly int[] _polsVoiceYSpeeds = { 0, 0, 1, -1 };
-    private static readonly int[] _polsVoiceJumpSpeeds = { -3, -3, -1, -4 };
-    private static readonly int[] _polsVoiceJumpLimits = { 0, 0, 0x20, -0x20 };
+    private static readonly ImmutableArray<int> _polsVoiceXSpeeds = [1, -1, 0, 0];
+    private static readonly ImmutableArray<int> _polsVoiceYSpeeds = [0, 0, 1, -1];
+    private static readonly ImmutableArray<int> _polsVoiceJumpSpeeds = [-3, -3, -1, -4];
+    private static readonly ImmutableArray<int> _polsVoiceJumpLimits = [0, 0, 0x20, -0x20];
 
     private int _curSpeed;
     private int _accelStep;
@@ -3636,25 +3624,25 @@ internal sealed class PolsVoiceActor : Actor
 
 internal sealed class RedWizzrobeActor : Actor
 {
-    private static readonly Direction[] _wizzrobeDirs = {
+    private static readonly Direction[] _wizzrobeDirs = [
         Direction.Down,
         Direction.Up,
         Direction.Right,
         Direction.Left
-    };
+    ];
 
-    private static readonly int[] _wizzrobeXOffsets = {
+    private static readonly ImmutableArray<int> _wizzrobeXOffsets = [
         0x00, 0x00, -0x20, 0x20, 0x00, 0x00, -0x40, 0x40,
         0x00, 0x00, -0x30, 0x30, 0x00, 0x00, -0x50, 0x50
-    };
+    ];
 
-    private static readonly int[] _wizzrobeYOffsets = {
+    private static readonly ImmutableArray<int> _wizzrobeYOffsets = [
         -0x20, 0x20, 0x00, 0x00, -0x40, 0x40, 0x00, 0x00,
         -0x30, 0x30, 0x00, 0x00, -0x50, 0x50, 0x00, 0x00
-    };
+    ];
 
-    private static readonly int[] _allWizzrobeCollisionXOffsets = { 0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0 };
-    private static readonly int[] _allWizzrobeCollisionYOffsets = { 4, 4, 0, 8, 8, 8, 0, -8, 0, 0 };
+    private static readonly ImmutableArray<int> _allWizzrobeCollisionXOffsets = [0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0];
+    private static readonly ImmutableArray<int> _allWizzrobeCollisionYOffsets = [4, 4, 0, 8, 8, 8, 0, -8, 0, 0];
 
     private byte _stateTimer;
     private byte _flashTimer;
@@ -3672,13 +3660,12 @@ internal sealed class RedWizzrobeActor : Actor
             Time = 0
         };
 
-        _sStateFuncs = new Action[]
-        {
-           UpdateHidden,
+        _sStateFuncs = [
+            UpdateHidden,
            UpdateGoing,
            UpdateVisible,
-           UpdateComing,
-        };
+           UpdateComing
+        ];
     }
 
     public override void Update()
@@ -4046,10 +4033,10 @@ internal sealed class LamnolaActor : Actor
 
 internal sealed class WallmasterActor : Actor
 {
-    private static readonly byte[] _startXs = { 0x00, 0xF0 };
-    private static readonly byte[] _startYs = { 0x3D, 0xDD };
+    private static readonly ImmutableArray<byte> _startXs = [0x00, 0xF0];
+    private static readonly ImmutableArray<byte> _startYs = [0x3D, 0xDD];
 
-    private static readonly byte[] _wallmasterDirs = {
+    private static readonly ImmutableArray<byte> _wallmasterDirs = [
         0x01, 0x01, 0x08, 0x08, 0x08, 0x02, 0x02, 0x02,
         0xC1, 0xC1, 0xC4, 0xC4, 0xC4, 0xC2, 0xC2, 0xC2,
         0x42, 0x42, 0x48, 0x48, 0x48, 0x41, 0x41, 0x41,
@@ -4058,7 +4045,7 @@ internal sealed class WallmasterActor : Actor
         0x84, 0x84, 0x81, 0x81, 0x81, 0x88, 0x88, 0x88,
         0x48, 0x48, 0x42, 0x42, 0x42, 0x44, 0x44, 0x44,
         0x08, 0x08, 0x01, 0x01, 0x01, 0x04, 0x04, 0x04
-    };
+    ];
 
     private int _state;
     private int _dirIndex;
@@ -4243,7 +4230,7 @@ internal sealed class AquamentusActor : Actor
     private const int AquamentusX = 0xB0;
     private const int AquamentusY = 0x80;
 
-    private static readonly byte[] _palette = { 0, 0x0A, 0x29, 0x30 };
+    private static readonly byte[] _palette = [0, 0x0A, 0x29, 0x30];
 
     private int _distance;
     private readonly SpriteAnimator _animator;
@@ -4327,7 +4314,7 @@ internal sealed class AquamentusActor : Actor
         _distance--;
     }
 
-    private static readonly sbyte[] _yOffsets = { 1, 0, -1 };
+    private static readonly sbyte[] _yOffsets = [1, 0, -1];
 
     private void TryShooting()
     {
@@ -4375,25 +4362,25 @@ internal sealed class DodongoActor : WandererWalkerActor
 {
     private delegate void StateFunc();
 
-    private static readonly AnimationId[] _dodongoWalkAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _dodongoWalkAnimMap = [
         AnimationId.B1_Dodongo_R,
         AnimationId.B1_Dodongo_L,
         AnimationId.B1_Dodongo_D,
         AnimationId.B1_Dodongo_U
-    };
+    ];
 
-    private static readonly AnimationId[] _dodongoBloatAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _dodongoBloatAnimMap = [
         AnimationId.B1_Dodongo_Bloated_R,
         AnimationId.B1_Dodongo_Bloated_L,
         AnimationId.B1_Dodongo_Bloated_D,
         AnimationId.B1_Dodongo_Bloated_U
-    };
+    ];
 
     private static readonly WalkerSpec _dodongoWalkSpec = new(_dodongoWalkAnimMap, 20, Palette.Red, StandardSpeed);
 
-    private static readonly byte[] _palette = { 0, 0x17, 0x27, 0x30 };
-    private static readonly int[] _negBounds = { -0x10, 0, -8, 0, -8, -4, -4, -0x10, 0, 0 };
-    private static readonly int[] _posBounds = { 0, 0x10, 8, 0, 8, 4, 4, 0, 0, 0x10 };
+    private static readonly byte[] _palette = [0, 0x17, 0x27, 0x30];
+    private static readonly ImmutableArray<int> _negBounds = [-0x10, 0, -8, 0, -8, -4, -4, -0x10, 0, 0];
+    private static readonly ImmutableArray<int> _posBounds = [0, 0x10, 8, 0, 8, 4, 4, 0, 0, 0x10];
 
     private int _state;
     private int _bloatedSubstate;
@@ -4408,21 +4395,19 @@ internal sealed class DodongoActor : WandererWalkerActor
     private DodongoActor(Game game, ObjType type, int x, int y)
         : base(game, type, _dodongoWalkSpec, 0x20, x, y)
     {
-        _sStateFuncs = new StateFunc[]
-        {
+        _sStateFuncs = [
             UpdateMoveState,
             UpdateBloatedState,
-            UpdateStunnedState,
-        };
+            UpdateStunnedState
+        ];
 
-        _sBloatedSubstateFuncs = new StateFunc[]
-        {
+        _sBloatedSubstateFuncs = [
             UpdateBloatedWait,
             UpdateBloatedWait,
             UpdateBloatedWait,
             UpdateBloatedDie,
-            UpdateBloatedEnd,
-        };
+            UpdateBloatedEnd
+        ];
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar2, true, Sound.AmbientInstance);
         var r = Random.Shared.Next(2);
@@ -4694,16 +4679,16 @@ internal sealed class ManhandlaActor : Actor
 {
     private const ObjectSlot ManhandlaCenterBodySlot = (ObjectSlot)4;
 
-    private static readonly AnimationId[] _manhandlaAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _manhandlaAnimMap = [
         AnimationId.B2_Manhandla_Hand_U,
         AnimationId.B2_Manhandla_Hand_D,
         AnimationId.B2_Manhandla_Hand_L,
         AnimationId.B2_Manhandla_Hand_R,
-        AnimationId.B2_Manhandla_Body,
-    };
+        AnimationId.B2_Manhandla_Body
+    ];
 
-    private static readonly int[] _xOffsets = { 0, 0, -0x10, 0x10, 0 };
-    private static readonly int[] _yOffsets = { -0x10, 0x10, 0, 0, 0 };
+    private static readonly ImmutableArray<int> _xOffsets = [0, 0, -0x10, 0x10, 0];
+    private static readonly ImmutableArray<int> _yOffsets = [-0x10, 0x10, 0, 0, 0];
 
     // JOE: TODO: Destatic these.
     private static int _sPartsDied;
@@ -5025,9 +5010,9 @@ internal abstract class DigdoggerActorBase : Actor
 
 internal sealed class DigdoggerActor : DigdoggerActorBase
 {
-    private static readonly byte[] _palette = { 0, 0x17, 0x27, 0x30 };
-    private static readonly int[] _offsetsX = { 0, 0x10, 0, -0x10 };
-    private static readonly int[] _offsetsY = { 0, 0x10, -0x10, 0x10 };
+    private static readonly byte[] _palette = [0, 0x17, 0x27, 0x30];
+    private static readonly ImmutableArray<int> _offsetsX = [0, 0x10, 0, -0x10];
+    private static readonly ImmutableArray<int> _offsetsY = [0, 0x10, -0x10, 0x10];
 
     private readonly SpriteAnimator _animator;
     private readonly SpriteAnimator _littleAnimator;
@@ -5045,9 +5030,9 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
 
         _animator = new SpriteAnimator
         {
+            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Digdogger_Big),
             DurationFrames = 12,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Digdogger_Big)
         };
 
         _littleAnimator = new SpriteAnimator
@@ -5404,12 +5389,12 @@ internal sealed class GohmaActor : Actor
 
 internal sealed class ArmosActor : ChaseWalkerActor
 {
-    private static readonly AnimationId[] _armosAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _armosAnimMap = [
         AnimationId.OW_Armos_Right,
         AnimationId.OW_Armos_Left,
         AnimationId.OW_Armos_Down,
         AnimationId.OW_Armos_Up
-    };
+    ];
 
     private static readonly WalkerSpec _armosSpec = new(_armosAnimMap, 12, Palette.Red, StandardSpeed);
 
@@ -5481,12 +5466,12 @@ internal enum ActorColor { Undefined, Blue, Red, Black }
 
 internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
 {
-    private static readonly AnimationId[] _goriyaAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _goriyaAnimMap = [
         AnimationId.UW_Goriya_Right,
         AnimationId.UW_Goriya_Left,
         AnimationId.UW_Goriya_Down,
         AnimationId.UW_Goriya_Up
-    };
+    ];
 
     private static readonly WalkerSpec _blueGoriyaSpec = new(_goriyaAnimMap, 12, Palette.Blue, StandardSpeed);
     private static readonly WalkerSpec _redGoriyaSpec = new(_goriyaAnimMap, 12, Palette.Red, StandardSpeed);
@@ -5566,11 +5551,11 @@ internal static class Statues
     private const int Patterns = 3;
     private const int MaxStatues = 4;
 
-    private static readonly byte[] _statueCounts = { 4, 2, 2 };
-    private static readonly byte[] _startTimers = { 0x50, 0x80, 0xF0, 0x60 };
-    private static readonly byte[] _patternOffsets = { 0, 4, 6 };
-    private static readonly byte[] _xs = { 0x24, 0xC8, 0x24, 0xC8, 0x64, 0x88, 0x48, 0xA8 };
-    private static readonly byte[] _ys = { 0xC0, 0xBC, 0x64, 0x5C, 0x94, 0x8C, 0x82, 0x86 };
+    private static readonly ImmutableArray<byte> _statueCounts = [4, 2, 2];
+    private static readonly ImmutableArray<byte> _startTimers = [0x50, 0x80, 0xF0, 0x60];
+    private static readonly ImmutableArray<byte> _patternOffsets = [0, 4, 6];
+    private static readonly ImmutableArray<byte> _xs = [0x24, 0xC8, 0x24, 0xC8, 0x64, 0x88, 0x48, 0xA8];
+    private static readonly ImmutableArray<byte> _ys = [0xC0, 0xBC, 0x64, 0x5C, 0x94, 0x8C, 0x82, 0x86];
 
     private static readonly byte[] _timers = new byte[MaxStatues];
 
@@ -5629,12 +5614,12 @@ internal abstract class StdChaseWalker : ChaseWalkerActor
 
 internal sealed class LynelActor : StdChaseWalker
 {
-    private static readonly AnimationId[] _lynelAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _lynelAnimMap = [
         AnimationId.OW_Lynel_Right,
         AnimationId.OW_Lynel_Left,
         AnimationId.OW_Lynel_Down,
-        AnimationId.OW_Lynel_Up,
-    };
+        AnimationId.OW_Lynel_Up
+    ];
 
     private static readonly WalkerSpec _blueLynelSpec = new(_lynelAnimMap, 12, Palette.Blue, StandardSpeed, ObjType.PlayerSwordShot);
     private static readonly WalkerSpec _redLynelSpec = new(_lynelAnimMap, 12, Palette.Red, StandardSpeed, ObjType.PlayerSwordShot);
@@ -5661,12 +5646,12 @@ internal sealed class LynelActor : StdChaseWalker
 
 internal sealed class MoblinActor : StdWanderer
 {
-    private static readonly AnimationId[] _moblinAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _moblinAnimMap = [
         AnimationId.OW_Moblin_Right,
         AnimationId.OW_Moblin_Left,
         AnimationId.OW_Moblin_Down,
-        AnimationId.OW_Moblin_Up,
-    };
+        AnimationId.OW_Moblin_Up
+    ];
 
     private static readonly WalkerSpec _blueMoblinSpec = new(_moblinAnimMap, 12, (Palette)7, StandardSpeed, ObjType.Arrow);
     private static readonly WalkerSpec _redMoblinSpec = new(_moblinAnimMap, 12, Palette.Red, StandardSpeed, ObjType.Arrow);

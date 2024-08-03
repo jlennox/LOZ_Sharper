@@ -90,7 +90,7 @@ internal sealed class CreditsType
     private byte[] GetPlayerLine(Line line)
     {
         var profile = _game.World.GetProfile();
-        _playerLine ??= ZeldaString.ToBytes($"{ZeldaString.FromBytes(line.Text)} {profile.Name} {profile.Deaths}").ToArray();
+        _playerLine ??= ZeldaString.EnumerateText($"{ZeldaString.FromBytes(line.Text)} {profile.Name} {profile.Deaths}").ToArray();
         return _playerLine;
     }
 

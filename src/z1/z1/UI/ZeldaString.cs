@@ -12,36 +12,28 @@ internal static class ZeldaString
         return new string(chars);
     }
 
-    public static IEnumerable<char> EnumerateBytes(byte[] bytes)
-    {
-        foreach (var b in bytes)
-        {
-            yield return CharFromByte(b);
-        }
-    }
+    public static IEnumerable<char> EnumerateBytes(IEnumerable<byte> bytes) => bytes.Select(CharFromByte);
+    public static IEnumerable<byte> EnumerateText(IEnumerable<char> text) => text.Select(ByteFromChar);
 
-    public static IEnumerable<byte> ToBytes(string text)
-    {
-        foreach (var c in text)
-        {
-            yield return c switch {
-                ' ' => 0x60,
-                ',' => 0x28,
-                '!' => 0x29,
-                '\'' => 0x2A,
-                '&' => 0x2B,
-                '.' => 0x2C,
-                '"' => 0x2D,
-                '?' => 0x2E,
-                '-' => 0x62,
-                >= '0' and <= '9' => (byte)(c - '0'),
-                _ => (byte)((byte)char.ToLower(c) - (byte)'a' + 0x0A),
-            };
-        }
-    }
+    public static byte ByteFromChar(char c) => c switch {
+        ' ' => 0x24,
+        ',' => 0x28,
+        '!' => 0x29,
+        '\'' => 0x2A,
+        '&' => 0x2B,
+        '.' => 0x2C, // 0xec?
+        '"' => 0x2D,
+        '?' => 0x2E,
+        '-' => 0x62,
+        >= '0' and <= '9' => (byte)(c - '0'),
+        >= 'a' and <= 'z' => (byte)(c - 'a' + 0x0A),
+        >= 'A' and <= 'Z' => (byte)(char.ToLower(c) - 'a' + 0x0A),
+        _ => 0,
+    };
 
     public static char CharFromByte(byte b) => b switch {
         0x60 => ' ',
+        0x24 => ' ',
         0x28 => ',',
         0x29 => '!',
         0x2A => '\'',

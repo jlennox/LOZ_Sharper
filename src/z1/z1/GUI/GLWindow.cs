@@ -14,6 +14,8 @@ namespace z1.GUI;
 
 internal sealed class GLWindow : IDisposable
 {
+    private static readonly DebugLog _log = new(nameof(GLWindow));
+
     private readonly Game _game = new();
     private readonly IWindow? _window;
 
@@ -128,7 +130,7 @@ internal sealed class GLWindow : IDisposable
     {
         if (!connected)
         {
-            Debug.WriteLine($"Input: Device disconnected {device.Name} ({device.GetType().Name})");
+            _log.Write($"Input: Device disconnected {device.Name} ({device.GetType().Name})");
             return;
         }
 
@@ -141,21 +143,21 @@ internal sealed class GLWindow : IDisposable
                 BindGamepad(gamepad);
                 break;
             default:
-                Debug.WriteLine($"Input: Unsupported device connected {device.Name} ({device.GetType().Name})");
+                _log.Write($"Input: Unsupported device connected {device.Name} ({device.GetType().Name})");
                 break;
         }
     }
 
     private void BindKeyboard(IKeyboard kb)
     {
-        Debug.WriteLine($"Input: Binding keyboard {kb.Name}");
+        _log.Write($"Input: Binding keyboard {kb.Name}");
         kb.KeyDown += OnKeyDown;
         kb.KeyUp += OnKeyUp;
     }
 
     private void BindGamepad(IGamepad gamepad)
     {
-        Debug.WriteLine($"Input: Binding gamepad {gamepad.Name}");
+        _log.Write($"Input: Binding gamepad {gamepad.Name}");
         gamepad.ButtonDown += OnGamepadButtonDown;
         gamepad.ButtonUp += OnGamepadButtonUp;
         gamepad.TriggerMoved += OnGamePadTriggerMoved;
@@ -278,7 +280,7 @@ internal sealed class GLWindow : IDisposable
             {
                 if (ImGui.MenuItem("Open", "Ctrl+O"))
                 {
-                    Debug.WriteLine("OPEN");
+                    _log.Write("OPEN");
                 }
                 if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
                 ImGui.EndMenu();

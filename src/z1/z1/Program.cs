@@ -27,6 +27,8 @@ namespace z1;
 // * Having the red candle causes dark rooms to auto fade in.
 //   Blue candle does not because it can only be used once per room, this would be too strong of a buf as a weapon for it.
 // * Reimplement mic kill of pols voice
+// * Make an abstracted selectable menu. It takes in X/Y's, figures out what left/right/up/down does, perhaps has an onselect callback.
+//   Perhaps make it use imgui so we get free mouse support?
 
 // Monsters:
 // * Manhandla:              W8, u1

@@ -142,7 +142,7 @@ internal sealed unsafe partial class World
     private LevelInfoBlock _infoBlock;
     private RoomCols[] _roomCols = new RoomCols[UniqueRooms];
     private TableResource<byte> _colTables;
-    private readonly TileMap[] _tileMaps = { new(), new(), new() };
+    private readonly TileMap[] _tileMaps = [new(), new(), new()];
     private RoomAttrs[] _roomAttrs = new RoomAttrs[Rooms];
     private int _curTileMapIndex;
     private byte[] _tileAttrs = new byte[MobTypes];
@@ -227,7 +227,7 @@ internal sealed unsafe partial class World
     private bool _powerTriforceFanfare;   // 509
     // private Direction _shuttersPassedDirs; // 519 // JOE: NOTE: Delete this, it's unused.
     private bool _brightenRoom;       // 51E
-    private UWRoomFlags[] _curUWBlockFlags = { };
+    private UWRoomFlags[] _curUWBlockFlags = [];
     private int _ghostCount;
     private int _armosCount;
     private readonly Cell[] _ghostCells = Cell.MakeMobPatchCell();
@@ -1102,11 +1102,9 @@ internal sealed unsafe partial class World
             if (r < _startRow || r >= endRow) continue;
 
             var x = tileOffsetX;
-
             for (var c = firstCol; c < lastCol; c++, x += TileWidth)
             {
-                if (c < _startCol || c >= endCol)
-                    continue;
+                if (c < _startCol || c >= endCol) continue;
 
                 var tileRef = map.Refs(r, c);
                 var srcX = (tileRef & 0x0F) * TileWidth;
@@ -1463,7 +1461,6 @@ internal sealed unsafe partial class World
         if (timer == 0)
         {
             _darkRoomFadeStep--;
-            timer = 10; // JOE: TODO: Does this reference still work?
 
             for (var i = 0; i < 2; i++)
             {
@@ -1639,7 +1636,6 @@ internal sealed unsafe partial class World
                 pos.X = TriforcePieceX;
             }
 
-            // Arg
             var itemObj = new ItemObjActor(Game, itemId, true, pos.X, pos.Y);
             _objects[(int)ObjectSlot.Item] = itemObj;
 
@@ -2351,8 +2347,7 @@ internal sealed unsafe partial class World
                 break;
 
             case Secret.LastBoss:
-                if (GetItem(ItemSlot.PowerTriforce) != 0)
-                    _triggerShutters = true;
+                if (GetItem(ItemSlot.PowerTriforce) != 0) _triggerShutters = true;
                 break;
 
             case Secret.FoesItem:
@@ -2368,8 +2363,7 @@ internal sealed unsafe partial class World
                 // fall thru
                 goto case Secret.FoesDoor;
             case Secret.FoesDoor:
-                if (_roomAllDead)
-                    _triggerShutters = true;
+                if (_roomAllDead) _triggerShutters = true;
                 break;
         }
     }
@@ -2385,9 +2379,9 @@ internal sealed unsafe partial class World
         {
             if (monster.ObjType < ObjType.PersonEnd && monster.Decoration == 0)
             {
+                // JOE: TODO: This is too cryptic. Have a "Kill" on Actor? Have "Decoration" be an enum as well?
                 monster.Decoration = 0x10;
             }
-
         }
     }
 
@@ -2403,8 +2397,6 @@ internal sealed unsafe partial class World
         item.Y = foe.Y;
     }
 
-    private static ReadOnlySpan<int> FireballLayouts => new[] { 0x24, 0x23 };
-
     private void UpdateStatues()
     {
         if (IsOverworld()) return;
@@ -2417,12 +2409,14 @@ internal sealed unsafe partial class World
         }
         else
         {
+            ReadOnlySpan<int> fireballLayouts = [ 0x24, 0x23 ];
+
             var uwRoomAttrs = CurrentUWRoomAttrs;
             var layoutId = uwRoomAttrs.GetUniqueRoomId();
 
-            for (var i = 0; i < FireballLayouts.Length; i++)
+            for (var i = 0; i < fireballLayouts.Length; i++)
             {
-                if (FireballLayouts[i] == layoutId)
+                if (fireballLayouts[i] == layoutId)
                 {
                     pattern = i;
                     break;
@@ -2522,26 +2516,25 @@ internal sealed unsafe partial class World
             if (!IsRoomInHistory() && (flags.GetObjCount() == 7))
             {
                 flags.SetObjCount(0);
+                return;
             }
-            else
+
+            if (flags.GetObjCount() == 7)
             {
-                if (flags.GetObjCount() == 7)
+                type = ObjType.None;
+                count = 0;
+            }
+            else if (flags.GetObjCount() != 0)
+            {
+                var savedCount = flags.GetObjCount();
+                if (count < savedCount)
                 {
                     type = ObjType.None;
                     count = 0;
                 }
-                else if (flags.GetObjCount() != 0)
+                else
                 {
-                    var savedCount = flags.GetObjCount();
-                    if (count < savedCount)
-                    {
-                        type = ObjType.None;
-                        count = 0;
-                    }
-                    else
-                    {
-                        count -= savedCount;
-                    }
+                    count -= savedCount;
                 }
             }
         }
@@ -2561,19 +2554,18 @@ internal sealed unsafe partial class World
                 {
                     count -= _levelKillCounts[CurRoomId];
                 }
+                return;
+            }
+
+            if (IsRecurringFoe(type))
+            {
+                flags.SetObjCount(0);
+                _levelKillCounts[CurRoomId] = 0;
             }
             else
             {
-                if (IsRecurringFoe(type))
-                {
-                    flags.SetObjCount(0);
-                    _levelKillCounts[CurRoomId] = 0;
-                }
-                else
-                {
-                    type = ObjType.None;
-                    count = 0;
-                }
+                type = ObjType.None;
+                count = 0;
             }
         }
     }
@@ -2589,19 +2581,18 @@ internal sealed unsafe partial class World
         }
 
         // ORIGINAL: This happens after player items update and before the rest of objects update.
+        ref var timer = ref _stunTimers[(int)ObjectSlot.ObservedPlayerTimer];
+        if (timer != 0) return;
 
-        if (_stunTimers[(int)ObjectSlot.ObservedPlayerTimer] == 0)
+        timer = Random.Shared.Next(0, 8);
+
+        _giveFakePlayerPos = !_giveFakePlayerPos;
+        if (_giveFakePlayerPos)
         {
-            _stunTimers[(int)ObjectSlot.ObservedPlayerTimer] = Random.Shared.Next(0, 8);
-
-            _giveFakePlayerPos = !_giveFakePlayerPos;
-            if (_giveFakePlayerPos)
+            if (_fakePlayerPos.X == Game.Link.X)
             {
-                if (_fakePlayerPos.X == Game.Link.X)
-                {
-                    _fakePlayerPos.X ^= 0xFF;
-                    _fakePlayerPos.Y ^= 0xFF;
-                }
+                _fakePlayerPos.X ^= 0xFF;
+                _fakePlayerPos.Y ^= 0xFF;
             }
         }
     }
@@ -2865,14 +2856,15 @@ internal sealed unsafe partial class World
 
     private void MakeCellarObjects()
     {
-        static ReadOnlySpan<int> StartXs() => new[] { 0x20, 0x60, 0x90, 0xD0 };
         const int startY = 0x9D;
+
+        ReadOnlySpan<int> startXs = [ 0x20, 0x60, 0x90, 0xD0 ];
 
         for (var i = 0; i < 4; i++)
         {
             CurObjSlot = i;
 
-            var keese = Actor.FromType(ObjType.BlueKeese, Game, StartXs()[i], startY);
+            var keese = Actor.FromType(ObjType.BlueKeese, Game, startXs[i], startY);
             SetObject((ObjectSlot)i, keese);
         }
     }
@@ -3019,9 +3011,10 @@ internal sealed unsafe partial class World
 
     private void PutEdgeObject()
     {
-        if (_stunTimers[(int)ObjectSlot.EdgeObjTimer] != 0) return;
+        ref var timer = ref _stunTimers[(int)ObjectSlot.EdgeObjTimer];
+        if (timer != 0) return;
 
-        _stunTimers[(int)ObjectSlot.EdgeObjTimer] = Random.Shared.Next(0, 4) + 2;
+        timer = Random.Shared.Next(0, 4) + 2;
 
         var x = _edgeX;
         var y = _edgeY;
@@ -3081,6 +3074,7 @@ internal sealed unsafe partial class World
             }
             _worldKillCycle = (byte)cycle;
 
+            // JOE: NOTE: I believe this is because Zora's always respawn.
             if (obj is not ZoraActor)
             {
                 _roomKillCount++;
@@ -3089,14 +3083,6 @@ internal sealed unsafe partial class World
 
         TryDroppingItem(obj, x, y);
     }
-
-    private static ReadOnlySpan<int> ClassBases => new[] { 0, 10, 20, 30 };
-    private static ReadOnlySpan<int> ClassRates => new[] { 0x50, 0x98, 0x68, 0x68 };
-    private static ReadOnlySpan<int> DropItems => new[] {
-        0x22, 0x18, 0x22, 0x18, 0x23, 0x18, 0x22, 0x22, 0x18, 0x18, 0x0F, 0x18, 0x22, 0x18, 0x0F, 0x22,
-        0x21, 0x18, 0x18, 0x18, 0x22, 0x00, 0x18, 0x21, 0x18, 0x22, 0x00, 0x18, 0x00, 0x22, 0x22, 0x22,
-        0x23, 0x18, 0x22, 0x23, 0x22, 0x22, 0x22, 0x18
-    };
 
     private void TryDroppingItem(Actor origType, int x, int y)
     {
@@ -3122,13 +3108,20 @@ internal sealed unsafe partial class World
         }
         else
         {
-            var r = Random.Shared.GetByte();
-            var rate = ClassRates[objClass];
+            ReadOnlySpan<int> classBases = [0, 10, 20, 30];
+            ReadOnlySpan<int> classRates = [0x50, 0x98, 0x68, 0x68];
+            ReadOnlySpan<int> dropItems = [
+                0x22, 0x18, 0x22, 0x18, 0x23, 0x18, 0x22, 0x22, 0x18, 0x18, 0x0F, 0x18, 0x22, 0x18, 0x0F, 0x22,
+                0x21, 0x18, 0x18, 0x18, 0x22, 0x00, 0x18, 0x21, 0x18, 0x22, 0x00, 0x18, 0x00, 0x22, 0x22, 0x22,
+                0x23, 0x18, 0x22, 0x23, 0x22, 0x22, 0x22, 0x18
+            ];
 
+            var r = Random.Shared.GetByte();
+            var rate = classRates[objClass];
             if (r >= rate) return;
 
-            var classIndex = ClassBases[objClass] + _worldKillCycle;
-            itemId = (ItemId)DropItems[classIndex];
+            var classIndex = classBases[objClass] + _worldKillCycle;
+            itemId = (ItemId)dropItems[classIndex];
         }
 
         var obj = GlobalFunctions.MakeItem(Game, itemId, x, y, false);
@@ -3170,39 +3163,33 @@ internal sealed unsafe partial class World
     {
         if (!IsOverworld()) return false;
 
-        var stayPut = false;
         var mazeOptional = _sparseRoomAttrs.FindSparseAttr<SparseMaze>(Sparse.Maze, CurRoomId);
-        if (mazeOptional != null)
+        if (mazeOptional == null) return false;
+
+        var maze = mazeOptional.Value;
+
+        if (dir == maze.ExitDirection)
         {
-            var maze = mazeOptional.Value;
-            if (dir != maze.ExitDirection)
-            {
-                var paths = maze.Paths;
-                if (dir == paths[_curMazeStep])
-                {
-                    _curMazeStep++;
-                    if (_curMazeStep == paths.Length)
-                    {
-                        _curMazeStep = 0;
-                        Game.Sound.PlayEffect(SoundEffect.Secret);
-                    }
-                    else
-                    {
-                        stayPut = true;
-                    }
-                }
-                else
-                {
-                    _curMazeStep = 0;
-                    stayPut = true;
-                }
-            }
-            else
-            {
-                _curMazeStep = 0;
-            }
+            _curMazeStep = 0;
+            return false;
         }
-        return stayPut;
+
+        var paths = maze.Paths;
+        if (dir != paths[_curMazeStep])
+        {
+            _curMazeStep = 0;
+            return true;
+        }
+
+        _curMazeStep++;
+        if (_curMazeStep != paths.Length)
+        {
+            return true;
+        }
+
+        _curMazeStep = 0;
+        Game.Sound.PlayEffect(SoundEffect.Secret);
+        return false;
     }
 
     private void UpdateScroll()
@@ -3369,33 +3356,15 @@ internal sealed unsafe partial class World
         _state.Scroll.OffsetX += _state.Scroll.SpeedX;
         _state.Scroll.OffsetY += _state.Scroll.SpeedY;
 
+        // JOE: TODO: Does this prevent screen wrapping?
         var playerLimits = Link.PlayerLimits;
-
         if (_state.Scroll.SpeedX != 0)
         {
-            var x = Game.Link.X + _state.Scroll.SpeedX;
-            if (x < playerLimits[1])
-            {
-                x = playerLimits[1];
-            }
-            else if (x > playerLimits[0])
-            {
-                x = playerLimits[0];
-            }
-            Game.Link.X = x;
+            Game.Link.X = Math.Clamp(Game.Link.X + _state.Scroll.SpeedX, playerLimits[1], playerLimits[0]);
         }
         else
         {
-            var y = Game.Link.Y + _state.Scroll.SpeedY;
-            if (y < playerLimits[3])
-            {
-                y = playerLimits[3];
-            }
-            else if (y > playerLimits[2])
-            {
-                y = playerLimits[2];
-            }
-            Game.Link.Y = y;
+            Game.Link.Y = Math.Clamp(Game.Link.Y + _state.Scroll.SpeedY, playerLimits[3], playerLimits[2]);
         }
 
         Game.Link.Animator.Advance();
@@ -3462,6 +3431,7 @@ internal sealed unsafe partial class World
             GotoScroll(_state.Leave.ScrollDir, _state.Leave.CurRoomId);
             return;
         }
+
         _state.Leave.Timer--;
     }
 
@@ -3521,6 +3491,7 @@ internal sealed unsafe partial class World
             GotoPlay();
             return;
         }
+
         Game.Link.Animator.Advance();
     }
 
@@ -3560,16 +3531,7 @@ internal sealed unsafe partial class World
             var oppositeDir = _state.Enter.ScrollDir.GetOppositeDirection();
             var door = oppositeDir.GetOrdinal();
             var doorType = uwRoomAttrs.GetDoor(door);
-            int distance;
-
-            if (doorType is DoorType.Shutter or DoorType.Bombable)
-            {
-                distance = MobTileWidth * 2;
-            }
-            else
-            {
-                distance = MobTileWidth;
-            }
+            var distance = doorType is DoorType.Shutter or DoorType.Bombable ? MobTileWidth * 2 : MobTileWidth;
 
             _state.Enter.TargetX = Game.Link.X;
             _state.Enter.TargetY = Game.Link.Y;
@@ -3698,44 +3660,45 @@ internal sealed unsafe partial class World
 
     private void UpdateLoadLevel()
     {
-        if (_state.LoadLevel.Substate == LoadLevelState.Substates.Load)
+        switch (_state.LoadLevel.Substate)
         {
-            _state.LoadLevel.Timer = LoadLevelState.StateTime;
-            _state.LoadLevel.Substate = LoadLevelState.Substates.Wait;
+            case LoadLevelState.Substates.Load:
+                _state.LoadLevel.Timer = LoadLevelState.StateTime;
+                _state.LoadLevel.Substate = LoadLevelState.Substates.Wait;
 
-            int origLevel = _infoBlock.LevelNumber;
-            var origRoomId = CurRoomId;
+                int origLevel = _infoBlock.LevelNumber;
+                var origRoomId = CurRoomId;
 
-            Game.Sound.StopAll();
-            _statusBarVisible = false;
-            LoadLevel(_state.LoadLevel.Level);
+                Game.Sound.StopAll();
+                _statusBarVisible = false;
+                LoadLevel(_state.LoadLevel.Level);
 
-            // Let the Unfurl game mode load the room and reset colors.
+                // Let the Unfurl game mode load the room and reset colors.
 
-            if (_state.LoadLevel.Level == 0)
-            {
-                CurRoomId = _savedOWRoomId;
-                _savedOWRoomId = -1;
-                FromUnderground = 2;
-            }
-            else
-            {
-                CurRoomId = _infoBlock.StartRoomId;
-                if (origLevel == 0)
+                if (_state.LoadLevel.Level == 0)
                 {
-                    _savedOWRoomId = origRoomId;
+                    CurRoomId = _savedOWRoomId;
+                    _savedOWRoomId = -1;
+                    FromUnderground = 2;
                 }
-            }
-        }
-        else if (_state.LoadLevel.Substate == LoadLevelState.Substates.Wait)
-        {
-            if (_state.LoadLevel.Timer == 0)
-            {
+                else
+                {
+                    CurRoomId = _infoBlock.StartRoomId;
+                    if (origLevel == 0)
+                    {
+                        _savedOWRoomId = origRoomId;
+                    }
+                }
+
+                break;
+
+            case LoadLevelState.Substates.Wait when _state.LoadLevel.Timer == 0:
                 GotoUnfurl(_state.LoadLevel.RestartOW);
                 return;
-            }
 
-            _state.LoadLevel.Timer--;
+            case LoadLevelState.Substates.Wait:
+                _state.LoadLevel.Timer--;
+                break;
         }
     }
 
@@ -3987,11 +3950,11 @@ internal sealed unsafe partial class World
         sWinGameFuncs[(int)_state.WinGame.Substate]();
     }
 
-    private static readonly byte[] _winGameStr1 = {
+    private static readonly byte[] _winGameStr1 = [
         0x1d, 0x11, 0x0a, 0x17, 0x14, 0x1c, 0x24, 0x15, 0x12, 0x17, 0x14, 0x28, 0x22, 0x18, 0x1e, 0x2a,
         0x1b, 0x8e, 0x64, 0x1d, 0x11, 0x0e, 0x24, 0x11, 0x0e, 0x1b, 0x18, 0x24, 0x18, 0x0f, 0x24, 0x11,
         0x22, 0x1b, 0x1e, 0x15, 0x0e, 0xec
-    };
+    ];
 
     private void UpdateWinGame_Start()
     {
@@ -4009,8 +3972,7 @@ internal sealed unsafe partial class World
             _statusBar.EnableFeatures(StatusBarFeatures.EquipmentAndMap, false);
 
             // A959
-
-            _textBox1 = new TextBox(Game, _winGameStr1); // FIX
+            _textBox1 = new TextBox(Game, _winGameStr1);
         }
         else if (_state.WinGame.StepTimer == 0)
         {
@@ -4072,7 +4034,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    private static ReadOnlySpan<byte> WinGameStr2 => new byte[] {
+    private static ReadOnlySpan<byte> WinGameStr2 => [
         0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25,
         0x0f, 0x12, 0x17, 0x0a, 0x15, 0x15, 0x22, 0x28,
         0xa5, 0x65,
@@ -4081,7 +4043,7 @@ internal sealed unsafe partial class World
         0xa5, 0x65, 0x65, 0x25, 0x25,
         0x1d, 0x11, 0x12, 0x1c, 0x24, 0x0e, 0x17, 0x0d, 0x1c, 0x24, 0x1d, 0x11, 0x0e, 0x24, 0x1c, 0x1d,
         0x18, 0x1b, 0x22, 0x2c, 0xe5
-    };
+    ];
 
     private void UpdateWinGame_Hold2()
     {
@@ -4135,8 +4097,8 @@ internal sealed unsafe partial class World
     {
         if (_credits == null) throw new Exception();
 
-        var boxes = new[] { _textBox1, _textBox2 };
-        var startYs = new[] { TextBox.StartY, WinGameState.TextBox2Top };
+        ReadOnlySpan<TextBox?> boxes = [_textBox1, _textBox2];
+        ReadOnlySpan<int> startYs = [TextBox.StartY, WinGameState.TextBox2Top];
 
         for (var i = 0; i < boxes.Length; i++)
         {
@@ -4223,17 +4185,19 @@ internal sealed unsafe partial class World
         }
         else
         {
-            var zelda = _objects[(int)ObjectSlot.Monster1];
+            var zelda = GetObject<ZeldaActor>(ObjectSlot.Monster1) ?? throw new Exception();
 
-            if (_state.WinGame.NpcVisual == WinGameState.NpcVisualState.Stand)
+            switch (_state.WinGame.NpcVisual)
             {
-                zelda.Draw();
-                Game.Link.Draw();
-            }
-            else if (_state.WinGame.NpcVisual == WinGameState.NpcVisualState.Lift)
-            {
-                DrawZeldaLiftingTriforce(zelda.X, zelda.Y);
-                DrawLinkLiftingItem(ItemId.TriforcePiece);
+                case WinGameState.NpcVisualState.Stand:
+                    zelda.Draw();
+                    Game.Link.Draw();
+                    break;
+
+                case WinGameState.NpcVisualState.Lift:
+                    DrawZeldaLiftingTriforce(zelda.X, zelda.Y);
+                    DrawLinkLiftingItem(ItemId.TriforcePiece);
+                    break;
             }
 
             _credits?.Draw();
@@ -4259,8 +4223,7 @@ internal sealed unsafe partial class World
             {
                 _state.Stairs.PlayerPriority = SpritePriority.BelowBg;
 
-                if (IsOverworld())
-                    Game.Sound.StopAll();
+                if (IsOverworld()) Game.Sound.StopAll();
 
                 if (_state.Stairs.TileBehavior == TileBehavior.Cave)
                 {
@@ -4279,8 +4242,8 @@ internal sealed unsafe partial class World
                 {
                     _state.Stairs.Substate = StairsState.Substates.Walk;
                 }
-
                 break;
+
             }
             case StairsState.Substates.Walk when IsOverworld():
             {
@@ -4296,10 +4259,12 @@ internal sealed unsafe partial class World
                     GotoPlayCave();
                 }
                 break;
+
             }
             case StairsState.Substates.Walk:
                 GotoPlayCellar();
                 break;
+
             case StairsState.Substates.WalkCave when Game.Link.X == _state.Stairs.TargetX
                 && Game.Link.Y == _state.Stairs.TargetY:
             {
@@ -4315,6 +4280,7 @@ internal sealed unsafe partial class World
                     GotoPlayCave();
                 }
                 break;
+
             }
             case StairsState.Substates.WalkCave:
                 MovePlayer(_state.Stairs.ScrollDir, _state.Stairs.PlayerSpeed, ref _state.Stairs.PlayerFraction);
@@ -4576,16 +4542,19 @@ internal sealed unsafe partial class World
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
-        if (_state.LeaveCellar.Substate == LeaveCellarState.Substates.Start)
+        switch (_state.LeaveCellar.Substate)
         {
-        }
-        else if (_state.LeaveCellar.Substate is LeaveCellarState.Substates.Wait or LeaveCellarState.Substates.LoadOverworldRoom)
-        {
-            ClearScreen();
-        }
-        else
-        {
-            DrawRoomNoObjects(SpritePriority.None);
+            case LeaveCellarState.Substates.Start:
+                break;
+
+            case LeaveCellarState.Substates.Wait:
+            case LeaveCellarState.Substates.LoadOverworldRoom:
+                ClearScreen();
+                break;
+
+            default:
+                DrawRoomNoObjects(SpritePriority.None);
+                break;
         }
     }
 
@@ -4647,25 +4616,27 @@ internal sealed unsafe partial class World
         {
             FromUnderground = 1;
             GotoPlay(RoomType.Cave);
+            return;
         }
-        else
-        {
-            Game.Link.MoveLinear(Direction.Up, Link.WalkSpeed);
-            Game.Link.Animator.Advance();
-        }
+
+        Game.Link.MoveLinear(Direction.Up, Link.WalkSpeed);
+        Game.Link.Animator.Advance();
     }
 
     private void DrawPlayCave()
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
-        if (_state.PlayCave.Substate is PlayCaveState.Substates.Wait or PlayCaveState.Substates.LoadRoom)
+        switch (_state.PlayCave.Substate)
         {
-            ClearScreen();
-        }
-        else if (_state.PlayCave.Substate == PlayCaveState.Substates.Walk)
-        {
-            DrawRoomNoObjects();
+            case PlayCaveState.Substates.Wait:
+            case PlayCaveState.Substates.LoadRoom:
+                ClearScreen();
+                break;
+
+            case PlayCaveState.Substates.Walk:
+                DrawRoomNoObjects();
+                break;
         }
     }
 
@@ -4708,10 +4679,10 @@ internal sealed unsafe partial class World
         }
     }
 
-    private static readonly byte[][] _deathRedPals = {
-        new byte[] {0x0F, 0x17, 0x16, 0x26 },
-        new byte[] {0x0F, 0x17, 0x16, 0x26 },
-    };
+    private static readonly byte[][] _deathRedPals = [
+        [0x0F, 0x17, 0x16, 0x26],
+        [0x0F, 0x17, 0x16, 0x26]
+    ];
 
     private void UpdateDie_Wait1()
     {
@@ -4742,7 +4713,7 @@ internal sealed unsafe partial class World
                 _state.Death.Timer = 5;
                 _state.Death.Step--;
 
-                ReadOnlySpan<Direction> dirs = [ Direction.Down, Direction.Left, Direction.Up, Direction.Right ];
+                ReadOnlySpan<Direction> dirs = [Direction.Down, Direction.Left, Direction.Up, Direction.Right];
 
                 var dir = dirs[_state.Death.Step & 3];
                 Game.Link.Facing = dir;
@@ -4773,9 +4744,9 @@ internal sealed unsafe partial class World
 
     private void UpdateDie_GrayLink()
     {
-        // static const byte grayPal[4] = { 0, 0x10, 0x30, 0 };
+        ReadOnlySpan<byte> grayPal = [0, 0x10, 0x30, 0];
 
-        Graphics.SetPaletteIndexed(Palette.Player, new byte[] { 0, 0x10, 0x30, 0 });
+        Graphics.SetPaletteIndexed(Palette.Player, grayPal);
         Graphics.UpdatePalettes();
 
         _state.Death.Substate = DeathState.Substates.Spark;
@@ -4844,7 +4815,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        ReadOnlySpan<byte> gameOver = [ 0x10, 0x0A, 0x16, 0x0E, 0x24, 0x18, 0x1F, 0x0E, 0x1B ];
+        ReadOnlySpan<byte> gameOver = [0x10, 0x0A, 0x16, 0x0E, 0x24, 0x18, 0x1F, 0x0E, 0x1B];
         GlobalFunctions.DrawString(gameOver, 0x60, 0x90, 0);
     }
 
@@ -4858,30 +4829,31 @@ internal sealed unsafe partial class World
 
     private void UpdateContinueQuestion()
     {
-        if (_state.Continue.Substate == ContinueState.Substates.Start)
+        switch (_state.Continue.Substate)
         {
-            _statusBarVisible = false;
-            Game.Sound.PlaySong(SongId.GameOver, SongStream.MainSong, true);
-            _state.Continue.Substate = ContinueState.Substates.Idle;
-        }
-        else if (_state.Continue.Substate == ContinueState.Substates.Idle)
-        {
-            if (Game.Input.IsButtonPressing(GameButton.Select))
-            {
+            case ContinueState.Substates.Start:
+                _statusBarVisible = false;
+                Game.Sound.PlaySong(SongId.GameOver, SongStream.MainSong, true);
+                _state.Continue.Substate = ContinueState.Substates.Idle;
+                break;
+
+            case ContinueState.Substates.Idle when Game.Input.IsButtonPressing(GameButton.Select):
                 _state.Continue.SelectedIndex++;
                 if (_state.Continue.SelectedIndex == 3)
+                {
                     _state.Continue.SelectedIndex = 0;
-            }
-            else if (Game.Input.IsButtonPressing(GameButton.Start))
-            {
-                _state.Continue.Substate = ContinueState.Substates.Chosen;
-                _state.Continue.Timer = 0x40;
-            }
-        }
-        else if (_state.Continue.Substate == ContinueState.Substates.Chosen)
-        {
-            if (_state.Continue.Timer == 0)
-            {
+                }
+                break;
+
+            case ContinueState.Substates.Idle:
+                if (Game.Input.IsButtonPressing(GameButton.Start))
+                {
+                    _state.Continue.Substate = ContinueState.Substates.Chosen;
+                    _state.Continue.Timer = 0x40;
+                }
+                break;
+
+            case ContinueState.Substates.Chosen when _state.Continue.Timer == 0:
                 _statusBarVisible = true;
                 Game.Sound.StopAll();
 
@@ -4902,17 +4874,17 @@ internal sealed unsafe partial class World
                 {
                     GotoFileMenu();
                 }
-            }
-            else
-            {
+                break;
+
+            case ContinueState.Substates.Chosen:
                 _state.Continue.Timer--;
-            }
+                break;
         }
     }
 
     private void DrawContinueQuestion()
     {
-        ReadOnlySpan<string> strs = [ "Continue", "Save", "Retry" ];
+        ReadOnlySpan<string> strs = ["Continue", "Save", "Retry"];
 
         ClearScreen();
 
@@ -5122,29 +5094,32 @@ internal sealed unsafe partial class World
     public void CommonMakeObjectAction(
         ObjType type, int row, int col, TileInteraction interaction, ref int patchCount, Cell[] patchCells)
     {
-        if (interaction == TileInteraction.Load)
+        switch (interaction)
         {
-            if (patchCount < 16)
-            {
-                patchCells[patchCount] = new Cell((byte)row, (byte)col);
-                patchCount++;
-            }
-        }
-        else if (interaction == TileInteraction.Push)
-        {
-            var map = _tileMaps[_curTileMapIndex];
-            int behavior = map.Behaviors(row, col);
+            case TileInteraction.Load:
+                if (patchCount < 16)
+                {
+                    patchCells[patchCount] = new Cell((byte)row, (byte)col);
+                    patchCount++;
+                }
 
-            if (row > 0 && map.Behaviors(row - 1, col) == behavior)
-            {
-                row--;
-            }
-            if (col > 0 && map.Behaviors(row, col - 1) == behavior)
-            {
-                col--;
-            }
+                break;
 
-            MakeActivatedObject(type, row, col);
+            case TileInteraction.Push:
+                var map = _tileMaps[_curTileMapIndex];
+                int behavior = map.Behaviors(row, col);
+
+                if (row > 0 && map.Behaviors(row - 1, col) == behavior)
+                {
+                    row--;
+                }
+                if (col > 0 && map.Behaviors(row, col - 1) == behavior)
+                {
+                    col--;
+                }
+
+                MakeActivatedObject(type, row, col);
+                break;
         }
     }
 
@@ -5198,14 +5173,16 @@ internal sealed unsafe partial class World
         {
             case DoorType.FalseWall:
             case DoorType.FalseWall2:
-                if (player.ObjTimer == 0)
+                switch (player.ObjTimer)
                 {
-                    player.ObjTimer = 0x18;
-                }
-                else if (player.ObjTimer == 1)
-                {
-                    LeaveRoom(player.Facing, CurRoomId);
-                    player.Stop();
+                    case 0:
+                        player.ObjTimer = 0x18;
+                        break;
+
+                    case 1:
+                        LeaveRoom(player.Facing, CurRoomId);
+                        player.Stop();
+                        break;
                 }
                 break;
 

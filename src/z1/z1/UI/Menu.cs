@@ -123,18 +123,6 @@ internal sealed class ProfileSelectMenu : Menu
 
 internal sealed class EliminateMenu : Menu
 {
-    private static readonly byte[] _eliminateStr =
-    {
-        0x6A, 0x6A, 0x6A, 0x6A,
-        0x0E, 0x15, 0x12, 0x16, 0x12, 0x17, 0x0A, 0x1D, 0x12, 0x18, 0x17, 0x24, 0x24, 0x16, 0x18, 0x0D, 0x0E,
-        0x6A, 0x6A, 0x6A, 0x6A
-    };
-
-    private static readonly byte[] _eliminationEndStr =
-    {
-        0x0E, 0x15, 0x12, 0x16, 0x12, 0x17, 0x0A, 0x1D, 0x12, 0x18, 0x17, 0x24, 0x0E, 0x17, 0x0D,
-    };
-
     private readonly Game _game;
     private readonly PlayerProfile[] _summaries;
     private int _selectedIndex;
@@ -192,10 +180,6 @@ internal sealed class EliminateMenu : Menu
 
         Graphics.Clear(SKColors.Black);
 
-        // JOE: TODO: Use actual strings.
-        var asd = ZeldaString.FromBytes(_eliminateStr);
-        var asd2 = ZeldaString.FromBytes(_eliminationEndStr);
-        ;
         GlobalFunctions.DrawString("---Elimination  Mode----", 0x20, 0x18, 0);
         GlobalFunctions.DrawString("Elimination End", 0x50, 0x78, 0);
 
