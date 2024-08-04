@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 using SkiaSharp;
 
 namespace z1;
@@ -40,10 +42,10 @@ internal static class Graphics
     private readonly record struct TileCache(TileSheet? Slot, SKBitmap? Bitmap, int[] SystemPalette, int X, int Y, Palette Palette, DrawingFlags Flags)
     {
         private static readonly Dictionary<TileCache, SKBitmap> _tileCache = new(200);
-        private static readonly byte[] _alphaTransform = new byte[256];
-        private static readonly byte[] _redTransform = new byte[256];
-        private static readonly byte[] _greenTransform = new byte[256];
-        private static readonly byte[] _blueTransform = new byte[256];
+        private static readonly Vector256<int> _zeroCheck = Vector256.Create(0);
+        private static readonly Vector256<int> _oneCheck = Vector256.Create(0x01010101);
+        private static readonly Vector256<int> _twoCheck = Vector256.Create(0x02020202);
+        private static readonly Vector256<int> _threeCheck = Vector256.Create(0x03030303);
 
         // JOE: Arg. This makes me hate the tile cache even more.
         public static void Clear()
@@ -52,7 +54,7 @@ internal static class Graphics
             _tileCache.Clear();
         }
 
-        public SKBitmap GetValue(int width, int height)
+        public unsafe SKBitmap GetValue(int width, int height)
         {
             if (_tileCache.TryGetValue(this, out var tile)) return tile;
 
@@ -62,44 +64,66 @@ internal static class Graphics
             var paletteY = (int)Palette * _paletteBmpWidth;
             var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..];
 
-            var color0 = paletteSpan[0];
+            tile = sheet.Extract(X, Y, width, height, null, Flags);
+
+            var color0 = makeTransparent ? SKColors.Transparent : paletteSpan[0];
             var color1 = paletteSpan[1];
             var color2 = paletteSpan[2];
             var color3 = paletteSpan[3];
 
-            _redTransform[0] = color0.Red;
-            _redTransform[1] = color1.Red;
-            _redTransform[2] = color2.Red;
-            _redTransform[3] = color3.Red;
+            var locked = tile.Lock();
+            var px = locked.Pixels;
+            var nextLineDistance = (locked.Stride / sizeof(SKColor)) - width;
 
-            _greenTransform[0] = color0.Green;
-            _greenTransform[1] = color1.Green;
-            _greenTransform[2] = color2.Green;
-            _greenTransform[3] = color3.Green;
+            var useVectors = Avx2.IsSupported && nextLineDistance == 0 && width % 8 == 0;
 
-            _blueTransform[0] = color0.Blue;
-            _blueTransform[1] = color1.Blue;
-            _blueTransform[2] = color2.Blue;
-            _blueTransform[3] = color3.Blue;
-
-            if (makeTransparent)
+            if (useVectors)
             {
-                _alphaTransform[0] = color0.Alpha;
-                _alphaTransform[1] = color1.Alpha;
-                _alphaTransform[2] = color2.Alpha;
-                _alphaTransform[3] = color3.Alpha;
+                var zeroCheck = _zeroCheck;
+                var oneCheck = _oneCheck;
+                var twoCheck = _twoCheck;
+                var threeCheck = _threeCheck;
+
+                var zeroColor = Vector256.Create(*(int*)&color0);
+                var oneColor = Vector256.Create(*(int*)&color1);
+                var twoColor = Vector256.Create(*(int*)&color2);
+                var threeColor = Vector256.Create(*(int*)&color3);
+
+                var end = locked.End;
+
+                for (; px < end; px += 8)
+                {
+                    var pixelVector = Vector256.Load((int*)px);
+                    var result = Avx2.BlendVariable(pixelVector, zeroColor, Avx2.CompareEqual(pixelVector, zeroCheck));
+                    result = Avx2.BlendVariable(result, oneColor, Avx2.CompareEqual(pixelVector, oneCheck));
+                    result = Avx2.BlendVariable(result, twoColor, Avx2.CompareEqual(pixelVector, twoCheck));
+                    result = Avx2.BlendVariable(result, threeColor, Avx2.CompareEqual(pixelVector, threeCheck));
+                    Avx.Store((int*)px, result);
+                }
+            }
+            else if (nextLineDistance == 0)
+            {
+                var palette = stackalloc SKColor[] { color0, color1, color2, color3 };
+                var end = locked.End;
+                for (; px < end; ++px)
+                {
+                    // Blue is the fastest to access because it does not use shifts.
+                    *px = palette[px->Blue];
+                }
             }
             else
             {
-                Array.Fill(_alphaTransform, (byte)255, 0, 4);
+                var palette = stackalloc SKColor[] { color0, color1, color2, color3 };
+                for (var y = 0; y < locked.Height; ++y, px += nextLineDistance)
+                {
+                    for (var x = 0; x < locked.Width; ++x, ++px)
+                    {
+                        // Blue is the fastest to access because it does not use shifts.
+                        *px = palette[px->Blue];
+                    }
+                }
             }
 
-            using var paint = new SKPaint
-            {
-                ColorFilter = SKColorFilter.CreateTable(_alphaTransform, _redTransform, _greenTransform, _blueTransform),
-            };
-
-            tile = sheet.Extract(X, Y, width, height, paint, Flags);
             return _tileCache[this] = tile;
         }
     }
@@ -141,7 +165,7 @@ internal static class Graphics
     }
 
     // Preprocesses an image to set all color channels to their appropriate color palette index, allowing
-    // a transform to be done by SKColorFilter.
+    // palette transformations to be done faster at runtime.
     private static unsafe void PreprocessPalette(SKBitmap bitmap)
     {
         // Unpremul is important here otherwise setting the alpha channel to non-255 causes the colors to transform
@@ -337,8 +361,8 @@ internal static class Graphics
 
     public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)
     {
-        ReadOnlySpan<byte> OffsetsX = [0, 0, 8, 8];
-        ReadOnlySpan<byte> OffsetsY = [0, 8, 0, 8];
+        ReadOnlySpan<byte> offsetsX = [0, 0, 8, 8];
+        ReadOnlySpan<byte> offsetsY = [0, 8, 0, 8];
 
         var tileRef = firstTile;
 
@@ -351,7 +375,7 @@ internal static class Graphics
             DrawTile(
                 slot, srcX, srcY,
                 World.TileWidth, World.TileHeight,
-                destX + OffsetsX[i], destY + OffsetsY[i],
+                destX + offsetsX[i], destY + offsetsY[i],
                 palette, 0);
         }
     }
