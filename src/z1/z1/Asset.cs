@@ -36,6 +36,15 @@ internal readonly struct Asset
         return SKBitmap.Decode(FullPath);
     }
 
+    public SKBitmap DecodeSKBitmap(SKAlphaType alphaType)
+    {
+        using var original = DecodeSKBitmap();
+        var bitmap = new SKBitmap(original.Width, original.Height, original.ColorType, SKAlphaType.Unpremul);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.DrawBitmap(original, 0, 0);
+        return bitmap;
+    }
+
     private static readonly Lazy<string[]> _resourceNames = new(() => Assembly.GetExecutingAssembly().GetManifestResourceNames());
 
     public static Stream GetEmbeddedResource(string name)

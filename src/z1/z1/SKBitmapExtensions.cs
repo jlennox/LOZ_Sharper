@@ -22,7 +22,7 @@ internal static class SKBitmapExtensions
         var flip = flags.HasFlag(DrawingFlags.FlipVertical);
         var mirror = flags.HasFlag(DrawingFlags.FlipHorizontal);
 
-        var dest = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
+        var dest = new SKBitmap(width, height, bitmap.ColorType, SKAlphaType.Unpremul);
         using var canvas = new SKCanvas(dest);
         if (flip || mirror)
         {

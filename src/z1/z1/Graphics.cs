@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SkiaSharp;
@@ -37,49 +36,71 @@ internal static class Graphics
 
     private static readonly TableResource<SpriteAnimationStruct>[] _animSpecs = new TableResource<SpriteAnimationStruct>[(int)TileSheet.Max];
 
+    // SystemPalette is intentionally a referenced based compare for speed.
     private readonly record struct TileCache(TileSheet? Slot, SKBitmap? Bitmap, int[] SystemPalette, int X, int Y, Palette Palette, DrawingFlags Flags)
     {
         private static readonly Dictionary<TileCache, SKBitmap> _tileCache = new(200);
+        private static readonly byte[] _alphaTransform = new byte[256];
+        private static readonly byte[] _redTransform = new byte[256];
+        private static readonly byte[] _greenTransform = new byte[256];
+        private static readonly byte[] _blueTransform = new byte[256];
 
-        public bool TryGetValue([MaybeNullWhen(false)] out SKBitmap bitmap) => _tileCache.TryGetValue(this, out bitmap);
-        public void Set(SKBitmap bitmap) => _tileCache[this] = bitmap;
-        // JOE: Arg. This makes me hate the tile cache even more. Also, this leaks all those SKBitmaps.
-        public static void Clear() => _tileCache.Clear();
-
-        public unsafe SKBitmap GetValue(int width, int height)
+        // JOE: Arg. This makes me hate the tile cache even more.
+        public static void Clear()
         {
-            if (!TryGetValue(out var tile))
+            foreach (var (_, bitmap) in _tileCache) bitmap.Dispose();
+            _tileCache.Clear();
+        }
+
+        public SKBitmap GetValue(int width, int height)
+        {
+            if (_tileCache.TryGetValue(this, out var tile)) return tile;
+
+            var sheet = Bitmap ?? _tileSheets[(int)Slot] ?? throw new Exception();
+
+            var makeTransparent = !Flags.HasFlag(DrawingFlags.NoTransparency);
+            var paletteY = (int)Palette * _paletteBmpWidth;
+            var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..];
+
+            var color0 = paletteSpan[0];
+            var color1 = paletteSpan[1];
+            var color2 = paletteSpan[2];
+            var color3 = paletteSpan[3];
+
+            _redTransform[0] = color0.Red;
+            _redTransform[1] = color1.Red;
+            _redTransform[2] = color2.Red;
+            _redTransform[3] = color3.Red;
+
+            _greenTransform[0] = color0.Green;
+            _greenTransform[1] = color1.Green;
+            _greenTransform[2] = color2.Green;
+            _greenTransform[3] = color3.Green;
+
+            _blueTransform[0] = color0.Blue;
+            _blueTransform[1] = color1.Blue;
+            _blueTransform[2] = color2.Blue;
+            _blueTransform[3] = color3.Blue;
+
+            if (makeTransparent)
             {
-                var sheet = Bitmap ?? _tileSheets[(int)Slot] ?? throw new Exception();
-                tile = sheet.Extract(X, Y, width, height, null, Flags);
-                var makeTransparent = !Flags.HasFlag(DrawingFlags.NoTransparency);
-
-                var locked = tile.Lock();
-                for (var y = 0; y < locked.Height; ++y)
-                {
-                    var px = locked.PtrFromPoint(0, y);
-                    for (var x = 0; x < locked.Width; ++x, ++px)
-                    {
-                        var r = px->Blue;
-                        if (makeTransparent && r == 0)
-                        {
-                            *px = SKColors.Transparent;
-                            continue;
-                        }
-
-                        var paletteX = r / 16;
-                        var paletteY = (int)Palette;
-
-                        var val = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY * _paletteBmpWidth + paletteX];
-                        var color = new SKColor(val.Blue, val.Green, val.Red, val.Alpha);
-                        *px = color;
-                    }
-                }
-
-                Set(tile);
+                _alphaTransform[0] = color0.Alpha;
+                _alphaTransform[1] = color1.Alpha;
+                _alphaTransform[2] = color2.Alpha;
+                _alphaTransform[3] = color3.Alpha;
+            }
+            else
+            {
+                Array.Fill(_alphaTransform, (byte)255, 0, 4);
             }
 
-            return tile;
+            using var paint = new SKPaint
+            {
+                ColorFilter = SKColorFilter.CreateTable(_alphaTransform, _redTransform, _greenTransform, _blueTransform),
+            };
+
+            tile = sheet.Extract(X, Y, width, height, paint, Flags);
+            return _tileCache[this] = tile;
         }
     }
 
@@ -107,7 +128,9 @@ internal static class Graphics
             foundRef = null;
         }
 
-        var bitmap = file.DecodeSKBitmap();
+        var bitmap = file.DecodeSKBitmap(SKAlphaType.Unpremul);
+
+        PreprocessPalette(bitmap);
         _tileSheets[slot] = bitmap;
     }
 
@@ -115,6 +138,26 @@ internal static class Graphics
     {
         LoadTileSheet(sheet, path);
         _animSpecs[(int)sheet] = TableResource<SpriteAnimationStruct>.Load(animationFile);
+    }
+
+    // Preprocesses an image to set all color channels to their appropriate color palette index, allowing
+    // a transform to be done by SKColorFilter.
+    private static unsafe void PreprocessPalette(SKBitmap bitmap)
+    {
+        // Unpremul is important here otherwise setting the alpha channel to non-255 causes the colors to transform
+        if (bitmap.AlphaType != SKAlphaType.Unpremul) throw new ArgumentOutOfRangeException();
+
+        var locked = bitmap.Lock();
+        for (var y = 0; y < locked.Height; ++y)
+        {
+            var px = locked.PtrFromPoint(0, y);
+            for (var x = 0; x < locked.Width; ++x, ++px)
+            {
+                var val = (byte)(px->Red / 16);
+                var color = new SKColor(val, val, val, val);
+                *px = color;
+            }
+        }
     }
 
     public static SpriteAnimation GetAnimation(TileSheet sheet, AnimationId id)
