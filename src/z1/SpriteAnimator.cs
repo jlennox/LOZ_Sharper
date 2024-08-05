@@ -9,7 +9,7 @@ internal readonly record struct SpriteFrame(byte X, byte Y, byte Flags)
 }
 
 // JOE: Arg. I hate this, but I couldn't think of a cleaner way to go about it.
-internal interface ILoadVariableLengthData<T>
+internal interface ILoadVariableLengthData<out T>
 {
     T LoadVariableData(ReadOnlySpan<byte> buf);
 }
@@ -55,6 +55,11 @@ internal sealed class SpriteAnimator
     public SpriteAnimator(SpriteAnimation? animation = null)
     {
         Animation = animation;
+    }
+
+    public SpriteAnimator(TileSheet sheet, AnimationId id)
+    {
+        Animation = Graphics.GetAnimation(sheet, id);
     }
 
     public void SetDuration(int frames)

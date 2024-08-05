@@ -430,10 +430,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
             Time = 0,
         };
 
-        _pileImage = new SpriteImage
-        {
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Pile)
-        };
+        _pileImage = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Pile));
 
         _cloudAnimator = new SpriteAnimator
         {
@@ -494,10 +491,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
             for (var i = 0; i < 8; i++)
             {
                 var slashSpec = _slashSpecs[i];
-                var image = new SpriteImage
-                {
-                    Animation = Graphics.GetAnimation(slashSpec.Sheet, slashSpec.AnimIndex)
-                };
+                var image = new SpriteImage(Graphics.GetAnimation(slashSpec.Sheet, slashSpec.AnimIndex));
 
                 image.Draw(slashSpec.Sheet, _sparksX[i], _sparksY[i], (Palette)slashPal, (DrawingFlags)slashSpec.Flags);
             }
@@ -3244,10 +3238,7 @@ internal sealed class TrapActor : Actor
         : base(game, ObjType.Trap, x, y)
     {
         _trapIndex = trapIndex;
-        _image = new SpriteImage
-        {
-            Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.UW_Trap)
-        };
+        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.Npcs, AnimationId.UW_Trap));
     }
 
     public static TrapActor MakeSet(Game game, int count)
@@ -3839,10 +3830,7 @@ internal sealed class LamnolaActor : Actor
         Decoration = 0;
 
         var animationId = isHead ? AnimationId.UW_LanmolaHead : AnimationId.UW_LanmolaBody;
-        _image = new SpriteImage
-        {
-            Animation = Graphics.GetAnimation(TileSheet.Npcs, animationId)
-        };
+        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.Npcs, animationId));
     }
 
     public static LamnolaActor MakeSet(Game game, ActorColor color)
@@ -4253,10 +4241,7 @@ internal sealed class AquamentusActor : Actor
             Time = 0
         };
 
-        _mouthImage = new SpriteImage
-        {
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Aquamentus_Mouth_Closed)
-        };
+        _mouthImage = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Aquamentus_Mouth_Closed));
 
         Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _palette);
         Graphics.UpdatePalettes();

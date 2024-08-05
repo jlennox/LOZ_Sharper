@@ -124,15 +124,8 @@ internal sealed class GleeokNeck
             _ => _startHeadTimer
         };
 
-        _neckImage = new SpriteImage
-        {
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Neck)
-        };
-
-        _headImage = new SpriteImage
-        {
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Head)
-        };
+        _neckImage = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Neck));
+        _headImage = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Head));
     }
 
     public bool IsAlive() => _isAlive;

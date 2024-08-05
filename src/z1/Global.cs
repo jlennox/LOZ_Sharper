@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using z1.Actors;
 using z1.IO;
 using z1.UI;
@@ -79,12 +80,12 @@ internal enum ItemId
     None = MAX
 }
 
-internal readonly record struct ItemGraphics(AnimationId AnimId, Palette PaletteAttrs)
+internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette, bool Flash = false)
 {
-    public Palette GetPalette() => PaletteAttrs & Palette.Mask;
-    public bool HasFlashAttr() => (PaletteAttrs & Palette.FlashAttr) != 0;
+    public Palette GetPalette() => Palette;
+    public bool HasFlashAttr() => Flash;
 
-    public static readonly ItemGraphics[] Items = {
+    public static readonly ImmutableArray<ItemGraphics> Items = [
         new(AnimationId.BombItem, Palette.Blue),
         new(AnimationId.SwordItem, Palette.Player),
         new(AnimationId.SwordItem, Palette.Blue),
@@ -99,7 +100,7 @@ internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette
         new(AnimationId.MKeyItem, Palette.Red),
         new(AnimationId.Raft, Palette.Player),
         new(AnimationId.Ladder, Palette.Player),
-        new(AnimationId.PowerTriforce, Palette.Red | Palette.FlashAttr),
+        new(AnimationId.PowerTriforce, Palette.Red, true),
         new(AnimationId.RuppeeItem, Palette.Blue),
         new(AnimationId.WandItem, Palette.Blue),
         new(AnimationId.BookItem, Palette.Red),
@@ -109,19 +110,19 @@ internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette
         new(AnimationId.MapItem, Palette.Blue),
         new(AnimationId.Compass, Palette.Red),
         new(AnimationId.MapItem, Palette.Red),
-        new(AnimationId.RuppeeItem, Palette.Red | Palette.FlashAttr),
+        new(AnimationId.RuppeeItem, Palette.Red, true),
         new(AnimationId.KeyItem, Palette.Red),
         new(AnimationId.HeartContainer, Palette.Red),
-        new(AnimationId.TriforcePiece, Palette.Red | Palette.FlashAttr),
+        new(AnimationId.TriforcePiece, Palette.Red, true),
         new(AnimationId.MShieldItem, Palette.Player),
         new(AnimationId.Boomerang, Palette.Player),
         new(AnimationId.Boomerang, Palette.Blue),
         new(AnimationId.BottleItem, Palette.Blue),
         new(AnimationId.BottleItem, Palette.Red),
         new(AnimationId.Clock, Palette.Red),
-        new(AnimationId.Heart, Palette.Red | Palette.FlashAttr),
+        new(AnimationId.Heart, Palette.Red, true),
         new(AnimationId.Fairy, Palette.Red),
-    };
+    ];
 }
 
 internal enum Char
@@ -148,24 +149,24 @@ internal static class GlobalFunctions
 
     public static ItemId ItemValueToItemId(ItemSlot slot, int value)
     {
-        static ReadOnlySpan<ItemId> equippedItemIds() => new[]
-        {
-            (ItemId)0,          // Sword
-            (ItemId)0xFF,       // Bombs
-            (ItemId)7,          // Arrow
-            (ItemId)9,          // Bow
-            (ItemId)5,          // Candle
-            (ItemId)4,          // Recorder
-            (ItemId)3,          // Food
-            (ItemId)30,         // Potion
-            (ItemId)15,         // Rod
-            (ItemId)11,         // Raft
-            (ItemId)16,         // Book
-            (ItemId)17,         // Ring
-            (ItemId)12,         // Ladder
-            (ItemId)10,         // MagicKey
-            (ItemId)19,         // Bracelet
-            (ItemId)20,         // Letter
+        static ReadOnlySpan<ItemId> EquippedItemIds() =>
+        [
+            (ItemId)0,    // Sword
+            (ItemId)0xFF, // Bombs
+            (ItemId)7,    // Arrow
+            (ItemId)9,    // Bow
+            (ItemId)5,    // Candle
+            (ItemId)4,    // Recorder
+            (ItemId)3,    // Food
+            (ItemId)30,   // Potion
+            (ItemId)15,   // Rod
+            (ItemId)11,   // Raft
+            (ItemId)16,   // Book
+            (ItemId)17,   // Ring
+            (ItemId)12,   // Ladder
+            (ItemId)10,   // MagicKey
+            (ItemId)19,   // Bracelet
+            (ItemId)20,   // Letter
             ItemId.None,  // Compass
             ItemId.None,  // Map
             ItemId.None,  // Compass9
@@ -176,9 +177,9 @@ internal static class GlobalFunctions
             ItemId.None,  // HeartContainers
             ItemId.None,  // PartialHeart
             ItemId.None,  // TriforcePieces
-            (ItemId)13,         // PowerTriforce
-            (ItemId)28,         // Boomerang
-        };
+            (ItemId)13,   // PowerTriforce
+            (ItemId)28,   // Boomerang
+        ];
 
         var itemValue = value;
         if (itemValue == 0) return ItemId.None;
@@ -188,7 +189,7 @@ internal static class GlobalFunctions
             itemValue = 1;
         }
 
-        return (ItemId)(byte)(equippedItemIds()[(int)slot] + itemValue);
+        return (ItemId)(byte)(EquippedItemIds()[(int)slot] + itemValue);
     }
 
     public static ItemId ItemValueToItemId(World world, ItemSlot slot)
@@ -321,10 +322,10 @@ internal static class GlobalFunctions
         var xs = new[] { x, x2 };
         var ys = new[] { y, y2 };
 
-        DrawChar(0x69, x, y, 0);
-        DrawChar(0x6B, x2, y, 0);
-        DrawChar(0x6E, x, y2, 0);
-        DrawChar(0x6D, x2, y2, 0);
+        DrawChar(Char.BoxTL, x, y, 0);
+        DrawChar(Char.BoxTR, x2, y, 0);
+        DrawChar(Char.BoxBL, x, y2, 0);
+        DrawChar(Char.BoxBR, x2, y2, 0);
 
         for (var i = 0; i < 2; i++)
         {
@@ -361,20 +362,12 @@ internal static class GlobalFunctions
 
         for (var i = 0; i < totalHearts; i++)
         {
-            Char tile;
-
-            if (i < fullHearts)
+            var tile = i switch
             {
-                tile = Char.FullHeart;
-            }
-            else if (i < fullAndPartialHearts)
-            {
-                tile = Char.HalfHeart;
-            }
-            else
-            {
-                tile = Char.EmptyHeart;
-            }
+                _ when i < fullHearts => Char.FullHeart,
+                _ when i < fullAndPartialHearts => Char.HalfHeart,
+                _ => Char.EmptyHeart,
+            };
 
             DrawChar((byte)tile, x, y, Palette.RedBgPalette);
 
@@ -401,7 +394,7 @@ internal static class GlobalFunctions
 
     public static void SetPilePalette()
     {
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, new byte[] { 0, 0x27, 0x06, 0x16 });
+        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, [ 0, 0x27, 0x06, 0x16 ]);
     }
 
     public static void PlayItemSound(Game game, ItemId itemId)
@@ -414,10 +407,12 @@ internal static class GlobalFunctions
             case ItemId.Key:
                 soundId = SoundEffect.KeyHeart;
                 break;
+
             case ItemId.FiveRupees:
             case ItemId.Rupee:
                 soundId = SoundEffect.Cursor;
                 break;
+
             case ItemId.PowerTriforce:
                 return;
         }

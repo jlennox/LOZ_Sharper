@@ -544,7 +544,7 @@ internal sealed class PersonActor : Actor
         if (_image == null) throw new NullReferenceException("_image is null.");
 
         var animIndex = Spec.DwellerType - ObjType.OldMan;
-        var palette = _sPersonGraphics[animIndex].PaletteAttrs;
+        var palette = _sPersonGraphics[animIndex].Palette;
         palette = CalcPalette(palette);
         _image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
 

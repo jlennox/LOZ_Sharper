@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using z1.Actors;
 
 namespace z1;
@@ -17,10 +18,7 @@ internal sealed class LadderActor : Actor
         Facing = Game.Link.Facing;
         Decoration = 0;
 
-        _image = new()
-        {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Ladder)
-        };
+        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Ladder));
     }
 
     public override void Update()
@@ -133,15 +131,9 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
         var playerX = player.X;
         var playerY = player.Y + 3;
 
-        var pushed = false;
-        if (dir.IsVertical())
-        {
-            pushed = X == playerX && Math.Abs(Y - playerY) <= World.MobTileHeight;
-        }
-        else
-        {
-            pushed = Y == playerY && Math.Abs(X - playerX) <= World.MobTileWidth;
-        }
+        var pushed = dir.IsVertical()
+            ? X == playerX && Math.Abs(Y - playerY) <= World.MobTileHeight
+            : Y == playerY && Math.Abs(X - playerX) <= World.MobTileWidth;
 
         if (!pushed)
         {
@@ -301,7 +293,9 @@ internal sealed class FireActor : Actor
             var box = new Point(0xE, 0xE);
 
             if (!DoObjectsCollide(objCenter, playerCenter, box, out var distance))
+            {
                 return;
+            }
 
             // JOE: NOTE: This came out pretty different.
             var context = new CollisionContext(ObjectSlot.NoneFound, DamageType.Fire, 0, distance);
@@ -354,21 +348,20 @@ internal sealed class BombActor : Actor
     private const int Clouds = 4;
     private const int CloudFrames = 2;
 
-    private static readonly Point[][] _cloudPositions = {
-        new[] {
+    private static readonly Point[][] _cloudPositions = [
+        [
             new Point(0, 0 ),
             new Point(-13, 0 ),
             new Point(7, -13 ),
-            new Point(-7, 14),
-        },
-
-        new[] {
+            new Point(-7, 14)
+        ],
+        [
             new Point(0, 0 ),
             new Point(13, 0 ),
             new Point(-7, -13 ),
-            new Point(7, 14),
-        }
-    };
+            new Point(7, 14)
+        ]
+    ];
 
     public BombState BombState = BombState.Initing;
 
@@ -389,7 +382,7 @@ internal sealed class BombActor : Actor
 
     public override void Update()
     {
-        ReadOnlySpan<byte> times = [ 0x30, 0x18, 0xC, 0 ];
+        ReadOnlySpan<byte> times = [0x30, 0x18, 0xC, 0];
 
         if (ObjTimer == 0)
         {
@@ -485,30 +478,28 @@ internal sealed class PlayerSwordActor : Actor
     private const int SwordStates = 5;
     private const int LastSwordState = SwordStates - 1;
 
-    private static readonly Point[][] _swordOffsets = {
-        new[] { new Point(-8, -11), new Point(0, -11), new Point(1, -14), new Point(-1, -9) },
-        new[] { new Point(11, 3), new Point(-11, 3), new Point(1, 13), new Point(-1, -10) },
-        new[] { new Point(7, 3), new Point(-7, 3), new Point(1, 9), new Point(-1, -9) },
-        new[] { new Point(3, 3), new Point(-3, 3), new Point(1, 5), new Point(-1, -1) }
-    };
+    private static readonly Point[][] _swordOffsets = [
+        [new Point(-8, -11), new Point(0, -11), new Point(1, -14), new Point(-1, -9)],
+        [new Point(11, 3), new Point(-11, 3), new Point(1, 13), new Point(-1, -10)],
+        [new Point(7, 3), new Point(-7, 3), new Point(1, 9), new Point(-1, -9)],
+        [new Point(3, 3), new Point(-3, 3), new Point(1, 5), new Point(-1, -1)]
+    ];
 
-    public static readonly AnimationId[] SwordAnimMap =
-    {
+    public static readonly ImmutableArray<AnimationId> SwordAnimMap = [
         AnimationId.Sword_Right,
         AnimationId.Sword_Left,
         AnimationId.Sword_Down,
         AnimationId.Sword_Up
-    };
+    ];
 
-    private static readonly AnimationId[] _rodAnimMap =
-    {
+    private static readonly ImmutableArray<AnimationId> _rodAnimMap = [
         AnimationId.Wand_Right,
         AnimationId.Wand_Left,
         AnimationId.Wand_Down,
-        AnimationId.Wand_Up,
-    };
+        AnimationId.Wand_Up
+    ];
 
-    private static readonly byte[] _swordStateDurations = { 5, 8, 1, 1, 1 };
+    private static readonly byte[] _swordStateDurations = [5, 8, 1, 1, 1];
 
     public int State;
     private int _timer;
@@ -666,7 +657,8 @@ internal struct CaveSpec
     };
 
     public ObjType DwellerType
-    { readonly get => (ObjType)Dweller;
+    {
+        readonly get => (ObjType)Dweller;
         set => Dweller = (byte)value;
     }
 
@@ -691,7 +683,7 @@ internal struct CaveSpec
 
 internal sealed class ItemObjActor : Actor
 {
-    private static readonly ObjectSlot[] _weaponSlots = { ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow };
+    private static readonly ImmutableArray<ObjectSlot> _weaponSlots = [ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow];
 
     private readonly ItemId _itemId;
     private readonly bool _isRoomItem;
@@ -806,9 +798,8 @@ internal sealed class WhirlwindActor : Actor
     {
         Facing = Direction.Right;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Npcs, AnimationId.OW_Whirlwind)
         {
-            Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.OW_Whirlwind),
             DurationFrames = 2,
             Time = 0
         };
@@ -908,7 +899,7 @@ internal sealed class DockActor : Actor
 
             Y = player.Y + 6;
 
-            ReadOnlySpan<Direction> facings = [ Direction.None, Direction.Down, Direction.Up ];
+            ReadOnlySpan<Direction> facings = [Direction.None, Direction.Down, Direction.Up];
 
             player.SetState(PlayerState.Paused);
             player.Facing = facings[_state];

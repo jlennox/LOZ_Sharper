@@ -1,6 +1,4 @@
-﻿using SkiaSharp;
-
-namespace z1;
+﻿namespace z1;
 
 internal enum Palette
 {
@@ -10,8 +8,4 @@ internal enum Palette
     BlueFgPalette = 5,
     RedFgPalette = 6,
     LevelFgPalette = 7,
-
-    Mask = 0x7,
-
-    FlashAttr = 0x80,
 }
