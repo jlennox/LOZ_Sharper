@@ -1690,7 +1690,7 @@ internal abstract class DigWanderer : WandererWalkerActor
 {
     protected ImmutableArray<int> StateTimes;
     protected int State;
-    private readonly WalkerSpec[] _stateSpecs;
+    private readonly ImmutableArray<WalkerSpec> _stateSpecs;
 
     public static readonly ImmutableArray<AnimationId> MoundAnimMap = [
         AnimationId.OW_Mound,
@@ -1699,7 +1699,7 @@ internal abstract class DigWanderer : WandererWalkerActor
         AnimationId.OW_Mound
     ];
 
-    protected DigWanderer(Game game, ObjType type, WalkerSpec[] specs, ImmutableArray<int> stateTimes, int x, int y)
+    protected DigWanderer(Game game, ObjType type, ImmutableArray<WalkerSpec> specs, ImmutableArray<int> stateTimes, int x, int y)
         : base(game, type, specs[0], 0xA0, x, y)
     {
         ObjTimer = 0;
@@ -1754,7 +1754,7 @@ internal sealed class ZoraActor : DigWanderer
     private static readonly WalkerSpec _zoraHalfSpec = new(_zoraAnimMap, 2, Palette.SeaPal);
     private static readonly WalkerSpec _zoraFullSpec = new(_zoraAnimMap, 10, Palette.SeaPal);
 
-    private static readonly WalkerSpec[] _zoraSpecs = [
+    private static readonly ImmutableArray<WalkerSpec> _zoraSpecs = [
         _zoraHiddenSpec,
         _zoraMoundSpec,
         _zoraHalfSpec,
@@ -1822,7 +1822,7 @@ internal sealed class BlueLeeverActor : DigWanderer
     private static readonly WalkerSpec _blueLeeverHalfSpec = new(_leeverHalfAnimMap, 2, Palette.Blue, 0x10);
     private static readonly WalkerSpec _blueLeeverFullSpec = new(_leeverAnimMap, 10, Palette.Blue, StandardSpeed);
 
-    private static readonly WalkerSpec[] _blueLeeverSpecs = [
+    private static readonly ImmutableArray<WalkerSpec> _blueLeeverSpecs = [
         _blueLeeverHiddenSpec,
         _blueLeeverMoundSpec,
         _blueLeeverHalfSpec,
@@ -1864,7 +1864,7 @@ internal sealed class RedLeeverActor : Actor
     private static readonly WalkerSpec _redLeeverHalfSpec = new(_leeverHalfAnimMap, 16, Palette.Red);
     private static readonly WalkerSpec _redLeeverFullSpec = new(_leeverAnimMap, 10, Palette.Red, Global.StdSpeed);
 
-    private static readonly WalkerSpec[] _redLeeverSpecs = [
+    private static readonly ImmutableArray<WalkerSpec> _redLeeverSpecs = [
         _redLeeverHiddenSpec,
         _redLeeverMoundSpec,
         _redLeeverHalfSpec,
@@ -2044,7 +2044,7 @@ internal abstract class FlyingActor : Actor
     protected Direction DeferredDir;
     protected int MoveCounter;
 
-    protected readonly Action[] SStateFuncs;
+    protected readonly ImmutableArray<Action> SStateFuncs;
     protected readonly FlyerSpec Spec;
 
     protected FlyingActor(Game game, ObjType type, FlyerSpec spec, int x, int y)
@@ -3220,7 +3220,7 @@ internal sealed class BouldersActor : Actor
 
 internal sealed class TrapActor : Actor
 {
-    private static readonly Point[] _trapPos = [
+    private static readonly ImmutableArray<Point> _trapPos = [
         new Point(0x20, 0x60),
         new Point(0x20, 0xC0),
         new Point(0xD0, 0x60),
@@ -3624,7 +3624,7 @@ internal sealed class PolsVoiceActor : Actor
 
 internal sealed class RedWizzrobeActor : Actor
 {
-    private static readonly Direction[] _wizzrobeDirs = [
+    private static readonly ImmutableArray<Direction> _wizzrobeDirs = [
         Direction.Down,
         Direction.Up,
         Direction.Right,
@@ -3648,7 +3648,7 @@ internal sealed class RedWizzrobeActor : Actor
     private byte _flashTimer;
 
     private readonly SpriteAnimator _animator;
-    private readonly Action[] _sStateFuncs;
+    private readonly ImmutableArray<Action> _sStateFuncs;
 
     public RedWizzrobeActor(Game game, int x, int y)
         : base(game, ObjType.RedWizzrobe, x, y)
@@ -3662,9 +3662,9 @@ internal sealed class RedWizzrobeActor : Actor
 
         _sStateFuncs = [
             UpdateHidden,
-           UpdateGoing,
-           UpdateVisible,
-           UpdateComing
+            UpdateGoing,
+            UpdateVisible,
+            UpdateComing
         ];
     }
 
@@ -4314,8 +4314,6 @@ internal sealed class AquamentusActor : Actor
         _distance--;
     }
 
-    private static readonly sbyte[] _yOffsets = [1, 0, -1];
-
     private void TryShooting()
     {
         if (ObjTimer == 0)
@@ -4330,7 +4328,8 @@ internal sealed class AquamentusActor : Actor
                 if (slot < 0) break;
 
                 ShootFireball(ObjType.Fireball, X, Y);
-                _fireballOffsets[(int)slot] = (byte)_yOffsets[i];
+                ReadOnlySpan<sbyte> yOffsets = [1, 0, -1];
+                _fireballOffsets[(int)slot] = (byte)yOffsets[i];
             }
         }
         else
@@ -4387,8 +4386,8 @@ internal sealed class DodongoActor : WandererWalkerActor
     private int _bloatedTimer;
     private int _bombHits;
 
-    private readonly StateFunc[] _sStateFuncs;
-    private readonly StateFunc[] _sBloatedSubstateFuncs;
+    private readonly ImmutableArray<StateFunc> _sStateFuncs;
+    private readonly ImmutableArray<StateFunc> _sBloatedSubstateFuncs;
 
     public override bool IsReoccuring => false;
 

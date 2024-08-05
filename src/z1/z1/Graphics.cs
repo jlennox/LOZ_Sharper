@@ -74,53 +74,69 @@ internal static class Graphics
             var locked = tile.Lock();
             var px = locked.Pixels;
             var nextLineDistance = (locked.Stride / sizeof(SKColor)) - width;
+            var eightMultiple = width % 8 == 0;
 
-            var useVectors = Avx2.IsSupported && nextLineDistance == 0 && width % 8 == 0;
+            // Benchmarks of various methods: https://gist.github.com/jlennox/41b2992a78a3d9a6c39fe3f8eadaab8e
 
-            if (useVectors)
+            if (nextLineDistance == 0 && eightMultiple)
             {
-                var zeroCheck = _zeroCheck;
-                var oneCheck = _oneCheck;
-                var twoCheck = _twoCheck;
-                var threeCheck = _threeCheck;
-
-                var zeroColor = Vector256.Create(*(int*)&color0);
-                var oneColor = Vector256.Create(*(int*)&color1);
-                var twoColor = Vector256.Create(*(int*)&color2);
-                var threeColor = Vector256.Create(*(int*)&color3);
-
                 var end = locked.End;
 
+                if (Avx2.IsSupported)
+                {
+                    var zeroCheck = _zeroCheck;
+                    var oneCheck = _oneCheck;
+                    var twoCheck = _twoCheck;
+                    var threeCheck = _threeCheck;
+
+                    var zeroColor = Vector256.Create(*(int*)&color0);
+                    var oneColor = Vector256.Create(*(int*)&color1);
+                    var twoColor = Vector256.Create(*(int*)&color2);
+                    var threeColor = Vector256.Create(*(int*)&color3);
+
+                    for (; px < end; px += 8)
+                    {
+                        var pixelVector = Vector256.Load((int*)px);
+
+                        var compareZero = Avx2.CompareEqual(pixelVector, zeroCheck);
+                        var compareOne = Avx2.CompareEqual(pixelVector, oneCheck);
+                        var compareTwo = Avx2.CompareEqual(pixelVector, twoCheck);
+                        var compareThree = Avx2.CompareEqual(pixelVector, threeCheck);
+
+                        var blended = Avx2.BlendVariable(pixelVector, zeroColor, compareZero);
+                        blended = Avx2.BlendVariable(blended, oneColor, compareOne);
+                        blended = Avx2.BlendVariable(blended, twoColor, compareTwo);
+                        blended = Avx2.BlendVariable(blended, threeColor, compareThree);
+                        Avx.Store((int*)px, blended);
+                    }
+
+                    return _tileCache[this] = tile;
+                }
+
+                var paletteUnrolled = stackalloc SKColor[] { color0, color1, color2, color3 };
                 for (; px < end; px += 8)
                 {
-                    var pixelVector = Vector256.Load((int*)px);
-                    var result = Avx2.BlendVariable(pixelVector, zeroColor, Avx2.CompareEqual(pixelVector, zeroCheck));
-                    result = Avx2.BlendVariable(result, oneColor, Avx2.CompareEqual(pixelVector, oneCheck));
-                    result = Avx2.BlendVariable(result, twoColor, Avx2.CompareEqual(pixelVector, twoCheck));
-                    result = Avx2.BlendVariable(result, threeColor, Avx2.CompareEqual(pixelVector, threeCheck));
-                    Avx.Store((int*)px, result);
+                    // Blue is the fastest to access because it does not use shifts.
+                    px[0] = paletteUnrolled[px[0].Blue];
+                    px[1] = paletteUnrolled[px[1].Blue];
+                    px[2] = paletteUnrolled[px[2].Blue];
+                    px[3] = paletteUnrolled[px[3].Blue];
+                    px[4] = paletteUnrolled[px[4].Blue];
+                    px[5] = paletteUnrolled[px[5].Blue];
+                    px[6] = paletteUnrolled[px[6].Blue];
+                    px[7] = paletteUnrolled[px[7].Blue];
                 }
+
+                return _tileCache[this] = tile;
             }
-            else if (nextLineDistance == 0)
+
+            var palette = stackalloc SKColor[] { color0, color1, color2, color3 };
+            for (var y = 0; y < locked.Height; ++y, px += nextLineDistance)
             {
-                var palette = stackalloc SKColor[] { color0, color1, color2, color3 };
-                var end = locked.End;
-                for (; px < end; ++px)
+                for (var x = 0; x < locked.Width; ++x, ++px)
                 {
                     // Blue is the fastest to access because it does not use shifts.
                     *px = palette[px->Blue];
-                }
-            }
-            else
-            {
-                var palette = stackalloc SKColor[] { color0, color1, color2, color3 };
-                for (var y = 0; y < locked.Height; ++y, px += nextLineDistance)
-                {
-                    for (var x = 0; x < locked.Width; ++x, ++px)
-                    {
-                        // Blue is the fastest to access because it does not use shifts.
-                        *px = palette[px->Blue];
-                    }
                 }
             }
 
@@ -152,9 +168,7 @@ internal static class Graphics
             foundRef = null;
         }
 
-        var bitmap = file.DecodeSKBitmap(SKAlphaType.Unpremul);
-
-        PreprocessPalette(bitmap);
+        var bitmap = file.DecodeSKBitmapTileData();
         _tileSheets[slot] = bitmap;
     }
 
@@ -166,7 +180,7 @@ internal static class Graphics
 
     // Preprocesses an image to set all color channels to their appropriate color palette index, allowing
     // palette transformations to be done faster at runtime.
-    private static unsafe void PreprocessPalette(SKBitmap bitmap)
+    public static unsafe void PreprocessPalette(SKBitmap bitmap)
     {
         // Unpremul is important here otherwise setting the alpha channel to non-255 causes the colors to transform
         if (bitmap.AlphaType != SKAlphaType.Unpremul) throw new ArgumentOutOfRangeException();

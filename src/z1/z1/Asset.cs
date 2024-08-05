@@ -8,7 +8,6 @@ namespace z1;
 
 internal readonly struct Asset
 {
-    // https://github.com/joshbirnholz/cardconjurer
     private static readonly Lazy<string> _baseAssetsDir = new(() => Path.Combine(
         Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "assets", "out"));
 
@@ -36,10 +35,17 @@ internal readonly struct Asset
         return SKBitmap.Decode(FullPath);
     }
 
+    public SKBitmap DecodeSKBitmapTileData()
+    {
+        var bitmap = DecodeSKBitmap(SKAlphaType.Unpremul);
+        Graphics.PreprocessPalette(bitmap);
+        return bitmap;
+    }
+
     public SKBitmap DecodeSKBitmap(SKAlphaType alphaType)
     {
-        using var original = DecodeSKBitmap();
-        var bitmap = new SKBitmap(original.Width, original.Height, original.ColorType, SKAlphaType.Unpremul);
+        using var original = SKBitmap.Decode(FullPath);
+        var bitmap = new SKBitmap(original.Width, original.Height, original.ColorType, alphaType);
         using var canvas = new SKCanvas(bitmap);
         canvas.DrawBitmap(original, 0, 0);
         return bitmap;

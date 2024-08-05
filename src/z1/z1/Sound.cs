@@ -261,14 +261,14 @@ internal sealed class Sound
 
     public int IncreaseVolume()
     {
-        _volume = Math.Clamp(_volume + VolumeIncrements, 0, 100);
+        _volume = Math.Min(_volume + VolumeIncrements, 100);
         _waveOutDevice.Volume = _volume / 100f;
         return _volume;
     }
 
     public int DecreaseVolume()
     {
-        _volume = Math.Clamp(_volume - VolumeIncrements, 0, 100);
+        _volume = Math.Max(_volume - VolumeIncrements, 0);
         _waveOutDevice.Volume = _volume / 100f;
         return _volume;
     }

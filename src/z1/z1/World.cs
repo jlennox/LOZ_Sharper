@@ -350,8 +350,8 @@ internal sealed unsafe partial class World
         else
         {
             LoadUnderworldContext();
-            _wallsBmp = _directory.Extra2.ToAsset().DecodeSKBitmap();
-            _doorsBmp = _directory.Extra3.ToAsset().DecodeSKBitmap();
+            _wallsBmp = _directory.Extra2.ToAsset().DecodeSKBitmapTileData();
+            _doorsBmp = _directory.Extra3.ToAsset().DecodeSKBitmapTileData();
             _curUWBlockFlags = level < 7 ? profile.LevelFlags1 : profile.LevelFlags2;
 
             foreach (var tileMap in _tileMaps)
@@ -4156,7 +4156,7 @@ internal sealed unsafe partial class World
         Graphics.SetClip(0, 0, Global.StdViewWidth, Global.StdViewHeight);
         if (_state.WinGame.Substate == WinGameState.Substates.Colors)
         {
-            var sysColors = new[] { 0x0F, 0x2A, 0x16, 0x12 };
+            ReadOnlySpan<int> sysColors = [0x0F, 0x2A, 0x16, 0x12];
             var frame = _state.WinGame.Timer & 3;
             var sysColor = sysColors[frame];
             ClearScreen(sysColor);
