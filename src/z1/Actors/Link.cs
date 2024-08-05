@@ -1,4 +1,4 @@
-﻿using z1.Player;
+﻿using System.Collections.Immutable;
 using LinkState = z1.Actors.Link.LinkState;
 
 namespace z1.Actors;
@@ -34,18 +34,18 @@ internal sealed class Link : Actor, IThrower
 
     public bool IsParalyzed;
 
-    private int _walkFrame = 0;
     private int _state; // JOE: TODO: Enumify this as using LinkState.
     private byte _speed;
     private TileBehavior _tileBehavior;
     private byte _animTimer;
     private byte _avoidTurningWhenDiag;   // 56
     private byte _keepGoingStraight;      // 57
-    private HashSet<GameButton> _curButtons; // JOE: TODO: Can this be dropped and we instead directly access the input?
+    private HashSet<GameButton> _curButtons; // JOE: TODO: Can this be dropped and instead directly access the input?
 
     public readonly SpriteAnimator Animator;
 
-    public Link(Game game, Direction facing = Direction.Up) : base(game, ObjType.Player)
+    public Link(Game game, Direction facing = Direction.Up)
+        : base(game, ObjType.Player)
     {
         _speed = WalkSpeed;
         Facing = facing;
@@ -200,10 +200,7 @@ internal sealed class Link : Actor, IThrower
 
         if (mode != GameMode.Play) return;
 
-        if (Game.World.IsOverworld())
-        {
-            if (!Game.World.DoesRoomSupportLadder()) return;
-        }
+        if (Game.World.IsOverworld() && !Game.World.DoesRoomSupportLadder()) return;
 
         if (Game.World.DoorwayDir != Direction.None
             || Game.World.GetItem(ItemSlot.Ladder) == 0
@@ -260,14 +257,10 @@ internal sealed class Link : Actor, IThrower
             {
                 Game.World.DoorwayDir = Facing;
             }
+            return;
         }
-        else
-        {
-            if (Game.World.DoorwayDir != Direction.None)
-            {
-                Game.World.DoorwayDir = Direction.None;
-            }
-        }
+
+        Game.World.DoorwayDir = Direction.None;
     }
 
     private static bool IsInBorder(int coord, Direction dir, ReadOnlySpan<byte> border)
@@ -381,8 +374,7 @@ internal sealed class Link : Actor, IThrower
                 return;
             }
 
-            if (Math.Abs(TileOffset) >= 4)
-                return;
+            if (Math.Abs(TileOffset) >= 4) return;
 
             if (Facing.IsGrowing())
             {
@@ -395,10 +387,12 @@ internal sealed class Link : Actor, IThrower
 
             Facing = Facing.GetOppositeDirection();
 
-            if (TileOffset >= 0)
-                TileOffset -= 8;
-            else
-                TileOffset += 8;
+            TileOffset += TileOffset >= 0 ? (sbyte)-8 : (sbyte)8;
+
+            // if (TileOffset >= 0)
+            //     TileOffset -= 8;
+            // else
+            //     TileOffset += 8;
         }
         else
         {
@@ -491,8 +485,8 @@ internal sealed class Link : Actor, IThrower
         ReadOnlySpan<byte> axisMasks = [ 3, 3, 0xC, 0xC ];
 
         var dirOrd = Facing.GetOrdinal();
-        uint movingInFacingAxis = (uint)(Moving & axisMasks[dirOrd]);
-        uint perpMoving = Moving ^ movingInFacingAxis;
+        var movingInFacingAxis = (uint)(Moving & axisMasks[dirOrd]);
+        var perpMoving = Moving ^ movingInFacingAxis;
         Facing = (Direction)perpMoving;
         Moving = (byte)perpMoving;
         SetSpeed();
@@ -518,35 +512,33 @@ internal sealed class Link : Actor, IThrower
         _speed = newSpeed;
     }
 
-    private static readonly AnimationId[] _thrustAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _thrustAnimMap = [
         AnimationId.LinkThrust_Right,
         AnimationId.LinkThrust_Left,
         AnimationId.LinkThrust_Down,
         AnimationId.LinkThrust_Up
-    };
+    ];
 
-    private static readonly AnimationId[][] _animMap = {
-        new[] {
+    private static readonly ImmutableArray<ImmutableArray<AnimationId>> _animMap = [
+        [
             AnimationId.LinkWalk_NoShield_Right,
             AnimationId.LinkWalk_NoShield_Left,
             AnimationId.LinkWalk_NoShield_Down,
-            AnimationId.LinkWalk_NoShield_Up,
-        },
-
-        new[] {
+            AnimationId.LinkWalk_NoShield_Up
+        ],
+        [
             AnimationId.LinkWalk_LittleShield_Right,
             AnimationId.LinkWalk_LittleShield_Left,
             AnimationId.LinkWalk_LittleShield_Down,
-            AnimationId.LinkWalk_LittleShield_Up,
-        },
-
-        new[] {
+            AnimationId.LinkWalk_LittleShield_Up
+        ],
+        [
             AnimationId.LinkWalk_BigShield_Right,
             AnimationId.LinkWalk_BigShield_Left,
             AnimationId.LinkWalk_BigShield_Down,
-            AnimationId.LinkWalk_BigShield_Up,
-        }
-    };
+            AnimationId.LinkWalk_BigShield_Up
+        ]
+    ];
 
     private void SetFacingAnim()
     {
@@ -590,7 +582,7 @@ internal sealed class Link : Actor, IThrower
 
     public Point GetMiddle()
     {
-        // JOE: This seems silly?
+        // JOE: This seems silly vs Actor's perhaps having a Width?
         return new Point(X + 8, Y + 8);
     }
 
@@ -782,7 +774,7 @@ internal sealed class Link : Actor, IThrower
 
     private int UseFood(int x, int y, Direction facingDir)
     {
-        if (Game.World.GetObject(ObjectSlot.Food) != null) return 0;
+        if (Game.World.HasObject(ObjectSlot.Food)) return 0;
 
         MoveSimple(ref x, ref y, facingDir, 0x10);
 
@@ -830,19 +822,18 @@ internal sealed class Link : Actor, IThrower
             return UseWeapon(ObjType.Rod, ItemSlot.Rod);
         }
 
-        var waitFrames = 0;
-
-        switch (profile.SelectedItem)
-        {
-            case ItemSlot.Bombs: waitFrames = UseBomb(X, Y, Facing); break;
-            case ItemSlot.Arrow: waitFrames = UseArrow(X, Y, Facing); break;
-            case ItemSlot.Candle: waitFrames = UseCandle(X, Y, Facing); break;
-            case ItemSlot.Recorder: waitFrames = UseRecorder(X, Y, Facing); break;
-            case ItemSlot.Food: waitFrames = UseFood(X, Y, Facing); break;
-            case ItemSlot.Potion: waitFrames = UsePotion(X, Y, Facing); break;
-            case ItemSlot.Letter: waitFrames = UseLetter(X, Y, Facing); break;
-            case ItemSlot.Boomerang: waitFrames = UseBoomerang(X, Y, Facing); break;
-        }
+        // JOE: NOTE: These waitFrames appear unused?
+        var waitFrames = profile.SelectedItem switch {
+            ItemSlot.Bombs => UseBomb(X, Y, Facing),
+            ItemSlot.Arrow => UseArrow(X, Y, Facing),
+            ItemSlot.Candle => UseCandle(X, Y, Facing),
+            ItemSlot.Recorder => UseRecorder(X, Y, Facing),
+            ItemSlot.Food => UseFood(X, Y, Facing),
+            ItemSlot.Potion => UsePotion(X, Y, Facing),
+            ItemSlot.Letter => UseLetter(X, Y, Facing),
+            ItemSlot.Boomerang => UseBoomerang(X, Y, Facing),
+            _ => 0
+        };
 
         if (waitFrames == 0) return 0;
         Animator.Time = 0;

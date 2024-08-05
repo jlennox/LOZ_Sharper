@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using z1.IO;
 
 namespace z1;
 

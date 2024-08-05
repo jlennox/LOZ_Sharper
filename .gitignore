@@ -12,6 +12,7 @@ assets/
 *.userosscache
 *.sln.docstates
 .vscode
+*.nes
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

@@ -4,9 +4,15 @@ This is a C# port of Aldo Nunez's excellent Legend of Zelda port based on their 
 - (C++ port)[https://github.com/aldonunez/Loz_enhanced/tree/master]
 - (Disassembly of NES code)[https://github.com/aldonunez/zelda1-disassembly]
 
+How to use:
+===
+- Place the American PRG0 Legend of Zelda ROM ("Legend of Zelda, The (U) (PRG0) [!].nes") in the same directory as the .exe
+- Run the .exe
+
 Project goals:
 ===
 - Implement a complete vanilla port in C#.
+- Stay mostly bug compatible with the original version.
 - Fork into an enhanced game with expanded mapping, monster, etc, capabilities, and build a new "second quest" off of this.
 
 Current enhancements:

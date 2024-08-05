@@ -22,6 +22,14 @@ namespace z1;
 // * SIMD the palettes?
 // * Try this for the palettes? https://skia.org/docs/user/sksl/
 // * Eliminate parameterless SpriteImage constructor?
+// * File select dialog?
+
+// BUGS TO ADD:
+// * Canana key?
+// * Screen wrap?
+// * Block clip?
+// * World wrap?
+// * Dungeon locked doors glitch: https://gamefaqs.gamespot.com/boards/563433-the-legend-of-zelda/63821853
 
 // Enhancements:
 // * Having the red candle causes dark rooms to auto fade in.

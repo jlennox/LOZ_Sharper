@@ -2,11 +2,13 @@
 using System.Text;
 using System.Threading.Channels;
 
-namespace z1.UI;
+namespace z1.IO;
 
 internal sealed class DebugLog
 {
     private const int MaxLogSize = 5 * 1024 * 1024;
+
+    private static readonly Lazy<string> _logFile = new(() => Path.Combine(Directories.Save, Path.Combine("logs.txt")));
 
     private static FileStream? _fs;
     private static readonly byte[] _buffer = new byte[5 * 1024];
@@ -20,20 +22,21 @@ internal sealed class DebugLog
 
     private readonly string _name;
 
-    public DebugLog(string name)
+    static DebugLog()
     {
-        _name = name;
-    }
-
-    public static void Initialize(string filename)
-    {
-        _fs = File.Open(filename, FileMode.Create, FileAccess.Write, FileShare.Read);
+        _fs = File.Open(_logFile.Value, FileMode.Create, FileAccess.Write, FileShare.Read);
 
         new Thread(WriterThread)
         {
             Name = nameof(DebugLog),
             IsBackground = true,
+            Priority = ThreadPriority.BelowNormal,
         }.Start();
+    }
+
+    public DebugLog(string name)
+    {
+        _name = name;
     }
 
     private static void WriterThread()

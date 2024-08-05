@@ -1,12 +1,10 @@
-﻿using z1.Actors;
-
-namespace z1.Player;
+﻿namespace z1.Actors;
 
 internal sealed class FoodActor : Actor
 {
-    private int periods;
+    private int _periods;
 
-    public FoodActor(Game game, int x = 0, int y = 0) : base(game, ObjType.Food, x, y)
+    public FoodActor(Game game, int x, int y) : base(game, ObjType.Food, x, y)
     {
         Decoration = 0;
         ObjTimer = 0xFF;
@@ -16,8 +14,8 @@ internal sealed class FoodActor : Actor
     {
         if (ObjTimer == 0)
         {
-            periods--;
-            if (periods == 0)
+            _periods--;
+            if (_periods == 0)
             {
                 IsDeleted = true;
                 return;
@@ -28,9 +26,9 @@ internal sealed class FoodActor : Actor
         // This is how food attracts some monsters.
         var roomObjId = Game.World.RoomObj?.ObjType ?? ObjType.None;
 
-        // TODO: Wire up to actor.IsAttrackedToMeat
+        // JOE: TODO: Wire up to actor.IsAttrackedToMeat
 
-        if ((roomObjId >= ObjType.BlueMoblin && roomObjId <= ObjType.BlueFastOctorock)
+        if (roomObjId >= ObjType.BlueMoblin && roomObjId <= ObjType.BlueFastOctorock
             || roomObjId == ObjType.Vire
             || roomObjId == ObjType.BlueKeese
             || roomObjId == ObjType.RedKeese)

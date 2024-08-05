@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
+using z1.UI;
 
-namespace z1.UI;
+namespace z1.IO;
 
 internal static class SaveFolder
 {
@@ -14,24 +15,10 @@ internal static class SaveFolder
     public static GameConfiguration Configuration => _config.Value;
     private static readonly Lazy<GameConfiguration> _config = new(LoadGameConfiguration);
 
-    private static readonly Lazy<string> _saveDirectory = new(() =>
-    {
-        // TODO: Handle/report errors.
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LOZ1");
-        Directory.CreateDirectory(path);
-        return path;
-    });
-
-    private static readonly Lazy<string> _logFile = new(() => Path.Combine(_saveDirectory.Value, Path.Combine("logs.txt")));
-    private static readonly Lazy<string> _profileFile = new(() => Path.Combine(_saveDirectory.Value, Path.Combine("saves.json")));
-    private static readonly Lazy<string> _configFile = new(() => Path.Combine(_saveDirectory.Value, Path.Combine("config.json")));
+    private static readonly Lazy<string> _profileFile = new(() => Path.Combine(Directories.Save, Path.Combine("saves.json")));
+    private static readonly Lazy<string> _configFile = new(() => Path.Combine(Directories.Save, Path.Combine("config.json")));
 
     private static readonly DebugLog _log = new(nameof(SaveFolder));
-
-    static SaveFolder()
-    {
-        DebugLog.Initialize(_logFile.Value);
-    }
 
     private static PlayerProfile[] LoadProfiles() => LoadOrDefault(_profileFile, PlayerProfile.MakeDefaults);
     public static bool SaveProfiles() => Save(_profileFile, Profiles);

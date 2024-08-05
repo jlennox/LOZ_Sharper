@@ -7,6 +7,7 @@ using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using SkiaSharp;
+using z1.IO;
 using z1.UI;
 using Button = Silk.NET.Input.Button;
 
@@ -28,7 +29,6 @@ internal sealed class GLWindow : IDisposable
     private GRBackendRenderTarget? _rendertarget;
     private ImGuiController _controller;
     private System.Drawing.Rectangle _windowedRect;
-    private string _initializationException;
 
     public GLWindow()
     {
@@ -39,7 +39,8 @@ internal sealed class GLWindow : IDisposable
         catch (Exception e)
         {
             _log.Write("Error initializing assets: " + e);
-            _initializationException = e.ToString();
+            MessageBox.Show(e.ToString());
+            Environment.Exit(1);
         }
 
         _game = new Game();

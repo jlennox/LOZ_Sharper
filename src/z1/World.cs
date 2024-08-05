@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using SkiaSharp;
 using z1.Actors;
+using z1.IO;
 using z1.UI;
 
 namespace z1;
@@ -1886,13 +1887,14 @@ internal sealed unsafe partial class World
 
     private void GotoPlay(RoomType roomType = RoomType.Regular)
     {
-        switch (roomType)
+        _curMode = roomType switch
         {
-            case RoomType.Regular: _curMode = GameMode.Play; break;
-            case RoomType.Cave: _curMode = GameMode.PlayCave; break;
-            case RoomType.Cellar: _curMode = GameMode.PlayCellar; break;
-            default: throw new ArgumentOutOfRangeException(nameof(roomType), roomType, "Unknown room type.");
-        }
+            RoomType.Regular => GameMode.Play,
+            RoomType.Cave => GameMode.PlayCave,
+            RoomType.Cellar => GameMode.PlayCellar,
+            _ => throw new ArgumentOutOfRangeException(nameof(roomType), roomType, "Unknown room type.")
+        };
+
         _curColorSeqNum = 0;
         _tempShutters = false;
         RoomObjCount = 0;
@@ -1966,7 +1968,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if (_pause == 0)
+        if (_pause == PauseState.Unpaused)
         {
             if (Game.Enhancements)
             {
@@ -2281,20 +2283,18 @@ internal sealed unsafe partial class World
             for (var iDoor = 0; iDoor < 4; iDoor++)
             {
                 var doorType = uwRoomAttrs.GetDoor(iDoor);
-                if (doorType == DoorType.Bombable)
+                if (doorType != DoorType.Bombable) continue;
+
+                var doorDir = iDoor.GetOrdDirection();
+                var doorState = GetDoorState(CurRoomId, doorDir);
+                if (doorState) continue;
+
+                if (Math.Abs(bombX - doorMiddles[iDoor].X) < UWBombRadius
+                    && Math.Abs(bombY - doorMiddles[iDoor].Y) < UWBombRadius)
                 {
-                    var doorDir = iDoor.GetOrdDirection();
-                    var doorState = GetDoorState(CurRoomId, doorDir);
-                    if (!doorState)
-                    {
-                        if (Math.Abs(bombX - doorMiddles[iDoor].X) < UWBombRadius
-                            && Math.Abs(bombY - doorMiddles[iDoor].Y) < UWBombRadius)
-                        {
-                            _triggeredDoorCmd = 6;
-                            _triggeredDoorDir = doorDir;
-                            break;
-                        }
-                    }
+                    _triggeredDoorCmd = 6;
+                    _triggeredDoorDir = doorDir;
+                    break;
                 }
             }
         }
@@ -4815,8 +4815,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        ReadOnlySpan<byte> gameOver = [0x10, 0x0A, 0x16, 0x0E, 0x24, 0x18, 0x1F, 0x0E, 0x1B];
-        GlobalFunctions.DrawString(gameOver, 0x60, 0x90, 0);
+        GlobalFunctions.DrawString("game over", 0x60, 0x90, 0);
     }
 
     public void GotoContinueQuestion()
