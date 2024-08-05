@@ -1,14 +1,16 @@
-=== About
-
+About
+===
 This is a C# port of Aldo Nunez's excellent Legend of Zelda port based on their disassembly project.
 - (C++ port)[https://github.com/aldonunez/Loz_enhanced/tree/master]
 - (Disassembly of NES code)[https://github.com/aldonunez/zelda1-disassembly]
 
-=== Project goals:
+Project goals:
+===
 - Implement a complete vanilla port in C#.
 - Fork into an enhanced game with expanded mapping, monster, etc, capabilities, and build a new "second quest" off of this.
 
-=== Current enhancements:
+Current enhancements:
+===
 These are enabled by default.
 
 - Red candle will automatically light dark rooms.
@@ -17,7 +19,8 @@ These are enabled by default.
 - You can type your name in the name entry screen.
 - "Select" + "Start" brings up the "Save, Continue, Retry" screen.
 
-=== Cheat codes:
+Cheat codes:
+===
 Note that some cheats have `;` as a required terminator. Many can do what's not usually possible, ie, go out of bounds or spawn a specific monster where they should never be, causing game crashes.
 
 - `iddqd`: God mode.
@@ -29,6 +32,6 @@ Note that some cheats have `;` as a required terminator. Many can do what's not 
 - `sNNNN;`: does a partial name match on `NNNN` and spawns said monster. String is not fixed length. eg, `sbluetek;` spawns a blue tektite.
 - `ka`: Kills all objects on the screen.
 
-=== Status:
-
+Status:
+===
 - Still early, expect some wild refactorings/renamings/etc still to come.
