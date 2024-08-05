@@ -103,18 +103,19 @@ internal unsafe struct SoundInfo
 [DebuggerDisplay("{_audioFileName}")]
 internal class CachedSound
 {
-    public float[] AudioData { get; }
+    public byte[] AudioData { get; }
     public WaveFormat WaveFormat { get; }
 
     private readonly string _audioFileName; // for debug.
 
-    public CachedSound(string audioFileName)
+    public CachedSound(Asset asset)
     {
-        _audioFileName = audioFileName;
-        using var audioFileReader = new AudioFileReader(audioFileName);
+        _audioFileName = asset.Filename;
+        using var audioFileReader = new WaveFileReader(asset.GetStream());
+
         WaveFormat = audioFileReader.WaveFormat;
-        var wholeFile = new List<float>((int)(audioFileReader.Length / 4));
-        var readBuffer = new float[audioFileReader.WaveFormat.SampleRate * audioFileReader.WaveFormat.Channels];
+        var wholeFile = new List<byte>((int)(audioFileReader.Length / 4));
+        var readBuffer = new byte[audioFileReader.WaveFormat.SampleRate * audioFileReader.WaveFormat.Channels];
         int samplesRead;
         while ((samplesRead = audioFileReader.Read(readBuffer, 0, readBuffer.Length)) > 0)
         {
@@ -217,7 +218,7 @@ internal sealed class Sound
     private SoundInfo[] effects;
     static double[] savedPos = new double[LoPriStreams];
     private SoundInfo[] songs;
-    private AudioFileReader[] songFiles = new AudioFileReader[Songs];
+    private WaveFileReader[] songFiles = new WaveFileReader[Songs];
     private readonly EffectRequest?[] effectRequests = new EffectRequest[Instances];
     private WaveOutEvent _waveOutDevice;
     private readonly MixingSampleProvider _mixer;
@@ -241,13 +242,13 @@ internal sealed class Sound
         effects = ListResource<SoundInfo>.LoadList("Effects.dat", Effects).ToArray();
         for (var i = 0; i < Effects; i++)
         {
-            effectSamples[i] = new CachedSound(Asset.GetPath(effects[i].GetFilename()));
+            effectSamples[i] = new CachedSound(new Asset(effects[i].GetFilename()));
         }
 
         songs = ListResource<SoundInfo>.LoadList("Songs.dat", Songs).ToArray();
         for (var i = 0; i < Songs; i++)
         {
-            songFiles[i] = new AudioFileReader(Asset.GetPath(songs[i].GetFilename()));
+            songFiles[i] = new WaveFileReader(new Asset(songs[i].GetFilename()).GetStream());
         }
 
         SetVolume(volume);

@@ -46,8 +46,7 @@ namespace ExtractLoz
                 if ( options.AnalysisWrites )
                 {
                     string filename = string.Format( "map.uncompressed.{0}.{1:D3}.bin", typeName, i );
-                    var filePath = options.MakeOutPath( filename );
-                    using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+                    using ( var writer = new BinaryWriter(options.AddStream(filename) ) )
                     {
                         for ( int r = 0; r < map.GetLength( 0 ); r++ )
                         {
@@ -59,12 +58,10 @@ namespace ExtractLoz
                     }
 
                     filename = string.Format( "map.compressed-rle-row.{0}.{1:D3}.bin", typeName, i );
-                    filePath = options.MakeOutPath( filename );
-                    File.WriteAllBytes( filePath, compressedMapRleRow );
+                    options.AddFile(filename, compressedMapRleRow );
 
                     filename = string.Format( "map.compressed-rle-full.{0}.{1:D3}.bin", typeName, i );
-                    filePath = options.MakeOutPath( filename );
-                    File.WriteAllBytes( filePath, compressedMapRleFull );
+                    options.AddFile(filename, compressedMapRleFull );
                 }
             }
 

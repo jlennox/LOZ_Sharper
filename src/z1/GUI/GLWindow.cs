@@ -16,7 +16,7 @@ internal sealed class GLWindow : IDisposable
 {
     private static readonly DebugLog _log = new(nameof(GLWindow));
 
-    private readonly Game _game = new();
+    private readonly Game _game;
     private readonly IWindow? _window;
 
     private GL? _gl;
@@ -28,9 +28,22 @@ internal sealed class GLWindow : IDisposable
     private GRBackendRenderTarget? _rendertarget;
     private ImGuiController _controller;
     private System.Drawing.Rectangle _windowedRect;
+    private string _initializationException;
 
     public GLWindow()
     {
+        try
+        {
+            Asset.Initialize();
+        }
+        catch (Exception e)
+        {
+            _log.Write("Error initializing assets: " + e);
+            _initializationException = e.ToString();
+        }
+
+        _game = new Game();
+
         var options = WindowOptions.Default with
         {
             FramesPerSecond = 60,
@@ -45,7 +58,7 @@ internal sealed class GLWindow : IDisposable
         _window.Closing += OnClosing;
         _window.FocusChanged += OnFocusChanged;
         _window.Initialize();
-        _window.SetWindowIcon([Asset.RawImageIconFromResource("icon.ico")]);
+        _window.SetWindowIcon([EmbeddedResource.RawImageIconFromResource("icon.ico")]);
         _window.Run();
         _windowedRect = _window.GetRect();
     }

@@ -26,10 +26,5 @@ namespace ExtractLoz
             AlignStream( stream, 4 );
             stream.SetLength( stream.Position );
         }
-
-        public static FileStream TruncateFile( string path )
-        {
-            return File.Open( path, FileMode.Create, FileAccess.Write );
-        }
     }
 }

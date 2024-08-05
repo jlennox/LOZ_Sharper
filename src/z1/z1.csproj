@@ -1,21 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(MSBuildThisFileDirectory)\..\LozSharp.targets" />
+  
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-	<LangVersion>preview</LangVersion>
+    <Platforms>x86;x64</Platforms>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="icon.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="icon.ico" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
@@ -31,6 +21,9 @@
   </ItemGroup>
   
   <ItemGroup>
+    <None Remove="icon.ico" />
+    <EmbeddedResource Include="icon.ico" />
+    <ProjectReference Include="..\ExtractLoz\ExtractLoz.csproj" />
     <None Update="assets\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

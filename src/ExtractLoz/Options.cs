@@ -9,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace ExtractLoz
 {
@@ -16,9 +18,11 @@ namespace ExtractLoz
     {
         public string RomPath;
         public string Function;
-        public string OutPath;
         public string Error;
         public bool AnalysisWrites;
+        public byte[] RomHash;
+
+        public Dictionary<string, byte[]> Files = new();
 
         public static Options Parse( string[] args )
         {
@@ -29,65 +33,90 @@ namespace ExtractLoz
 
             options.RomPath = args[0];
             options.Function = args[1].ToLowerInvariant();
-            options.OutPath = Environment.CurrentDirectory;
-
-            for ( int i = 2; i < args.Length; i++ )
-            {
-                if ( args[i].EqualsIgnore( "-out" ) )
-                {
-                    if ( i == args.Length - 1 )
-                    {
-                        options.Error = "Output path is missing.";
-                        break;
-                    }
-
-                    options.OutPath = GetFullPath( args[i + 1], out options.Error );
-                    if ( options.OutPath == null )
-                    {
-                        options.Error = "Output path: " + options.Error;
-                        break;
-                    }
-                    i++;
-                }
-                else if ( args[i].EqualsIgnore( "-analysis-writes" ) )
-                {
-                    options.AnalysisWrites = true;
-                }
-            }
 
             return options;
         }
 
-        static string GetFullPath( string path, out string error )
+        public void AddFile(string relativePath, byte[] data)
         {
-            try
-            {
-                error = null;
-                return Path.GetFullPath( path );
-            }
-            catch ( ArgumentException e )
-            {
-                error = e.Message;
-            }
-            catch ( System.Security.SecurityException e )
-            {
-                error = e.Message;
-            }
-            catch ( NotSupportedException e )
-            {
-                error = e.Message;
-            }
-            catch ( PathTooLongException e )
-            {
-                error = e.Message;
-            }
-
-            return null;
+            Files.Add(relativePath, data);
         }
 
-        public string MakeOutPath( string relativePath )
+        public void AddFile(string relativePath, Stream data)
         {
-            return Path.Combine( OutPath, relativePath );
+            using var ms = new MemoryStream();
+            data.CopyTo(ms);
+            Files.Add(relativePath, ms.ToArray());
+        }
+
+        public void AddFile(string relativePath, MemoryStream data)
+        {
+            Files[relativePath] = data.ToArray();
+        }
+
+        public void AddFile(string relativePath, Bitmap bitmap, ImageFormat imageformat)
+        {
+            using var ms = new MemoryStream();
+            bitmap.Save(ms, imageformat);
+            Files.Add(relativePath, ms.ToArray());
+        }
+
+        public OptionsStream AddStream(string relativePath)
+        {
+            return new OptionsStream(relativePath, this);
+        }
+
+        public OptionsTempFile AddTempFile(string relativePath)
+        {
+            return new OptionsTempFile(relativePath, this);
+        }
+    }
+
+    class OptionsStream : MemoryStream
+    {
+        private readonly string _filename;
+        private readonly Options _options;
+        private bool _closed = false;
+
+        public OptionsStream(string filename, Options options)
+        {
+            _filename = filename;
+            _options = options;
+        }
+
+        public new void Dispose()
+        {
+            if (_closed) return;
+            _closed = true;
+            _options.AddFile(_filename, this);
+            base.Dispose();
+        }
+
+        public override void Close()
+        {
+            Dispose();
+            base.Close();
+        }
+    }
+
+    class OptionsTempFile : IDisposable
+    {
+        public readonly string TempFilename;
+
+        private readonly string _filename;
+        private readonly Options _options;
+
+        public OptionsTempFile(string filename, Options options)
+        {
+            TempFilename = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
+            _filename = filename;
+            _options = options;
+        }
+
+        public void Dispose()
+        {
+            using var stream = File.OpenRead(TempFilename);
+            _options.AddFile(_filename, stream);
         }
     }
 }

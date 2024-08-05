@@ -28,7 +28,7 @@ namespace ExtractLoz
         public SpriteFrame[] Frames;
     }
 
-    class Program
+    public class LozExtractor
     {
         delegate void Extractor( Options options );
 
@@ -51,92 +51,101 @@ namespace ExtractLoz
 
         static byte[] tileBuf = new byte[TileSize];
 
-        static void Main( string[] args )
+        public static Dictionary<string, byte[]> Extract( string[] args )
         {
             var options = Options.Parse( args );
 
             if ( options.Error != null )
             {
                 Console.Error.WriteLine( options.Error );
-                return;
+                return null;
             }
 
             if ( options.Function == null )
             {
                 Console.WriteLine( "Nothing to work on." );
-                return;
+                return null;
             }
-
-            Directory.CreateDirectory( options.OutPath );
 
             CheckSupportedRom( options );
 
-            Dictionary<string, Extractor> extractorMap = new Dictionary<string, Extractor>();
+            Dictionary<string, Extractor> extractorMap = new Dictionary<string, Extractor> {
+                { "overworldtiles", ExtractOverworldBundle },
+                { "underworldtiles", ExtractUnderworldBundle },
+                { "sprites", ExtractSpriteBundle },
+                { "text", ExtractTextBundle },
+                { "sound", ExtractSound }
+            };
 
-            extractorMap.Add( "overworldtiles", ExtractOverworldBundle );
-            extractorMap.Add( "underworldtiles", ExtractUnderworldBundle );
-            extractorMap.Add( "sprites", ExtractSpriteBundle );
-            extractorMap.Add( "text", ExtractTextBundle );
-            extractorMap.Add( "sound", ExtractSound );
-
-            Extractor extractor = null;
-
-            if ( options.Function == "all" )
+            foreach ( var pair in extractorMap )
             {
-                foreach ( var pair in extractorMap )
+                Console.WriteLine( "Extracting {0} ...", pair.Key );
+                pair.Value( options );
+            }
+
+            return options.Files;
+        }
+
+        public enum RomCheckResult
+        {
+            Valid,
+            FileNotFound,
+            NotNesRom,
+            NotCorrectVersion,
+        }
+
+        public const string CorrectFilename = "Legend of Zelda, The (U) (PRG0) [!].nes";
+
+        public static RomCheckResult CheckRomFile(string file)
+        {
+            if (!File.Exists(file))
+            {
+                return RomCheckResult.FileNotFound;
+            }
+
+            byte[] romImage = File.ReadAllBytes(file);
+            byte[] hash;
+
+            if (romImage.Length < 0x20010 ||
+                romImage[0] != 'N' || romImage[1] != 'E' || romImage[2] != 'S' || romImage[3] != 0x1A)
+            {
+                return RomCheckResult.NotNesRom;
+            }
+
+            using (var hashAlgo = MD5.Create())
+            {
+                hash = hashAlgo.ComputeHash(romImage, 0x10, romImage.Length - 0x10);
+            }
+
+            if (!AreHashesEqual(hash, RomMd5UProg0))
+            {
+                return RomCheckResult.NotCorrectVersion;
+            }
+
+            return RomCheckResult.Valid;
+
+            bool AreHashesEqual(byte[] a, byte[] b)
+            {
+                for (int i = 0; i < a.Length; i++)
                 {
-                    Console.WriteLine( "Extracting {0} ...", pair.Key );
-                    pair.Value( options );
+                    if (a[i] != b[i])
+                        return false;
                 }
-            }
-            else if ( extractorMap.TryGetValue( options.Function, out extractor ) )
-            {
-                Console.WriteLine( "Extracting {0} ...", options.Function );
-                extractor( options );
-            }
-            else
-            {
-                Console.Error.WriteLine( "Function not supported: {0}", options.Function );
+                return true;
             }
         }
 
         private static void CheckSupportedRom( Options options )
         {
-            if ( !File.Exists( options.RomPath ) )
+            var result = CheckRomFile( options.RomPath );
+            switch (result)
             {
-                Console.WriteLine( "ROM not found" );
-                Environment.Exit( 1 );
-            }
-
-            byte[] romImage = File.ReadAllBytes( options.RomPath );
-            byte[] hash;
-
-            if ( romImage.Length < 0x20010 ||
-                romImage[0] != 'N' || romImage[1] != 'E' || romImage[2] != 'S' || romImage[3] != 0x1A )
-            {
-                Console.WriteLine( "Input file is not an NES ROM." );
-                Environment.Exit( 1 );
-            }
-
-            using ( var hashAlgo = MD5Cng.Create() )
-            {
-                hash = hashAlgo.ComputeHash( romImage, 0x10, romImage.Length - 0x10 );
-            }
-
-            if ( !AreHashesEqual( hash, RomMd5UProg0 ) )
-            {
-                Console.WriteLine( "ROM is not supported. Pass the (U) (PRG0) version." );
-                Environment.Exit( 1 );
-            }
-
-            bool AreHashesEqual( byte[] a, byte[] b )
-            {
-                for ( int i = 0; i < a.Length; i++ )
-                {
-                    if ( a[i] != b[i] )
-                        return false;
-                }
-                return true;
+                case RomCheckResult.NotCorrectVersion:
+                    throw new Exception("ROM is not supported. Pass the (U) (PRG0) version.");
+                case RomCheckResult.NotNesRom:
+                    throw new Exception("Input file is not an NES ROM.");
+                case RomCheckResult.FileNotFound:
+                    throw new FileNotFoundException("ROM file not found");
             }
         }
 
@@ -226,9 +235,8 @@ namespace ExtractLoz
         {
             byte[] nsfImage = BuildMemoryNsf( options );
 
-            var outPath = options.MakeOutPath( tableFileBase + ".dat" );
             using ( var inStream = GetResourceStream( "ExtractLoz.Data." + tableFileBase + ".csv" ) )
-            using ( var outWriter = new BinaryWriter( Utility.TruncateFile( outPath ) ) )
+            using ( var outWriter = new BinaryWriter( options.AddStream(tableFileBase + ".dat") ) )
             {
                 var items = DatafileReader.ReadTable( inStream, SoundItem.ConvertFields );
                 foreach ( var item in items )
@@ -252,9 +260,10 @@ namespace ExtractLoz
             const double SampleRateMs = SampleRate / 1000.0;
             const double MillisecondsAFrame = 1000.0 / 60.0;
 
-            string outPath = options.MakeOutPath( item.Filename );
+            string outPath = ( item.Filename );
+            using ( var tempFile = options.AddTempFile( outPath ) )
             using ( ExtractNsf.NsfEmu emu = new ExtractNsf.NsfEmu() )
-            using ( ExtractNsf.WaveWriter waveWriter = new ExtractNsf.WaveWriter( SampleRate, outPath ) )
+            using ( ExtractNsf.WaveWriter waveWriter = new ExtractNsf.WaveWriter( SampleRate, tempFile.TempFilename ) )
             {
                 emu.SampleRate = SampleRate;
                 emu.LoadMem( nsfImage, nsfImage.Length );
@@ -319,9 +328,7 @@ namespace ExtractLoz
 
         private static void ExtractSystemPalette( Options options )
         {
-            var filePath = options.MakeOutPath( "pal.dat" );
-
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            using ( var writer = new BinaryWriter( options.AddStream("pal.dat") ) )
             {
                 foreach ( var color in DefaultSystemPalette.Colors )
                 {
@@ -383,7 +390,7 @@ namespace ExtractLoz
                 SeekUWSpriteTile( reader, UW127SpriteCHR, 0x3E );
                 DrawTile( reader, bmp, colors, 0, 0x70 );
 
-                bmp.Save( options.MakeOutPath( "font.png" ), ImageFormat.Png );
+                options.AddFile("font.png", bmp, ImageFormat.Png );
             }
         }
 
@@ -411,8 +418,7 @@ namespace ExtractLoz
                 // bit 7    : go to second line
                 // bit 6    : go to third line
 
-                var filePath = options.MakeOutPath( "text.tab" );
-                using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+                using ( var writer = new BinaryWriter( options.AddStream("text.tab") ) )
                 {
                     writer.Write( (ushort) listPtrs.Length );
 
@@ -452,8 +458,7 @@ namespace ExtractLoz
                 //  byte 1  : first column (in chars)
                 //  byte 2..: text
 
-                var filePath = options.MakeOutPath( "credits.tab" );
-                using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+                using ( var writer = new BinaryWriter( options.AddStream("credits.tab") ) )
                 {
                     writer.Write( (ushort) listPtrs.Length );
 
@@ -475,8 +480,7 @@ namespace ExtractLoz
             {
                 reader.BaseStream.Position = LineBitmap;
                 byte[] bytes = reader.ReadBytes( 12 );
-                var filePath = options.MakeOutPath( "creditsLinesBmp.dat" );
-                File.WriteAllBytes( filePath, bytes );
+                options.AddFile("creditsLinesBmp.dat", bytes );
             }
         }
 
@@ -488,7 +492,7 @@ namespace ExtractLoz
 
                 ExtractUnderworldCellarTilesDebug( reader, bmp );
 
-                bmp.Save( options.MakeOutPath( "underworldCellarTilesDebug.png" ), ImageFormat.Png );
+                options.AddFile("underworldCellarTilesDebug.png", bmp, ImageFormat.Png);
 
                 ExtractUnderworldCellarMobs( options, reader );
             }
@@ -509,14 +513,12 @@ namespace ExtractLoz
 
             // We don't need to translate secrets into primaries.
 
-            var filePath = options.MakeOutPath( "uwCellarPrimaryMobs.list" );
-            WriteListFile( filePath, primaries );
+            WriteListFile(options, "uwCellarPrimaryMobs.list", primaries );
 
             reader.BaseStream.Position = UWCellarSecondarySquareTable;
             var secondaries = reader.ReadBytes( 16 * 4 );       // 16 squares, 4 8x8 tiles each
 
-            filePath = options.MakeOutPath( "uwCellarSecondaryMobs.list" );
-            WriteListFile( filePath, secondaries );
+            WriteListFile(options, "uwCellarSecondaryMobs.list", secondaries );
         }
 
         private static void ExtractUnderworldCellarTilesDebug( BinaryReader reader, Bitmap bmp )
@@ -577,28 +579,28 @@ namespace ExtractLoz
 
                 ExtractUnderworldTilesDebug( reader, bmp );
 
-                bmp.Save( options.MakeOutPath( "underworldTilesDebug.png" ), ImageFormat.Png );
+                options.AddFile("underworldTilesDebug.png", bmp, ImageFormat.Png );
                 bmp.Dispose();
 
                 bmp = new Bitmap( 16 * 8, 16 * 8 );
 
                 ExtractUnderworldTiles( reader, bmp );
 
-                bmp.Save( options.MakeOutPath( "underworldTiles.png" ), ImageFormat.Png );
+                options.AddFile("underworldTiles.png", bmp, ImageFormat.Png );
                 bmp.Dispose();
 
                 bmp = new Bitmap( 16 * 16, 11 * 16 );
 
                 ExtractUnderworldWalls( reader, bmp );
 
-                bmp.Save( options.MakeOutPath( "underworldWalls.png" ), ImageFormat.Png );
+                options.AddFile("underworldWalls.png", bmp, ImageFormat.Png );
                 bmp.Dispose();
 
                 bmp = new Bitmap( 16 * 16, 16 * 16 );
 
                 ExtractUnderworldDoors( reader, bmp );
 
-                bmp.Save( options.MakeOutPath( "underworldDoors.png" ), ImageFormat.Png );
+                options.AddFile("underworldDoors.png", bmp, ImageFormat.Png );
                 bmp.Dispose();
 
                 ExtractUnderworldMobs( options, reader );
@@ -611,8 +613,7 @@ namespace ExtractLoz
             reader.BaseStream.Position = UnderworldSquareTable;
             var primaries = reader.ReadBytes( 8 );
 
-            var filePath = options.MakeOutPath( "uwPrimaryMobs.list" );
-            WriteListFile( filePath, primaries );
+            WriteListFile(options, "uwPrimaryMobs.list", primaries );
         }
 
         private static void ExtractUnderworldTilesDebug( BinaryReader reader, Bitmap bmp )
@@ -893,12 +894,12 @@ namespace ExtractLoz
 
                 ExtractOverworldTilesDebug( reader, bmp );
 
-                bmp.Save( options.MakeOutPath( "overworldTilesDebug.png" ), ImageFormat.Png );
+                options.AddFile("overworldTilesDebug.png", bmp, ImageFormat.Png );
                 bmp.Dispose();
 
                 bmp = new Bitmap( 16 * 8, 16 * 8 );
                 ExtractOverworldTiles( reader, bmp );
-                bmp.Save( options.MakeOutPath( "overworldTiles.png" ), ImageFormat.Png );
+                options.AddFile("overworldTiles.png", bmp, ImageFormat.Png );
                 bmp.Dispose();
 
                 ExtractOverworldMobs( options, reader );
@@ -926,14 +927,12 @@ namespace ExtractLoz
                     primaries[i] = secrets[primary - 0xE5];
             }
 
-            var filePath = options.MakeOutPath( "owPrimaryMobs.list" );
-            WriteListFile( filePath, primaries );
+            WriteListFile(options, "owPrimaryMobs.list", primaries );
 
             reader.BaseStream.Position = SecondarySquareTable;
             var secondaries = reader.ReadBytes( 16 * 4 );       // 16 squares, 4 8x8 tiles each
 
-            filePath = options.MakeOutPath( "owSecondaryMobs.list" );
-            WriteListFile( filePath, secondaries );
+            WriteListFile(options, "owSecondaryMobs.list", secondaries );
         }
 
         private static void ExtractOverworldTilesDebug( BinaryReader reader, Bitmap bmp )
@@ -950,8 +949,8 @@ namespace ExtractLoz
             int x = 0;
             int y = 0;
 
-            // Even though the graphics system can make a texture smaller than 16x16, 
-            // the texture is really 16x16 underneath. Use this size to calculate the 
+            // Even though the graphics system can make a texture smaller than 16x16,
+            // the texture is really 16x16 underneath. Use this size to calculate the
             // colors.
 
             Color[] colors = GetPaletteStandInColors();
@@ -974,7 +973,7 @@ namespace ExtractLoz
             }
         }
 
-        private static void GetOverworldMobTiles( 
+        private static void GetOverworldMobTiles(
             int i, byte[] primaries, byte[] secondaries, byte[] secrets, byte[] tileIndexes )
         {
             if ( i < 16 )
@@ -1011,7 +1010,7 @@ namespace ExtractLoz
 
         private static bool IsWalkable( int t )
         {
-            // DF D5 D2 CC AD AC 9C 91 8D 
+            // DF D5 D2 CC AD AC 9C 91 8D
             // < 89
 
             switch ( t )
@@ -1137,8 +1136,7 @@ namespace ExtractLoz
                 }
             }
 
-            var filePath = options.MakeOutPath( "overworldTileAttrs.dat" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            using ( var writer = new BinaryWriter( options.AddStream("overworldTileAttrs.dat") ) )
             {
                 for ( int i = 0; i < 56; i++ )
                 {
@@ -1243,8 +1241,7 @@ namespace ExtractLoz
             tileToBehaviorMap[0x72] = (byte) TileBehavior.GenericWalkable;
             tileToBehaviorMap[0x73] = (byte) TileBehavior.GenericWalkable;
 
-            string outPath = options.MakeOutPath( "owTileBehaviors.dat" );
-            File.WriteAllBytes( outPath, tileToBehaviorMap );
+            options.AddFile("owTileBehaviors.dat", tileToBehaviorMap );
         }
 
         private static bool IsUnderworldWalkable( int t )
@@ -1309,8 +1306,7 @@ namespace ExtractLoz
             tileAttrs[8] = 0xF;
             tileActions[8] = TileAction.None;
 
-            var filePath = options.MakeOutPath( "underworldTileAttrs.dat" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            using ( var writer = new BinaryWriter( options.AddStream("underworldTileAttrs.dat") ) )
             {
                 for ( int i = 0; i < tileAttrs.Length; i++ )
                 {
@@ -1374,8 +1370,7 @@ namespace ExtractLoz
                 }
             }
 
-            var filePath = options.MakeOutPath( "underworldCellarTileAttrs.dat" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            using ( var writer = new BinaryWriter( options.AddStream("underworldCellarTileAttrs.dat") ) )
             {
                 for ( int i = 0; i < 56; i++ )
                 {
@@ -1447,8 +1442,8 @@ namespace ExtractLoz
             // For stairs, only treat the top left corner specially.
             tileToBehaviorMap[0x70] = (byte) TileBehavior.Stairs;
 
-            string outPath = options.MakeOutPath( "uwTileBehaviors.dat" );
-            File.WriteAllBytes( outPath, tileToBehaviorMap );
+            string outPath = ( "uwTileBehaviors.dat" );
+            options.AddFile( outPath, tileToBehaviorMap );
         }
 
         const int OWRoomCols = 0x15418 + 16;
@@ -1479,11 +1474,11 @@ namespace ExtractLoz
                 colTables = reader.ReadBytes( 964 );
             }
 
-            var filePath = options.MakeOutPath( "overworldRoomCols.dat" );
-            File.WriteAllBytes( filePath, roomCols );
+            var filePath = ( "overworldRoomCols.dat" );
+            options.AddFile( filePath, roomCols );
 
-            filePath = options.MakeOutPath( "overworldCols.tab" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            filePath = ( "overworldCols.tab" );
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 writer.Write( (ushort) colTablePtrs.Length );
                 for ( int i = 0; i < colTablePtrs.Length; i++ )
@@ -1538,8 +1533,8 @@ namespace ExtractLoz
                 colTables = reader.ReadBytes( 222 );
             }
 
-            var filePath = options.MakeOutPath( "underworldRoomCols.dat" );
-            using ( var stream = Utility.TruncateFile( filePath ) )
+            var filePath = ( "underworldRoomCols.dat" );
+            using ( var stream = options.AddStream(filePath) )
             {
                 byte[] padding = new byte[4];
                 for ( int i = 0; i < 64; i++ )
@@ -1549,8 +1544,8 @@ namespace ExtractLoz
                 }
             }
 
-            filePath = options.MakeOutPath( "underworldCols.tab" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            filePath = ( "underworldCols.tab" );
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 writer.Write( (ushort) colTablePtrs.Length );
                 for ( int i = 0; i < colTablePtrs.Length; i++ )
@@ -1599,11 +1594,11 @@ namespace ExtractLoz
                 colTables = reader.ReadBytes( 34 );
             }
 
-            var filePath = options.MakeOutPath( "underworldCellarRoomCols.dat" );
-            File.WriteAllBytes( filePath, roomCols );
+            var filePath = ( "underworldCellarRoomCols.dat" );
+            options.AddFile( filePath, roomCols );
 
-            filePath = options.MakeOutPath( "underworldCellarCols.tab" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            filePath = ( "underworldCellarCols.tab" );
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 writer.Write( (ushort) colTablePtrs.Length );
                 for ( int i = 0; i < colTablePtrs.Length; i++ )
@@ -1711,16 +1706,16 @@ namespace ExtractLoz
             // index of outer palette   2
             // index of inner palette   2
             // enemy count              4
-            // 
+            //
             // monster list ID low      6
             // monster list ID high     1
-            // 
+            //
             // exit column              4
             // exit row (-1)            3
-            // 
+            //
             // cave index               6
             // quest secrets            2
-            // 
+            //
             // index shortcut pos       2
             // zora                     1
             // edge enemies             1
@@ -1787,8 +1782,8 @@ namespace ExtractLoz
                 roomAttrs = ReadOverworldRoomAttrs( reader );
             }
 
-            var filePath = options.MakeOutPath( "overworldRoomAttr.dat" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            var filePath = ( "overworldRoomAttr.dat" );
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 for ( int i = 0; i < 128; i++ )
                 {
@@ -1893,19 +1888,19 @@ namespace ExtractLoz
             // index of outer palette   2
             // index of inner palette   2
             // enemy count              4
-            // 
+            //
             // monster list ID low      6
             // monster list ID high     1
-            // 
+            //
             // S door                   3
             // N door                   3
-            // 
+            //
             // E door                   3
             // W door                   3
-            // 
+            //
             // item                     5
             // index item pos           2
-            // 
+            //
             // secret                   3
             // push block               1
             // dark                     1
@@ -2003,8 +1998,8 @@ namespace ExtractLoz
             }
 
             var filename = string.Format( "underworldRoomAttr{0}.dat", uwLevelGroup );
-            var filePath = options.MakeOutPath( filename );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            var filePath = ( filename );
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 for ( int i = 0; i < 128; i++ )
                 {
@@ -2176,8 +2171,8 @@ namespace ExtractLoz
                 roomAttrs.other[0x74] = 0x00;
             }
 
-            var filePath = options.MakeOutPath( "overworldRoomSparseAttr.tab" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            var filePath = ( "overworldRoomSparseAttr.tab" );
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 var ptrs = new ushort[AttrLines];
                 int i = 0;
@@ -2272,7 +2267,7 @@ namespace ExtractLoz
                 writer.Write( id );
         }
 
-        private static void WriteRoomPos( 
+        private static void WriteRoomPos(
             BinaryWriter writer, byte[] roomIds, byte[] positions )
         {
             writer.Write( (byte) roomIds.Length );
@@ -2284,7 +2279,7 @@ namespace ExtractLoz
             }
         }
 
-        private static void WriteRoomMaze( 
+        private static void WriteRoomMaze(
             BinaryWriter writer, byte[] roomIds, byte[] exitDirs, byte[][] paths )
         {
             writer.Write( (byte) roomIds.Length );
@@ -2298,7 +2293,7 @@ namespace ExtractLoz
             }
         }
 
-        private static void WriteRoomByte( 
+        private static void WriteRoomByte(
             BinaryWriter writer, byte[] roomIds, byte[] bytes )
         {
             writer.Write( (byte) roomIds.Length );
@@ -2342,7 +2337,7 @@ namespace ExtractLoz
         const int InfoBlockCellarRoomIdCount = 10;
         const int OWLastSpritePal = 0x1A281 + 16;
 
-        private static void WritePalettes( 
+        private static void WritePalettes(
             BinaryWriter writer, byte[] paletteBytes, int paletteByteCount )
         {
             for ( int i = 0; i < paletteByteCount; i++ )
@@ -2354,24 +2349,24 @@ namespace ExtractLoz
                 // Index 0 is opaque for BG palettes, and transparent for sprites.
                 // The first 4 palettes are for BG; the second 4 are for sprites.
                 writer.Write( colorIndex );
-                // Alpha for BG palettes has to be 0 at color index 0, too, because sprites 
+                // Alpha for BG palettes has to be 0 at color index 0, too, because sprites
                 // can go behind the background.
             }
         }
 
         private static void ExtractOverworldInfo( Options options )
         {
-            var filePath = options.MakeOutPath( "overworldInfo.dat" );
+            var filePath = ( "overworldInfo.dat" );
 
             using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 const int PaletteByteCount = 8 * 4;
 
                 reader.BaseStream.Position = OWInfoBlock + InfoBlockPalettesOffset;
                 byte[] paletteBytes = reader.ReadBytes( PaletteByteCount );
 
-                // Overwrite the last sprite palette, because the original doesn't seem to be used, 
+                // Overwrite the last sprite palette, because the original doesn't seem to be used,
                 // but the other one is. It's used by zoras and moblins, and for flashing.
                 reader.BaseStream.Position = OWLastSpritePal;
                 reader.Read( paletteBytes, 7 * 4, 4 );
@@ -2383,7 +2378,7 @@ namespace ExtractLoz
                     // Index 0 is opaque for BG palettes, and transparent for sprites.
                     // The first 4 palettes are for BG; the second 4 are for sprites.
                     writer.Write( colorIndex );
-                    // Alpha for BG palettes has to be 0 at color index 0, too, because sprites 
+                    // Alpha for BG palettes has to be 0 at color index 0, too, because sprites
                     // can go behind the background.
                 }
 
@@ -2481,7 +2476,7 @@ namespace ExtractLoz
 
         const int InfoBlockSize = 0xFC;
 
-        static readonly string[] bossImageFilenames = new string[] 
+        static readonly string[] bossImageFilenames = new string[]
         {
             "",
             "uwBoss1257.png",
@@ -2495,7 +2490,7 @@ namespace ExtractLoz
             "uwBoss9.png",
         };
 
-        static readonly string[] bossSheetFilenames = new string[] 
+        static readonly string[] bossSheetFilenames = new string[]
         {
             "",
             "uwBossSheet1257.tab",
@@ -2524,11 +2519,11 @@ namespace ExtractLoz
         private static void ExtractUnderworldInfo( Options options, int quest, int level )
         {
             var filename = string.Format( "levelInfo_{0}_{1}.dat", quest, level );
-            var filePath = options.MakeOutPath( filename );
+            var filePath = ( filename );
             int effectiveLevel = level;
 
             using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 int quest2DiffAddr = 0;
 
@@ -2561,7 +2556,7 @@ namespace ExtractLoz
                     // Index 0 is opaque for BG palettes, and transparent for sprites.
                     // The first 4 palettes are for BG; the second 4 are for sprites.
                     writer.Write( colorIndex );
-                    // Alpha for BG palettes has to be 0 at color index 0, too, because sprites 
+                    // Alpha for BG palettes has to be 0 at color index 0, too, because sprites
                     // can go behind the background.
                 }
 
@@ -2716,9 +2711,9 @@ namespace ExtractLoz
         {
             const int EntryLength = 32;
 
-            var filePath = options.MakeOutPath( string.Format( "levelDir_{0}_{1}.dat", quest, level ) );
+            var filePath = ( string.Format( "levelDir_{0}_{1}.dat", quest, level ) );
 
-            using ( var stream = Utility.TruncateFile( filePath ) )
+            using ( var stream = options.AddStream(filePath) )
             {
                 WriteFixedString( stream, dir.LevelInfoBlock, EntryLength );
                 WriteFixedString( stream, dir.RoomCols, EntryLength );
@@ -2763,15 +2758,15 @@ namespace ExtractLoz
 
         private static void ExtractOverworldInfoEx( Options options )
         {
-            var filePath = options.MakeOutPath( "overworldInfoEx.tab" );
+            var filePath = ( "overworldInfoEx.tab" );
 
             using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 const int Alignment = 4;
                 const int DataLines = 8;
 
-                ReadTranslateDelegate[] converters = new ReadTranslateDelegate[DataLines] 
+                ReadTranslateDelegate[] converters = new ReadTranslateDelegate[DataLines]
                 {
                     ReadTranslateOWPondColors,
                     ReadTranslateSpawnSpots,
@@ -3004,8 +2999,8 @@ namespace ExtractLoz
                 }
             }
 
-            var filePath = options.MakeOutPath( "objLists.tab" );
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( filePath ) ) )
+            var filePath = ( "objLists.tab" );
+            using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 writer.Write( (ushort) listPtrs.Length );
                 for ( int i = 0; i < listPtrs.Length; i++ )
@@ -3031,7 +3026,7 @@ namespace ExtractLoz
 
         private static Color[] GetPaletteStandInColors()
         {
-            Color[] colors = new Color[] 
+            Color[] colors = new Color[]
             {
                 Color.FromArgb( 0, 0, 0 ),
                 Color.FromArgb( 16, 0x80, 0x00 ),
@@ -3043,7 +3038,7 @@ namespace ExtractLoz
 
         private static Color[] GetPaletteContrastColors()
         {
-            Color[] colors = new Color[] 
+            Color[] colors = new Color[]
             {
                 Color.FromArgb( 0, 0, 0 ),
                 Color.FromArgb( 64, 0, 0 ),
@@ -3059,32 +3054,32 @@ namespace ExtractLoz
             {
                 Bitmap bmp = new Bitmap( 8 * 16, 8 * 16 );
                 ExtractPlayerItemSprites( reader, bmp );
-                bmp.Save( options.MakeOutPath( "playerItem.png" ), ImageFormat.Png );
+                options.AddFile("playerItem.png", bmp, ImageFormat.Png );
                 WritePlayerItemSpecs( options );
 
                 bmp = new Bitmap( 8 * 16, 8 * 16 );
                 ExtractOverworldNpcSprites( reader, bmp );
-                bmp.Save( options.MakeOutPath( "owNpcs.png" ), ImageFormat.Png );
+                options.AddFile("owNpcs.png", bmp, ImageFormat.Png );
                 WriteOverworldNpcSpecs( options );
 
                 bmp = new Bitmap( 8 * 16, 8 * 16 );
                 ExtractUnderworldNpcSprites( reader, bmp );
-                bmp.Save( options.MakeOutPath( "uwNpcs.png" ), ImageFormat.Png );
+                options.AddFile("uwNpcs.png", bmp, ImageFormat.Png );
                 WriteUnderworldNpcSpecs( options );
 
                 bmp = new Bitmap( 8 * 16, 8 * 16 );
                 ExtractUnderworldBossSpriteGroup( reader, bmp, "UWBossImage1257", UW1257BossCHR, 0 );
-                bmp.Save( options.MakeOutPath( "uwBoss1257.png" ), ImageFormat.Png );
+                options.AddFile("uwBoss1257.png", bmp, ImageFormat.Png );
                 WriteUnderworldBossSpecs( options, "uwBossSheet1257.tab", "UWBossSheet1257.csv" );
 
                 bmp = new Bitmap( 8 * 16, 8 * 16 );
                 ExtractUnderworldBossSpriteGroup( reader, bmp, "UWBossImage3468", UW3468BossCHR, 0 );
-                bmp.Save( options.MakeOutPath( "uwBoss3468.png" ), ImageFormat.Png );
+                options.AddFile("uwBoss3468.png", bmp, ImageFormat.Png );
                 WriteUnderworldBossSpecs( options, "uwBossSheet3468.tab", "UWBossSheet3468.csv" );
 
                 bmp = new Bitmap( 8 * 16, 8 * 16 );
                 ExtractUnderworldBossSpriteGroup( reader, bmp, "UWBossImage9", UW9BossCHR, 0 );
-                bmp.Save( options.MakeOutPath( "uwBoss9.png" ), ImageFormat.Png );
+                options.AddFile("uwBoss9.png", bmp, ImageFormat.Png );
                 WriteUnderworldBossSpecs( options, "uwBossSheet9.tab", "UWBossSheet9.csv" );
             }
         }
@@ -3143,9 +3138,9 @@ namespace ExtractLoz
 
         private static void WritePlayerItemSpecs( Options options )
         {
-            var outPath = options.MakeOutPath( "playerItemsSheet.tab" );
+            var outPath = ( "playerItemsSheet.tab" );
             using ( var inStream = GetResourceStream( "ExtractLoz.Data.PlayerItemsSheet.csv" ) )
-            using ( var outStream = Utility.TruncateFile( outPath ) )
+            using ( var outStream = options.AddStream( outPath ) )
             {
                 DatafileReader.ConvertSpriteAnimTable( inStream, outStream );
             }
@@ -3191,7 +3186,7 @@ namespace ExtractLoz
             DrawHalfSprite( reader, bmp, colors, 12 * 8, 0, 0, 0x44 );
         }
 
-        private static void ExtractUnderworldNpcSpriteGroup( 
+        private static void ExtractUnderworldNpcSpriteGroup(
             BinaryReader reader, Bitmap bmp, string mapResName, int chrBase, int baseY )
         {
             ushort[,] map = LoadSpriteMap( mapResName );
@@ -3249,9 +3244,9 @@ namespace ExtractLoz
 
         private static void WriteOverworldNpcSpecs( Options options )
         {
-            var outPath = options.MakeOutPath( "owNpcsSheet.tab" );
+            var outPath = ( "owNpcsSheet.tab" );
             using ( var inStream = GetResourceStream( "ExtractLoz.Data.OWNpcsSheet.csv" ) )
-            using ( var outStream = Utility.TruncateFile( outPath ) )
+            using ( var outStream = options.AddStream( outPath ) )
             {
                 DatafileReader.ConvertSpriteAnimTable( inStream, outStream );
             }
@@ -3259,9 +3254,9 @@ namespace ExtractLoz
 
         private static void WriteUnderworldNpcSpecs( Options options )
         {
-            var outPath = options.MakeOutPath( "uwNpcsSheet.tab" );
+            var outPath = ( "uwNpcsSheet.tab" );
             using ( var inStream = GetResourceStream( "ExtractLoz.Data.UWNpcsSheet.csv" ) )
-            using ( var outStream = Utility.TruncateFile( outPath ) )
+            using ( var outStream = options.AddStream( outPath ) )
             {
                 DatafileReader.ConvertSpriteAnimTable( inStream, outStream );
             }
@@ -3269,9 +3264,9 @@ namespace ExtractLoz
 
         private static void WriteUnderworldBossSpecs( Options options, string fileName, string resName )
         {
-            var outPath = options.MakeOutPath( fileName );
+            var outPath = ( fileName );
             using ( var inStream = GetResourceStream( "ExtractLoz.Data." + resName ) )
-            using ( var outStream = Utility.TruncateFile( outPath ) )
+            using ( var outStream = options.AddStream( outPath ) )
             {
                 DatafileReader.ConvertSpriteAnimTable( inStream, outStream );
             }
@@ -3299,7 +3294,7 @@ namespace ExtractLoz
                     y += 8;
                 }
 
-                bmp.Save( options.MakeOutPath( "owSpriteVRAM.png" ), ImageFormat.Png );
+                options.AddFile("owSpriteVRAM.png", bmp, ImageFormat.Png );
             }
         }
 
@@ -3524,9 +3519,9 @@ namespace ExtractLoz
             return asm.GetManifestResourceStream( name );
         }
 
-        private static void WriteListFile( string path, byte[] items )
+        private static void WriteListFile(Options options, string path, byte[] items )
         {
-            using ( var writer = new BinaryWriter( Utility.TruncateFile( path ) ) )
+            using ( var writer = new BinaryWriter(options.AddStream(path)) )
             {
                 writer.Write( (ushort) items.Length );
                 writer.Write( items );
