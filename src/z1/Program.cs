@@ -32,6 +32,7 @@ namespace z1;
 // * Dungeon locked doors glitch: https://gamefaqs.gamespot.com/boards/563433-the-legend-of-zelda/63821853
 
 // Enhancements:
+// * Ten count indicator.
 // * Having the red candle causes dark rooms to auto fade in.
 //   Blue candle does not because it can only be used once per room, this would be too strong of a buf as a weapon for it.
 // * Reimplement mic kill of pols voice
