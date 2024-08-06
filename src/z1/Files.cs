@@ -327,8 +327,9 @@ internal unsafe struct LevelInfoBlock
 internal struct ObjectAttr
 {
     [Flags]
-    public enum Type
+    private enum Type
     {
+        None = 0,
         CustomCollision = 1,
         CustomDraw = 4,
         Unknown10__ = 0x10,
@@ -340,7 +341,7 @@ internal struct ObjectAttr
 
     public short Data;
 
-    public readonly Type Typed => (Type)Data;
+    private readonly Type Typed => (Type)Data;
 
     public readonly bool GetCustomCollision() => Typed.HasFlag(Type.CustomCollision);
     public readonly bool GetUnknown10__() => Typed.HasFlag(Type.Unknown10__);

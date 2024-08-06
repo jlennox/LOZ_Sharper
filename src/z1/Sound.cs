@@ -73,7 +73,7 @@ internal enum SoundFlags
 {
     None = 0,
     PlayIfQuietSlot = 1,
-};
+}
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal unsafe struct SoundInfo
@@ -99,12 +99,87 @@ internal unsafe struct SoundInfo
             return Encoding.ASCII.GetString(p, length);
         }
     }
+
+    public Asset GetAsset() => new(GetFilename());
+}
+
+// This is a version of `AudioFileReader` modified to take a stream instead of a filename.
+public class StreamedAudioFileReader : WaveStream, ISampleProvider
+{
+    private WaveStream _readerStream;
+    private readonly SampleChannel _sampleChannel;
+    private readonly int _destBytesPerSample;
+    private readonly int _sourceBytesPerSample;
+    private readonly long _length;
+    private readonly object _lockObject;
+
+    public StreamedAudioFileReader(Stream stream)
+    {
+        _lockObject = new object();
+        CreateReaderStream(stream);
+        _sourceBytesPerSample = _readerStream.WaveFormat.BitsPerSample / 8 * _readerStream.WaveFormat.Channels;
+        _sampleChannel = new SampleChannel(_readerStream, false);
+        _destBytesPerSample = 4 * _sampleChannel.WaveFormat.Channels;
+        _length = SourceToDest(_readerStream.Length);
+    }
+
+    private void CreateReaderStream(Stream stream)
+    {
+        _readerStream = new WaveFileReader(stream);
+        if (_readerStream.WaveFormat.Encoding is WaveFormatEncoding.Pcm or WaveFormatEncoding.IeeeFloat) return;
+        _readerStream = WaveFormatConversionStream.CreatePcmStream(_readerStream);
+        _readerStream = new BlockAlignReductionStream(_readerStream);
+    }
+
+    public override WaveFormat WaveFormat => _sampleChannel.WaveFormat;
+    public override long Length => _length;
+    public override long Position
+    {
+        get => SourceToDest(_readerStream.Position);
+        set
+        {
+            lock (_lockObject)
+                _readerStream.Position = DestToSource(value);
+        }
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        var waveBuffer = new WaveBuffer(buffer);
+        var count1 = count / 4;
+        return Read(waveBuffer.FloatBuffer, offset / 4, count1) * 4;
+    }
+
+    public int Read(float[] buffer, int offset, int count)
+    {
+        lock (_lockObject)
+            return _sampleChannel.Read(buffer, offset, count);
+    }
+
+    public float Volume
+    {
+        get => _sampleChannel.Volume;
+        set => _sampleChannel.Volume = value;
+    }
+
+    private long SourceToDest(long sourceBytes) => _destBytesPerSample * (sourceBytes / _sourceBytesPerSample);
+    private long DestToSource(long destBytes) => _sourceBytesPerSample * (destBytes / _destBytesPerSample);
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && _readerStream != null)
+        {
+            _readerStream.Dispose();
+            _readerStream = null;
+        }
+        base.Dispose(disposing);
+    }
 }
 
 [DebuggerDisplay("{_audioFileName}")]
-internal class CachedSound
+internal sealed class CachedSound
 {
-    public byte[] AudioData { get; }
+    public float[] AudioData { get; }
     public WaveFormat WaveFormat { get; }
 
     private readonly string _audioFileName; // for debug.
@@ -112,11 +187,11 @@ internal class CachedSound
     public CachedSound(Asset asset)
     {
         _audioFileName = asset.Filename;
-        using var audioFileReader = new WaveFileReader(asset.GetStream());
+        using var audioFileReader = new StreamedAudioFileReader(asset.GetStream());
 
         WaveFormat = audioFileReader.WaveFormat;
-        var wholeFile = new List<byte>((int)(audioFileReader.Length / 4));
-        var readBuffer = new byte[audioFileReader.WaveFormat.SampleRate * audioFileReader.WaveFormat.Channels];
+        var wholeFile = new List<float>((int)(audioFileReader.Length / 4));
+        var readBuffer = new float[audioFileReader.WaveFormat.SampleRate * audioFileReader.WaveFormat.Channels];
         int samplesRead;
         while ((samplesRead = audioFileReader.Read(readBuffer, 0, readBuffer.Length)) > 0)
         {
@@ -126,7 +201,7 @@ internal class CachedSound
     }
 }
 
-internal class CachedSampleProvider : ISampleProvider
+internal sealed class CachedSampleProvider : ISampleProvider
 {
     private readonly CachedSound _cachedSound;
     private readonly bool _loop;
@@ -162,8 +237,6 @@ internal class CachedSampleProvider : ISampleProvider
         return totalSamplesCopied;
     }
 }
-
-internal sealed record EffectRequest(SoundEffect SoundId, bool Loop);
 
 internal sealed class LoopStream : WaveStream
 {
@@ -213,6 +286,8 @@ internal sealed class Sound
     private const int Effects = (int)SoundEffect.MAX;
     private const int VolumeIncrements = 5;
 
+    private readonly record struct EffectRequest(SoundEffect SoundId, bool Loop);
+
     private readonly bool _disableAudio = false;
 
     private CachedSound[] effectSamples = new CachedSound[Effects];
@@ -220,8 +295,8 @@ internal sealed class Sound
     static double[] savedPos = new double[LoPriStreams];
     private SoundInfo[] songs;
     private WaveFileReader[] songFiles = new WaveFileReader[Songs];
-    private readonly EffectRequest?[] effectRequests = new EffectRequest[Instances];
-    private WaveOutEvent _waveOutDevice;
+    private readonly EffectRequest?[] effectRequests = new EffectRequest?[Instances];
+    private readonly WaveOutEvent _waveOutDevice;
     private readonly MixingSampleProvider _mixer;
 
     private readonly ISampleProvider?[] _playingSongSamples = new ISampleProvider[Streams];
@@ -243,13 +318,13 @@ internal sealed class Sound
         effects = ListResource<SoundInfo>.LoadList("Effects.dat", Effects).ToArray();
         for (var i = 0; i < Effects; i++)
         {
-            effectSamples[i] = new CachedSound(new Asset(effects[i].GetFilename()));
+            effectSamples[i] = new CachedSound(effects[i].GetAsset());
         }
 
         songs = ListResource<SoundInfo>.LoadList("Songs.dat", Songs).ToArray();
         for (var i = 0; i < Songs; i++)
         {
-            songFiles[i] = new WaveFileReader(new Asset(songs[i].GetFilename()).GetStream());
+            songFiles[i] = new WaveFileReader(songs[i].GetAsset().GetStream());
         }
 
         SetVolume(volume);
@@ -297,7 +372,7 @@ internal sealed class Sound
         var index = instance == -1 ? effects[(int)id].Slot - 1 : instance;
 
         ref var request = ref effectRequests[index];
-        if (request == null || effects[(int)id].Priority < effects[(int)request.SoundId].Priority)
+        if (request == null || effects[(int)id].Priority < effects[(int)request.Value.SoundId].Priority)
         {
             request = new EffectRequest(id, loop);
         }
@@ -309,12 +384,12 @@ internal sealed class Sound
         {
             ref var request = ref effectRequests[i];
             if (request == null) continue;
-            var id = request.SoundId;
+            var id = request.Value.SoundId;
             // JOE: TODO: Arg. Need to support this.
             // if (!effects[(int)id].HasPlayIfQuietSlot)
             {
                 var sample = effectSamples[(int)id];
-                var input = new CachedSampleProvider(sample, request.Loop);
+                var input = new CachedSampleProvider(sample, request.Value.Loop);
                 _mixer.AddMixerInput(input);
             }
 

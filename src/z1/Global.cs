@@ -85,7 +85,7 @@ internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette
     public Palette GetPalette() => Palette;
     public bool HasFlashAttr() => Flash;
 
-    public static readonly ImmutableArray<ItemGraphics> Items = [
+    public static readonly ItemGraphics[] Items = [
         new(AnimationId.BombItem, Palette.Blue),
         new(AnimationId.SwordItem, Palette.Player),
         new(AnimationId.SwordItem, Palette.Blue),
