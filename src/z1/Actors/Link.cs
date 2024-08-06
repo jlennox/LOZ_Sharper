@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using z1.IO;
 using LinkState = z1.Actors.Link.LinkState;
 
 namespace z1.Actors;
@@ -29,6 +30,8 @@ internal sealed class Link : Actor, IThrower
     }
 
     public static ReadOnlySpan<byte> PlayerLimits => [ 0xF0, 0x00, 0xDD, 0x3D ];
+
+    private static readonly DebugLog _movementTraceLog = new(nameof(Link), "MovementTrace", DebugLogDestination.None);
 
     public override bool IsPlayer => true;
 
@@ -217,8 +220,8 @@ internal sealed class Link : Actor, IThrower
         if (Moving == 0) return;
         if (Moving != (int)Facing) return;
 
-        ReadOnlySpan<sbyte> ladderOffsetsX = [ 0x10, -0x10, 0x00, 0x00 ];
-        ReadOnlySpan<sbyte> ladderOffsetsY = [ 0x03, 0x03, 0x13, -0x05 ];
+        ReadOnlySpan<sbyte> ladderOffsetsX = [0x10, -0x10, 0x00, 0x00];
+        ReadOnlySpan<sbyte> ladderOffsetsY = [0x03, 0x03, 0x13, -0x05];
 
         var dirOrd = MovingDirection.GetOrdinal();
 
@@ -256,6 +259,7 @@ internal sealed class Link : Actor, IThrower
             if (Game.World.DoorwayDir == Direction.None)
             {
                 Game.World.DoorwayDir = Facing;
+                _movementTraceLog.Write($"DoorwayDir: {Game.World.DoorwayDir}");
             }
             return;
         }
@@ -277,9 +281,9 @@ internal sealed class Link : Actor, IThrower
     private void FilterBorderInput()
     {
         // These are reverse from original, because Util::GetDirectionOrd goes in the opposite dir of $7013.
-        ReadOnlySpan<byte> outerBorderOW = [ 0x07, 0xE9, 0x45, 0xD6 ];
-        ReadOnlySpan<byte> outerBorderUW = [ 0x17, 0xD9, 0x55, 0xC6 ];
-        ReadOnlySpan<byte> innerBorder = [ 0x1F, 0xD1, 0x54, 0xBE ];
+        ReadOnlySpan<byte> outerBorderOW = [0x07, 0xE9, 0x45, 0xD6];
+        ReadOnlySpan<byte> outerBorderUW = [0x17, 0xD9, 0x55, 0xC6];
+        ReadOnlySpan<byte> innerBorder = [0x1F, 0xD1, 0x54, 0xBE];
 
         var coord = Facing.IsHorizontal() ? X : Y;
         var outerBorder = Game.World.IsOverworld() ? outerBorderOW : outerBorderUW;
@@ -291,17 +295,21 @@ internal sealed class Link : Actor, IThrower
             {
                 var mask = Facing.IsVertical() ? Direction.VerticalMask : Direction.HorizontalMask;
                 Moving = (byte)(Moving & (byte)mask);
+                _movementTraceLog.Write($"{nameof(FilterBorderInput)}.outerBorder: {MovingDirection}");
             }
         }
         else if (IsInBorder(coord, Facing, innerBorder))
         {
             _curButtons.Mask(GameButton.A);
+            _movementTraceLog.Write($"{nameof(FilterBorderInput)}.innerBorder: {MovingDirection}");
         }
     }
 
     private void HandleInput()
     {
         Moving = (byte)_curButtons.GetDirection();
+
+        _movementTraceLog.Write($"{nameof(HandleInput)}: {MovingDirection}");
 
         if (_state == 0)
         {
@@ -318,7 +326,11 @@ internal sealed class Link : Actor, IThrower
             }
         }
 
-        if (ShoveDirection != 0) return;
+        if (ShoveDirection != 0)
+        {
+            _movementTraceLog.Write($"{nameof(HandleInput)}: ShoveDirection != 0 {ShoveDirection}");
+            return;
+        }
 
         if (!Game.World.IsOverworld())
         {
@@ -349,6 +361,7 @@ internal sealed class Link : Actor, IThrower
                 }
             }
             Moving = (byte)dir;
+            _movementTraceLog.Write($"{nameof(SetMovingInDoorway)}: {MovingDirection}");
         }
     }
 
@@ -362,6 +375,7 @@ internal sealed class Link : Actor, IThrower
         if (singleMoving == Facing)
         {
             SetSpeed();
+            _movementTraceLog.Write($"{nameof(Align)}: singleMoving == Facing: {singleMoving} == {Facing}");
             return;
         }
 
@@ -370,24 +384,38 @@ internal sealed class Link : Actor, IThrower
         {
             if (_keepGoingStraight != 0)
             {
+                _movementTraceLog.Write($"{nameof(Align)}: _keepGoingStraight != 0 {_keepGoingStraight}");
                 SetSpeed();
                 return;
             }
 
-            if (Math.Abs(TileOffset) >= 4) return;
+            if (Math.Abs(TileOffset) >= 4)
+            {
+                _movementTraceLog.Write($"{nameof(Align)}: Math.Abs(TileOffset) >= 4 {TileOffset}");
+                return;
+            }
 
             if (Facing.IsGrowing())
             {
-                if (TileOffset < 0) return;
+                if (TileOffset < 0)
+                {
+                    _movementTraceLog.Write($"{nameof(Align)}: Facing.IsGrowing && TileOffset < 0 {TileOffset}");
+                    return;
+                }
             }
             else
             {
-                if (TileOffset >= 0) return;
+                if (TileOffset >= 0)
+                {
+                    _movementTraceLog.Write($"{nameof(Align)}: !Facing.IsGrowing && TileOffset >= 0 {TileOffset}");
+                    return;
+                }
             }
 
             Facing = Facing.GetOppositeDirection();
 
             TileOffset += TileOffset >= 0 ? (sbyte)-8 : (sbyte)8;
+            _movementTraceLog.Write($"{nameof(Align)}: !Facing.IsGrowing && TileOffset >= 0 {TileOffset}");
 
             // if (TileOffset >= 0)
             //     TileOffset -= 8;
@@ -396,6 +424,7 @@ internal sealed class Link : Actor, IThrower
         }
         else
         {
+            _movementTraceLog.Write($"{nameof(Align)}: Had opposites: {dir}");
             Facing = singleMoving;
             Moving = (byte)singleMoving;
         }
@@ -431,9 +460,12 @@ internal sealed class Link : Actor, IThrower
 
         if (dirCount == 0) return;
 
+        _movementTraceLog.Write($"{nameof(CalcAlignedMoving)}: dirCount {dirCount} {MovingDirection}");
+
         if (dirCount == 1)
         {
             _avoidTurningWhenDiag = 0;
+            _movementTraceLog.Write($"{nameof(CalcAlignedMoving)}: Moving = (byte)lastDir {lastDir}");
             Facing = lastDir;
             Moving = (byte)lastDir;
             SetSpeed();
@@ -442,6 +474,7 @@ internal sealed class Link : Actor, IThrower
 
         if (clearDirCount == 0)
         {
+            _movementTraceLog.Write($"{nameof(CalcAlignedMoving)}: clearDirCount");
             Moving = 0;
             return;
         }
@@ -451,6 +484,7 @@ internal sealed class Link : Actor, IThrower
         if (clearDirCount == 1 || Game.World.IsOverworld())
         {
             _avoidTurningWhenDiag = 0;
+            _movementTraceLog.Write($"{nameof(CalcAlignedMoving)}: lastClearDir {lastClearDir}");
             Facing = lastClearDir;
             Moving = (byte)lastClearDir;
             SetSpeed();
@@ -472,6 +506,7 @@ internal sealed class Link : Actor, IThrower
 
         if (Game.World.IsOverworld() || X != 0x78 || Y != 0x5D)
         {
+            _movementTraceLog.Write($"{nameof(CalcAlignedMoving)}: Moving = (byte)Facing {Facing}");
             Moving = (byte)Facing;
             SetSpeed();
             return;
@@ -482,11 +517,12 @@ internal sealed class Link : Actor, IThrower
         // Moving dir is diagonal. Take the dir component that's perpendicular to facing.
         _avoidTurningWhenDiag++;
 
-        ReadOnlySpan<byte> axisMasks = [ 3, 3, 0xC, 0xC ];
+        ReadOnlySpan<byte> axisMasks = [3, 3, 0xC, 0xC];
 
         var dirOrd = Facing.GetOrdinal();
         var movingInFacingAxis = (uint)(Moving & axisMasks[dirOrd]);
         var perpMoving = Moving ^ movingInFacingAxis;
+        _movementTraceLog.Write($"{nameof(CalcAlignedMoving)}: TakeFacingPerpDir perpMoving:{perpMoving}");
         Facing = (Direction)perpMoving;
         Moving = (byte)perpMoving;
         SetSpeed();

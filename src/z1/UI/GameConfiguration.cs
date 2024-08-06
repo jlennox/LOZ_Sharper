@@ -61,7 +61,10 @@ internal enum KeyboardModifiers
     Alt = 4,
 }
 
-internal readonly record struct KeyboardMapping(Key Key, KeyboardModifiers Modifiers = KeyboardModifiers.None);
+internal readonly record struct KeyboardMapping(Key Key, KeyboardModifiers Modifiers = KeyboardModifiers.None)
+{
+    public bool HasModifiers => Modifiers != KeyboardModifiers.None;
+}
 
 internal sealed class InputConfiguration
 {

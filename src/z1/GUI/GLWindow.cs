@@ -227,7 +227,7 @@ internal sealed class GLWindow : IDisposable
         _game.Input.SetKey(mapping);
         _game.GameCheats.OnKeyPressed(key);
 
-        if (_game.Input.IsButtonDown(GameButton.FullScreenToggle))
+        if (_game.Input.IsButtonPressing(GameButton.FullScreenToggle))
         {
             ToggleFullscreen();
         }

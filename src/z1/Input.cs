@@ -1,4 +1,5 @@
 ﻿using Silk.NET.Input;
+using z1.IO;
 using z1.UI;
 
 namespace z1;
@@ -70,7 +71,7 @@ internal readonly struct InputButtons
 
     public bool Set(GameButton value) => Buttons.Add(value);
     public bool Has(GameButton value) => Buttons.Contains(value);
-    public void Remove(GameButton value) => Buttons.Remove(value);
+    public bool Remove(GameButton value) => Buttons.Remove(value);
     public void ClearButtons() => Buttons.Clear();
     public void ClearAll()
     {
@@ -89,6 +90,8 @@ internal readonly struct InputButtons
 
 internal sealed class Input
 {
+    private static readonly DebugLog _traceLog = new(nameof(Input), DebugLogDestination.None);
+
     private readonly InputButtons _oldInputState = new();
     private readonly InputButtons _inputState = new();
 
@@ -128,7 +131,8 @@ internal sealed class Input
         where TKey : notnull
     {
         if (!map.TryGetValue(key, out var button)) return false;
-        _inputState.Set(button);
+        var didSet = _inputState.Set(button);
+        _traceLog.Write($"{nameof(SetGameButton)} button:{button} didSet:{didSet}");
         return true;
     }
 
@@ -136,7 +140,8 @@ internal sealed class Input
         where TKey : notnull
     {
         if (!map.TryGetValue(key, out var button)) return false;
-        _inputState.Remove(button);
+        var didRemove = _inputState.Remove(button);
+        _traceLog.Write($"{nameof(UnsetGameButton)} button:{button} didRemove:{didRemove}");
         return true;
     }
 
@@ -155,9 +160,10 @@ internal sealed class Input
         var found = false;
         foreach (var kv in _configuration.Keyboard)
         {
-            if (kv.Key.Key == map.Key || kv.Key.Modifiers == map.Modifiers)
+            if (kv.Key.Key == map.Key || (kv.Key.HasModifiers && kv.Key.Modifiers == map.Modifiers))
             {
-                _inputState.Remove(kv.Value);
+                var didRemove = _inputState.Remove(kv.Value);
+                _traceLog.Write($"{nameof(UnsetKey)} button:{kv.Value} didRemove:{didRemove}");
                 found = true;
             }
         }
@@ -183,7 +189,11 @@ internal sealed class Input
     }
     private void UnsetLetter(char letter) => _inputState.Characters.Remove(letter);
 
-    public void UnsetAllInput() => _inputState.ClearAll();
+    public void UnsetAllInput()
+    {
+        _traceLog.Write($"{nameof(SetGameButton)} UnsetAllInput");
+        _inputState.ClearAll();
+    }
 
     public bool IsButtonDown(GameButton buttonCode) => _inputState.Has(buttonCode);
     public bool IsButtonPressing(GameButton buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;

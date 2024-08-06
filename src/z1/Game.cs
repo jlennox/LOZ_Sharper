@@ -62,7 +62,7 @@ internal sealed class Game
     {
         public static bool SpeedUp = true;
         public static bool GodMode = true;
-        public static bool NoClip = true;
+        public static bool NoClip = false;
     }
 
     public bool Enhancements => Configuration.EnableEnhancements;

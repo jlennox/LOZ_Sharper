@@ -85,6 +85,7 @@ internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette
     public Palette GetPalette() => Palette;
     public bool HasFlashAttr() => Flash;
 
+    // This can not be an ImmutableArray<ItemGraphics> because of this bug: https://github.com/dotnet/runtime/issues/104511
     public static readonly ItemGraphics[] Items = [
         new(AnimationId.BombItem, Palette.Blue),
         new(AnimationId.SwordItem, Palette.Player),
