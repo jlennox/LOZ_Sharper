@@ -104,28 +104,9 @@ internal sealed class Input
 
     public HashSet<GameButton> GetButtons()
     {
-        var resultButtons = new HashSet<GameButton>();
-
-        foreach (var button in _inputState.Buttons)
-        {
-            if (!_oldInputState.Buttons.Contains(button))
-            {
-                resultButtons.Add(button);
-            }
-        }
-
-        foreach (var button in _oldInputState.Buttons)
-        {
-            if (_inputState.Buttons.Contains(button))
-            {
-                resultButtons.Add(button);
-            }
-        }
-
-        return resultButtons;
+        // JOE: This is a massive simplification of the C++ code. I may have borked something?
+        return new HashSet<GameButton>(_inputState.Buttons);
     }
-
-    public void SetButton(GameButton button) => _inputState.Set(button);
 
     private bool SetGameButton<TKey>(IReadOnlyDictionary<TKey, GameButton> map, TKey key)
         where TKey : notnull
@@ -160,7 +141,7 @@ internal sealed class Input
         var found = false;
         foreach (var kv in _configuration.Keyboard)
         {
-            if (kv.Key.Key == map.Key || (kv.Key.HasModifiers && kv.Key.Modifiers == map.Modifiers))
+            if (kv.Key.Key == map.Key || (kv.Key.HasModifiers && kv.Key.Modifiers.HasFlag(map.Modifiers)))
             {
                 var didRemove = _inputState.Remove(kv.Value);
                 _traceLog.Write($"{nameof(UnsetKey)} button:{kv.Value} didRemove:{didRemove}");

@@ -8,6 +8,7 @@ namespace z1;
 // * Audio
 // * Configurable keys.
 // * Proper error about being unable to find assets.
+// * Dungeon walls without doors draw over swords/bombs.
 
 // To check:
 // * Check `IsReoccuring` is proper.

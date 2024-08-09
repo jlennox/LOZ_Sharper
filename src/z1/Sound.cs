@@ -101,6 +101,7 @@ internal unsafe struct SoundInfo
     }
 
     public Asset GetAsset() => new(GetFilename());
+    public Stream GetStream() => GetAsset().GetStream();
 }
 
 // This is a version of `AudioFileReader` modified to take a stream instead of a filename.
@@ -203,14 +204,16 @@ internal sealed class CachedSound
 
 internal sealed class CachedSampleProvider : ISampleProvider
 {
+    public bool HasReachedEnd { get; private set; }
+    public bool Loop { get; set; }
+
     private readonly CachedSound _cachedSound;
-    private readonly bool _loop;
     private int _position;
 
     public CachedSampleProvider(CachedSound cachedSound, bool loop)
     {
         _cachedSound = cachedSound;
-        _loop = loop;
+        Loop = loop;
     }
 
     public WaveFormat WaveFormat => _cachedSound.WaveFormat;
@@ -229,7 +232,12 @@ internal sealed class CachedSampleProvider : ISampleProvider
 
             if (_position >= _cachedSound.AudioData.Length)
             {
-                if (!_loop) break;
+                if (!Loop)
+                {
+                    HasReachedEnd = true;
+                    break;
+                }
+
                 _position = 0;
             }
         }
@@ -238,15 +246,26 @@ internal sealed class CachedSampleProvider : ISampleProvider
     }
 }
 
+[DebuggerDisplay("{Name}")]
 internal sealed class LoopStream : WaveStream
 {
-    private readonly WaveStream _sourceStream;
+    public string Name { get; }
+    public bool HasReachedEnd { get; private set; }
+    public ISampleProvider SampleProvider { get; }
+    private long _pausedSpot = 0;
 
-    public LoopStream(WaveStream sourceStream, bool loop)
+    private readonly WaveFileReader _sourceStream;
+
+    public LoopStream(NamedWaveFileReader sourceStream, bool loop)
     {
+        Name = sourceStream.Name;
         _sourceStream = sourceStream;
         EnableLooping = loop;
+        SampleProvider = this.ToSampleProvider();
     }
+
+    public void Pause() => _pausedSpot = _sourceStream.Position;
+    public void Unpause() => _sourceStream.Position = _pausedSpot;
 
     public bool EnableLooping { get; set; }
     public override WaveFormat WaveFormat => _sourceStream.WaveFormat;
@@ -265,7 +284,12 @@ internal sealed class LoopStream : WaveStream
             var bytesRead = _sourceStream.Read(buffer, offset + totalBytesRead, count - totalBytesRead);
             if (bytesRead == 0)
             {
-                if (_sourceStream.Position == 0 || !EnableLooping) break;
+                if (_sourceStream.Position == 0 || !EnableLooping)
+                {
+                    HasReachedEnd = true;
+                    break;
+                }
+
                 _sourceStream.Position = 0;
             }
             totalBytesRead += bytesRead;
@@ -274,7 +298,22 @@ internal sealed class LoopStream : WaveStream
     }
 }
 
-#pragma warning disable CA1822 // Mark members as static
+// This is to make debugging easier.
+[DebuggerDisplay("{Name}")]
+internal sealed class NamedWaveFileReader
+{
+    public string Name { get; }
+    public WaveFileReader WaveFileReader { get; }
+
+    public NamedWaveFileReader(Asset asset)
+    {
+        Name = asset.Filename;
+        WaveFileReader = new WaveFileReader(asset.GetStream());
+    }
+
+    public static implicit operator WaveFileReader(NamedWaveFileReader named) => named.WaveFileReader;
+}
+
 internal sealed class Sound
 {
     public const int AmbientInstance = 4;
@@ -288,18 +327,19 @@ internal sealed class Sound
 
     private readonly record struct EffectRequest(SoundEffect SoundId, bool Loop);
 
-    private readonly bool _disableAudio = false;
+    private static readonly DebugLog _traceLog = new(nameof(Sound), DebugLogDestination.DebugBuildsOnly);
 
-    private CachedSound[] effectSamples = new CachedSound[Effects];
-    private SoundInfo[] effects;
-    static double[] savedPos = new double[LoPriStreams];
-    private SoundInfo[] songs;
-    private WaveFileReader[] songFiles = new WaveFileReader[Songs];
-    private readonly EffectRequest?[] effectRequests = new EffectRequest?[Instances];
+    private readonly CachedSound[] _effectSamples = new CachedSound[Effects];
+    private readonly SoundInfo[] _effects;
+    private readonly SoundInfo[] _songs;
+    private readonly NamedWaveFileReader[] _songFiles = new NamedWaveFileReader[Songs];
+    private readonly EffectRequest?[] _effectRequests = new EffectRequest?[Instances];
     private readonly WaveOutEvent _waveOutDevice;
     private readonly MixingSampleProvider _mixer;
 
-    private readonly ISampleProvider?[] _playingSongSamples = new ISampleProvider[Streams];
+    private readonly LoopStream?[] _playingSongSamples = new LoopStream[Streams];
+    private readonly LoopStream?[] _savedPlayingSongSamples = new LoopStream[LoPriStreams];
+    private readonly CachedSampleProvider?[] _playingEffectSamples = new CachedSampleProvider[Instances];
 
     private int _volume; // 0 to 100.
     private bool _isMuted = false;
@@ -315,16 +355,16 @@ internal sealed class Sound
         _waveOutDevice.Init(_mixer);
         _waveOutDevice.Play();
 
-        effects = ListResource<SoundInfo>.LoadList("Effects.dat", Effects).ToArray();
+        _effects = ListResource<SoundInfo>.LoadList("Effects.dat", Effects).ToArray();
         for (var i = 0; i < Effects; i++)
         {
-            effectSamples[i] = new CachedSound(effects[i].GetAsset());
+            _effectSamples[i] = new CachedSound(_effects[i].GetAsset());
         }
 
-        songs = ListResource<SoundInfo>.LoadList("Songs.dat", Songs).ToArray();
+        _songs = ListResource<SoundInfo>.LoadList("Songs.dat", Songs).ToArray();
         for (var i = 0; i < Songs; i++)
         {
-            songFiles[i] = new WaveFileReader(songs[i].GetAsset().GetStream());
+            _songFiles[i] = new NamedWaveFileReader(_songs[i].GetAsset());
         }
 
         SetVolume(volume);
@@ -358,23 +398,57 @@ internal sealed class Sound
 
     private void PlaySongInternal(SongId song, SongStream stream, bool loop, bool play)
     {
+        _traceLog.Write($"PlaySongInternal({song}, {stream}, {loop}, {play})");
         ref var streamBucket = ref StopSong((int)stream);
-        var waveStream = new LoopStream(songFiles[(int)song], loop);
-        streamBucket = waveStream.ToSampleProvider();
-        _mixer.AddMixerInput(streamBucket);
+        var waveStream = new LoopStream(_songFiles[(int)song], loop);
+        streamBucket = waveStream;
+        _mixer.AddMixerInput(streamBucket.SampleProvider);
     }
 
     public void PlayEffect(SoundEffect id, bool loop = false, int instance = -1)
     {
-        if (id < 0 || (int)id >= effectSamples.Length) throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown SoundEffect");
+        _traceLog.Write($"PlayEffect({id}, {loop}, {instance})");
+        if (id < 0 || (int)id >= _effectSamples.Length) throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown SoundEffect");
         if (instance is < -1 or >= Instances) throw new ArgumentOutOfRangeException(nameof(instance), instance, "Unknown instance");
 
-        var index = instance == -1 ? effects[(int)id].Slot - 1 : instance;
+        var index = instance == -1 ? _effects[(int)id].Slot - 1 : instance;
 
-        ref var request = ref effectRequests[index];
-        if (request == null || effects[(int)id].Priority < effects[(int)request.Value.SoundId].Priority)
+        ref var request = ref _effectRequests[index];
+        if (request == null || _effects[(int)id].Priority < _effects[(int)request.Value.SoundId].Priority)
         {
             request = new EffectRequest(id, loop);
+        }
+    }
+
+    private void UpdateSongs()
+    {
+        // JOE: TODO:
+        // if (_paused)
+        //     return;
+
+        ref var eventSong = ref _playingSongSamples[(int)SongStream.EventSong];
+        if (eventSong == null || !eventSong.HasReachedEnd)
+        {
+            _traceLog.Write($"UpdateSongs() {eventSong == null}, {eventSong?.HasReachedEnd}");
+            return;
+        }
+
+        eventSong.Dispose();
+        eventSong = null;
+
+        _traceLog.Write($"UpdateSongs() Checking LoPriStreams");
+
+        // JOE: This is notably different from the C++.
+        for (var i = 0; i < LoPriStreams; i++)
+        {
+            ref var saved = ref _savedPlayingSongSamples[i];
+            if (saved != null)
+            {
+                _traceLog.Write($"UpdateSongs(), resuming saved={saved.Name}");
+                saved.Unpause();
+                _mixer.AddMixerInput(saved.SampleProvider);
+                _playingSongSamples[i] = saved;
+            }
         }
     }
 
@@ -382,42 +456,55 @@ internal sealed class Sound
     {
         for (var i = 0; i < Instances; i++)
         {
-            ref var request = ref effectRequests[i];
+            ref var request = ref _effectRequests[i];
             if (request == null) continue;
-            var id = request.Value.SoundId;
-            // JOE: TODO: Arg. Need to support this.
-            // if (!effects[(int)id].HasPlayIfQuietSlot)
-            {
-                var sample = effectSamples[(int)id];
-                var input = new CachedSampleProvider(sample, request.Value.Loop);
-                _mixer.AddMixerInput(input);
-            }
-
+            var soundId = request.Value.SoundId;
+            var loop = request.Value.Loop;
             request = null;
+
+            ref var instance = ref _playingEffectSamples[i];
+
+            var hasPlayIfQuietSlot = _effects[(int)soundId].HasPlayIfQuietSlot;
+            _traceLog.Write($"UpdateEffects({soundId}, {loop}), hasPlayIfQuietSlot={hasPlayIfQuietSlot}, instance={instance != null}");
+            if (!hasPlayIfQuietSlot || (instance == null || instance.HasReachedEnd))
+            {
+                if (instance != null)
+                {
+                    _mixer.RemoveMixerInput(instance);
+                }
+
+                _traceLog.Write($"UpdateEffects({soundId}, {loop}), playing in i={i}");
+                var sample = _effectSamples[(int)soundId];
+                instance = new CachedSampleProvider(sample, loop);
+                _mixer.AddMixerInput(instance);
+            }
         }
     }
 
     public void PlaySong(SongId song, SongStream stream, bool loop)
     {
-        if (stream < 0 || (int)stream >= LoPriStreams)return;
-        if (song < 0 || (int)song >= songs.Length)return;
+        _traceLog.Write($"PlaySong({song}, {stream}, {loop})");
+        if (stream < 0 || (int)stream >= LoPriStreams) return;
+        if (song < 0 || (int)song >= _songs.Length) return;
 
-        // if (songStreams[(int)SongStream.EventSong].PlaybackState == PlaybackState.Stopped)
+        var eventSong = _playingSongSamples[(int)SongStream.EventSong];
+        if (eventSong == null || eventSong.HasReachedEnd)
         {
             PlaySongInternal(song, stream, loop, true);
             return;
         }
 
         PlaySongInternal(song, stream, loop, false);
-        savedPos[(int)stream] = 0;
+        _savedPlayingSongSamples[(int)stream] = null;
     }
 
-    private ref ISampleProvider? StopSong(int i)
+    private ref LoopStream? StopSong(int i, bool dispose = false)
     {
         ref var streamBucket = ref _playingSongSamples[i];
         if (streamBucket != null)
         {
-            _mixer.RemoveMixerInput(streamBucket);
+            _mixer.RemoveMixerInput(streamBucket.SampleProvider);
+            // JOE: TODO: Dispose here I believe?
             streamBucket = null;
         }
         return ref streamBucket;
@@ -431,24 +518,72 @@ internal sealed class Sound
         }
     }
 
-    public void PushSong(SongId song) { }
+    public void PushSong(SongId song)
+    {
+        _traceLog.Write($"PushSong({song})");
 
-    public void StopEffect(StopEffect effect) { }
-    public void StopEffects() { }
-    public void Pause() => _waveOutDevice.Pause();
-    public void Unpause() => _waveOutDevice.Play();
+         for (var i = 0; i < LoPriStreams; i++)
+         {
+             var stream = _playingSongSamples[i];
+             if (stream != null && !stream.HasReachedEnd)
+             {
+                 _traceLog.Write($"PushSong({song}), saving {stream.Name}");
+                stream.Pause();
+                StopSong(i, false);
+                ref var savedSlot = ref _savedPlayingSongSamples[i];
+                savedSlot?.Dispose();
+                savedSlot = stream;
+             }
+         }
+
+         PlaySongInternal(song, SongStream.EventSong, false, true);
+    }
+
+    public void StopEffect(StopEffect effect) => StopEffect((int)effect);
+    public void StopEffect(int effectId)
+    {
+        _traceLog.Write($"StopEffect({effectId})");
+        ref var effect = ref _playingEffectSamples[effectId];
+        if (effect != null)
+        {
+            _mixer.RemoveMixerInput(effect);
+            effect.Loop = false;
+            effect = null;
+        }
+    }
+
+    public void StopEffects()
+    {
+        _traceLog.Write("StopEffects()");
+        for (var i = 0; i < Instances; i++)
+        {
+            StopEffect(i);
+        }
+    }
+
+    public void Pause()
+    {
+        _traceLog.Write("Pause()");
+        _waveOutDevice.Pause();
+    }
+
+    public void Unpause()
+    {
+        _traceLog.Write("Unpause()");
+        _waveOutDevice.Play();
+    }
+
     public void StopAll()
     {
-        _waveOutDevice.Stop();
-        // StopSongs();
-        // StopEffects();
+        _traceLog.Write("StopAll()");
+        // _waveOutDevice.Stop();
+        StopSongs();
+        StopEffects();
     }
+
     public void Update()
     {
-        if (_waveOutDevice.PlaybackState == PlaybackState.Stopped)
-        {
-            _waveOutDevice.Play();
-        }
+        UpdateSongs();
         UpdateEffects();
     }
 }
