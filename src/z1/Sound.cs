@@ -7,6 +7,10 @@ using z1.IO;
 
 namespace z1;
 
+// HEY! LISTEN!
+// I'm not great at audio code. A lot of this could be simplified or made to be better leverage NAudio.
+// IE, there's a lot of overlap between the different custom streams here that I believe could be merged.
+
 internal enum SoundEffect
 {
     Sea,

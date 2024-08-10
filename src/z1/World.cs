@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using SkiaSharp;
 using z1.Actors;
 using z1.IO;
@@ -919,7 +920,8 @@ internal sealed unsafe partial class World
         Game.Link.SetState(PlayerState.Paused);
         Game.Link.ObjTimer = 0xC0;
 
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, [ 0, 0x0F, 0x10, 0x30 ]);
+        ReadOnlySpan<byte> palette = [0, 0x0F, 0x10, 0x30];
+        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, palette);
         Graphics.UpdatePalettes();
     }
 

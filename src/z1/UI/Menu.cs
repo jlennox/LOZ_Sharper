@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using System.Collections.Immutable;
+using SkiaSharp;
 using z1.IO;
 
 namespace z1.UI;
@@ -11,6 +12,22 @@ internal abstract class Menu
 
 internal sealed class ProfileSelectMenu : Menu
 {
+    private const int MaxProfiles = SaveFolder.MaxProfiles;
+    private const int RegisterIndex = SaveFolder.MaxProfiles + 1;
+    private const int EliminateIndex = SaveFolder.MaxProfiles + 2;
+    private const int FinalIndex = EliminateIndex;
+
+    private static readonly ImmutableArray<ImmutableArray<byte>> _palettes = [
+        [0x0F, 0x30, 0x00, 0x12],
+        [0x0F, 0x16, 0x27, 0x36],
+        [0x0F, 0x0C, 0x1C, 0x2C],
+        [0x0F, 0x12, 0x1C, 0x2C],
+        [0x00, 0x29, 0x27, 0x07],
+        [0x00, 0x29, 0x27, 0x07],
+        [0x00, 0x29, 0x27, 0x07],
+        [0x00, 0x15, 0x27, 0x30]
+    ];
+
     private int _selectedIndex;
     private readonly PlayerProfile[] _summaries;
     private readonly Game _game;
@@ -20,27 +37,16 @@ internal sealed class ProfileSelectMenu : Menu
         _game = game;
         _summaries = summaries;
 
-        var palettes = new[] {
-            new byte[] { 0x0F, 0x30, 0x00, 0x12 },
-            new byte[] { 0x0F, 0x16, 0x27, 0x36 },
-            new byte[] { 0x0F, 0x0C, 0x1C, 0x2C },
-            new byte[] { 0x0F, 0x12, 0x1C, 0x2C },
-            new byte[] { 0x00, 0x29, 0x27, 0x07 },
-            new byte[] { 0x00, 0x29, 0x27, 0x07 },
-            new byte[] { 0x00, 0x29, 0x27, 0x07 },
-            new byte[] { 0x00, 0x15, 0x27, 0x30 }
-        };
-
-        for (var i = 0; i < palettes.Length; i++)
+        for (var i = 0; i < _palettes.Length; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)i, palettes[i]);
+            Graphics.SetPaletteIndexed((Palette)i, _palettes[i]);
         }
 
         // So that characters are fully opaque.
         Graphics.SetColor(0, 0, 0xFF000000);
         Graphics.UpdatePalettes();
 
-        SelectNext();
+        SelectFirst();
     }
 
     private void StartWorld(PlayerProfile profile)
@@ -59,9 +65,9 @@ internal sealed class ProfileSelectMenu : Menu
         {
             switch (_selectedIndex)
             {
-                case < 3: StartWorld(_summaries[_selectedIndex]); break;
-                case 3: _game.World.RegisterFile(_summaries); break;
-                case 4: _game.World.EliminateFile(_summaries); break;
+                case < MaxProfiles: StartWorld(_summaries[_selectedIndex]); break;
+                case RegisterIndex: _game.World.RegisterFile(_summaries); break;
+                case EliminateIndex: _game.World.EliminateFile(_summaries); break;
             }
         }
     }
@@ -105,7 +111,7 @@ internal sealed class ProfileSelectMenu : Menu
         }
         else
         {
-            y = 0xA8 + (_selectedIndex - 3) * 16;
+            y = 0xA8 + (_selectedIndex - MaxProfiles) * 16;
         }
         GlobalFunctions.DrawChar(Char.FullHeart, 0x28, y, (Palette)7);
 
@@ -117,8 +123,22 @@ internal sealed class ProfileSelectMenu : Menu
         do
         {
             _selectedIndex++;
-            if (_selectedIndex >= 5) _selectedIndex = 0;
-        } while (_selectedIndex < 3 && !_summaries[_selectedIndex].IsActive());
+            if (_selectedIndex >= FinalIndex) _selectedIndex = 0;
+        } while (_selectedIndex < MaxProfiles && !_summaries[_selectedIndex].IsActive());
+    }
+
+    private void SelectFirst()
+    {
+        for (var i = 0; i < SaveFolder.MaxProfiles; i++)
+        {
+            if (_summaries[i].IsActive())
+            {
+                _selectedIndex = i;
+                return;
+            }
+        }
+
+        _selectedIndex = RegisterIndex;
     }
 }
 
@@ -141,11 +161,8 @@ internal sealed class EliminateMenu : Menu
         do
         {
             _selectedIndex++;
-            if (_selectedIndex >= 4)
-            {
-                _selectedIndex = 0;
-            }
-        } while (_selectedIndex < 3 && !_summaries[_selectedIndex].IsActive());
+            if (_selectedIndex >= 4) _selectedIndex = 0;
+        } while (_selectedIndex < SaveFolder.MaxProfiles && !_summaries[_selectedIndex].IsActive());
     }
 
     private void DeleteCurrentProfile()
@@ -164,13 +181,10 @@ internal sealed class EliminateMenu : Menu
         }
         else if (_game.Input.IsButtonPressing(GameButton.Start))
         {
-            if (_selectedIndex < 3)
+            switch (_selectedIndex)
             {
-                DeleteCurrentProfile();
-            }
-            else if (_selectedIndex == 3)
-            {
-                _game.World.ChooseFile(_summaries);
+                case < SaveFolder.MaxProfiles: DeleteCurrentProfile(); break;
+                case SaveFolder.MaxProfiles: _game.World.ChooseFile(_summaries); break;
             }
         }
     }
@@ -222,7 +236,7 @@ internal sealed class RegisterMenu : Menu
     private const string CharSetStr2 = "W X Y Z - . , ! ' & .";
     private const string CharSetStr3 = "0 1 2 3 4 5 6 7 8 9  ";
 
-    private static readonly string[] _charSetStrs = {
+    private static readonly ImmutableArray<string> _charSetStrs = [
         CharSetStr0,
         CharSetStrBlank,
         CharSetStr1,
@@ -230,7 +244,7 @@ internal sealed class RegisterMenu : Menu
         CharSetStr2,
         CharSetStrBlank,
         CharSetStr3,
-    };
+    ];
 
     private readonly Game _game;
     private readonly PlayerProfile[] _summaries;
@@ -255,7 +269,7 @@ internal sealed class RegisterMenu : Menu
             {
                 _selectedProfileIndex = 0;
             }
-        } while (_selectedProfileIndex < 3 && _origActive[_selectedProfileIndex]);
+        } while (_selectedProfileIndex < SaveFolder.MaxProfiles && _origActive[_selectedProfileIndex]);
     }
 
     private void MoveNextNamePosition()
@@ -351,7 +365,7 @@ internal sealed class RegisterMenu : Menu
 
     public override void Update()
     {
-        var inTextEntry = _selectedProfileIndex < 3;
+        var inTextEntry = _selectedProfileIndex < SaveFolder.MaxProfiles;
 
         if (_game.Input.IsButtonPressing(GameButton.Select))
         {
@@ -361,7 +375,7 @@ internal sealed class RegisterMenu : Menu
         }
         else if (_game.Input.IsButtonPressing(GameButton.Start))
         {
-            if (_selectedProfileIndex == 3)
+            if (_selectedProfileIndex == SaveFolder.MaxProfiles)
             {
                 CommitFiles();
                 _game.World.ChooseFile(_summaries);
@@ -453,13 +467,13 @@ internal sealed class RegisterMenu : Menu
             y += 24;
         }
 
-        if (_selectedProfileIndex < 3)
+        if (_selectedProfileIndex < SaveFolder.MaxProfiles)
         {
             y = 0x30 + _selectedProfileIndex * 24 + 4;
         }
         else
         {
-            y = 0x78 + (_selectedProfileIndex - 3) * 16;
+            y = 0x78 + (_selectedProfileIndex - SaveFolder.MaxProfiles) * 16;
         }
         GlobalFunctions.DrawChar(Char.FullHeart, 0x44, y, (Palette)7);
 

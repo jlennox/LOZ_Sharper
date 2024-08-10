@@ -395,7 +395,8 @@ internal static class GlobalFunctions
 
     public static void SetPilePalette()
     {
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, [ 0, 0x27, 0x06, 0x16 ]);
+        ReadOnlySpan<byte> palette = [0, 0x27, 0x06, 0x16];
+        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, palette);
     }
 
     public static void PlayItemSound(Game game, ItemId itemId)

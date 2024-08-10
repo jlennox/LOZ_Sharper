@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -258,6 +259,11 @@ internal static class Graphics
         SetColor(paletteIndex, colorIndex, colorArgb8);
         GetPalette(paletteIndex, colorIndex) = (byte)sysColor;
         TileCache.Clear();
+    }
+
+    public static void SetPaletteIndexed(Palette paletteIndex, ImmutableArray<byte> sysColors)
+    {
+        SetPaletteIndexed(paletteIndex, sysColors.AsSpan());
     }
 
     public static void SetPaletteIndexed(Palette paletteIndex, ReadOnlySpan<byte> sysColors)
