@@ -42,6 +42,7 @@ internal enum ItemSlot
     MaxItems
 }
 
+[DebuggerDisplay("{Data}")]
 internal class OWRoomFlags
 {
     private const int ItemState = 0x10;
@@ -50,22 +51,24 @@ internal class OWRoomFlags
     private const int CountMask = 7;
     private const int CountShift = 0;
 
-    private byte _data;
+    [JsonInclude]
+    public byte Data;
 
     // JOE: TODO: Use getters/setters.
-    public bool GetItemState() => (_data & ItemState) != 0;
-    public void SetItemState() => _data |= ItemState;
+    public bool GetItemState() => (Data & ItemState) != 0;
+    public void SetItemState() => Data |= ItemState;
 
-    public bool GetShortcutState() => (_data & ShortcutState) != 0;
-    public void SetShortcutState() => _data |= ShortcutState;
+    public bool GetShortcutState() => (Data & ShortcutState) != 0;
+    public void SetShortcutState() => Data |= ShortcutState;
 
-    public bool GetSecretState() => (_data & SecretState) != 0;
-    public void SetSecretState() => _data |= SecretState;
+    public bool GetSecretState() => (Data & SecretState) != 0;
+    public void SetSecretState() => Data |= SecretState;
 
-    public int GetObjCount() => (_data & CountMask) >> CountShift;
-    public void SetObjCount(int count) => _data = (byte)((_data & ~CountMask) | (count << CountShift));
+    public int GetObjCount() => (Data & CountMask) >> CountShift;
+    public void SetObjCount(int count) => Data = (byte)((Data & ~CountMask) | (count << CountShift));
 }
 
+[DebuggerDisplay("{Data}")]
 internal class UWRoomFlags
 {
     private const byte ItemState = 0x10;
@@ -73,20 +76,21 @@ internal class UWRoomFlags
     private const byte CountMask = 0xC0;
     private const byte CountShift = 6;
 
-    private byte _data;
+    [JsonInclude]
+    public byte Data;
 
     // JOE: TODO: Use getters/setters.
-    public bool GetItemState() => (_data & ItemState) != 0;
-    public void SetItemState() => _data |= ItemState;
+    public bool GetItemState() => (Data & ItemState) != 0;
+    public void SetItemState() => Data |= ItemState;
 
-    public bool GetVisitState() => (_data & VisitState) != 0;
-    public void SetVisitState() => _data |= VisitState;
+    public bool GetVisitState() => (Data & VisitState) != 0;
+    public void SetVisitState() => Data |= VisitState;
 
-    public bool GetDoorState(Direction dir) => (_data & (int)dir) != 0;
-    public void SetDoorState(Direction dir) => _data |= (byte)dir;
+    public bool GetDoorState(Direction dir) => (Data & (int)dir) != 0;
+    public void SetDoorState(Direction dir) => Data |= (byte)dir;
 
-    public int GetObjCount() => (_data & CountMask) >> CountShift;
-    public void SetObjCount(byte count) => _data = (byte)((_data & ~CountMask) | (byte)(count << CountShift));
+    public int GetObjCount() => (Data & CountMask) >> CountShift;
+    public void SetObjCount(byte count) => Data = (byte)((Data & ~CountMask) | (byte)(count << CountShift));
 }
 
 [DebuggerDisplay("{Name} ({Hearts})")]
@@ -102,7 +106,7 @@ internal sealed class PlayerProfile
     public int Quest { get; set; }
     public int Deaths { get; set; }
     public ItemSlot SelectedItem { get; set; }
-    [JsonIgnore]
+    [JsonIgnore] // This is a runtime only state, not saved.
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
     public int UsedCheats { get; set; }
