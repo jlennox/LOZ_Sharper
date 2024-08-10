@@ -146,7 +146,7 @@ internal sealed class EliminateMenu : Menu
 {
     private readonly Game _game;
     private readonly PlayerProfile[] _summaries;
-    private int _selectedIndex;
+    private int _selectedIndex = -1; // Account for first SelectNext. JOE: TODO: Recode all menu's into generic selection API.
 
     public EliminateMenu(Game game, PlayerProfile[] summaries)
     {
@@ -167,7 +167,7 @@ internal sealed class EliminateMenu : Menu
 
     private void DeleteCurrentProfile()
     {
-        _summaries[_selectedIndex].Name = null;
+        _summaries[_selectedIndex] = PlayerProfile.MakeDefault();
         SaveFolder.SaveProfiles();
         _game.Sound.PlayEffect(SoundEffect.PlayerHit);
     }

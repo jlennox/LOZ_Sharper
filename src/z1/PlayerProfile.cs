@@ -110,7 +110,8 @@ internal sealed class PlayerProfile
     public UWRoomFlags[] LevelFlags1 { get; set; }
     public UWRoomFlags[] LevelFlags2 { get; set; }
 
-    public PlayerProfile()
+    [JsonConstructor]
+    internal PlayerProfile()
     {
         if (Hearts == 0) Hearts = DefaultHearts;
         Items ??= new Dictionary<ItemSlot, int>();
@@ -124,7 +125,8 @@ internal sealed class PlayerProfile
         }
     }
 
-    public static PlayerProfile[] MakeDefaults() => Enumerable.Range(0, SaveFolder.MaxProfiles).Select(_ => new PlayerProfile()).ToArray();
+    public static PlayerProfile MakeDefault() => new();
+    public static PlayerProfile[] MakeDefaults() => Enumerable.Range(0, SaveFolder.MaxProfiles).Select(_ => MakeDefault()).ToArray();
 
     public int GetItem(ItemSlot slot) => Items[slot];
     public bool PreventDarkRooms(Game game) => game.Enhancements && GetItem(ItemSlot.Candle) >= 2;
