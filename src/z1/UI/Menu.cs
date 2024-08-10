@@ -13,9 +13,9 @@ internal abstract class Menu
 internal sealed class ProfileSelectMenu : Menu
 {
     private const int MaxProfiles = SaveFolder.MaxProfiles;
-    private const int RegisterIndex = SaveFolder.MaxProfiles + 1;
-    private const int EliminateIndex = SaveFolder.MaxProfiles + 2;
-    private const int FinalIndex = EliminateIndex;
+    private const int RegisterIndex = MaxProfiles;
+    private const int EliminateIndex = RegisterIndex + 1;
+    private const int FinalIndex = EliminateIndex + 1;
 
     private static readonly ImmutableArray<ImmutableArray<byte>> _palettes = [
         [0x0F, 0x30, 0x00, 0x12],
@@ -195,7 +195,8 @@ internal sealed class EliminateMenu : Menu
 
         Graphics.Clear(SKColors.Black);
 
-        GlobalFunctions.DrawString("---Elimination  Mode----", 0x20, 0x18, 0);
+        const char hor = (char)StringChar.BoxHorizontal;
+        GlobalFunctions.DrawString($"{hor}{hor}{hor}Elimination  Mode{hor}{hor}{hor}", 0x20, 0x18, 0);
         GlobalFunctions.DrawString("Elimination End", 0x50, 0x78, 0);
 
         var y = 0x30;

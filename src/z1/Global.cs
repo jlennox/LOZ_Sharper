@@ -136,12 +136,21 @@ internal enum Char
     BoxTR = 0x6B,
     BoxBL = 0x6E,
     BoxBR = 0x6D,
+    BoxHorizontal = 0x6A,
+    BoxVertical = 0x6C,
 
     X = 0x21,
     Space = 0x24,
     JustSpace = 0x25,
     Minus = 0x62,
     Plus = 0x64,
+}
+
+// The top bit indicates it'll be directly translated to a byte when inside a string.
+internal enum StringChar
+{
+    BoxHorizontal = Char.BoxHorizontal |  0x80,
+    BoxVertical = Char.BoxVertical | 0x80,
 }
 
 internal static class GlobalFunctions
@@ -332,12 +341,12 @@ internal static class GlobalFunctions
         {
             for (var xx = x + 8; xx < x2; xx += 8)
             {
-                DrawChar(0x6A, xx, ys[i], 0);
+                DrawChar(Char.BoxHorizontal, xx, ys[i], 0);
             }
 
             for (var yy = y + 8; yy < y2; yy += 8)
             {
-                DrawChar(0x6C, xs[i], yy, 0);
+                DrawChar(Char.BoxVertical, xs[i], yy, 0);
             }
         }
     }

@@ -15,7 +15,9 @@ internal static class ZeldaString
     public static IEnumerable<char> EnumerateBytes(IEnumerable<byte> bytes) => bytes.Select(CharFromByte);
     public static IEnumerable<byte> EnumerateText(IEnumerable<char> text) => text.Select(ByteFromChar);
 
+    // The top bit is used to indicate we should pass the rest of the bytes through untouched.
     public static byte ByteFromChar(char c) => c switch {
+        >= (char)0x80 => (byte)(c & ~0x80),
         ' ' => 0x24,
         ',' => 0x28,
         '!' => 0x29,
