@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
 using Silk.NET.Input;
@@ -271,21 +272,32 @@ internal sealed class GameCheats
         }
     }
 
+    public sealed class MyPosCheat : SingleWordCheat
+    {
+        public MyPosCheat() : base("idmypos", true) { }
+        public override void RunPayload(Game game, string[] args)
+        {
+            var x = game.World.CurRoomId % World.WorldWidth;
+            var y = game.World.CurRoomId / World.WorldWidth;
+            game.Toast($"Position: {x}x{y}");
+        }
+    }
+
     private readonly Game _game;
     private readonly Input _input;
 
-    private readonly Cheat[] _cheats =
-    {
+    private readonly ImmutableArray<Cheat> _cheats = [
         new OverworldWarpCheat(),
         new DungeonWarpCheat(),
         new GodModeCheat(),
         new ItemCheat(),
         new ItemsCheat(),
+        new MyPosCheat(),
         new KillAllCheat(),
         new SpeedUpCheat(),
         new WalkThroughWallsCheat(),
-        new SpawnCheat(),
-    };
+        new SpawnCheat()
+    ];
 
     public GameCheats(Game game, Input input)
     {
