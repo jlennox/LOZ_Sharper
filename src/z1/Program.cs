@@ -24,12 +24,10 @@ namespace z1;
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.
-// * Getter/setter OWRoomFlags.
+// * Rewrite the RoomAttrs. Make them a single type and mimic the RoomFlags.
 // * Refactor World enough so that Profile can not be null.
 // * Move history out of World.
-// * SIMD the palettes?
 // * Try this for the palettes? https://skia.org/docs/user/sksl/
-// * Eliminate parameterless SpriteImage constructor?
 // * File select dialog?
 
 // BUGS TO ADD:

@@ -58,6 +58,7 @@ internal readonly struct AssetLoader
         {
             Directories.Executable,
             Environment.CurrentDirectory,
+            Directories.Assets, // We copy the ROM here. This refinds it when the asset version changes.
         };
 
         var errors = new StringBuilder();
@@ -111,6 +112,8 @@ internal readonly struct AssetLoader
 
         // Write last because it doubles as a "finished" marker.
         AssetMetadata.Write(Directories.Assets);
+        // Copy the ROM incase the asset version changes.
+        File.Copy(romfile, Path.Combine(Directories.Assets, "rom.nes"), true);
         _log.Write($"Initialized using \"{romfile}\" to \"{Directories.Assets}\"");
         return assets;
     }
