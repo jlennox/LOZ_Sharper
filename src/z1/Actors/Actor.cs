@@ -198,7 +198,7 @@ internal abstract class Actor
             ObjType.RedLamnola => LamnolaActor.MakeSet(game, ActorColor.Red),
             ObjType.BlueLamnola => LamnolaActor.MakeSet(game, ActorColor.Blue),
             ObjType.Manhandla => ManhandlaActor.Make(game, x, y),
-            ObjType.Aquamentus => new AquamentusActor(game, x, y),
+            ObjType.Aquamentus => new AquamentusActor(game),
             ObjType.Ganon => new GanonActor(game, x, y),
             ObjType.GuardFire => new GuardFireActor(game, x, y),
             ObjType.StandingFire => new StandingFireActor(game, x, y),

@@ -10,6 +10,8 @@ namespace z1;
 // * Swords and items picked up out of order should not downgrade.
 // * Wall masters got shield blocked, then boss sound kept going after getting brought back.
 //   And then I kept walking north and got stuck.
+// * Aquamentis blocks his own fireballs.
+// * Holding the button spams the sword.
 // --
 // * Blue Wizzrobes crash the game.
 // * Red leevers can crash.
