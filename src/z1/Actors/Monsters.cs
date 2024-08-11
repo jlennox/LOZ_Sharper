@@ -4659,6 +4659,15 @@ internal sealed class DodongoActor : WandererWalkerActor
     }
 }
 
+internal sealed class ManhandlaParent
+{
+    public int PartsDied;
+    public Direction FacingAtFrameBegin;
+    public Direction BounceDir;
+
+    public List<ManhandlaActor> Parts = new();
+}
+
 internal sealed class ManhandlaActor : Actor
 {
     private const ObjectSlot ManhandlaCenterBodySlot = (ObjectSlot)4;
@@ -4674,12 +4683,8 @@ internal sealed class ManhandlaActor : Actor
     private static readonly ImmutableArray<int> _xOffsets = [0, 0, -0x10, 0x10, 0];
     private static readonly ImmutableArray<int> _yOffsets = [-0x10, 0x10, 0, 0, 0];
 
-    // JOE: TODO: De-static these.
-    private static int _sPartsDied;
-    private static Direction _sFacingAtFrameBegin;
-    private static Direction _sBounceDir;
-
     private readonly SpriteAnimator _animator;
+    private readonly ManhandlaParent _parent;
 
     private ushort _curSpeedFix;
     private ushort _speedAccum;
@@ -4689,19 +4694,19 @@ internal sealed class ManhandlaActor : Actor
 
     public override bool IsReoccuring => false;
 
-    private ManhandlaActor(Game game, int index, int x, int y, Direction facing)
+    private ManhandlaActor(Game game, ManhandlaParent parent, int index, int x, int y, Direction facing)
         : base(game, ObjType.Manhandla, x, y)
     {
+        _parent = parent;
         _curSpeedFix = 0x80;
         InvincibilityMask = 0xE2;
         Decoration = 0;
         Facing = facing;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(Graphics.GetAnimation(TileSheet.Boss, _manhandlaAnimMap[index]))
         {
             DurationFrames = 1,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, _manhandlaAnimMap[index])
         };
     }
 
@@ -4711,28 +4716,40 @@ internal sealed class ManhandlaActor : Actor
 
         game.Sound.PlayEffect(SoundEffect.BossRoar3, true, Sound.AmbientInstance);
 
+        var parent = new ManhandlaParent();
+
         for (var i = 0; i < 5; i++)
         {
             // ORIGINAL: Get the base X and Y from the fifth spawn spot.
             var xPos = x + _xOffsets[i];
             var yPos = y + _yOffsets[i];
 
-            var manhandla = new ManhandlaActor(game, i, xPos, yPos, dir);
+            var manhandla = new ManhandlaActor(game, parent, i, xPos, yPos, dir);
+            parent.Parts.Add(manhandla);
             game.World.SetObject((ObjectSlot)i, manhandla);
         }
 
         return game.World.GetObject<ManhandlaActor>(0) ?? throw new Exception();
     }
 
-    private void SetPartFacings(Direction dir)
+    private IEnumerable<ManhandlaActor> GetManhandlas()
     {
-        for (var i = 0; i < 5; i++)
+        // JOE: TODO: Move this over to parent.Parts so that we can avoid filling the monster slots.
+        for (var i = ObjectSlot.Monster1; i < ObjectSlot.Monster6; i++)
         {
-            var manhandla = Game.World.GetObject<ManhandlaActor>((ObjectSlot)i);
+            var manhandla = Game.World.GetObject<ManhandlaActor>(i);
             if (manhandla != null)
             {
-                manhandla.Facing = dir;
+                yield return manhandla;
             }
+        }
+    }
+
+    private void SetPartFacings(Direction dir)
+    {
+        foreach (var manhandla in GetManhandlas())
+        {
+              manhandla.Facing = dir;
         }
     }
 
@@ -4742,15 +4759,15 @@ internal sealed class ManhandlaActor : Actor
         if (slot == ManhandlaCenterBodySlot)
         {
             UpdateBody();
-            _sFacingAtFrameBegin = Facing;
+            _parent.FacingAtFrameBegin = Facing;
         }
 
         Move();
         CheckManhandlaCollisions();
 
-        if (Facing != _sFacingAtFrameBegin)
+        if (Facing != _parent.FacingAtFrameBegin)
         {
-            _sBounceDir = Facing;
+            _parent.BounceDir = Facing;
         }
 
         _frame = (_frameAccum & 0x10) >> 4;
@@ -4778,23 +4795,19 @@ internal sealed class ManhandlaActor : Actor
 
     private void UpdateBody()
     {
-        if (_sPartsDied != 0)
+        if (_parent.PartsDied != 0)
         {
-            for (var i = 0; i < 5; i++)
+            foreach (var manhandla in GetManhandlas())
             {
-                var manhandla = Game.World.GetObject<ManhandlaActor>((ObjectSlot)i);
-                if (manhandla != null)
-                {
-                    manhandla._curSpeedFix += 0x80;
-                }
+                manhandla._curSpeedFix += 0x80;
             }
-            _sPartsDied = 0;
+            _parent.PartsDied = 0;
         }
 
-        if (_sBounceDir != Direction.None)
+        if (_parent.BounceDir != Direction.None)
         {
-            SetPartFacings(_sBounceDir);
-            _sBounceDir = Direction.None;
+            SetPartFacings(_parent.BounceDir);
+            _parent.BounceDir = Direction.None;
         }
 
         Debug.Assert(Game.World.CurObjectSlot == ObjectSlot.Monster1 + 4);
@@ -4872,15 +4885,7 @@ internal sealed class ManhandlaActor : Actor
             return;
         }
 
-        var handCount = 0;
-
-        // JOE: TODO: Use enum method.
-        for (var i = ObjectSlot.Monster1; i < ObjectSlot.Monster1 + 4; i++)
-        {
-            var obj = Game.World.GetObject(i);
-            if (obj != null && obj is ManhandlaActor)
-                handCount++;
-        }
+        var handCount = GetManhandlas().Count();
 
         var dummy = new DeadDummyActor(Game, X, Y)
         {
@@ -4898,14 +4903,15 @@ internal sealed class ManhandlaActor : Actor
             Game.World.SetObject((ObjectSlot)4, dummy);
         }
 
-        _sPartsDied++;
+        _parent.PartsDied++;
     }
 
     public static void ClearRoomData()
     {
-        _sPartsDied = 0;
-        _sFacingAtFrameBegin = Direction.None;
-        _sBounceDir = Direction.None;
+        // JOE: TODO: Not needed anymore?
+        // _sPartsDied = 0;
+        // _sFacingAtFrameBegin = Direction.None;
+        // _sBounceDir = Direction.None;
     }
 }
 
