@@ -26,7 +26,7 @@ internal partial class World
 
     private void UpdateWinGame()
     {
-        sWinGameFuncs[(int)_state.WinGame.Substate]();
+        WinGameFuncs[(int)_state.WinGame.Substate]();
     }
 
     private static readonly byte[] _winGameStr1 = [

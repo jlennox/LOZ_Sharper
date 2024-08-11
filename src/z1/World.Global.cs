@@ -65,7 +65,7 @@ internal partial class World
 
     private static int GetDoorStateFace(DoorType type, bool state)
     {
-        var doorface = doorFaces[(int)type];
+        var doorface = _doorFaces[(int)type];
         return state ? doorface.Open : doorface.Closed;
     }
 

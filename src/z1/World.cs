@@ -442,7 +442,7 @@ internal sealed unsafe partial class World
             _nextGameMenu = null;
         }
 
-        sModeFuncs[(int)_curMode]!();
+        ModeFuncs[(int)_curMode]!();
     }
 
     public void Draw()
@@ -452,7 +452,7 @@ internal sealed unsafe partial class World
             _statusBar.Draw(_submenuOffsetY);
         }
 
-        sDrawFuncs[(int)_curMode]!();
+        DrawFuncs[(int)_curMode]!();
     }
 
     private bool IsButtonPressing(GameButton buttonCode) => Game.Input.IsButtonPressing(buttonCode);
@@ -711,7 +711,7 @@ internal sealed unsafe partial class World
         if (row < 0 || col < 0 || row >= Rows || col >= Columns) return;
 
         var behavior = GetTileBehavior(row, col);
-        var behaviorFunc = sBehaviorFuncs[(int)behavior];
+        var behaviorFunc = BehaviorFuncs[(int)behavior];
         behaviorFunc(row, col, interaction);
     }
 
@@ -1143,11 +1143,11 @@ internal sealed unsafe partial class World
             Graphics.DrawBitmap(
                 _doorsBmp,
                 DoorWidth * doorFace,
-                doorSrcYs[i] + baseY,
+                _doorSrcYs[i] + baseY,
                 DoorWidth,
                 DoorHeight,
-                doorPos[i].X + offsetX,
-                doorPos[i].Y + offsetY,
+                _doorPos[i].X + offsetX,
+                _doorPos[i].Y + offsetY,
                 outerPalette,
                 0);
         }
@@ -1191,7 +1191,7 @@ internal sealed unsafe partial class World
 
         GlobalFunctions.PlayItemSound(Game, itemId);
 
-        var equip = sItemToEquipment[(int)itemId];
+        var equip = _itemToEquipment[(int)itemId];
         var slot = equip.Slot;
         var value = equip.Value;
 
@@ -1732,7 +1732,7 @@ internal sealed unsafe partial class World
 
                 if (action != 0)
                 {
-                    actionFunc = sActionFuncs[(int)action];
+                    actionFunc = ActionFuncs[(int)action];
                     actionFunc(r, c, TileInteraction.Load);
                 }
 
@@ -1770,7 +1770,7 @@ internal sealed unsafe partial class World
                     var tileRef = _tileMaps[_curTileMapIndex].Refs(UWBlockRow, c);
                     if (tileRef == (byte)BlockObjType.TileBlock)
                     {
-                        sActionFuncs[(int)TileAction.Block](UWBlockRow, c, TileInteraction.Load);
+                        ActionFuncs[(int)TileAction.Block](UWBlockRow, c, TileInteraction.Load);
                         break;
                     }
                 }
@@ -1815,10 +1815,10 @@ internal sealed unsafe partial class World
     {
         var map = _tileMaps[tileMapIndex];
         var dir = doorOrd.GetOrdDirection();
-        var corner = doorCorners[doorOrd];
+        var corner = _doorCorners[doorOrd];
         var type = GetDoorType(roomId, dir);
         var state = GetEffectiveDoorState(roomId, dir);
-        var behavior = (byte)(state ? doorBehaviors[(int)type].Open : doorBehaviors[(int)type].Closed);
+        var behavior = (byte)(state ? _doorBehaviors[(int)type].Open : _doorBehaviors[(int)type].Closed);
 
         map.Behaviors(corner.Row, corner.Col) = behavior;
         map.Behaviors(corner.Row, corner.Col + 1) = behavior;
@@ -1827,7 +1827,7 @@ internal sealed unsafe partial class World
 
         if ((TileBehavior)behavior == TileBehavior.Doorway)
         {
-            corner = behindDoorCorners[doorOrd];
+            corner = _behindDoorCorners[doorOrd];
             map.Behaviors(corner.Row, corner.Col) = behavior;
             map.Behaviors(corner.Row, corner.Col + 1) = behavior;
             map.Behaviors(corner.Row + 1, corner.Col) = behavior;
@@ -2251,8 +2251,8 @@ internal sealed unsafe partial class World
                 var doorState = GetDoorState(CurRoomId, doorDir);
                 if (doorState) continue;
 
-                if (Math.Abs(bombX - doorMiddles[iDoor].X) < UWBombRadius
-                    && Math.Abs(bombY - doorMiddles[iDoor].Y) < UWBombRadius)
+                if (Math.Abs(bombX - _doorMiddles[iDoor].X) < UWBombRadius
+                    && Math.Abs(bombY - _doorMiddles[iDoor].Y) < UWBombRadius)
                 {
                     _triggeredDoorCmd = 6;
                     _triggeredDoorDir = doorDir;
@@ -2876,7 +2876,7 @@ internal sealed unsafe partial class World
             var stringIdTables = _extraData.GetItem<LevelPersonStrings>(Extra.LevelPersonStringIds);
 
             var levelIndex = _infoBlock.EffectiveLevelNumber - 1;
-            int levelTableIndex = levelGroups[levelIndex];
+            int levelTableIndex = _levelGroups[levelIndex];
             var stringSlot = type - ObjType.Person1;
             var stringId = (StringId)stringIdTables.GetStringIds(levelTableIndex)[stringSlot];
 
@@ -3145,7 +3145,7 @@ internal sealed unsafe partial class World
 
     private void UpdateScroll()
     {
-        sScrollFuncs[(int)_state.Scroll.Substate]();
+        ScrollFuncs[(int)_state.Scroll.Substate]();
     }
 
     private void UpdateScroll_Start()
@@ -3420,7 +3420,7 @@ internal sealed unsafe partial class World
 
     private void UpdateEnter()
     {
-        sEnterFuncs[(int)_state.Enter.Substate]();
+        EnterFuncs[(int)_state.Enter.Substate]();
 
         if (_state.Enter.GotoPlay)
         {
@@ -3763,7 +3763,7 @@ internal sealed unsafe partial class World
 
     private void UpdateEndLevel()
     {
-        sEndLevelFuncs[(int)_state.EndLevel.Substate]();
+        EndLevelFuncs[(int)_state.EndLevel.Substate]();
     }
 
     private void UpdateEndLevel_Start()
@@ -3979,7 +3979,7 @@ internal sealed unsafe partial class World
 
     private void UpdatePlayCellar()
     {
-        sPlayCellarFuncs[(int)_state.PlayCellar.Substate]();
+        PlayCellarFuncs[(int)_state.PlayCellar.Substate]();
     }
 
     private void UpdatePlayCellar_Start()
@@ -4094,7 +4094,7 @@ internal sealed unsafe partial class World
 
     private void UpdateLeaveCellar()
     {
-        sLeaveCellarFuncs[(int)_state.LeaveCellar.Substate]();
+        LeaveCellarFuncs[(int)_state.LeaveCellar.Substate]();
     }
 
     private void UpdateLeaveCellar_Start()
@@ -4241,7 +4241,7 @@ internal sealed unsafe partial class World
 
     private void UpdatePlayCave()
     {
-        sPlayCaveFuncs[(int)_state.PlayCave.Substate]();
+        PlayCaveFuncs[(int)_state.PlayCave.Substate]();
     }
 
     private void UpdatePlayCave_Start()
@@ -4330,7 +4330,7 @@ internal sealed unsafe partial class World
             // JOE: Original does not return here.
         }
 
-        sDeathFuncs[(int)_state.Death.Substate]();
+        DeathFuncs[(int)_state.Death.Substate]();
     }
 
     private void UpdateDie_Start()
