@@ -318,7 +318,7 @@ internal static class Graphics
         SwitchSystemPalette(_systemPalette);
     }
 
-    public static SpriteAnimator GetSpriteAnimator(TileSheet sheet, AnimationId id) => new(GetAnimation(sheet, id));
+    public static SpriteAnimator GetSpriteAnimator(TileSheet sheet, AnimationId id) => new(sheet, id);
     public static SpriteImage GetSpriteImage(TileSheet sheet, AnimationId id) => new(GetAnimation(sheet, id));
 
     public static void DrawBitmap(

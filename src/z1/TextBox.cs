@@ -34,6 +34,7 @@ internal sealed class TextBox
         _drawingDialog = true;
         _charTimer = 0;
         _startCharPtr = text;
+        _curCharIndex = 0;
     }
 
     public bool IsDone() => !_drawingDialog;

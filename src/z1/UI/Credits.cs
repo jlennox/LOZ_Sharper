@@ -17,11 +17,11 @@ internal sealed class CreditsType
         public readonly Line LoadVariableData(ReadOnlySpan<byte> buf)
         {
             var text = buf[..Length].ToArray();
-            return new Line(Length, Col, text);
+            return new Line(Col, text);
         }
     }
 
-    private record Line(byte Length, byte Col, byte[] Text);
+    private record Line(byte Col, byte[] Text);
 
     private readonly Game _game;
 
@@ -91,6 +91,7 @@ internal sealed class CreditsType
     private byte[] GetPlayerLine(Line line)
     {
         var profile = _game.World.GetProfile();
+        // JOE: TODO: I think you messed this up.
         _playerLine ??= ZeldaString.EnumerateText($"{ZeldaString.FromBytes(line.Text)} {profile.Name} {profile.Deaths}").ToArray();
         return _playerLine;
     }
@@ -171,7 +172,7 @@ internal sealed class CreditsType
             y = 0x80;
             GlobalFunctions.DrawItem(_game, ItemId.PowerTriforce, 0x78, y, 0);
 
-            var pile = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Pile));
+            var pile = new SpriteImage(TileSheet.Boss, AnimationId.B3_Pile);
             pile.Draw(TileSheet.Boss, 0x78, y + 0, (Palette)7);
         }
     }

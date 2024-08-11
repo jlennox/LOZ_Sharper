@@ -423,18 +423,16 @@ internal sealed class GanonActor : BlueWizzrobeBase
     {
         InvincibilityMask = 0xFA;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B3_Ganon)
         {
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Ganon),
             DurationFrames = 1,
             Time = 0,
         };
 
-        _pileImage = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Pile));
+        _pileImage = new SpriteImage(TileSheet.Boss, AnimationId.B3_Pile);
 
-        _cloudAnimator = new SpriteAnimator
+        _cloudAnimator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Cloud)
         {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cloud),
             DurationFrames = 1,
             Time = 0,
         };
@@ -491,7 +489,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
             for (var i = 0; i < 8; i++)
             {
                 var slashSpec = _slashSpecs[i];
-                var image = new SpriteImage(Graphics.GetAnimation(slashSpec.Sheet, slashSpec.AnimIndex));
+                var image = new SpriteImage(slashSpec.Sheet, slashSpec.AnimIndex);
 
                 image.Draw(slashSpec.Sheet, _sparksX[i], _sparksY[i], (Palette)slashPal, (DrawingFlags)slashSpec.Flags);
             }
@@ -768,7 +766,7 @@ internal sealed class ZeldaActor : Actor
     private ZeldaActor(Game game, int x = ZeldaX, int y = ZeldaY)
         : base(game, ObjType.Zelda, x, y)
     {
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_Zelda_Stand));
+        _image = new SpriteImage(TileSheet.Boss, AnimationId.B3_Zelda_Stand);
     }
 
     public static ZeldaActor Make(Game game)
@@ -832,9 +830,8 @@ internal sealed class StandingFireActor : Actor
     public StandingFireActor(Game game, int x, int y)
         : base(game, ObjType.StandingFire, x, y)
     {
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Fire)
         {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire),
             DurationFrames = 12,
             Time = 0
         };
@@ -860,8 +857,8 @@ internal sealed class GuardFireActor : Actor
     public GuardFireActor(Game game, int x, int y)
         : base(game, ObjType.GuardFire, x, y)
     {
-        _animator = new SpriteAnimator {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire),
+        _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Fire)
+        {
             DurationFrames = 12,
             Time = 0
         };
@@ -1019,9 +1016,8 @@ internal sealed class PondFairyActor : Actor
     public PondFairyActor(Game game, int x = PondFairyX, int y = PondFairyY)
         : base(game, ObjType.PondFairy, x, y)
     {
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Fairy)
         {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fairy),
             Time = 0,
             DurationFrames = 8
         };
@@ -1108,7 +1104,7 @@ internal sealed class PondFairyActor : Actor
 
         if (_pondFairyState != PondFairyState.Healing) return;
 
-        var heart = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Heart));
+        var heart = new SpriteImage(TileSheet.PlayerAndItems, AnimationId.Heart);
 
         for (var i = 0; i < _heartState.Length; i++)
         {
@@ -2054,10 +2050,9 @@ internal abstract class FlyingActor : Actor
             UpdateStill
         ];
 
-        Animator = new SpriteAnimator
+        Animator = new SpriteAnimator(spec.Sheet, spec.AnimationMap[0])
         {
             Time = 0,
-            Animation = Graphics.GetAnimation(spec.Sheet, spec.AnimationMap![0])
         };
         Animator.DurationFrames = Animator.Animation.Length;
     }
@@ -2723,9 +2718,8 @@ internal sealed class PatraChildActor : Actor
 
         ObjTimer = 0;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B3_PatraChild)
         {
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B3_PatraChild),
             DurationFrames = 4,
             Time = 0,
         };
@@ -2911,9 +2905,8 @@ internal abstract class JumperActor : Actor, IDeleteEvent
     {
         _spec = spec;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Npcs, spec.AnimationMap[0])
         {
-            Animation = Graphics.GetAnimation(TileSheet.Npcs, spec.AnimationMap[0]),
             Time = 0,
             DurationFrames = spec.AnimationTimer
         };
@@ -3238,7 +3231,7 @@ internal sealed class TrapActor : Actor
         : base(game, ObjType.Trap, x, y)
     {
         _trapIndex = trapIndex;
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.Npcs, AnimationId.UW_Trap));
+        _image = new SpriteImage(TileSheet.Npcs, AnimationId.UW_Trap);
     }
 
     public static TrapActor MakeSet(Game game, int count)
@@ -3484,9 +3477,8 @@ internal sealed class PolsVoiceActor : Actor
     {
         InitCommonFacing();
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Npcs, AnimationId.UW_PolsVoice)
         {
-            Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.UW_PolsVoice),
             DurationFrames = 16,
             Time = 0
         };
@@ -3830,7 +3822,7 @@ internal sealed class LamnolaActor : Actor
         Decoration = 0;
 
         var animationId = isHead ? AnimationId.UW_LanmolaHead : AnimationId.UW_LanmolaBody;
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.Npcs, animationId));
+        _image = new SpriteImage(TileSheet.Npcs, animationId);
     }
 
     public static LamnolaActor MakeSet(Game game, ActorColor color)
@@ -4047,11 +4039,10 @@ internal sealed class WallmasterActor : Actor
         Decoration = 0;
         ObjTimer = 0;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Npcs, AnimationId.UW_Wallmaster)
         {
             DurationFrames = 16,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Npcs, AnimationId.UW_Wallmaster)
         };
     }
 
@@ -4234,14 +4225,13 @@ internal sealed class AquamentusActor : Actor
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance);
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B1_Aquamentus)
         {
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Aquamentus),
             DurationFrames = 32,
             Time = 0
         };
 
-        _mouthImage = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Aquamentus_Mouth_Closed));
+        _mouthImage = new SpriteImage(TileSheet.Boss, AnimationId.B1_Aquamentus_Mouth_Closed);
 
         Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _palette);
         Graphics.UpdatePalettes();
@@ -4703,7 +4693,7 @@ internal sealed class ManhandlaActor : Actor
         Decoration = 0;
         Facing = facing;
 
-        _animator = new SpriteAnimator(Graphics.GetAnimation(TileSheet.Boss, _manhandlaAnimMap[index]))
+        _animator = new SpriteAnimator(TileSheet.Boss, _manhandlaAnimMap[index])
         {
             DurationFrames = 1,
             Time = 0,
@@ -5018,18 +5008,16 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
         _childCount = childCount;
         _updateBig = true;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B1_Digdogger_Big)
         {
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Digdogger_Big),
             DurationFrames = 12,
             Time = 0,
         };
 
-        _littleAnimator = new SpriteAnimator
+        _littleAnimator = new SpriteAnimator(TileSheet.Boss, AnimationId.B1_Digdogger_Little)
         {
             DurationFrames = 12,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Digdogger_Little)
         };
 
         Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _palette);
@@ -5138,11 +5126,10 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
     {
         TargetSpeedFix = 0x0180;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B1_Digdogger_Little)
         {
             DurationFrames = 12,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B1_Digdogger_Little),
         };
     }
 
@@ -5202,25 +5189,22 @@ internal sealed class GohmaActor : Actor
         Decoration = 0;
         InvincibilityMask = 0xFB;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B2_Gohma_Eye_All)
         {
             DurationFrames = 1,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gohma_Eye_All)
         };
 
-        _leftAnimator = new SpriteAnimator
+        _leftAnimator = new SpriteAnimator(TileSheet.Boss, AnimationId.B2_Gohma_Legs_L)
         {
             DurationFrames = 32,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gohma_Legs_L)
         };
 
-        _rightAnimator = new SpriteAnimator
+        _rightAnimator = new SpriteAnimator(TileSheet.Boss, AnimationId.B2_Gohma_Legs_R)
         {
             DurationFrames = 32,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gohma_Legs_R)
         };
     }
 

@@ -120,7 +120,7 @@ internal sealed class PersonActor : Actor
 
         var animIndex = spec.DwellerType - ObjType.OldMan;
         var animId = _sPersonGraphics[animIndex].AnimId;
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, animId));
+        _image = new SpriteImage(TileSheet.PlayerAndItems, animId);
         TextBox = new TextBox(Game, Game.World.GetString(stringId).ToArray());
 
         Array.Fill(_priceStrs, (byte)Char.Space);
@@ -155,7 +155,7 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    // JOE: TODO: Start using this. I think "Shop" might be an boolean out argument?
+    // JOE: TODO: Start using this. I think "Shop" might be a boolean out argument?
     private PersonType GetPersonType()
     {
         if (IsGambling()) return PersonType.Gambling;

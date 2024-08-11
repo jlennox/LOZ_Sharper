@@ -54,7 +54,8 @@ internal sealed class Link : Actor, IThrower
         Facing = facing;
         Decoration = 0;
 
-        Animator = new SpriteAnimator {
+        Animator = new SpriteAnimator
+        {
             Time = 0,
             DurationFrames = WalkDurationFrames
         };

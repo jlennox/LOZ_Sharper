@@ -52,9 +52,8 @@ internal sealed class SpriteAnimator
     public int Time { get; set; }
     public int DurationFrames { get; set; }
 
-    public SpriteAnimator(SpriteAnimation? animation = null)
+    public SpriteAnimator()
     {
-        Animation = animation;
     }
 
     public SpriteAnimator(TileSheet sheet, AnimationId id)
@@ -133,6 +132,11 @@ internal sealed class SpriteImage
     public SpriteImage(SpriteAnimation animation)
     {
         Animation = animation;
+    }
+
+    public SpriteImage(TileSheet sheet, AnimationId id)
+    {
+        Animation = Graphics.GetAnimation(sheet, id);
     }
 
     public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.None)

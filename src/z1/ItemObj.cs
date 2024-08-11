@@ -18,7 +18,7 @@ internal sealed class LadderActor : Actor
         Facing = Game.Link.Facing;
         Decoration = 0;
 
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Ladder));
+        _image = new SpriteImage(TileSheet.PlayerAndItems, AnimationId.Ladder);
     }
 
     public override void Update()
@@ -236,9 +236,8 @@ internal sealed class FireActor : Actor
         State = FireState.Moving;
         Facing = facing;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Fire)
         {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fire),
             Time = 0,
             DurationFrames = 8
         };
@@ -372,9 +371,8 @@ internal sealed class BombActor : Actor
     {
         Facing = Game.Link.Facing;
         Decoration = 0;
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.BombItem)
         {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.BombItem),
             Time = 0,
             DurationFrames = 1
         };

@@ -103,7 +103,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
 
         var dirOrd = Facing.GetOrdinal(); ;
         var animIndex = PlayerSwordActor.SwordAnimMap[dirOrd];
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, animIndex));
+        _image = new SpriteImage(TileSheet.PlayerAndItems, animIndex);
     }
 
     public override void Update()
@@ -196,7 +196,7 @@ internal sealed class FlyingRockProjectile : Projectile
         Facing = moving;
         Decoration = 0;
 
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.Npcs, AnimationId.OW_FlyingRock));
+        _image = new SpriteImage(TileSheet.Npcs, AnimationId.OW_FlyingRock);
     }
 
     public override void Update()
@@ -279,7 +279,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         }
 
         Decoration = 0;
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fireball));
+        _image = new SpriteImage(TileSheet.PlayerAndItems, AnimationId.Fireball);
 
         _x = x;
         _y = y;
@@ -370,9 +370,8 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
         Facing = moving;
         Decoration = 0;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Boomerang)
         {
-            Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Boomerang),
             Time = 0
         };
         _animator.DurationFrames = _animator.Animation.Length * 2;
@@ -617,7 +616,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
         Decoration = 0;
 
         var dirOrd = direction.GetOrdinal();
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, _waveAnimMap[dirOrd]));
+        _image = new SpriteImage(TileSheet.PlayerAndItems, _waveAnimMap[dirOrd]);
     }
 
     public override void Update()
@@ -688,7 +687,7 @@ internal sealed class ArrowProjectile : Projectile
         Decoration = 0;
 
         var dirOrd = direction.GetOrdinal();
-        _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, _arrowAnimMap[dirOrd]));
+        _image = new SpriteImage(TileSheet.PlayerAndItems, _arrowAnimMap[dirOrd]);
     }
 
     public void SetSpark(int frames = 3)

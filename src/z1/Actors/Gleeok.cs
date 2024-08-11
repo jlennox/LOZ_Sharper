@@ -124,8 +124,8 @@ internal sealed class GleeokNeck
             _ => _startHeadTimer
         };
 
-        _neckImage = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Neck));
-        _headImage = new SpriteImage(Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Head));
+        _neckImage = new SpriteImage(TileSheet.Boss, AnimationId.B2_Gleeok_Neck);
+        _headImage = new SpriteImage(TileSheet.Boss, AnimationId.B2_Gleeok_Head);
     }
 
     public bool IsAlive() => _isAlive;
@@ -418,11 +418,10 @@ internal sealed class GleeokActor : Actor
         Decoration = 0;
         InvincibilityMask = 0xFE;
 
-        _animator = new SpriteAnimator
+        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B2_Gleeok_Body)
         {
             DurationFrames = NormalAnimFrames,
             Time = 0,
-            Animation = Graphics.GetAnimation(TileSheet.Boss, AnimationId.B2_Gleeok_Body)
         };
 
         for (var i = 0; i < _neckCount; i++)

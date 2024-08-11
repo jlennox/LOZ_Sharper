@@ -321,7 +321,7 @@ internal static class GlobalFunctions
 
     public static void DrawSparkle(int x, int y, Palette palette, int frame)
     {
-        var animator = new SpriteAnimator(Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Sparkle));
+        var animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Sparkle);
         animator.DrawFrame(TileSheet.PlayerAndItems, x, y, palette, frame);
     }
 
