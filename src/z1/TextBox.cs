@@ -42,39 +42,36 @@ internal sealed class TextBox
 
     public void Update()
     {
-        if (!_drawingDialog)
-            return;
+        if (!_drawingDialog) return;
 
-        if (_charTimer == 0)
-        {
-            byte ch;
-
-            do
-            {
-                var curCharPtr = startCharPtr[curCharIndex];
-                ch = (byte)(curCharPtr & 0x3F);
-                var attr = (byte)(curCharPtr & 0xC0);
-                if (attr == 0xC0)
-                {
-                    _drawingDialog = false;
-                }
-                else if (attr != 0)
-                {
-                    _height += 8;
-                }
-
-                curCharIndex++;
-                if (ch != (int)Char.JustSpace)
-                {
-                    _game.Sound.PlayEffect(SoundEffect.Character);
-                }
-            } while (_drawingDialog && ch == (int)Char.JustSpace);
-            _charTimer = _charDelay - 1;
-        }
-        else
+        if (_charTimer != 0)
         {
             _charTimer--;
+            return;
         }
+
+        byte ch;
+        do
+        {
+            var curCharPtr = startCharPtr[curCharIndex];
+            ch = (byte)(curCharPtr & 0x3F);
+            var attr = (byte)(curCharPtr & 0xC0);
+            if (attr == 0xC0)
+            {
+                _drawingDialog = false;
+            }
+            else if (attr != 0)
+            {
+                _height += 8;
+            }
+
+            curCharIndex++;
+            if (ch != (int)Char.JustSpace)
+            {
+                _game.Sound.PlayEffect(SoundEffect.Character);
+            }
+        } while (_drawingDialog && ch == (int)Char.JustSpace);
+        _charTimer = _charDelay - 1;
     }
 
     public void Draw()

@@ -491,7 +491,7 @@ internal sealed class PersonActor : Actor
 
     private void CheckStairsHit()
     {
-        ReadOnlySpan<byte> stairsXs = [ 0x50, 0x80, 0xB0 ];
+        ReadOnlySpan<byte> stairsXs = [0x50, 0x80, 0xB0];
 
         if (Game.Link.Y != 0x9D) return;
 

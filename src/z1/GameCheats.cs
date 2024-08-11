@@ -8,6 +8,27 @@ namespace z1;
 
 internal sealed class GameCheats
 {
+    private static bool TryMatchFromEnum<TEnum>(string partial, out TEnum value)
+        where TEnum : struct, Enum
+    {
+        var validTypes = Enum.GetNames<TEnum>()
+            .Where(t => !t.Contains("Child"))
+            .ToArray();
+
+        var name =
+            validTypes.FirstOrDefault(x => x.IStartsWith(partial))
+            ?? validTypes.FirstOrDefault(x => x.IContains(partial));
+
+        if (name == null)
+        {
+            value = default;
+            return false;
+        }
+
+        value = Enum.Parse<TEnum>(name);
+        return true;
+    }
+
     public abstract class Cheat
     {
         public abstract bool OnKeyPressed(char key, [MaybeNullWhen(false)] out string[] args);
@@ -87,6 +108,26 @@ internal sealed class GameCheats
         }
     }
 
+    public sealed class ItemCheat : RegexCheat
+    {
+        private static readonly Regex _full = new(@"^idbehold(\w+);$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^id?b?e?h?o?l?d?\w*;", DefaultRegexOptions);
+
+        protected override Regex FullMatch => _full;
+        protected override Regex PartialMatch => _partial;
+
+        public override void RunPayload(Game game, string[] args)
+        {
+            if (!TryMatchFromEnum<ItemId>(args[0], out var itemId))
+            {
+                game.Toast("Invalid item type. " + args[0]);
+                return;
+            }
+
+            game.World.DebugSpawnItem(itemId);
+        }
+    }
+
     public sealed class DungeonWarpCheat : RegexCheat
     {
         private static readonly Regex _full = new(@"^w(w|\d+);$", DefaultRegexOptions);
@@ -127,21 +168,12 @@ internal sealed class GameCheats
 
         public override void RunPayload(Game game, string[] args)
         {
-            var validTypes = Enum.GetNames<ObjType>()
-                .Where(t => !t.Contains("Child"))
-                .ToArray();
-
-            var type =
-                validTypes.FirstOrDefault(x => x.IStartsWith(args[0]))
-                ?? validTypes.FirstOrDefault(x => x.IContains(args[0]));
-
-            if (type == null)
+            if (!TryMatchFromEnum<ObjType>(args[0], out var objType))
             {
                 game.Toast("Invalid object type. " + string.Join(", ", args));
                 return;
             }
 
-            var objType = Enum.Parse<ObjType>(type);
             // if (!game.World.TryFindEmptyMonsterSlot(out var slot))
             // {
             //     game.Toast("No empty slots found.");
@@ -208,7 +240,6 @@ internal sealed class GameCheats
             var profile = game.World.Profile;
             if (profile == null) return;
             game.World.AddItem(ItemId.MagicShield);
-            game.World.AddItem(ItemId.MagicShield);
             game.World.AddItem(ItemId.Food);
             game.World.AddItem(ItemId.Raft);
             game.World.AddItem(ItemId.Ladder);
@@ -248,6 +279,7 @@ internal sealed class GameCheats
         new OverworldWarpCheat(),
         new DungeonWarpCheat(),
         new GodModeCheat(),
+        new ItemCheat(),
         new ItemsCheat(),
         new KillAllCheat(),
         new SpeedUpCheat(),

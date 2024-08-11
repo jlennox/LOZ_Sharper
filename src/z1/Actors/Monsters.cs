@@ -223,13 +223,13 @@ internal abstract class DelayedWanderer : WandererWalkerActor
 
 internal abstract class WandererWalkerActor : WalkerActor
 {
-    protected byte TurnTimer;
-    protected byte TurnRate;
+    private byte _turnTimer;
+    private readonly byte _turnRate;
 
     protected WandererWalkerActor(Game game, ObjType type, WalkerSpec spec, int turnRate, int x, int y)
         : base(game, type, spec, x, y)
     {
-        TurnRate = (byte)turnRate;
+        _turnRate = (byte)turnRate;
     }
 
     public override void Update()
@@ -262,9 +262,9 @@ internal abstract class WandererWalkerActor : WalkerActor
 
     private void TargetPlayer()
     {
-        if (TurnTimer > 0)
+        if (_turnTimer > 0)
         {
-            TurnTimer--;
+            _turnTimer--;
         }
 
         if (ShoveDirection != 0) return;
@@ -282,7 +282,7 @@ internal abstract class WandererWalkerActor : WalkerActor
         // ORIGINAL: If (r > turnRate) or (player.state = $FF), then ...
         //           But, I don't see how the player can get in that state.
 
-        if (r > TurnRate)
+        if (r > _turnRate)
         {
             TurnIfTime();
         }
@@ -311,7 +311,7 @@ internal abstract class WandererWalkerActor : WalkerActor
     {
         WantToShoot = false;
 
-        if (TurnTimer != 0) return;
+        if (_turnTimer != 0) return;
 
         if (Facing.IsVertical())
         {
@@ -326,14 +326,14 @@ internal abstract class WandererWalkerActor : WalkerActor
     private void TurnX()
     {
         Facing = GetXDirToPlayer(X);
-        TurnTimer = Random.Shared.GetByte();
+        _turnTimer = Random.Shared.GetByte();
         WantToShoot = true;
     }
 
     private void TurnY()
     {
         Facing = GetYDirToPlayer(Y);
-        TurnTimer = Random.Shared.GetByte();
+        _turnTimer = Random.Shared.GetByte();
         WantToShoot = true;
     }
 }
@@ -965,7 +965,7 @@ internal sealed class FairyActor : FlyingActor
 
         UpdateStateAndMove();
 
-        ReadOnlySpan<ObjectSlot> canPickupFairy = [ ObjectSlot.Player, ObjectSlot.Boomerang ];
+        ReadOnlySpan<ObjectSlot> canPickupFairy = [ObjectSlot.Player, ObjectSlot.Boomerang];
 
         foreach (var slot in canPickupFairy)
         {
@@ -1059,7 +1059,7 @@ internal sealed class PondFairyActor : Actor
 
     private void UpdateHealing()
     {
-        ReadOnlySpan<byte> entryAngles = [ 0, 11, 22, 33, 44, 55, 66, 77 ];
+        ReadOnlySpan<byte> entryAngles = [0, 11, 22, 33, 44, 55, 66, 77];
 
         for (var i = 0; i < _heartState.Length; i++)
         {
@@ -1443,8 +1443,8 @@ internal sealed class ZolActor : WandererWalkerActor
 
     private void UpdateSplit()
     {
-        ReadOnlySpan<Direction> sHDirs = [ Direction.Right, Direction.Left ];
-        ReadOnlySpan<Direction> sVDirs = [ Direction.Down, Direction.Up ];
+        ReadOnlySpan<Direction> sHDirs = [Direction.Right, Direction.Left];
+        ReadOnlySpan<Direction> sVDirs = [Direction.Down, Direction.Up];
 
         IsDeleted = true;
         Game.World.RoomObjCount++;
@@ -1563,7 +1563,7 @@ internal sealed class VireActor : WandererWalkerActor
 
     private void UpdateWander()
     {
-        ReadOnlySpan<int> vireOffsetY = [ 0, -3, -2, -1, -1, 0, -1, 0, 0, 1, 0, 1, 1, 2, 3, 0 ];
+        ReadOnlySpan<int> vireOffsetY = [0, -3, -2, -1, -1, 0, -1, 0, 0, 1, 0, 1, 1, 2, 3, 0];
 
         MoveIfNeeded();
 
@@ -4537,9 +4537,9 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     private static bool Overlaps(int xDist, int yDist, int boundsIndex)
     {
-        ReadOnlySpan<int> posBoundsOverlaps = [ 0xC, 0x11 ];
-        ReadOnlySpan<int> negBoundsOverlaps = [ -0xC, -0x10 ];
-        ReadOnlySpan<int> distances = [ xDist, yDist ];
+        ReadOnlySpan<int> posBoundsOverlaps = [0xC, 0x11];
+        ReadOnlySpan<int> negBoundsOverlaps = [-0xC, -0x10];
+        ReadOnlySpan<int> distances = [xDist, yDist];
 
         for (var i = 1; i >= 0; i--)
         {
@@ -4615,7 +4615,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     private void UpdateBloatedWait()
     {
-        ReadOnlySpan<int> waitTimes = [ 0x20, 0x40, 0x40 ];
+        ReadOnlySpan<int> waitTimes = [0x20, 0x40, 0x40];
 
         if (_bloatedTimer == 0)
         {
@@ -4674,7 +4674,7 @@ internal sealed class ManhandlaActor : Actor
     private static readonly ImmutableArray<int> _xOffsets = [0, 0, -0x10, 0x10, 0];
     private static readonly ImmutableArray<int> _yOffsets = [-0x10, 0x10, 0, 0, 0];
 
-    // JOE: TODO: Destatic these.
+    // JOE: TODO: De-static these.
     private static int _sPartsDied;
     private static Direction _sFacingAtFrameBegin;
     private static Direction _sBounceDir;

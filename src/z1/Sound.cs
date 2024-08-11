@@ -259,11 +259,25 @@ internal sealed class LoopStream : WaveStream
     private long _pausedSpot = 0;
 
     private readonly WaveFileReader _sourceStream;
+    private readonly long _startPosition;
+    private readonly long _endPosition;
 
-    public LoopStream(NamedWaveFileReader sourceStream, bool loop)
+    public LoopStream(NamedWaveFileReader sourceStream, bool loop, float? startTimeInSeconds, float? endTimeInSeconds)
     {
         Name = sourceStream.Name;
         _sourceStream = sourceStream;
+        var averageBytesPerSecond = sourceStream.WaveFileReader.WaveFormat.AverageBytesPerSecond;
+        var sourceLength = sourceStream.WaveFileReader.Length;
+
+        _startPosition = startTimeInSeconds.HasValue ? (long)(startTimeInSeconds.Value * averageBytesPerSecond) : 0;
+        _endPosition = endTimeInSeconds.HasValue ? (long)(endTimeInSeconds.Value * averageBytesPerSecond) : sourceLength;
+
+        if (_endPosition > sourceLength)
+        {
+            _endPosition = sourceLength;
+        }
+
+        sourceStream.WaveFileReader.Position = _startPosition;
         EnableLooping = loop;
         SampleProvider = this.ToSampleProvider();
     }
@@ -274,10 +288,19 @@ internal sealed class LoopStream : WaveStream
     public bool EnableLooping { get; set; }
     public override WaveFormat WaveFormat => _sourceStream.WaveFormat;
     public override long Length => _sourceStream.Length;
+
     public override long Position
     {
-        get => _sourceStream.Position;
-        set => _sourceStream.Position = value;
+        get => _sourceStream.Position - _startPosition;
+        set
+        {
+            var newPosition = _startPosition + value;
+            if (newPosition < _startPosition || newPosition > _endPosition)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), "Position must be within the looped section.");
+            }
+            _sourceStream.Position = newPosition;
+        }
     }
 
     public override int Read(byte[] buffer, int offset, int count)
@@ -285,7 +308,11 @@ internal sealed class LoopStream : WaveStream
         var totalBytesRead = 0;
         while (totalBytesRead < count)
         {
-            var bytesRead = _sourceStream.Read(buffer, offset + totalBytesRead, count - totalBytesRead);
+            var bytesRequired = count - totalBytesRead;
+            var bytesAvailable = (int)(_endPosition - _sourceStream.Position);
+            var bytesToRead = Math.Min(bytesRequired, bytesAvailable);
+
+            var bytesRead = _sourceStream.Read(buffer, offset + totalBytesRead, bytesToRead);
             if (bytesRead == 0)
             {
                 if (_sourceStream.Position == 0 || !EnableLooping)
@@ -294,9 +321,21 @@ internal sealed class LoopStream : WaveStream
                     break;
                 }
 
-                _sourceStream.Position = 0;
+                _sourceStream.Position = _startPosition;
             }
+
             totalBytesRead += bytesRead;
+
+            if (_sourceStream.Position >= _endPosition)
+            {
+                if (!EnableLooping)
+                {
+                    HasReachedEnd = true;
+                    break;
+                }
+
+                _sourceStream.Position = _startPosition;
+            }
         }
         return totalBytesRead;
     }
@@ -331,7 +370,7 @@ internal sealed class Sound
 
     private readonly record struct EffectRequest(SoundEffect SoundId, bool Loop);
 
-    private static readonly DebugLog _traceLog = new(nameof(Sound), DebugLogDestination.DebugBuildsOnly);
+    private static readonly DebugLog _traceLog = new(nameof(Sound), DebugLogDestination.None);
 
     private readonly CachedSound[] _effectSamples = new CachedSound[Effects];
     private readonly SoundInfo[] _effects;
@@ -404,7 +443,9 @@ internal sealed class Sound
     {
         _traceLog.Write($"PlaySongInternal({song}, {stream}, {loop}, {play})");
         ref var streamBucket = ref StopSong((int)stream);
-        var waveStream = new LoopStream(_songFiles[(int)song], loop);
+        var songinfo = _songs[(int)song];
+        // JOE: TODO: Cleanup this line.
+        var waveStream = new LoopStream(_songFiles[(int)song], loop, songinfo.Begin * (1 / 60f), songinfo.End * (1 / 60f));
         streamBucket = waveStream;
         _mixer.AddMixerInput(streamBucket.SampleProvider);
     }

@@ -29,7 +29,7 @@ internal sealed class Link : Actor, IThrower
         PausedMask = 0xC0, // I do not know what the other bit on this mask does.
     }
 
-    public static ReadOnlySpan<byte> PlayerLimits => [ 0xF0, 0x00, 0xDD, 0x3D ];
+    public static ReadOnlySpan<byte> PlayerLimits => [0xF0, 0x00, 0xDD, 0x3D];
 
     private static readonly DebugLog _movementTraceLog = new(nameof(Link), "MovementTrace", DebugLogDestination.None);
 

@@ -3,17 +3,24 @@
 namespace z1;
 
 // Milestone 1:
+// * Music loops wrong.
+// * No fairy sound.
+// * Cave noises are wrong.
+// * A save and replay locked up the game?
+// * Screen sides need to be painted black.
+// * Add text speed option.
+// * Blue leevers are too slow.
+// * All triggers press on startup.
+// --
 // * Blue Wizzrobes crash the game.
 // * Red leevers can crash.
-// * Audio
-// * Configurable keys.
-// * Proper error about being unable to find assets.
 // * Dungeon walls without doors draw over swords/bombs.
 
 // To check:
 // * Check `IsReoccuring` is proper.
 // * Consider refactoring monster projectile creation into generic CreateProjectile?
 // * Do bubbles work properly?
+// * Ensure magic shield works.
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.

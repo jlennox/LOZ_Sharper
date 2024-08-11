@@ -347,7 +347,7 @@ internal sealed unsafe partial class World
         if (level == 0)
         {
             LoadOverworldContext();
-            _curUWBlockFlags = null; // JOE: TODO: This seems wrong.
+            _curUWBlockFlags = []; // JOE: TODO: This seems wrong? Should it be nullable instead?
         }
         else
         {
@@ -455,25 +455,10 @@ internal sealed unsafe partial class World
         sDrawFuncs[(int)_curMode]!();
     }
 
-    private void DrawRoom()
-    {
-        DrawMap(CurRoomId, _curTileMapIndex, 0, 0);
-    }
-
-    public void PauseFillHearts()
-    {
-        _pause = PauseState.FillingHearts;
-    }
-
-    public void LeaveRoom(Direction dir, int roomId)
-    {
-        GotoLeave(dir, roomId);
-    }
-
-    public void LeaveCellar()
-    {
-        GotoLeaveCellar();
-    }
+    private void DrawRoom() => DrawMap(CurRoomId, _curTileMapIndex, 0, 0);
+    public void PauseFillHearts() => _pause = PauseState.FillingHearts;
+    public void LeaveRoom(Direction dir, int roomId) => GotoLeave(dir, roomId);
+    public void LeaveCellar() => GotoLeaveCellar();
 
     public void LeaveCellarByShortcut(int targetRoomId)
     {
@@ -525,7 +510,7 @@ internal sealed unsafe partial class World
 
         if (IsPlaying() && _state.Play.RoomType == RoomType.Regular)
         {
-            ReadOnlySpan<byte> roomIds = [ 0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72 ];
+            ReadOnlySpan<byte> roomIds = [0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72];
 
             var makeWhirlwind = true;
 
@@ -565,7 +550,7 @@ internal sealed unsafe partial class World
             var slot = FindEmptyMonsterSlot();
             if (slot != ObjectSlot.NoneFound)
             {
-                ReadOnlySpan<byte> teleportRoomIds = [ 0x36, 0x3B, 0x73, 0x44, 0x0A, 0x21, 0x41, 0x6C ];
+                ReadOnlySpan<byte> teleportRoomIds = [0x36, 0x3B, 0x73, 0x44, 0x0A, 0x21, 0x41, 0x6C];
 
                 var whirlwind = new WhirlwindActor(Game, 0, Game.Link.Y);
                 SetObject(slot, whirlwind);
@@ -1323,6 +1308,11 @@ internal sealed unsafe partial class World
     public bool IsUWCellar() => IsUWCellar(CurRoomId);
     private bool GotShortcut(int roomId) => Profile.OverworldFlags[roomId].GetShortcutState();
     private bool GotSecret() => Profile.OverworldFlags[CurRoomId].GetSecretState();
+
+    public void DebugSpawnItem(ItemId itemId)
+    {
+        _objects[(int)ObjectSlot.Monster1] = GlobalFunctions.MakeItem(Game, itemId, 20, 20, false);
+    }
 
     public ReadOnlySpan<byte> GetShortcutRooms()
     {
@@ -2411,7 +2401,7 @@ internal sealed unsafe partial class World
         }
         else
         {
-            ReadOnlySpan<int> fireballLayouts = [ 0x24, 0x23 ];
+            ReadOnlySpan<int> fireballLayouts = [0x24, 0x23];
 
             var uwRoomAttrs = CurrentUWRoomAttrs;
             var layoutId = uwRoomAttrs.GetUniqueRoomId();
@@ -2860,7 +2850,7 @@ internal sealed unsafe partial class World
     {
         const int startY = 0x9D;
 
-        ReadOnlySpan<int> startXs = [ 0x20, 0x60, 0x90, 0xD0 ];
+        ReadOnlySpan<int> startXs = [0x20, 0x60, 0x90, 0xD0];
 
         for (var i = 0; i < 4; i++)
         {
@@ -3126,8 +3116,7 @@ internal sealed unsafe partial class World
             itemId = (ItemId)dropItems[classIndex];
         }
 
-        var obj = GlobalFunctions.MakeItem(Game, itemId, x, y, false);
-        _objects[CurObjSlot] = obj;
+        _objects[CurObjSlot] = GlobalFunctions.MakeItem(Game, itemId, x, y, false);
     }
 
     private void FillHeartsStep()

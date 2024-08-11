@@ -96,6 +96,16 @@ internal sealed class DebugLog
 
     internal static string FormatLine(string s) => $"{DateTime.Now}: {s}\n";
 
+    public void Write(string namespaze, string s)
+    {
+        if (_disabled) return;
+
+        var log = $"{_name}[{namespaze}]: {s}";
+
+        if (_writedebug) Debug.WriteLine(log);
+        if (_writefile) _queue.Writer.TryWrite(log);
+    }
+
     public void Write(string s)
     {
         if (_disabled) return;

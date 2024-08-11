@@ -52,16 +52,14 @@ internal enum GameMode
 
 internal sealed class Game
 {
-    const float AspectRatio = 16 / 9;
-
     public Link Link;
 
     public readonly Sound Sound;
 
     public static class Cheats
     {
-        public static bool SpeedUp = true;
-        public static bool GodMode = true;
+        public static bool SpeedUp = false;
+        public static bool GodMode = false;
         public static bool NoClip = false;
     }
 
@@ -123,14 +121,14 @@ internal sealed class Game
     // JOE: TODO: This function is a bit weird now.
     public void UpdateScreenSize(SKSurface surface)
     {
-        const int NesResX = 256;
-        const int NesResY = 240;
+        const int nesWidth = 256;
+        const int nesHeight = 240;
 
         surface.Canvas.GetLocalClipBounds(out var bounds);
 
-        var scale = Math.Min(bounds.Width / NesResX, bounds.Height / NesResY);
-        var offsetX = (bounds.Width - scale * NesResX) / 2;
-        var offsetY = (bounds.Height - scale * NesResY) / 2;
+        var scale = Math.Min(bounds.Width / nesWidth, bounds.Height / nesHeight);
+        var offsetX = (bounds.Width - scale * nesWidth) / 2;
+        var offsetY = (bounds.Height - scale * nesHeight) / 2;
 
         surface.Canvas.Translate(offsetX, offsetY);
         surface.Canvas.Scale(scale, scale);
