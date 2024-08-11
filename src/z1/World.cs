@@ -1248,6 +1248,7 @@ internal sealed unsafe partial class World
             SetPlayerColor();
             Graphics.UpdatePalettes();
         }
+
         if (slot == ItemSlot.HeartContainers)
         {
             FillHearts(0x100);
@@ -1410,8 +1411,7 @@ internal sealed unsafe partial class World
 
     public void SetObservedPlayerPos(int x, int y)
     {
-        _fakePlayerPos.X = x;
-        _fakePlayerPos.Y = y;
+        _fakePlayerPos = new Point(x, y);
     }
 
     public void SetPersonWallY(int y)
@@ -3406,6 +3406,7 @@ internal sealed unsafe partial class World
         _state.Enter.PlayerPriority = SpritePriority.AboveBg;
         _state.Enter.PlayerSpeed = Link.WalkSpeed;
         _state.Enter.GotoPlay = false;
+        Unpause();
         _curMode = GameMode.Enter;
     }
 

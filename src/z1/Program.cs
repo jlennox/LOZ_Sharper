@@ -3,15 +3,21 @@
 namespace z1;
 
 // Milestone 1:
-// * Music loops wrong.
 // * No fairy sound.
 // * Cave noises are wrong.
 // * Screen sides need to be painted black.
 // * Blue leevers are too slow.
+// * Swords and items picked up out of order should not downgrade.
+// * Wall masters got shield blocked, then boss sound kept going after getting brought back.
+//   And then I kept walking north and got stuck.
 // --
 // * Blue Wizzrobes crash the game.
 // * Red leevers can crash.
 // * Dungeon walls without doors draw over swords/bombs.
+
+// Minor:
+// * Vire keese seem to spawn too close together.
+// * Dungeon shutters draw closed when moving between rooms.
 
 // To check:
 // * Check `IsReoccuring` is proper.

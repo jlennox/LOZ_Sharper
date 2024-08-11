@@ -4164,7 +4164,7 @@ internal sealed class WallmasterActor : Actor
         {
             MoveDirection(0x18, Facing);
 
-            if (TileOffset == 0x10 || TileOffset == -0x10)
+            if (TileOffset is 0x10 or -0x10)
             {
                 TileOffset = 0;
                 _dirIndex++;
@@ -4722,11 +4722,13 @@ internal sealed class ManhandlaActor : Actor
         return game.World.GetObject<ManhandlaActor>(0) ?? throw new Exception();
     }
 
-    private IEnumerable<ManhandlaActor> GetManhandlas()
+    private IEnumerable<ManhandlaActor> GetManhandlas(bool excludeCenter = false)
     {
         // JOE: TODO: Move this over to parent.Parts so that we can avoid filling the monster slots.
-        for (var i = ObjectSlot.Monster1; i < ObjectSlot.Monster6; i++)
+        for (var i = ObjectSlot.Monster1; i <= ManhandlaCenterBodySlot; i++)
         {
+            if (excludeCenter && i == ManhandlaCenterBodySlot) continue;
+
             var manhandla = Game.World.GetObject<ManhandlaActor>(i);
             if (manhandla != null)
             {
@@ -4875,7 +4877,7 @@ internal sealed class ManhandlaActor : Actor
             return;
         }
 
-        var handCount = GetManhandlas().Count();
+        var handCount = GetManhandlas(true).Count();
 
         var dummy = new DeadDummyActor(Game, X, Y)
         {
