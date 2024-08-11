@@ -895,7 +895,7 @@ internal sealed unsafe partial class World
 
             if (roomItem != null && x == roomItem.Value.x && y == roomItem.Value.y)
             {
-                var itemObj = Actor.FromType((ObjType)roomItem.Value.itemId, Game, roomItem.Value.x, roomItem.Value.y);
+                var itemObj = new ItemObjActor(Game, roomItem.Value.AsItemId, true, roomItem.Value.x, roomItem.Value.y);
                 _objects[(int)ObjectSlot.Item] = itemObj;
             }
         }
