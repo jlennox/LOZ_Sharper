@@ -93,6 +93,25 @@ internal class UWRoomFlags
     public void SetObjCount(byte count) => Data = (byte)((Data & ~CountMask) | (byte)(count << CountShift));
 }
 
+internal sealed class PlayerProfiles : IInitializable
+{
+    public int Version { get; set; }
+    public PlayerProfile[] Profiles { get; set; }
+
+    public void Initialize()
+    {
+        if (Profiles == null!) Profiles = PlayerProfile.MakeDefaults();
+    }
+
+    public static PlayerProfiles MakeDefault()
+    {
+        return new PlayerProfiles
+        {
+            Profiles = PlayerProfile.MakeDefaults(),
+        };
+    }
+}
+
 [DebuggerDisplay("{Name} ({Hearts})")]
 internal sealed class PlayerProfile
 {

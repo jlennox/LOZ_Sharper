@@ -4898,7 +4898,7 @@ internal sealed unsafe partial class World
 
     private void GotoFileMenu()
     {
-        GotoFileMenu(SaveFolder.Profiles);
+        GotoFileMenu(SaveFolder.Profiles.Profiles);
     }
 
     private void GotoFileMenu(PlayerProfile[] summaries)

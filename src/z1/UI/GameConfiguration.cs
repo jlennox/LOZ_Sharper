@@ -30,7 +30,7 @@ internal enum  GamepadButton
     TriggerRight = 101,
 }
 
-internal sealed class GameConfiguration
+internal sealed class GameConfiguration : IInitializable
 {
     public static GameConfiguration MakeDefaults() => new();
 
@@ -41,7 +41,8 @@ internal sealed class GameConfiguration
     public bool EnableEnhancements { get; set; } = true;
     public bool MuteAudio { get; set; } = false;
     public bool? IsJoe { get; set; }
-    public int AudioVolume { get; set; } = 80; // It sounds really loud at 100?
+    public int TextSpeed { get; set; } = 1; // 1 is normal, 5 is max speed.
+    public int AudioVolume { get; set; } = 80; // 0 to 100. Default to 80 because it sounds really loud at 100.
 
     [JsonPropertyName("Input")]
     private readonly InputConfiguration? _input;
@@ -49,6 +50,12 @@ internal sealed class GameConfiguration
     public void Save()
     {
         SaveFolder.SaveConfiguration(this);
+    }
+
+    public void Initialize()
+    {
+        TextSpeed = Math.Clamp(TextSpeed, 1, 5);
+        AudioVolume = Math.Clamp(AudioVolume, 0, 100);
     }
 }
 

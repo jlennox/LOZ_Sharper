@@ -7,17 +7,22 @@ namespace z1.IO;
 
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(GameConfiguration))]
-[JsonSerializable(typeof(PlayerProfile[]))]
+[JsonSerializable(typeof(PlayerProfiles))]
 internal partial class JsonTypeInfos : JsonSerializerContext
 {
+}
+
+internal interface IInitializable
+{
+    void Initialize();
 }
 
 internal static class SaveFolder
 {
     public const int MaxProfiles = 3;
 
-    public static PlayerProfile[] Profiles => _profiles.Value;
-    private static readonly Lazy<PlayerProfile[]> _profiles = new(LoadProfiles);
+    public static PlayerProfiles Profiles => _profiles.Value;
+    private static readonly Lazy<PlayerProfiles> _profiles = new(LoadProfiles);
 
     public static GameConfiguration Configuration => _config.Value;
     private static readonly Lazy<GameConfiguration> _config = new(LoadGameConfiguration);
@@ -27,8 +32,8 @@ internal static class SaveFolder
 
     private static readonly DebugLog _log = new(nameof(SaveFolder));
 
-    private static JsonTypeInfo<PlayerProfile[]> ProfilesTypeInfo => JsonTypeInfos.Default.PlayerProfileArray;
-    private static PlayerProfile[] LoadProfiles() => LoadOrDefault(_profileFile, PlayerProfile.MakeDefaults, ProfilesTypeInfo);
+    private static JsonTypeInfo<PlayerProfiles> ProfilesTypeInfo => JsonTypeInfos.Default.PlayerProfiles;
+    private static PlayerProfiles LoadProfiles() => LoadOrDefault(_profileFile, PlayerProfiles.MakeDefault, ProfilesTypeInfo);
     public static bool SaveProfiles() => Save(_profileFile, Profiles, ProfilesTypeInfo);
 
     // JOE: TODO: The two save methods is confused and needs to be fixed. I'm not sure how preserve instances are with string.text.json yet,
@@ -46,7 +51,9 @@ internal static class SaveFolder
         try
         {
             var json = File.ReadAllText(file.Value);
-            return JsonSerializer.Deserialize<T>(json, typeinfo) ?? makeDefaults();
+            var result = JsonSerializer.Deserialize<T>(json, typeinfo) ?? makeDefaults();
+            if (result is IInitializable init) init.Initialize();
+            return result;
         }
         catch (JsonException e)
         {
