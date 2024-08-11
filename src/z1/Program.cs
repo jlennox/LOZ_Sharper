@@ -8,7 +8,6 @@ namespace z1;
 // * Cave noises are wrong.
 // * Screen sides need to be painted black.
 // * Blue leevers are too slow.
-// * All triggers press on startup.
 // --
 // * Blue Wizzrobes crash the game.
 // * Red leevers can crash.

@@ -150,12 +150,8 @@ internal sealed class GLWindow : IDisposable
 
         switch (device)
         {
-            case IKeyboard kb:
-                BindKeyboard(kb);
-                break;
-            case IGamepad gamepad:
-                BindGamepad(gamepad);
-                break;
+            case IKeyboard kb: BindKeyboard(kb); break;
+            case IGamepad gamepad: BindGamepad(gamepad); break;
             default:
                 _log.Write($"Input: Unsupported device connected {device.Name} ({device.GetType().Name})");
                 break;
@@ -189,7 +185,11 @@ internal sealed class GLWindow : IDisposable
 
     private void OnGamePadTriggerMoved(IGamepad gamepad, Trigger trigger)
     {
-        var set = Math.Abs(trigger.Position - 1) > .01;
+        // They trigger when the program starts up at -1. They range from -1 to 1, passing 0 I presume in the middle.
+        // At least, this is true on my xbox controller.
+        if (trigger.Position < 0) return;
+
+        var set = 1f - trigger.Position > .1;
         switch (trigger.Index)
         {
             case 0: _game.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;
