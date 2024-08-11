@@ -42,55 +42,26 @@ internal enum ItemSlot
     MaxItems
 }
 
-[DebuggerDisplay("{Data}")]
-internal class OWRoomFlags
+internal enum RoomMap
 {
-    private const int ItemState = 0x10;
-    private const int ShortcutState = 0x20;
-    private const int SecretState = 0x80;
-    private const int CountMask = 7;
-    private const int CountShift = 0;
-
-    [JsonInclude]
-    public byte Data;
-
-    // JOE: TODO: Use getters/setters.
-    public bool GetItemState() => (Data & ItemState) != 0;
-    public void SetItemState() => Data |= ItemState;
-
-    public bool GetShortcutState() => (Data & ShortcutState) != 0;
-    public void SetShortcutState() => Data |= ShortcutState;
-
-    public bool GetSecretState() => (Data & SecretState) != 0;
-    public void SetSecretState() => Data |= SecretState;
-
-    public int GetObjCount() => (Data & CountMask) >> CountShift;
-    public void SetObjCount(int count) => Data = (byte)((Data & ~CountMask) | (count << CountShift));
+    Overworld,
+    UnderworldA,
+    UnderworldB,
 }
 
-[DebuggerDisplay("{Data}")]
-internal class UWRoomFlags
+internal sealed class RoomFlags
 {
-    private const byte ItemState = 0x10;
-    private const byte VisitState = 0x20;
-    private const byte CountMask = 0xC0;
-    private const byte CountShift = 6;
-
-    [JsonInclude]
-    public byte Data;
-
-    // JOE: TODO: Use getters/setters.
-    public bool GetItemState() => (Data & ItemState) != 0;
-    public void SetItemState() => Data |= ItemState;
-
-    public bool GetVisitState() => (Data & VisitState) != 0;
-    public void SetVisitState() => Data |= VisitState;
-
-    public bool GetDoorState(Direction dir) => (Data & (int)dir) != 0;
-    public void SetDoorState(Direction dir) => Data |= (byte)dir;
-
-    public int GetObjCount() => (Data & CountMask) >> CountShift;
-    public void SetObjCount(byte count) => Data = (byte)((Data & ~CountMask) | (byte)(count << CountShift));
+    public RoomMap RoomMap { get; set; }
+    public int RoomX { get; set; }
+    public int RoomY { get; set; }
+    public bool ItemState { get; set; }
+    public bool ShortcutState { get; set; } // Overworld
+    public bool SecretState { get; set; } // Overworld
+    public bool VisitState { get; set; } // Underworld
+    public Dictionary<Direction, bool> DoorState { get; set; } = []; // Underworld
+    public bool GetDoorState(Direction dir) => DoorState.TryGetValue(dir, out var state) && state;
+    public bool SetDoorState(Direction dir) => DoorState[dir] = true;
+    public int ObjectCount { get; set; }
 }
 
 internal sealed class PlayerProfiles : IInitializable
@@ -129,23 +100,41 @@ internal sealed class PlayerProfile
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
     public int UsedCheats { get; set; }
-    public OWRoomFlags[] OverworldFlags { get; set; }
-    public UWRoomFlags[] LevelFlags1 { get; set; }
-    public UWRoomFlags[] LevelFlags2 { get; set; }
+    public List<RoomFlags> RoomFlags { get; set; }
 
     [JsonConstructor]
     internal PlayerProfile()
     {
         if (Hearts == 0) Hearts = DefaultHearts;
         Items ??= new Dictionary<ItemSlot, int>();
-        OverworldFlags ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new OWRoomFlags()).ToArray();
-        LevelFlags1 ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new UWRoomFlags()).ToArray();
-        LevelFlags2 ??= Enumerable.Range(0, Global.LevelBlockRooms).Select(_ => new UWRoomFlags()).ToArray();
+        RoomFlags ??= [];
 
         foreach (var slot in Enum.GetValues<ItemSlot>())
         {
             Items[slot] = 0;
         }
+    }
+
+    public RoomFlags GetRoomFlags(RoomMap map, int roomId)
+    {
+        var x = roomId % World.WorldWidth;
+        var y = roomId / World.WorldWidth;
+        return GetRoomFlags(map, x, y);
+    }
+
+    public RoomFlags GetRoomFlags(RoomMap map, int x, int y)
+    {
+        // Allow screen wrapping.
+        x %= World.WorldWidth;
+        y %= World.WorldHeight;
+        var room = RoomFlags.FirstOrDefault(rf => rf.RoomMap == map && rf.RoomX == x && rf.RoomY == y);
+        if (room == null)
+        {
+            room = new RoomFlags { RoomMap = map, RoomX = x, RoomY = y };
+            RoomFlags.Add(room);
+        }
+
+        return room;
     }
 
     public static PlayerProfile MakeDefault() => new();

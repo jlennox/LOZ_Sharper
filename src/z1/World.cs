@@ -58,8 +58,8 @@ internal sealed unsafe partial class World
     public const int WorldMidX = WorldLimitLeft + TileMapWidth / 2;
     private const int WorldLimitLeft = 0;
     private const int WorldLimitRight = TileMapWidth;
-    private const int WorldWidth = 16;
-    private const int WorldHeight = 8;
+    public const int WorldWidth = 16;
+    public const int WorldHeight = 8;
 
     private const int BaseRows = 8;
     private const int TileMapHeight = Rows * TileHeight;
@@ -229,7 +229,7 @@ internal sealed unsafe partial class World
     private bool _powerTriforceFanfare;   // 509
     // private Direction _shuttersPassedDirs; // 519 // JOE: NOTE: Delete this, it's unused.
     private bool _brightenRoom;       // 51E
-    private UWRoomFlags[] _curUWBlockFlags = [];
+    private RoomMap _currentRoomMap = RoomMap.Overworld;
     private int _ghostCount;
     private int _armosCount;
     private readonly Cell[] _ghostCells = Cell.MakeMobPatchCell();
@@ -347,14 +347,14 @@ internal sealed unsafe partial class World
         if (level == 0)
         {
             LoadOverworldContext();
-            _curUWBlockFlags = []; // JOE: TODO: This seems wrong? Should it be nullable instead?
+            _currentRoomMap = RoomMap.Overworld;
         }
         else
         {
             LoadUnderworldContext();
             _wallsBmp = _directory.Extra2.ToAsset().DecodeSKBitmapTileData();
             _doorsBmp = _directory.Extra3.ToAsset().DecodeSKBitmapTileData();
-            _curUWBlockFlags = level < 7 ? profile.LevelFlags1 : profile.LevelFlags2;
+            _currentRoomMap = level < 7 ? RoomMap.UnderworldA : RoomMap.UnderworldB;
 
             foreach (var tileMap in _tileMaps)
             {
@@ -983,6 +983,9 @@ internal sealed unsafe partial class World
         Game.Sound.PlayEffect(SoundEffect.LowHp);
     }
 
+    private RoomFlags GetCurrentRoomFlags() => GetRoomFlags(CurRoomId);
+    public RoomFlags GetRoomFlags(int roomId) => Profile.GetRoomFlags(_currentRoomMap, roomId);
+
     private void PlayAmbientSounds()
     {
         var playedSound = false;
@@ -1001,7 +1004,7 @@ internal sealed unsafe partial class World
         }
         else
         {
-            if (_curUWBlockFlags[_infoBlock.BossRoomId].GetObjCount() == 0)
+            if (GetRoomFlags(_infoBlock.BossRoomId).ObjectCount == 0)
             {
                 var uwRoomAttrs = CurrentUWRoomAttrs;
                 var ambientSound = uwRoomAttrs.GetAmbientSound();
@@ -1297,7 +1300,6 @@ internal sealed unsafe partial class World
     }
 
     private bool GetEffectiveDoorState(Direction doorDir) => GetEffectiveDoorState(CurRoomId, doorDir);
-    public UWRoomFlags GetUWRoomFlags(int roomId) => _curUWBlockFlags[roomId];
     public LevelInfoBlock GetLevelInfo() => _infoBlock;
     public bool IsOverworld() => _infoBlock.LevelNumber == 0;
     public bool DoesRoomSupportLadder() => FindSparseFlag(Sparse.Ladder, CurRoomId);
@@ -1306,8 +1308,8 @@ internal sealed unsafe partial class World
     public bool IsUWMain() => IsUWMain(CurRoomId);
     private bool IsUWCellar(int roomId) => !IsOverworld() && (_roomAttrs[roomId].GetUniqueRoomId() >= 0x3E);
     public bool IsUWCellar() => IsUWCellar(CurRoomId);
-    private bool GotShortcut(int roomId) => Profile.OverworldFlags[roomId].GetShortcutState();
-    private bool GotSecret() => Profile.OverworldFlags[CurRoomId].GetSecretState();
+    private bool GotShortcut(int roomId) => GetRoomFlags(roomId).ShortcutState;
+    private bool GotSecret() => GetRoomFlags(CurRoomId).SecretState;
 
     public void DebugSpawnItem(ItemId itemId)
     {
@@ -1321,26 +1323,13 @@ internal sealed unsafe partial class World
         return valueArray[2..valueArray[0]];
     }
 
-    private void TakeShortcut() => Profile.OverworldFlags[CurRoomId].SetShortcutState();
-    public void TakeSecret() => Profile.OverworldFlags[CurRoomId].SetSecretState();
+    private void TakeShortcut() => GetRoomFlags(CurRoomId).ShortcutState = true;
+    public void TakeSecret() => GetRoomFlags(CurRoomId).SecretState = true;
     public bool GotItem() => GotItem(CurRoomId);
-
-    public bool GotItem(int roomId)
-    {
-        return IsOverworld() ? Profile.OverworldFlags[roomId].GetItemState() : _curUWBlockFlags[roomId].GetItemState();
-    }
-
-    public void MarkItem()
-    {
-        if (IsOverworld())
-        {
-            Profile.OverworldFlags[CurRoomId].SetItemState();
-        }
-        else
-        {
-            _curUWBlockFlags[CurRoomId].SetItemState();
-        }
-    }
+    public bool GotItem(int roomId) => GetRoomFlags(roomId).ItemState;
+    public void MarkItem() => GetRoomFlags(CurRoomId).ItemState = true;
+    private bool GetDoorState(int roomId, Direction door) => GetRoomFlags(roomId).GetDoorState(door);
+    private void SetDoorState(int roomId, Direction door) => GetRoomFlags(roomId).SetDoorState(door);
 
     public void LiftItem(ItemId itemId, short timer = 0x80)
     {
@@ -1473,16 +1462,6 @@ internal sealed unsafe partial class World
         return true;
     }
 
-    private bool GetDoorState(int roomId, Direction door)
-    {
-        return _curUWBlockFlags[roomId].GetDoorState(door);
-    }
-
-    private void SetDoorState(int roomId, Direction door)
-    {
-        _curUWBlockFlags[roomId].SetDoorState(door);
-    }
-
     private bool IsRoomInHistory()
     {
         for (var i = 0; i < RoomHistoryLength; i++)
@@ -1512,35 +1491,12 @@ internal sealed unsafe partial class World
         }
     }
 
-    private bool FindSparseFlag(Sparse attrId, int roomId)
-    {
-        return _sparseRoomAttrs.FindSparseAttr<SparsePos>(attrId, roomId).HasValue;
-    }
-
-    private SparsePos? FindSparsePos(Sparse attrId, int roomId)
-    {
-        return _sparseRoomAttrs.FindSparseAttr<SparsePos>(attrId, roomId);
-    }
-
-    private SparsePos2? FindSparsePos2(Sparse attrId, int roomId)
-    {
-        return _sparseRoomAttrs.FindSparseAttr<SparsePos2>(attrId, roomId);
-    }
-
-    private SparseRoomItem? FindSparseItem(Sparse attrId, int roomId)
-    {
-        return _sparseRoomAttrs.FindSparseAttr<SparseRoomItem>(attrId, roomId);
-    }
-
-    private ReadOnlySpan<ObjectAttr> GetObjectAttrs()
-    {
-        return _extraData.GetItems<ObjectAttr>(Extra.ObjAttrs);
-    }
-
-    public ObjectAttr GetObjectAttrs(ObjType type)
-    {
-        return GetObjectAttrs()[(int)type];
-    }
+    private bool FindSparseFlag(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos>(attrId, roomId).HasValue;
+    private SparsePos? FindSparsePos(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos>(attrId, roomId);
+    private SparsePos2? FindSparsePos2(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos2>(attrId, roomId);
+    private SparseRoomItem? FindSparseItem(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparseRoomItem>(attrId, roomId);
+    private ReadOnlySpan<ObjectAttr> GetObjectAttrs() => _extraData.GetItems<ObjectAttr>(Extra.ObjAttrs);
+    public ObjectAttr GetObjectAttrs(ObjType type) => GetObjectAttrs()[(int)type];
 
     public int GetObjectMaxHP(ObjType type)
     {
@@ -1932,7 +1888,7 @@ internal sealed unsafe partial class World
 
         if (!IsOverworld())
         {
-            _curUWBlockFlags[CurRoomId].SetVisitState();
+            GetCurrentRoomFlags().VisitState = true;
         }
     }
 
@@ -2455,10 +2411,11 @@ internal sealed unsafe partial class World
 
     private void SaveObjectCount()
     {
+        var flags = GetCurrentRoomFlags();
+
         if (IsOverworld())
         {
-            var flags = Profile.OverworldFlags[CurRoomId];
-            var savedCount = flags.GetObjCount();
+            var savedCount = flags.ObjectCount;
             int count;
 
             if (_roomKillCount >= RoomObjCount)
@@ -2474,12 +2431,10 @@ internal sealed unsafe partial class World
                 }
             }
 
-            flags.SetObjCount(count);
+            flags.ObjectCount = count;
         }
         else
         {
-            var flags = _curUWBlockFlags[CurRoomId];
-
             if (RoomObjCount != 0)
             {
                 if (_roomKillCount == 0 || (RoomObj != null && RoomObj.IsReoccuring))
@@ -2488,37 +2443,37 @@ internal sealed unsafe partial class World
                     {
                         _levelKillCounts[CurRoomId] += _roomKillCount;
                         var count = _levelKillCounts[CurRoomId] < 3 ? _levelKillCounts[CurRoomId] : 2;
-                        flags.SetObjCount((byte)count);
+                        flags.ObjectCount = (byte)count;
                         return;
                     }
                 }
             }
 
             _levelKillCounts[CurRoomId] = 0xF;
-            flags.SetObjCount(3);
+            flags.ObjectCount = 3;
         }
     }
 
     private void CalcObjCountToMake(ref ObjType type, ref int count)
     {
+        var flags = GetCurrentRoomFlags();
+
         if (IsOverworld())
         {
-            var flags = Profile.OverworldFlags[CurRoomId];
-
-            if (!IsRoomInHistory() && (flags.GetObjCount() == 7))
+            if (!IsRoomInHistory() && (flags.ObjectCount == 7))
             {
-                flags.SetObjCount(0);
+                flags.ObjectCount = 0;
                 return;
             }
 
-            if (flags.GetObjCount() == 7)
+            if (flags.ObjectCount == 7)
             {
                 type = ObjType.None;
                 count = 0;
             }
-            else if (flags.GetObjCount() != 0)
+            else if (flags.ObjectCount != 0)
             {
-                var savedCount = flags.GetObjCount();
+                var savedCount = flags.ObjectCount;
                 if (count < savedCount)
                 {
                     type = ObjType.None;
@@ -2532,10 +2487,7 @@ internal sealed unsafe partial class World
         }
         else // Is Underworld
         {
-            // JOE: TODO: The IsOverworld() one reads from Profile.OverworldFlags. Feels weird.
-            var flags = _curUWBlockFlags[CurRoomId];
-
-            if (IsRoomInHistory() || flags.GetObjCount() != 3)
+            if (IsRoomInHistory() || flags.ObjectCount != 3)
             {
                 if (count < _levelKillCounts[CurRoomId])
                 {
@@ -2551,7 +2503,7 @@ internal sealed unsafe partial class World
 
             if (IsRecurringFoe(type))
             {
-                flags.SetObjCount(0);
+                flags.ObjectCount = 0;
                 _levelKillCounts[CurRoomId] = 0;
             }
             else

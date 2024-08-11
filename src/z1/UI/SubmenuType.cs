@@ -552,9 +552,9 @@ internal sealed class SubmenuType
             for (var r = 0; r < 8; r++, y += 8, mapMaskByte <<= 1)
             {
                 var roomId = (r << 4) | (c - levelInfo.DrawnMapOffset + 0x10 + 4) & 0xF;
-                var roomFlags = _game.World.GetUWRoomFlags(roomId);
+                var roomFlags = _game.World.GetRoomFlags(roomId);
                 byte  tile = 0xF5;
-                if ((mapMaskByte & 0x80) == 0x80 && roomFlags.GetVisitState())
+                if ((mapMaskByte & 0x80) == 0x80 && roomFlags.VisitState)
                 {
                     var doorSum = 0;
                     var doorBit = 8;
