@@ -1894,6 +1894,18 @@ internal sealed unsafe partial class World
         }
     }
 
+    private void Pause()
+    {
+        _pause = PauseState.Paused;
+        Game.Sound.Pause();
+    }
+
+    private void Unpause()
+    {
+        _pause = 0;
+        Game.Sound.Unpause();
+    }
+
     private void UpdatePlay()
     {
         if (_state.Play.Substate != PlayState.Substates.Active) return;
@@ -1928,8 +1940,7 @@ internal sealed unsafe partial class World
 
             if (IsAnyButtonPressing(GameButton.Select, GameButton.Pause))
             {
-                _pause = PauseState.Paused;
-                Game.Sound.Pause();
+                Pause();
                 return;
             }
 
@@ -1943,8 +1954,7 @@ internal sealed unsafe partial class World
         {
             if (IsAnyButtonPressing(GameButton.Select, GameButton.Pause))
             {
-                _pause = 0;
-                Game.Sound.Unpause();
+                Unpause();
             }
             return;
         }
@@ -4819,8 +4829,9 @@ internal sealed unsafe partial class World
                     case ContinueState.Indexes.Continue:
                         // So, that the OW song is played in the Enter mode.
                         FromUnderground = 2;
-                        Game.Link = new Link(Game);
+                        Game.Link.Initialize();
                         Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHearts);
+                        Unpause(); // It's easy for select+start to also pause the game, and that's confusing.
                         GotoUnfurl(true);
                         break;
 

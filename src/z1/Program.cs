@@ -6,9 +6,7 @@ namespace z1;
 // * Music loops wrong.
 // * No fairy sound.
 // * Cave noises are wrong.
-// * A save and replay locked up the game?
 // * Screen sides need to be painted black.
-// * Add text speed option.
 // * Blue leevers are too slow.
 // * All triggers press on startup.
 // --

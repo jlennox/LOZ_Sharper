@@ -50,15 +50,23 @@ internal sealed class Link : Actor, IThrower
     public Link(Game game, Direction facing = Direction.Up)
         : base(game, ObjType.Player)
     {
-        _speed = WalkSpeed;
-        Facing = facing;
-        Decoration = 0;
-
         Animator = new SpriteAnimator
         {
             Time = 0,
             DurationFrames = WalkDurationFrames
         };
+
+        Initialize(facing);
+    }
+
+    public void Initialize(Direction facing = Direction.Up)
+    {
+        _speed = WalkSpeed;
+        Facing = facing;
+        Decoration = 0;
+
+        Animator.Time = 0;
+        Animator.DurationFrames = WalkDurationFrames;
     }
 
     public void DecInvincibleTimer()
