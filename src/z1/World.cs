@@ -2543,7 +2543,7 @@ internal sealed unsafe partial class World
 
     private void UpdateRupees()
     {
-        if ((Game.GetFrameCounter() & 1) != 0) return;
+        if ((Game.FrameCounter & 1) != 0) return;
 
         var rupeesToAdd = Profile.Items[ItemSlot.RupeesToAdd];
         var rupeesToSubtract = Profile.Items[ItemSlot.RupeesToSubtract];
@@ -3160,7 +3160,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if ((Game.GetFrameCounter() & 4) != 0)
+        if ((Game.FrameCounter & 4) != 0)
         {
             _curColorSeqNum--;
 
@@ -4838,7 +4838,7 @@ internal sealed unsafe partial class World
             if (_state.Continue.Substate == ContinueState.Substates.Chosen
                 && _state.Continue.SelectedIndex == i)
             {
-                pal = (Game.GetFrameCounter() / 4) & 1;
+                pal = (Game.FrameCounter / 4) & 1;
             }
 
             GlobalFunctions.DrawString(strs[i], 0x50, y, (Palette)pal);

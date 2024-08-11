@@ -457,7 +457,7 @@ internal sealed class GleeokActor : Actor
         {
             if (!_necks[i].IsAlive()) continue;
 
-            if ((Game.GetFrameCounter() % MaxNecks) == i)
+            if ((Game.FrameCounter % MaxNecks) == i)
             {
                 _necks[i].Update();
             }

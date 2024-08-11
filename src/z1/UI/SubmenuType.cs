@@ -410,7 +410,7 @@ internal sealed class SubmenuType
         y = ActiveItemY + (_activeUISlot / 4) * ActiveItemStrideY + top;
 
         var cursorPals = new[] { Palette.BlueFgPalette, Palette.RedFgPalette };
-        var cursorPal = cursorPals[(_game.World.Game.GetFrameCounter() >> 3) & 1];
+        var cursorPal = cursorPals[(_game.World.Game.FrameCounter >> 3) & 1];
         _cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal);
     }
 

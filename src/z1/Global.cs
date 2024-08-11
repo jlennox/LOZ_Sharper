@@ -274,7 +274,7 @@ internal static class GlobalFunctions
         var xOffset = width != 0 ? (width - image.Animation.Width) / 2 : 0;
 
         var pal = graphics.Value.HasFlashAttr()
-            ? (game.GetFrameCounter() & 8) == 0 ? Palette.Blue : Palette.Red
+            ? (game.FrameCounter & 8) == 0 ? Palette.Blue : Palette.Red
             : graphics.Value.GetPalette();
 
         image.Draw(TileSheet.PlayerAndItems, x + xOffset, y, pal);

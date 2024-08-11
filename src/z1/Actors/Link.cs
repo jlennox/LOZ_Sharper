@@ -63,7 +63,7 @@ internal sealed class Link : Actor, IThrower
 
     public void DecInvincibleTimer()
     {
-        if (InvincibilityTimer > 0 && (Game.GetFrameCounter() & 1) == 0)
+        if (InvincibilityTimer > 0 && (Game.FrameCounter & 1) == 0)
         {
             InvincibilityTimer--;
         }

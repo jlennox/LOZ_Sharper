@@ -857,7 +857,7 @@ internal sealed class WhirlwindActor : Actor
 
     public override void Draw()
     {
-        var pal = Palette.Player + (Game.GetFrameCounter() & 3);
+        var pal = Palette.Player + (Game.FrameCounter & 3);
         _animator.Draw(TileSheet.Npcs, X, Y, pal);
     }
 }

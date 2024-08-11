@@ -345,7 +345,7 @@ internal abstract class Actor
 
     public bool DecoratedUpdate()
     {
-        if (InvincibilityTimer > 0 && (Game.GetFrameCounter() & 1) == 0)
+        if (InvincibilityTimer > 0 && (Game.FrameCounter & 1) == 0)
         {
             InvincibilityTimer--;
         }
@@ -407,7 +407,7 @@ internal abstract class Actor
         }
         else
         {
-            var counter = (Game.GetFrameCounter() >> 1) & 3;
+            var counter = (Game.FrameCounter >> 1) & 3;
             var frame = (Decoration + 1) % 2;
             var pal = Palette.Player + (Global.ForegroundPalCount - counter - 1);
             var animator = Graphics.GetSpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Sparkle);

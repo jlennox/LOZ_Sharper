@@ -76,8 +76,8 @@ internal sealed class GLWindow : IDisposable
 
         var framebuffer = gl.GetInteger(GLEnum.FramebufferBinding);
 
-        _glinterface = GRGlInterface.Create();
-        _grcontext = GRContext.CreateGl(_glinterface);
+        _glinterface = GRGlInterface.Create() ?? throw new Exception("GRGlInterface.Create() failed.");
+        _grcontext = GRContext.CreateGl(_glinterface) ?? throw new Exception("GRContext.CreateGl() failed.");
 
         var framebufferinfo = new GRGlFramebufferInfo((uint)framebuffer, SKColorType.Rgba8888.ToGlSizedFormat());
         _rendertarget = new GRBackendRenderTarget(window.Size.X, window.Size.Y, 0, 8, framebufferinfo);
@@ -255,6 +255,10 @@ internal sealed class GLWindow : IDisposable
     {
         var surface = _surface ?? throw new Exception();
         var gl = _gl ?? throw new Exception();
+        var window = _window ?? throw new Exception();
+
+        // gl.ClearColor(0f, 0f, 0f, 1f);
+        // gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
 
         _controller.Update((float)deltaSeconds);
 
@@ -268,8 +272,6 @@ internal sealed class GLWindow : IDisposable
         // JOE: TODO: Port this over to `delta`
         // while (_starttime.Elapsed - _renderedTime >= frameTime)
         {
-            _game.FrameCounter++;
-
             _game.Update();
 
             _renderedTime += frameTime;
@@ -280,8 +282,10 @@ internal sealed class GLWindow : IDisposable
         {
             // JOE: TODO: Fix that clearing the surface causes flicker.
             _game.Draw();
-            surface.Flush();
+            surface.Canvas.Flush();
         }
+
+        // window.SwapBuffers();
 
         return;
         // https://github.com/ocornut/imgui/blob/master/imgui_demo.cpp#L644

@@ -165,7 +165,7 @@ internal sealed class StatusBar
 
                 if (!_world.GotItem(triforceRoomId))
                 {
-                    if ((_world.Game.GetFrameCounter() & 0x10) == 0)
+                    if ((_world.Game.FrameCounter & 0x10) == 0)
                         palette = Palette.RedFgPalette;
                 }
 

@@ -531,7 +531,7 @@ internal sealed class PersonActor : Actor
     {
         switch (_state)
         {
-            case PersonState.PickedUp when (Game.GetFrameCounter() & 1) == 0:
+            case PersonState.PickedUp when (Game.FrameCounter & 1) == 0:
                 return;
 
             case PersonState.Idle:

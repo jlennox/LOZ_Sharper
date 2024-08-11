@@ -484,7 +484,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
                 _cloudAnimator.DrawFrame(TileSheet.PlayerAndItems, cloudX, cloudY, Palette.SeaPal, cloudFrame);
             }
 
-            var slashPal = 4 + (Game.GetFrameCounter() & 3);
+            var slashPal = 4 + (Game.FrameCounter & 3);
 
             for (var i = 0; i < 8; i++)
             {
@@ -663,7 +663,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
     private void UpdateLastHit()
     {
-        if ((Game.GetFrameCounter() & 1) == 1)
+        if ((Game.FrameCounter & 1) == 1)
         {
             _lastHitTimer--;
             if (_lastHitTimer == 0)
@@ -674,7 +674,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
             }
         }
 
-        if (_lastHitTimer >= 0x30 || (Game.GetFrameCounter() & 1) == 1)
+        if (_lastHitTimer >= 0x30 || (Game.FrameCounter & 1) == 1)
         {
             _visual |= Visual.Ganon;
         }
@@ -690,7 +690,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         MoveAround();
 
-        if ((Game.GetFrameCounter() & 0x3F) == 0)
+        if ((Game.FrameCounter & 0x3F) == 0)
         {
             ShootFireball(ObjType.Fireball2, X, Y);
         }
@@ -716,7 +716,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
     private void MovePieces()
     {
-        if (_cloudDist != 0 && (Game.GetFrameCounter() & 7) == 0)
+        if (_cloudDist != 0 && (Game.FrameCounter & 7) == 0)
         {
             _cloudDist--;
         }
@@ -725,7 +725,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
         {
             if (_piecesDir[i].IsHorizontal()
                 || _piecesDir[i].IsVertical()
-                || (Game.GetFrameCounter() & 3) != 0)
+                || (Game.FrameCounter & 3) != 0)
             {
                 MoveSimple8(ref _sparksX[i], ref _sparksY[i], _piecesDir[i], 1);
             }
@@ -743,7 +743,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
     private void ResetPosition()
     {
         Y = 0xA0;
-        X = (Game.GetFrameCounter() & 1) == 0 ? 0x30 : 0xB0;
+        X = (Game.FrameCounter & 1) == 0 ? 0x30 : 0xB0;
     }
 }
 
@@ -949,7 +949,7 @@ internal sealed class FairyActor : FlyingActor
 
     public override void Update()
     {
-        if ((Game.GetFrameCounter() & 1) == 1)
+        if ((Game.FrameCounter & 1) == 1)
         {
             _timer--;
         }
@@ -1510,7 +1510,7 @@ internal sealed class BubbleActor : WandererWalkerActor
 
         if (ObjType == ObjType.Bubble1)
         {
-            pal += Game.GetFrameCounter() % 4;
+            pal += Game.FrameCounter % 4;
         }
         else
         {
@@ -3446,7 +3446,7 @@ internal sealed class RopeActor : Actor
         var profile = Game.World.Profile;
         var pal = profile.Quest == 0
             ? CalcPalette(Palette.Red)
-            : Palette.Player + (Game.GetFrameCounter() & 3);
+            : Palette.Player + (Game.FrameCounter & 3);
 
         _animator.Draw(TileSheet.Npcs, X, Y, pal);
     }
@@ -3486,7 +3486,7 @@ internal sealed class PolsVoiceActor : Actor
 
     public override void Update()
     {
-        if (!IsStunned && (Game.GetFrameCounter() & 1) == 0)
+        if (!IsStunned && (Game.FrameCounter & 1) == 0)
         {
             Move();
         }
@@ -4269,7 +4269,7 @@ internal sealed class AquamentusActor : Actor
             return;
         }
 
-        if ((Game.GetFrameCounter() & 7) != 0) return;
+        if ((Game.FrameCounter & 7) != 0) return;
 
         if (X < 0x88)
         {
@@ -4314,7 +4314,7 @@ internal sealed class AquamentusActor : Actor
                 var obj = Game.World.GetObject((ObjectSlot)i);
 
                 if (obj == null || obj is not FireballProjectile fireball) continue;
-                if ((Game.GetFrameCounter() & 1) == 1) continue;
+                if ((Game.FrameCounter & 1) == 1) continue;
 
                 fireball.Y += _fireballOffsets[i];
             }
@@ -4417,7 +4417,7 @@ internal sealed class DodongoActor : WandererWalkerActor
     {
         if (_state == 1 && _bloatedSubstate is 2 or 3)
         {
-            if ((Game.GetFrameCounter() & 2) == 0) return;
+            if ((Game.FrameCounter & 2) == 0) return;
         }
 
         Animator.Draw(TileSheet.Boss, X, Y, Palette.LevelFgPalette);
@@ -5307,7 +5307,7 @@ internal sealed class GohmaActor : Actor
             _startOpenEyeTimer = 0xC0 | Random.Shared.GetByte();
         }
 
-        if ((Game.GetFrameCounter() & 1) == 1)
+        if ((Game.FrameCounter & 1) == 1)
         {
             _startOpenEyeTimer--;
         }

@@ -71,8 +71,7 @@ internal sealed class Game
     public GameConfiguration Configuration = SaveFolder.Configuration;
     public readonly OnScreenDisplay OnScreenDisplay = new();
 
-    public int FrameCounter = 0;
-    public int GetFrameCounter() => FrameCounter;
+    public int FrameCounter { get; private set; }
 
     public Game()
     {
@@ -84,6 +83,8 @@ internal sealed class Game
 
     public void Update()
     {
+        ++FrameCounter;
+
         WorldUpdate();
         World.Update();
         Sound.Update();

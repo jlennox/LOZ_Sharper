@@ -33,7 +33,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         {
             if (ObjTimer >= 0x10)
             {
-                if ((Game.GetFrameCounter() & 1) == 1)
+                if ((Game.FrameCounter & 1) == 1)
                 {
                     TurnIfNeeded();
                 }
@@ -103,7 +103,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
     {
         if (Game.World.GetItem(ItemSlot.Clock) != 0) return;
         if (FlashTimer != 0) return;
-        if ((Game.GetFrameCounter() % 0x20) != 0) return;
+        if ((Game.FrameCounter % 0x20) != 0) return;
 
         var player = Game.Link;
         Direction dir;

@@ -437,7 +437,7 @@ internal sealed class RegisterMenu : Menu
 
         if (_selectedProfileIndex < 3)
         {
-            var showCursor = ((_game.GetFrameCounter() >> 3) & 1) != 0;
+            var showCursor = ((_game.FrameCounter >> 3) & 1) != 0;
             if (showCursor)
             {
                 var x = 0x70 + (_namePos * 8);
