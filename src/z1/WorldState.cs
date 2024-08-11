@@ -307,12 +307,19 @@ internal struct ContinueState
         Idle,
         Chosen,
 
-        MaxSubstate
+        MaxSubstate,
+    }
+
+    public enum Indexes
+    {
+        Continue,
+        Save,
+        Retry,
     }
 
     public Substates Substate;
     public int Timer;
-    public int SelectedIndex;
+    public Indexes SelectedIndex;
 }
 
 internal sealed class WorldState

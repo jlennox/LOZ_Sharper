@@ -455,6 +455,8 @@ internal sealed unsafe partial class World
         sDrawFuncs[(int)_curMode]!();
     }
 
+    private bool IsButtonPressing(GameButton buttonCode) => Game.Input.IsButtonPressing(buttonCode);
+    private bool IsAnyButtonPressing(GameButton a, GameButton b) => IsButtonPressing(a) || IsButtonPressing(b);
     private void DrawRoom() => DrawMap(CurRoomId, _curTileMapIndex, 0, 0);
     public void PauseFillHearts() => _pause = PauseState.FillingHearts;
     public void LeaveRoom(Direction dir, int roomId) => GotoLeave(dir, roomId);
@@ -1920,18 +1922,18 @@ internal sealed unsafe partial class World
         {
             if (Game.Enhancements)
             {
-                if (Game.Input.IsButtonPressing(GameButton.ItemNext)) Menu.SelectNextItem();
-                if (Game.Input.IsButtonPressing(GameButton.ItemPrevious)) Menu.SelectPreviousItem();
+                if (IsButtonPressing(GameButton.ItemNext)) Menu.SelectNextItem();
+                if (IsButtonPressing(GameButton.ItemPrevious)) Menu.SelectPreviousItem();
             }
 
-            if (Game.Input.IsButtonPressing(GameButton.Select) || Game.Input.IsButtonPressing(GameButton.Pause))
+            if (IsAnyButtonPressing(GameButton.Select, GameButton.Pause))
             {
                 _pause = PauseState.Paused;
                 Game.Sound.Pause();
                 return;
             }
 
-            if (Game.Input.IsButtonPressing(GameButton.Start))
+            if (IsButtonPressing(GameButton.Start))
             {
                 _submenu = SubmenuState.StartOpening;
                 return;
@@ -1939,7 +1941,7 @@ internal sealed unsafe partial class World
         }
         else if (_pause == PauseState.Paused)
         {
-            if (Game.Input.IsButtonPressing(GameButton.Select) || Game.Input.IsButtonPressing(GameButton.Pause))
+            if (IsAnyButtonPressing(GameButton.Select, GameButton.Pause))
             {
                 _pause = 0;
                 Game.Sound.Unpause();
@@ -2010,56 +2012,58 @@ internal sealed unsafe partial class World
 
     private void UpdateSubmenu()
     {
-        if (_submenu == SubmenuState.StartOpening)
+        switch (_submenu)
         {
-            Menu.Enable();
-            _submenu++;
-            _statusBar.EnableFeatures(StatusBarFeatures.Equipment, false);
-
-            if (Game.Cheats.SpeedUp)
-            {
-                _submenu = SubmenuState.EndOpening;
-                _submenuOffsetY = SubmenuType.Height;
-            }
-        }
-        else if (_submenu == SubmenuState.EndOpening)
-        {
-            _submenuOffsetY += SubmenuType.YScrollSpeed;
-            if (_submenuOffsetY >= SubmenuType.Height)
-            {
-                _submenuOffsetY = SubmenuType.Height;
-                Menu.Activate();
+            case SubmenuState.StartOpening:
+                Menu.Enable();
                 _submenu++;
-            }
-        }
-        else if (_submenu == SubmenuState.IdleOpen)
-        {
-            if (Game.Input.IsButtonPressing(GameButton.Start))
-            {
-                Menu.Deactivate();
-                _submenu++;
+                _statusBar.EnableFeatures(StatusBarFeatures.Equipment, false);
 
                 if (Game.Cheats.SpeedUp)
                 {
-                    _submenu = SubmenuState.StartClose;
+                    _submenu = SubmenuState.EndOpening;
+                    _submenuOffsetY = SubmenuType.Height;
+                }
+                break;
+
+            case SubmenuState.EndOpening:
+                _submenuOffsetY += SubmenuType.YScrollSpeed;
+                if (_submenuOffsetY >= SubmenuType.Height)
+                {
+                    _submenuOffsetY = SubmenuType.Height;
+                    Menu.Activate();
+                    _submenu++;
+                }
+                break;
+
+            case SubmenuState.IdleOpen:
+                if (IsButtonPressing(GameButton.Start))
+                {
+                    Menu.Deactivate();
+                    _submenu++;
+
+                    if (Game.Cheats.SpeedUp)
+                    {
+                        _submenu = SubmenuState.StartClose;
+                        _submenuOffsetY = 0;
+                    }
+                }
+                break;
+
+            case SubmenuState.StartClose:
+                _submenuOffsetY -= SubmenuType.YScrollSpeed;
+                if (_submenuOffsetY <= 0)
+                {
+                    Menu.Disable();
+                    _submenu = SubmenuState.IdleClosed;
+                    _statusBar.EnableFeatures(StatusBarFeatures.Equipment, true);
                     _submenuOffsetY = 0;
                 }
-            }
-        }
-        else if (_submenu == SubmenuState.StartClose)
-        {
-            _submenuOffsetY -= SubmenuType.YScrollSpeed;
-            if (_submenuOffsetY <= 0)
-            {
-                Menu.Disable();
-                _submenu = SubmenuState.IdleClosed;
-                _statusBar.EnableFeatures(StatusBarFeatures.Equipment, true);
-                _submenuOffsetY = 0;
-            }
-        }
-        else
-        {
-            _submenu++;
+                break;
+
+            default:
+                _submenu++;
+                break;
         }
 
         if (_submenu != 0)
@@ -4065,7 +4069,7 @@ internal sealed unsafe partial class World
         _credits.Update();
         if (_credits.IsDone())
         {
-            if (Game.Input.IsButtonPressing(GameButton.Start))
+            if (IsButtonPressing(GameButton.Start))
             {
                 _credits = null;
                 Game.Link = null;
@@ -4779,16 +4783,27 @@ internal sealed unsafe partial class World
                 _state.Continue.Substate = ContinueState.Substates.Idle;
                 break;
 
-            case ContinueState.Substates.Idle when Game.Input.IsButtonPressing(GameButton.Select):
-                _state.Continue.SelectedIndex++;
-                if (_state.Continue.SelectedIndex == 3)
-                {
-                    _state.Continue.SelectedIndex = 0;
-                }
-                break;
-
             case ContinueState.Substates.Idle:
-                if (Game.Input.IsButtonPressing(GameButton.Start))
+                if (IsAnyButtonPressing(GameButton.Select, GameButton.Down))
+                {
+                    _state.Continue.SelectedIndex++;
+                    if (_state.Continue.SelectedIndex > ContinueState.Indexes.Retry)
+                    {
+                        _state.Continue.SelectedIndex = 0;
+                    }
+                    break;
+                }
+
+                if (IsButtonPressing(GameButton.Up))
+                {
+                    _state.Continue.SelectedIndex--;
+                    if (_state.Continue.SelectedIndex < 0)
+                    {
+                        _state.Continue.SelectedIndex = ContinueState.Indexes.Retry;
+                    }
+                }
+
+                if (IsButtonPressing(GameButton.Start))
                 {
                     _state.Continue.Substate = ContinueState.Substates.Chosen;
                     _state.Continue.Timer = 0x40;
@@ -4799,22 +4814,24 @@ internal sealed unsafe partial class World
                 _statusBarVisible = true;
                 Game.Sound.StopAll();
 
-                if (_state.Continue.SelectedIndex == 0)
+                switch (_state.Continue.SelectedIndex)
                 {
-                    // So, that the OW song is played in the Enter mode.
-                    FromUnderground = 2;
-                    Game.Link = new Link(Game);
-                    Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHearts);
-                    GotoUnfurl(true);
-                }
-                else if (_state.Continue.SelectedIndex == 1)
-                {
-                    SaveFolder.SaveProfiles();
-                    GotoFileMenu();
-                }
-                else if (_state.Continue.SelectedIndex == 2)
-                {
-                    GotoFileMenu();
+                    case ContinueState.Indexes.Continue:
+                        // So, that the OW song is played in the Enter mode.
+                        FromUnderground = 2;
+                        Game.Link = new Link(Game);
+                        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHearts);
+                        GotoUnfurl(true);
+                        break;
+
+                    case ContinueState.Indexes.Save:
+                        SaveFolder.SaveProfiles();
+                        GotoFileMenu();
+                        break;
+
+                    case ContinueState.Indexes.Retry:
+                        GotoFileMenu();
+                        break;
                 }
                 break;
 
@@ -4826,7 +4843,7 @@ internal sealed unsafe partial class World
 
     private void DrawContinueQuestion()
     {
-        ReadOnlySpan<string> strs = ["Continue", "Save", "Retry"];
+        ReadOnlySpan<string> options = ["Continue", "Save", "Retry"];
 
         ClearScreen();
 
@@ -4836,15 +4853,15 @@ internal sealed unsafe partial class World
         {
             var pal = 0;
             if (_state.Continue.Substate == ContinueState.Substates.Chosen
-                && _state.Continue.SelectedIndex == i)
+                && (int)_state.Continue.SelectedIndex == i)
             {
                 pal = (Game.FrameCounter / 4) & 1;
             }
 
-            GlobalFunctions.DrawString(strs[i], 0x50, y, (Palette)pal);
+            GlobalFunctions.DrawString(options[i], 0x50, y, (Palette)pal);
         }
 
-        y = 0x50 + (_state.Continue.SelectedIndex * 24);
+        y = 0x50 + ((int)_state.Continue.SelectedIndex * 24);
         GlobalFunctions.DrawChar(Char.FullHeart, 0x40, y, Palette.RedFgPalette);
     }
 
