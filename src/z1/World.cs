@@ -2271,13 +2271,7 @@ internal sealed unsafe partial class World
     {
         foreach (var monster in GetMonsters<Actor>())
         {
-            // JOE: TODO: Offload this to the monster's classes.
-            var type = monster.ObjType;
-            if (type < ObjType.Bubble1
-                || (type > ObjType.Bubble3 && type < ObjType.Trap))
-            {
-                return true;
-            }
+            if (monster.CountsAsLiving) return true;
         }
 
         return false;
@@ -2777,7 +2771,7 @@ internal sealed unsafe partial class World
                 var type = (ObjType)list[(int)slot];
 
                 if (edgeObjects
-                    && type != ObjType.Zora // TODO: Move this to an attribute on the class?
+                    && type != ObjType.Zora // JOE: TODO: Move this to an attribute on the class?
                     && type != ObjType.Armos
                     && type != ObjType.StandingFire
                     && type != ObjType.Whirlwind
@@ -4795,7 +4789,6 @@ internal sealed unsafe partial class World
                     patchCells[patchCount] = new Cell((byte)row, (byte)col);
                     patchCount++;
                 }
-
                 break;
 
             case TileInteraction.Push:

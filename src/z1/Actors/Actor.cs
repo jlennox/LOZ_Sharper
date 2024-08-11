@@ -94,19 +94,7 @@ internal abstract class Actor
         set => Moving = (byte)value;
     }
 
-    public byte ObjTimer
-    {
-        get => __objTimer;
-        set {
-            if (this is BlueWizzrobeActor && value >= 100)
-            {
-                // Debugger.Break();
-            }
-            __objTimer = value;
-        }
-    }
-    public byte __objTimer;
-
+    public byte ObjTimer { get; set; }
 
     protected byte StunTimer;
     public ActorFlags Flags;
@@ -144,7 +132,10 @@ internal abstract class Actor
 
     public virtual bool IsPlayer => false;
     public virtual bool ShouldStopAtPersonWall => false;
-    public virtual bool CountsAsLiving => true;
+    public virtual bool CountsAsLiving =>
+        ObjType < ObjType.Bubble1
+        || (ObjType > ObjType.Bubble3 && ObjType < ObjType.Trap);
+
     public virtual bool CanHoldRoomItem => false;
     public virtual bool IsReoccuring => true;
     public virtual bool IsUnderworldPerson => true;
