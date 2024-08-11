@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using z1.IO;
 
 namespace z1.Actors;
 
@@ -24,6 +25,8 @@ internal interface IDeleteEvent
 
 internal abstract class Actor
 {
+    private static readonly DebugLog _log = new(nameof(Actor));
+    private static readonly DebugLog _traceLog = new(nameof(Actor), DebugLogDestination.DebugBuildsOnly);
     private static readonly ImmutableArray<byte> _swordPowers = [0, 0x10, 0x20, 0x40];
 
     public Game Game { get; }
@@ -31,7 +34,7 @@ internal abstract class Actor
     // JOE: TODO: Get rid of this.
     public Point Position
     {
-        get => new(_x, _y);
+        get => new(X, Y);
         set
         {
             X = value.X;
@@ -39,19 +42,8 @@ internal abstract class Actor
         }
     }
 
-    private int _x;
-    private int _y;
-
-    public int X
-    {
-        get => Position.X;
-        set => _x = value;
-    }
-    public int Y
-    {
-        get => Position.Y;
-        set => _y = value;
-    }
+    public int X { get; set; }
+    public int Y { get; set; }
 
     public bool IsDeleted
     {
@@ -582,7 +574,7 @@ internal abstract class Actor
         var itemValue = Game.World.GetItem(ItemSlot.Arrow);
         var box = new Point(0xB, 0xB);
 
-        ReadOnlySpan<int> arrowPowers = [ 0, 0x20, 0x40 ];
+        ReadOnlySpan<int> arrowPowers = [0, 0x20, 0x40];
         var context = new CollisionContext(slot, DamageType.Arrow, arrowPowers[itemValue], Point.Empty);
 
         if (CheckCollisionNoShove(context, box))
@@ -892,7 +884,7 @@ internal abstract class Actor
 
         var objCenter = CalcObjMiddle();
         var playerCenter = player.GetMiddle();
-        var box = new Point(9, 9);
+        var box = new Point(9, 9); // JOE: TODO: Why 9?
 
         if (!DoObjectsCollide(objCenter, playerCenter, box, out var distance))
         {
@@ -902,16 +894,20 @@ internal abstract class Actor
         // JOE: NOTE: Is this right? Original code did: CollisionContext context = { 0 };
         var context = new CollisionContext(ObjectSlot.NoneFound, 0, 0, distance);
 
+        // JOE: NOTE: Original did:
+        // if ( GetType() < Obj_Person_End )
         if (this is PersonActor)
         {
+            _log.Write(nameof(CheckPlayerCollisionDirect), "💥 this is PersonActor");
             Shove(context);
             player.BeHarmed(this);
-            return new PlayerCollision(true, true);
+            return new PlayerCollision(true, false);
         }
 
-        if (ObjType is ObjType.Fireball2 or (ObjType)0x5A
+        if (ObjType is ObjType.Fireball2 or ObjType.Merchant // Merchant seems to be a reused object id?
             || player.GetState() != PlayerState.Idle)
         {
+            _log.Write(nameof(CheckPlayerCollisionDirect), $"💥 {ObjType}, {player.GetState()}");
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, true);
@@ -920,20 +916,25 @@ internal abstract class Actor
         if (((int)(Facing | player.Facing) & 0xC) != 0xC
             && ((int)(Facing | player.Facing) & 3) != 3)
         {
+            _log.Write(nameof(CheckPlayerCollisionDirect), "💥 Facing | player.Facing");
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, true);
         }
 
-        if (this is Projectile projectile
-            && projectile.IsBlockedByMagicShield
-            && Game.World.GetItem(ItemSlot.MagicShield) == 0)
+        // JOE: NOTE: This might be wrong. Original was:
+        // GetType() >= Obj_Fireball && GetType() < Obj_Arrow
+        if (this is IBlockableProjectile projectile
+            && projectile.RequiresMagicShield
+            && !Game.World.HasItem(ItemSlot.MagicShield))
         {
+            _log.Write(nameof(CheckPlayerCollisionDirect), "💥 !ItemSlot.MagicShield");
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, true);
         }
 
+        _log.Write(nameof(CheckPlayerCollisionDirect), "🛡️ Parry.");
         Game.Sound.PlayEffect(SoundEffect.Parry);
         return new PlayerCollision(false, true);
     }
@@ -1095,7 +1096,7 @@ internal abstract class Actor
 
     private Direction GetNextAltDir(ref int seq, Direction dir)
     {
-        ReadOnlySpan<Direction> nextDirections = [ Direction.Up, Direction.Down, Direction.Left, Direction.Right ];
+        ReadOnlySpan<Direction> nextDirections = [Direction.Up, Direction.Down, Direction.Left, Direction.Right];
         switch (seq++)
         {
             // Choose a random direction perpendicular to facing.
@@ -1250,7 +1251,8 @@ internal abstract class Actor
                 }
             }
 
-            if (CheckWorldMargin(cleanDir) == Direction.None || StopAtPersonWallUW(cleanDir) == Direction.None)
+            if (CheckWorldMargin(cleanDir) == Direction.None
+                || StopAtPersonWallUW(cleanDir) == Direction.None)
             {
                 ShoveDirection = 0;
                 ShoveDistance = 0;

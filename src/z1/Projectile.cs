@@ -1,10 +1,16 @@
-﻿using z1.Actors;
+﻿using System.Collections.Immutable;
+using z1.Actors;
 
 namespace z1;
 
-internal interface IProjectile
+internal interface IProjectile : IBlockableProjectile
 {
     bool IsInShotStartState();
+}
+
+internal interface IBlockableProjectile
+{
+    bool RequiresMagicShield => false;
 }
 
 internal enum ProjectileState { Flying, Spark, Bounce, Spreading }
@@ -14,7 +20,6 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
     public ProjectileState State = ProjectileState.Flying;
 
     public bool IsPlayerWeapon => Game.World.CurObjectSlot > ObjectSlot.Buffer;
-    public virtual bool IsBlockedByMagicShield => true;
 
     private Direction _bounceDir = Direction.None;
 
@@ -67,8 +72,8 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
 
     protected void UpdateBounce()
     {
-        ReadOnlySpan<int> xSpeeds = [ 2, -2, -1, 1 ];
-        ReadOnlySpan<int> ySpeeds = [ -1, -1, 2, -2 ];
+        ReadOnlySpan<int> xSpeeds = [2, -2, -1, 1];
+        ReadOnlySpan<int> ySpeeds = [-1, -1, 2, -2];
 
         var dirOrd = _bounceDir.GetOrdinal();
 
@@ -77,12 +82,16 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
         TileOffset += 2;
 
         if (TileOffset >= 0x20)
+        {
             IsDeleted = true;
+        }
     }
 }
 
-internal sealed class PlayerSwordProjectile : Projectile
+internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
 {
+    public bool RequiresMagicShield => true;
+
     private int _distance;
     private readonly SpriteImage _image;
 
@@ -230,9 +239,9 @@ internal sealed class FlyingRockProjectile : Projectile
 
 internal enum FireballState { Unknown0, Unknown1 }
 
-internal sealed class FireballProjectile : Actor
+internal sealed class FireballProjectile : Actor, IBlockableProjectile
 {
-    private static readonly Direction[] _sector16Dirs = {
+    private static readonly ImmutableArray<Direction> _sector16Dirs = [
         Direction.Right,
         Direction.Right | Direction.Down,
         Direction.Right | Direction.Down,
@@ -248,8 +257,10 @@ internal sealed class FireballProjectile : Actor
         Direction.Up,
         Direction.Up | Direction.Right,
         Direction.Up | Direction.Right,
-        Direction.Up | Direction.Right,
-    };
+        Direction.Up | Direction.Right
+    ];
+
+    public bool RequiresMagicShield => true;
 
     // JOE: NOTE: This appears to mirror the original X/Y values so they're floats instead?
     private float _x;
@@ -262,6 +273,11 @@ internal sealed class FireballProjectile : Actor
     public FireballProjectile(Game game, ObjType type, int x, int y, float speed)
         : base(game, type, x, y)
     {
+        if (type is not (ObjType.Fireball or ObjType.Fireball2))
+        {
+            throw new ArgumentOutOfRangeException(nameof(type), ObjType.Fireball, "Invalid projectile type");
+        }
+
         Decoration = 0;
         _image = new SpriteImage(Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Fireball));
 
@@ -539,7 +555,9 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
             // But the sound from the NSF doesn't sound right at that speed.
             _animTimer = 11;
             if (_owner != null && _owner.IsPlayer)
+            {
                 Game.Sound.PlayEffect(SoundEffect.Boomerang);
+            }
         }
 
         _animator.Advance();
@@ -564,21 +582,26 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
     {
         var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
         if (itemValue == 0)
+        {
             itemValue = 1;
+        }
+
         var pal = _state == BoomerangState.Unknown2 ? Palette.RedFgPalette : (Palette.Player + itemValue - 1);
         var xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
         _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal);
     }
 }
 
-internal sealed class MagicWaveProjectile : Projectile
+internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 {
-    private static readonly AnimationId[] _waveAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _waveAnimMap = [
         AnimationId.Wave_Right,
         AnimationId.Wave_Left,
         AnimationId.Wave_Down,
-        AnimationId.Wave_Up,
-    };
+        AnimationId.Wave_Up
+    ];
+
+    public bool RequiresMagicShield => true;
 
     private readonly SpriteImage _image;
 
@@ -648,12 +671,12 @@ internal sealed class MagicWaveProjectile : Projectile
 
 internal sealed class ArrowProjectile : Projectile
 {
-    private static readonly AnimationId[] _arrowAnimMap = {
+    private static readonly ImmutableArray<AnimationId> _arrowAnimMap = [
         AnimationId.Arrow_Right,
         AnimationId.Arrow_Left,
         AnimationId.Arrow_Down,
-        AnimationId.Arrow_Up,
-    };
+        AnimationId.Arrow_Up
+    ];
 
     private int _timer;
     private readonly SpriteImage _image;
@@ -710,12 +733,14 @@ internal sealed class ArrowProjectile : Projectile
     {
         _timer--;
         if (_timer == 0)
+        {
             IsDeleted = true;
+        }
     }
 
     public override void Draw()
     {
-        ReadOnlySpan<int> yOffsets = [ 3, 3, 0, 0 ];
+        ReadOnlySpan<int> yOffsets = [3, 3, 0, 0];
 
         var pal = Palette.BlueFgPalette;
 
@@ -731,7 +756,6 @@ internal sealed class ArrowProjectile : Projectile
                 pal = Palette.RedFgPalette;
             }
         }
-
 
         var dirOrd = Facing.GetOrdinal();
         var yOffset = yOffsets[dirOrd];
