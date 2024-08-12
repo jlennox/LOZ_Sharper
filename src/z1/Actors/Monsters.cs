@@ -377,7 +377,7 @@ internal sealed class OctorokActor : DelayedWanderer
             (ActorColor.Blue, true) => new OctorokActor(game, ObjType.BlueFastOctorock, _blueFastOctorockSpec, 0xA0, x, y),
             (ActorColor.Red, false) => new OctorokActor(game, ObjType.RedSlowOctorock, _redSlowOctorockSpec, 0x70, x, y),
             (ActorColor.Red, true) => new OctorokActor(game, ObjType.RedFastOctorock, _redFastOctorockSpec, 0x70, x, y),
-            _ => throw new ArgumentOutOfRangeException(nameof(color), color, "Invalid color."),
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(OctorokActor)}."),
         };
     }
 }
@@ -1227,7 +1227,7 @@ internal sealed class DarknutActor : StdWanderer
     {
         if (type is not (ObjType.RedDarknut or ObjType.BlueDarknut))
         {
-            throw new ArgumentOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(DarknutActor)}.");
         }
 
         InvincibilityMask = 0xF6;
@@ -1239,7 +1239,7 @@ internal sealed class DarknutActor : StdWanderer
         {
             ActorColor.Red => new DarknutActor(game, ObjType.RedDarknut, _redDarknutSpec, x, y),
             ActorColor.Blue => new DarknutActor(game, ObjType.BlueDarknut, _blueDarknutSpec, x, y),
-            _ => throw new ArgumentOutOfRangeException()
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(DarknutActor)}.")
         };
     }
 
@@ -1303,7 +1303,7 @@ internal sealed class GelActor : WandererWalkerActor
     {
         if (type is not (ObjType.Gel or ObjType.ChildGel))
         {
-            throw new ArgumentOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(GelActor)}.");
         }
 
         Facing = dir;
@@ -1329,9 +1329,11 @@ internal sealed class GelActor : WandererWalkerActor
                 ObjTimer = 5;
                 _state = 1;
                 break;
+
             case 1:
                 UpdateShove();
                 break;
+
             case 2:
                 UpdateWander();
                 break;
@@ -1444,7 +1446,9 @@ internal sealed class ZolActor : WandererWalkerActor
     private void UpdateShove()
     {
         if (!TryBigShove())
+        {
             _state = 2;
+        }
     }
 
     private void UpdateSplit()
@@ -1487,7 +1491,7 @@ internal sealed class BubbleActor : WandererWalkerActor
     {
         if (type is not (ObjType.Bubble1 or ObjType.Bubble2 or ObjType.Bubble3))
         {
-            throw new Exception();
+            throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(BubbleActor)}.");
         }
 
         InitCommonFacing();
@@ -2044,22 +2048,12 @@ internal abstract class FlyingActor : Actor
     protected Direction DeferredDir;
     protected int MoveCounter;
 
-    protected readonly ImmutableArray<Action> SStateFuncs;
     protected readonly FlyerSpec Spec;
 
     protected FlyingActor(Game game, ObjType type, FlyerSpec spec, int x, int y)
         : base(game, type, x, y)
     {
         Spec = spec;
-        SStateFuncs = [
-            UpdateHastening,
-            UpdateFullSpeed,
-            UpdateChase,
-            UpdateTurn,
-            UpdateSlowing,
-            UpdateStill
-        ];
-
         Animator = new SpriteAnimator(spec.Sheet, spec.AnimationMap[0])
         {
             Time = 0,
@@ -2071,7 +2065,18 @@ internal abstract class FlyingActor : Actor
     {
         var origFacing = Facing;
 
-        SStateFuncs[State]();
+        Action func = State switch
+        {
+            0 => UpdateHastening,
+            1 => UpdateFullSpeed,
+            2 => UpdateChase,
+            3 => UpdateTurn,
+            4 => UpdateSlowing,
+            5 => UpdateStill,
+            _ => throw new ArgumentOutOfRangeException(nameof(State), State, $"Invalid state for {ObjType}.")
+        };
+
+        func();
 
         Move();
 
@@ -2382,7 +2387,7 @@ internal sealed class KeeseActor : FlyingActor
             ActorColor.Red => new KeeseActor(game, ObjType.RedKeese, _redKeeseSpec, 0x7F, x, y),
             ActorColor.Blue => new KeeseActor(game, ObjType.BlueKeese, _blueKeeseSpec, 0x1F, x, y),
             ActorColor.Black => new KeeseActor(game, ObjType.BlackKeese, _blackKeeseSpec, 0x7F, x, y),
-            _ => throw new ArgumentOutOfRangeException(nameof(color))
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(KeeseActor)}.")
         };
     }
 
@@ -3143,7 +3148,7 @@ internal sealed class TektiteActor : JumperActor
     {
         if (type is not (ObjType.BlueTektite or ObjType.RedTektite))
         {
-            throw new ArgumentOutOfRangeException(nameof(type));
+            throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(TektiteActor)}.");
         }
     }
 
@@ -3153,7 +3158,7 @@ internal sealed class TektiteActor : JumperActor
         {
             ActorColor.Blue => new TektiteActor(game, ObjType.BlueTektite, _blueTektiteSpec, x, y),
             ActorColor.Red => new TektiteActor(game, ObjType.RedTektite, _redTektiteSpec, x, y),
-            _ => throw new ArgumentOutOfRangeException(nameof(color))
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(TektiteActor)}.")
         };
     }
 }
@@ -3247,8 +3252,7 @@ internal sealed class TrapActor : Actor
     public static TrapActor MakeSet(Game game, int count)
     {
         Debug.Assert(count is >= 1 and <= 6);
-        if (count < 1) count = 1;
-        if (count > 6) count = 6;
+        count = Math.Clamp(count, 1, 6);
 
         var slot = ObjectSlot.Monster1;
 
@@ -3641,7 +3645,6 @@ internal sealed class RedWizzrobeActor : Actor
     private byte _flashTimer;
 
     private readonly SpriteAnimator _animator;
-    private readonly ImmutableArray<Action> _sStateFuncs;
 
     public RedWizzrobeActor(Game game, int x, int y)
         : base(game, ObjType.RedWizzrobe, x, y)
@@ -3652,13 +3655,6 @@ internal sealed class RedWizzrobeActor : Actor
             DurationFrames = 8,
             Time = 0
         };
-
-        _sStateFuncs = [
-            UpdateHidden,
-            UpdateGoing,
-            UpdateVisible,
-            UpdateComing
-        ];
     }
 
     public override void Update()
@@ -3674,7 +3670,16 @@ internal sealed class RedWizzrobeActor : Actor
 
         var state = GetState();
 
-        _sStateFuncs[state]();
+        Action func = state switch
+        {
+            0 => UpdateHidden,
+            1 => UpdateGoing,
+            2 => UpdateVisible,
+            3 => UpdateComing,
+            _ => throw new ArgumentOutOfRangeException(nameof(state), state, $"Invalid state for {ObjType}.")
+        };
+
+        func();
 
         _animator.Advance();
     }
@@ -3782,19 +3787,18 @@ internal sealed class RedWizzrobeActor : Actor
             {
                 SetFacingAnimation();
             }
+            return;
         }
-        else
-        {
-            if (_stateTimer == 0x7F)
-            {
-                _stateTimer = 0x4F;
-            }
 
-            _flashTimer++;
-            if ((_flashTimer & 1) == 0)
-            {
-                CheckRedWizzrobeCollisions();
-            }
+        if (_stateTimer == 0x7F)
+        {
+            _stateTimer = 0x4F;
+        }
+
+        _flashTimer++;
+        if ((_flashTimer & 1) == 0)
+        {
+            CheckRedWizzrobeCollisions();
         }
     }
 
@@ -3819,10 +3823,10 @@ internal sealed class RedWizzrobeActor : Actor
 
 internal sealed class LamnolaActor : Actor
 {
-    private const ObjectSlot HeadSlot1 = ObjectSlot.Monster1 + 4;
-    private const ObjectSlot HeadSlot2 = HeadSlot1 + 5;
     private const ObjectSlot TailSlot1 = ObjectSlot.Monster1;
-    private const ObjectSlot TailSlot2 = TailSlot1 + 5;
+    private const ObjectSlot HeadSlot1 = TailSlot1 + 4;
+    private const ObjectSlot TailSlot2 = HeadSlot1 + 1;
+    private const ObjectSlot HeadSlot2 = TailSlot2 + 4;
 
     private readonly SpriteImage _image;
 
@@ -3841,20 +3845,20 @@ internal sealed class LamnolaActor : Actor
         {
             ActorColor.Red => ObjType.RedLamnola,
             ActorColor.Blue => ObjType.BlueLamnola,
-            _ => throw new ArgumentOutOfRangeException(nameof(color))
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(LamnolaActor)}."),
         };
 
         const int y = 0x8D;
 
-        for (var i = 0; i < 5 * 2; i++)
+        for (var i = TailSlot1; i <= HeadSlot2; i++)
         {
-            var isHead = (i == 4) || (i == 9);
+            var isHead = i is HeadSlot1 or HeadSlot2;
             var lamnola = new LamnolaActor(game, objtype, isHead, 0x40, y);
-            game.World.SetObject((ObjectSlot)i, lamnola);
+            game.World.SetObject(i, lamnola);
         }
 
-        var head1 = game.World.GetObject<LamnolaActor>((ObjectSlot)4) ?? throw new Exception();
-        var head2 = game.World.GetObject<LamnolaActor>((ObjectSlot)9) ?? throw new Exception();
+        var head1 = game.World.GetObject<LamnolaActor>(HeadSlot1) ?? throw new Exception();
+        var head2 = game.World.GetObject<LamnolaActor>(HeadSlot2) ?? throw new Exception();
 
         head1.Facing = Direction.Up;
         head2.Facing = Direction.Up;
@@ -4371,21 +4375,21 @@ internal sealed class DodongoActor : WandererWalkerActor
     private int _bloatedTimer;
     private int _bombHits;
 
-    private readonly ImmutableArray<StateFunc> _sStateFuncs;
-    private readonly ImmutableArray<StateFunc> _sBloatedSubstateFuncs;
+    private readonly ImmutableArray<StateFunc> _stateFuncs;
+    private readonly ImmutableArray<StateFunc> _bloatedSubstateFuncs;
 
     public override bool IsReoccuring => false;
 
     private DodongoActor(Game game, ObjType type, int x, int y)
         : base(game, type, _dodongoWalkSpec, 0x20, x, y)
     {
-        _sStateFuncs = [
+        _stateFuncs = [
             UpdateMoveState,
             UpdateBloatedState,
             UpdateStunnedState
         ];
 
-        _sBloatedSubstateFuncs = [
+        _bloatedSubstateFuncs = [
             UpdateBloatedWait,
             UpdateBloatedWait,
             UpdateBloatedWait,
@@ -4411,7 +4415,7 @@ internal sealed class DodongoActor : WandererWalkerActor
         {
             1 => new DodongoActor(game, ObjType.OneDodongo, x, y),
             3 => new DodongoActor(game, ObjType.ThreeDodongos, x, y),
-            _ => throw new ArgumentOutOfRangeException(nameof(count))
+            _ => throw new ArgumentOutOfRangeException(nameof(count), count, $"Invalid count for {nameof(DodongoActor)}.")
         };
     }
 
@@ -4447,7 +4451,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     private void UpdateState()
     {
-        _sStateFuncs[_state]();
+        _stateFuncs[_state]();
     }
 
     private void CheckPlayerHit()
@@ -4596,7 +4600,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     private void UpdateBloatedState()
     {
-        _sBloatedSubstateFuncs[_bloatedSubstate]();
+        _bloatedSubstateFuncs[_bloatedSubstate]();
     }
 
     private void UpdateStunnedState()
@@ -4606,6 +4610,7 @@ internal sealed class DodongoActor : WandererWalkerActor
             case 0:
                 StunTimer = 0x20;
                 break;
+
             case 1:
                 _state = 0;
                 _bloatedSubstate = 0;
@@ -4617,26 +4622,28 @@ internal sealed class DodongoActor : WandererWalkerActor
     {
         ReadOnlySpan<int> waitTimes = [0x20, 0x40, 0x40];
 
-        if (_bloatedTimer == 0)
+        switch (_bloatedTimer)
         {
-            _bloatedTimer = waitTimes[_bloatedSubstate];
-            if (_bloatedSubstate == 0)
-            {
-                var bomb = Game.World.GetObject<BombActor>(ObjectSlot.FirstBomb);
-                if (bomb != null)
+            case 0:
+                _bloatedTimer = waitTimes[_bloatedSubstate];
+                if (_bloatedSubstate == 0)
                 {
-                    bomb.IsDeleted = true;
+                    var bomb = Game.World.GetObject<BombActor>(ObjectSlot.FirstBomb);
+                    if (bomb != null)
+                    {
+                        bomb.IsDeleted = true;
+                    }
+                    _bombHits++;
                 }
-                _bombHits++;
-            }
-        }
-        else if (_bloatedTimer == 1)
-        {
-            _bloatedSubstate++;
-            if (_bloatedSubstate >= 2 && _bombHits < 2)
-            {
-                _bloatedSubstate = 4;
-            }
+                break;
+
+            case 1:
+                _bloatedSubstate++;
+                if (_bloatedSubstate >= 2 && _bombHits < 2)
+                {
+                    _bloatedSubstate = 4;
+                }
+                break;
         }
 
         _bloatedTimer--;
@@ -5002,7 +5009,7 @@ internal abstract class DigdoggerActorBase : Actor
 
 internal sealed class DigdoggerActor : DigdoggerActorBase
 {
-    private static readonly byte[] _palette = [0, 0x17, 0x27, 0x30];
+    private static readonly ImmutableArray<byte> _palette = [0, 0x17, 0x27, 0x30];
     private static readonly ImmutableArray<int> _offsetsX = [0, 0x10, 0, -0x10];
     private static readonly ImmutableArray<int> _offsetsY = [0, 0x10, -0x10, 0x10];
 
@@ -5110,7 +5117,9 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
             {
                 IsChild = !IsChild;
                 if (!IsChild)
+                {
                     _updateBig = true;
+                }
             }
         }
         else
@@ -5226,7 +5235,7 @@ internal sealed class GohmaActor : Actor
         {
             ActorColor.Red => new GohmaActor(game, ObjType.RedGohma, x, y),
             ActorColor.Blue => new GohmaActor(game, ObjType.BlueGohma, x, y),
-            _ => throw new ArgumentOutOfRangeException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(GohmaActor)}."),
         };
     }
 
@@ -5411,23 +5420,23 @@ internal sealed class ArmosActor : ChaseWalkerActor
                 _state++;
                 Game.World.OnActivatedArmos(X, Y);
             }
-        }
-        else
-        {
-            UpdateNoAnimation();
 
-            if (ShoveDirection == 0)
+            return;
+        }
+
+        UpdateNoAnimation();
+
+        if (ShoveDirection == 0)
+        {
+            Animator.Advance();
+            CheckCollisions();
+            if (Decoration != 0)
             {
-                Animator.Advance();
-                CheckCollisions();
-                if (Decoration != 0)
+                var dummy = new DeadDummyActor(Game, X, Y)
                 {
-                    var dummy = new DeadDummyActor(Game, X, Y)
-                    {
-                        Decoration = Decoration
-                    };
-                    Game.World.SetObject(slot, dummy);
-                }
+                    Decoration = Decoration
+                };
+                Game.World.SetObject(slot, dummy);
             }
         }
     }
@@ -5477,7 +5486,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
         {
             ActorColor.Blue => new GoriyaActor(game, ObjType.BlueGoriya, _blueGoriyaSpec, x, y),
             ActorColor.Red => new GoriyaActor(game, ObjType.RedGoriya, _redGoriyaSpec, x, y),
-            _ => throw new ArgumentOutOfRangeException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(GoriyaActor)}."),
         };
     }
 
@@ -5615,7 +5624,7 @@ internal sealed class LynelActor : StdChaseWalker
     {
         if (type is not (ObjType.BlueLynel or ObjType.RedLynel))
         {
-            throw new ArgumentOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(LynelActor)}.");
         }
     }
 
@@ -5625,7 +5634,7 @@ internal sealed class LynelActor : StdChaseWalker
         {
             ActorColor.Blue => new LynelActor(game, ObjType.BlueLynel, _blueLynelSpec, x, y),
             ActorColor.Red => new LynelActor(game, ObjType.RedLynel, _redLynelSpec, x, y),
-            _ => throw new ArgumentOutOfRangeException(nameof(color), color, "Invalid color."),
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(LynelActor)}."),
         };
     }
 }
@@ -5647,7 +5656,7 @@ internal sealed class MoblinActor : StdWanderer
     {
         if (type is not (ObjType.BlueMoblin or ObjType.RedMoblin))
         {
-            throw new ArgumentOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(MoblinActor)}.");
         }
     }
 
@@ -5657,7 +5666,7 @@ internal sealed class MoblinActor : StdWanderer
         {
             ActorColor.Blue => new MoblinActor(game, ObjType.BlueMoblin, _blueMoblinSpec, x, y),
             ActorColor.Red => new MoblinActor(game, ObjType.RedMoblin, _redMoblinSpec, x, y),
-            _ => throw new ArgumentOutOfRangeException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(MoblinActor)}."),
         };
     }
 }

@@ -5,7 +5,6 @@ namespace z1;
 // Milestone 1:
 // * Textbox and ruppee sounds are wrong.
 // * Screen sides need to be painted black.
-// * Swords and items picked up out of order should not downgrade.
 // * Wall masters got shield blocked, then boss sound kept going after getting brought back.
 //   And then I kept walking north and got stuck.
 // * Aquamentis blocks his own fireballs.
@@ -16,8 +15,10 @@ namespace z1;
 // * Dungeon shutters draw closed when moving between rooms.
 // * Dungeon walls without doors draw over swords/bombs.
 // * Holding the button spams the sword.
+// * Swords and items picked up out of order should not downgrade.
 
 // To check:
+// * Re-check Lamnola.
 // * Check `IsReoccuring` is proper.
 // * Do bubbles work properly? (normal kind: yes)
 // * Ensure magic shield works.

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Diagnostics;
 
 namespace z1.Actors;
 
@@ -319,7 +318,7 @@ internal sealed class GleeokNeck
             6 => CrossedMidYLimit,
             7 => CrossedMidYLimit,
             8 => CrossedBothMidLimits,
-            _ => throw new ArgumentOutOfRangeException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(funcIndex), funcIndex, $"Invalid funcIndex for {nameof(GleeokNeck)}."),
         };
 
         fn(index);
@@ -443,7 +442,7 @@ internal sealed class GleeokActor : Actor
             2 => ObjType.Gleeok2,
             3 => ObjType.Gleeok3,
             4 => ObjType.Gleeok4,
-            _ => throw new ArgumentOutOfRangeException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(headCount), headCount, "Invalid headCount."),
         };
 
         return new GleeokActor(game, type, x, y);
