@@ -953,6 +953,8 @@ internal sealed class FairyActor : FlyingActor
         Decoration = 0;
         Facing = Direction.Up;
         CurSpeed = 0x7F;
+
+        Game.Sound.PlayEffect(SoundEffect.Item);
     }
 
     public override void Update()

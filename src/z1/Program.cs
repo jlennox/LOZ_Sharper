@@ -3,7 +3,6 @@
 namespace z1;
 
 // Milestone 1:
-// * No fairy sound when spawning.
 // * Textbox and ruppee sounds are wrong.
 // * Screen sides need to be painted black.
 // * Swords and items picked up out of order should not downgrade.
@@ -20,9 +19,9 @@ namespace z1;
 
 // To check:
 // * Check `IsReoccuring` is proper.
-// * Consider refactoring monster projectile creation into generic CreateProjectile?
-// * Do bubbles work properly?
+// * Do bubbles work properly? (normal kind: yes)
 // * Ensure magic shield works.
+// * Boss noises when next to boss room.
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.
