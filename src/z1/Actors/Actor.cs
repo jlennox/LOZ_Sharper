@@ -862,6 +862,7 @@ internal abstract class Actor
     protected PlayerCollision CheckPlayerCollisionDirect()
     {
         var player = Game.Link;
+        var fnlog = _log.CreateFunctionLog();
 
         if (player.GetState() == PlayerState.Paused || player.IsParalyzed)
         {
@@ -889,7 +890,7 @@ internal abstract class Actor
         // if ( GetType() < Obj_Person_End )
         if (this is PersonActor)
         {
-            _log.Write(nameof(CheckPlayerCollisionDirect), "💥 this is PersonActor");
+            fnlog.Write("💥 this is PersonActor");
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, false);
@@ -898,7 +899,7 @@ internal abstract class Actor
         if (ObjType is ObjType.Fireball2 or ObjType.Merchant // Merchant seems to be a reused object id?
             || player.GetState() != PlayerState.Idle)
         {
-            _log.Write(nameof(CheckPlayerCollisionDirect), $"💥 {ObjType}, {player.GetState()}");
+            fnlog.Write($"💥 {ObjType}, {player.GetState()}");
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, true);
@@ -907,7 +908,7 @@ internal abstract class Actor
         if (((int)(Facing | player.Facing) & 0xC) != 0xC
             && ((int)(Facing | player.Facing) & 3) != 3)
         {
-            _log.Write(nameof(CheckPlayerCollisionDirect), "💥 Facing | player.Facing");
+            fnlog.Write("💥 Facing | player.Facing");
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, true);
@@ -919,13 +920,13 @@ internal abstract class Actor
             && projectile.RequiresMagicShield
             && !Game.World.HasItem(ItemSlot.MagicShield))
         {
-            _log.Write(nameof(CheckPlayerCollisionDirect), "💥 !ItemSlot.MagicShield");
+            fnlog.Write("💥 !ItemSlot.MagicShield");
             Shove(context);
             player.BeHarmed(this);
             return new PlayerCollision(true, true);
         }
 
-        _log.Write(nameof(CheckPlayerCollisionDirect), "🛡️ Parry.");
+        fnlog.Write("🛡️ Parry.");
         Game.Sound.PlayEffect(SoundEffect.Parry);
         return new PlayerCollision(false, true);
     }

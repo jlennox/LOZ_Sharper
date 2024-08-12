@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Channels;
 
@@ -15,28 +16,28 @@ internal enum DebugLogDestination
     All = Debug | File,
 }
 
-internal sealed class DebugLog
+internal readonly record struct FunctionLog(DebugLog DebugLog, string FunctionName)
+{
+    public void Write(string s) => DebugLog.Write(FunctionName, s);
+}
+
+internal sealed class DebugLogWriter
 {
     private const int MaxLogSize = 5 * 1024 * 1024;
 
     private static readonly Lazy<string> _logFile = new(() => Path.Combine(Directories.Save, Path.Combine("logs.txt")));
 
-    private static readonly FileStream? _fs;
-    private static readonly byte[] _buffer = new byte[5 * 1024];
+    private readonly FileStream? _fs;
+    private readonly byte[] _buffer = new byte[5 * 1024];
 
-    private static readonly CancellationTokenSource _cts = new();
-    private static readonly Channel<string> _queue = Channel.CreateBounded<string>(new BoundedChannelOptions(200)
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Channel<string> _queue = Channel.CreateBounded<string>(new BoundedChannelOptions(200)
     {
         SingleReader = true,
         SingleWriter = true,
     });
 
-    private readonly string _name;
-    private readonly bool _writefile;
-    private readonly bool _writedebug;
-    private readonly bool _disabled;
-
-    static DebugLog()
+    public DebugLogWriter()
     {
         _fs = File.Open(_logFile.Value, FileMode.Create, FileAccess.Write, FileShare.Read);
 
@@ -51,6 +52,50 @@ internal sealed class DebugLog
             Priority = ThreadPriority.BelowNormal,
         }.Start();
     }
+
+    private static string FormatLine(string s) => $"{DateTime.Now}: {s}\n";
+
+    private void WriterThread()
+    {
+        var fs = _fs ?? throw new InvalidOperationException("DebugLog not initialized.");
+
+        while (!_cts.IsCancellationRequested)
+        {
+            if (fs.Length > MaxLogSize)
+            {
+                fs.SetLength(0);
+            }
+
+            var s = _queue.Reader.ReadAsync(_cts.Token).AsTask().Result;
+
+            var line = FormatLine(s);
+            var maxbytes = Encoding.UTF8.GetMaxByteCount(line.Length);
+            var buffer = maxbytes > _buffer.Length ? new byte[maxbytes] : _buffer;
+            var encodedBytes = Encoding.UTF8.GetBytes(line, buffer);
+
+            fs.Write(buffer, 0, encodedBytes);
+            fs.Flush();
+        }
+
+        try
+        {
+            fs.Close();
+            fs.Dispose();
+        }
+        catch { }
+    }
+
+    public void Write(string s) => _queue.Writer.TryWrite(s);
+}
+
+internal sealed class DebugLog
+{
+    private static readonly DebugLogWriter _writer = new();
+
+    private readonly string _name;
+    private readonly bool _writefile;
+    private readonly bool _writedebug;
+    private readonly bool _disabled;
 
     public DebugLog(string name, DebugLogDestination destination = DebugLogDestination.All)
     {
@@ -71,30 +116,7 @@ internal sealed class DebugLog
     {
     }
 
-    private static void WriterThread()
-    {
-        var fs = _fs ?? throw new InvalidOperationException("DebugLog not initialized.");
-
-        while (!_cts.IsCancellationRequested)
-        {
-            if (fs.Length > MaxLogSize)
-            {
-                fs.SetLength(0);
-            }
-
-            var s = _queue.Reader.ReadAsync(_cts.Token).AsTask().Result;
-
-            var line = FormatLine(s);
-            var maxbytes = Encoding.UTF8.GetMaxByteCount(line.Length);
-            var buffer = maxbytes > _buffer.Length ? new byte[maxbytes] : _buffer;
-            var encodedBytes = Encoding.UTF8.GetBytes(FormatLine(s), buffer);
-
-            fs.Write(buffer, 0, encodedBytes);
-            fs.Flush();
-        }
-    }
-
-    internal static string FormatLine(string s) => $"{DateTime.Now}: {s}\n";
+    public FunctionLog CreateFunctionLog([CallerMemberName] string functionName = "") => new(this, functionName);
 
     public void Write(string namespaze, string s)
     {
@@ -103,7 +125,7 @@ internal sealed class DebugLog
         var log = $"{_name}[{namespaze}]: {s}";
 
         if (_writedebug) Debug.WriteLine(log);
-        if (_writefile) _queue.Writer.TryWrite(log);
+        if (_writefile) _writer.Write(log);
     }
 
     public void Write(string s)
@@ -113,6 +135,6 @@ internal sealed class DebugLog
         var log = $"{_name}: {s}";
 
         if (_writedebug) Debug.WriteLine(log);
-        if (_writefile) _queue.Writer.TryWrite(log);
+        if (_writefile) _writer.Write(log);
     }
 }
