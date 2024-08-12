@@ -62,7 +62,7 @@ internal static class Maffs
         {
             sector += 2;
             var temp = y - x;
-            x = x + y;
+            x += y;
             y = temp;
             // Because we're only finding out the sector, only the angle matters, not the point along it.
             // So, we can skip multiplying x and y by 1/(2^.5)

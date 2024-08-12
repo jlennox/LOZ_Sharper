@@ -20,7 +20,7 @@ internal abstract class WalkerActor : Actor
     protected const int StandardSpeed = 0x20;
     protected const int FastSpeed = 0x40;
 
-    protected WalkerSpec Spec { get; set; }
+    protected WalkerSpec Spec { get; private set; }
     protected SpriteAnimator Animator;
     protected ImmutableArray<AnimationId>? AnimationMap => Spec.AnimationMap;
     protected int AnimationTime => Spec.AnimationTime;
@@ -54,6 +54,14 @@ internal abstract class WalkerActor : Actor
         var offsetX = (16 - Animator.Animation.Width) / 2;
         var pal = CalcPalette(Spec.Palette);
         Animator.Draw(TileSheet.Npcs, X + offsetX, Y, pal);
+    }
+
+    protected void SetSpec(WalkerSpec spec)
+    {
+        Spec = spec;
+        CurrentSpeed = spec.Speed;
+        Animator.DurationFrames = AnimationTime;
+        SetFacingAnimation();
     }
 
     protected void SetFacingAnimation()
@@ -1709,7 +1717,7 @@ internal abstract class DigWanderer : WandererWalkerActor
         {
             State = (State + 1) % 6;
             ObjTimer = (byte)StateTimes[State];
-            Spec = _stateSpecs[State];
+            SetSpec(_stateSpecs[State]);
         }
 
         Animator.Advance();
