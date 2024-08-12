@@ -120,6 +120,7 @@ internal sealed unsafe partial class World
     public Game Game { get; }
     public Link Player => Game.Link;
     public int CurRoomId;
+    public Point CurrentRoom => new(CurRoomId % WorldWidth, CurRoomId / WorldWidth);
     public SubmenuType Menu;
     public int RoomObjCount;           // 34E
     public Actor? RoomObj;              // 35F
@@ -455,8 +456,8 @@ internal sealed unsafe partial class World
         DrawFuncs[(int)_curMode]!();
     }
 
-    private bool IsButtonPressing(GameButton buttonCode) => Game.Input.IsButtonPressing(buttonCode);
-    private bool IsAnyButtonPressing(GameButton a, GameButton b) => IsButtonPressing(a) || IsButtonPressing(b);
+    private bool IsButtonPressing(GameButton button) => Game.Input.IsButtonPressing(button);
+    private bool IsAnyButtonPressing(GameButton a, GameButton b) => Game.Input.IsAnyButtonPressing(a, b);
     private void DrawRoom() => DrawMap(CurRoomId, _curTileMapIndex, 0, 0);
     public void PauseFillHearts() => _pause = PauseState.FillingHearts;
     public void LeaveRoom(Direction dir, int roomId) => GotoLeave(dir, roomId);

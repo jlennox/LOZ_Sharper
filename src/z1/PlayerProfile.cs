@@ -96,7 +96,7 @@ internal sealed class PlayerProfile
     public int Quest { get; set; }
     public int Deaths { get; set; }
     public ItemSlot SelectedItem { get; set; }
-    [JsonIgnore] // This is a runtime only state, not saved.
+    [JsonIgnore] // This is current HP which is runtime only, not saved. Max heart count is ItemSlot.HeartContainers
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
     public int UsedCheats { get; set; }
@@ -105,13 +105,21 @@ internal sealed class PlayerProfile
     [JsonConstructor]
     internal PlayerProfile()
     {
-        if (Hearts == 0) Hearts = DefaultHearts;
+        if (Hearts < DefaultHearts) Hearts = DefaultHearts;
         Items ??= new Dictionary<ItemSlot, int>();
         RoomFlags ??= [];
 
         foreach (var slot in Enum.GetValues<ItemSlot>())
         {
-            Items[slot] = 0;
+            if (!Items.ContainsKey(slot))
+            {
+                Items[slot] = slot switch
+                {
+                    ItemSlot.HeartContainers => DefaultHearts,
+                    ItemSlot.Bombs => DefaultBombs,
+                    _ => 0,
+                };
+            }
         }
     }
 

@@ -56,9 +56,14 @@ internal sealed class ProfileSelectMenu : Menu
 
     public override void Update()
     {
-        if (_game.Input.IsButtonPressing(GameButton.Select))
+        if (_game.Input.IsAnyButtonPressing(GameButton.Select, GameButton.Down))
         {
             SelectNext();
+            _game.Sound.PlayEffect(SoundEffect.Cursor);
+        }
+        else if (_game.Input.IsButtonPressing(GameButton.Up))
+        {
+            SelectNext(-1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
         else if (_game.Input.IsButtonPressing(GameButton.Start))
@@ -118,12 +123,13 @@ internal sealed class ProfileSelectMenu : Menu
         Graphics.End();
     }
 
-    private void SelectNext()
+    private void SelectNext(int direction = 1)
     {
         do
         {
-            _selectedIndex++;
+            _selectedIndex += direction;
             if (_selectedIndex >= FinalIndex) _selectedIndex = 0;
+            if (_selectedIndex < 0) _selectedIndex = FinalIndex - 1;
         } while (_selectedIndex < MaxProfiles && !_summaries[_selectedIndex].IsActive());
     }
 
@@ -356,8 +362,6 @@ internal sealed class RegisterMenu : Menu
 
                 profile.Name = profile.Name ?? throw new Exception("name missing."); // JOE: TODO: Uhhh :)
                 profile.Quest = profile.Quest;
-                profile.Items[ItemSlot.HeartContainers] = PlayerProfile.DefaultHearts;
-                profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultBombs;
                 // Leave deaths set 0.
                 SaveFolder.SaveProfiles();
             }

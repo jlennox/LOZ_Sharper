@@ -176,8 +176,9 @@ internal sealed class Input
         _inputState.ClearAll();
     }
 
-    public bool IsButtonDown(GameButton buttonCode) => _inputState.Has(buttonCode);
-    public bool IsButtonPressing(GameButton buttonCode) => GetButton(buttonCode) == ButtonState.Pressing;
+    public bool IsButtonDown(GameButton button) => _inputState.Has(button);
+    public bool IsButtonPressing(GameButton button) => GetButton(button) == ButtonState.Pressing;
+    public bool IsAnyButtonPressing(GameButton a, GameButton b) => IsButtonPressing(a) || IsButtonPressing(b);
     public IEnumerable<char> GetCharactersPressing()
     {
         foreach (var c in _inputState.Characters)
@@ -189,10 +190,10 @@ internal sealed class Input
         }
     }
 
-    private ButtonState GetButton(GameButton buttonCode)
+    private ButtonState GetButton(GameButton button)
     {
-        var isDown = _inputState.Has(buttonCode);
-        var wasDown = _oldInputState.Has(buttonCode);
+        var isDown = _inputState.Has(button);
+        var wasDown = _oldInputState.Has(button);
 
         return (isDown, wasDown) switch {
             (false, false) => ButtonState.Lifted,
