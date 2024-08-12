@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using System.Collections.Immutable;
+using SkiaSharp;
 
 namespace z1.UI;
 
@@ -29,7 +30,7 @@ internal sealed class SubmenuType
     private readonly record struct PassiveItemSpec(ItemSlot ItemSlot, byte X);
     private readonly record struct TriforcePieceSpec(byte X, byte Y, byte[][] OffTiles, byte[][] OnTiles);
 
-    private static readonly byte[] _equippedUISlots = {
+    private static readonly ImmutableArray<byte> _equippedUISlots = [
         0,          // Sword
         1,          // Bombs
         2,          // Arrow
@@ -57,10 +58,10 @@ internal sealed class SubmenuType
         0,          // PartialHeart
         0,          // TriforcePieces
         0,          // PowerTriforce
-        0,          // Boomerang
-    };
+        0 // Boomerang
+    ];
 
-    private static readonly TileInst[] _uiTiles = {
+    private static readonly ImmutableArray<TileInst> _uiTiles = [
         // INVENTORY
         new(0x12, 0x20, 0x10, 1),
         new(0x17, 0x28, 0x10, 1),
@@ -153,20 +154,19 @@ internal sealed class SubmenuType
         new(0x6A, 0xC8, 0x48, 0),
         new(0x6A, 0xD0, 0x48, 0),
 
-        new(0x6D, 0xD8, 0x48, 0),
-    };
+        new(0x6D, 0xD8, 0x48, 0)
+    ];
 
-    private static readonly PassiveItemSpec[] _passiveItems =
-    {
+    private static readonly ImmutableArray<PassiveItemSpec> _passiveItems = [
         new(ItemSlot.Raft,     PassiveItemX),
         new(ItemSlot.Book,     PassiveItemX + 0x18),
         new(ItemSlot.Ring,     PassiveItemX + 0x24),
         new(ItemSlot.Ladder,   PassiveItemX + 0x30),
         new(ItemSlot.MagicKey, PassiveItemX + 0x44),
-        new(ItemSlot.Bracelet, PassiveItemX + 0x50),
-    };
+        new(ItemSlot.Bracelet, PassiveItemX + 0x50)
+    ];
 
-    private static readonly ItemSlot[] _inventoryOrder = {
+    private static readonly ImmutableArray<ItemSlot> _inventoryOrder = [
         ItemSlot.Boomerang,
         ItemSlot.Bombs,
         ItemSlot.Arrow,
@@ -175,10 +175,10 @@ internal sealed class SubmenuType
         ItemSlot.Recorder,
         ItemSlot.Food,
         ItemSlot.Letter,
-        ItemSlot.Rod,
-    };
+        ItemSlot.Rod
+    ];
 
-    private static readonly int _arrowBowUISlot = Array.IndexOf(_inventoryOrder, ItemSlot.Arrow);
+    private static readonly int _arrowBowUISlot = _inventoryOrder.IndexOf(ItemSlot.Arrow);
 
     private readonly Game _game;
     private bool _enabled;
@@ -252,27 +252,13 @@ internal sealed class SubmenuType
         _enabled = true;
     }
 
-    public void Disable()
-    {
-        _enabled = false;
-    }
-
-    public void Activate()
-    {
-        _activated = true;
-    }
-
-    public void Deactivate()
-    {
-        _activated = false;
-    }
+    public void Disable() => _enabled = false;
+    public void Activate() => _activated = true;
+    public void Deactivate() => _activated = false;
 
     public void Update()
     {
-        if (!_activated)
-        {
-            return;
-        }
+        if (!_activated) return;
 
         var direction = _game.Input.GetDirectionPressing();
         if (direction == Direction.None) return;
@@ -443,18 +429,18 @@ internal sealed class SubmenuType
         }
     }
 
-    private static readonly TriforcePieceSpec[] _pieceSpecs = {
-        new(0x70, 0x70, new[]{ new byte[]{ 0xED, 0xE9 }, new byte[]{ 0xE9, 0x24 } }, new[]{ new byte[]{ 0xED, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
-        new(0x80, 0x70, new[]{ new byte[]{ 0xEA, 0xEE }, new byte[]{ 0x24, 0xEA } }, new[]{ new byte[]{ 0xE8, 0xEE }, new byte[]{ 0xF5, 0xE8 } }),
-        new(0x60, 0x80, new[]{ new byte[]{ 0xED, 0xE9 }, new byte[]{ 0xE9, 0x24 } }, new[]{ new byte[]{ 0xED, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
-        new(0x90, 0x80, new[]{ new byte[]{ 0xEA, 0xEE }, new byte[]{ 0x24, 0xEA } }, new[]{ new byte[]{ 0xE8, 0xEE }, new byte[]{ 0xF5, 0xE8 } }),
-        new(0x70, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0xE5, 0xF5 }, new byte[]{ 0x24, 0xE5 } }),
-        new(0x70, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0xE8, 0x24 }, new byte[]{ 0xF5, 0xE8 } }),
-        new(0x80, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0xF5, 0xE6 }, new byte[]{ 0xE6, 0x24 } }),
-        new(0x80, 0x80, new[]{ new byte[]{ 0x24, 0x24 }, new byte[]{ 0x24, 0x24 } }, new[]{ new byte[]{ 0x24, 0xE7 }, new byte[]{ 0xE7, 0xF5 } }),
-     };
+    private static readonly ImmutableArray<TriforcePieceSpec> _pieceSpecs = [
+        new(0x70, 0x70, [[0xED, 0xE9], [0xE9, 0x24]], [[0xED, 0xE7], [0xE7, 0xF5]]),
+        new(0x80, 0x70, [[0xEA, 0xEE], [0x24, 0xEA]], [[0xE8, 0xEE], [0xF5, 0xE8]]),
+        new(0x60, 0x80, [[0xED, 0xE9], [0xE9, 0x24]], [[0xED, 0xE7], [0xE7, 0xF5]]),
+        new(0x90, 0x80, [[0xEA, 0xEE], [0x24, 0xEA]], [[0xE8, 0xEE], [0xF5, 0xE8]]),
+        new(0x70, 0x80, [[0x24, 0x24], [0x24, 0x24]], [[0xE5, 0xF5], [0x24, 0xE5]]),
+        new(0x70, 0x80, [[0x24, 0x24], [0x24, 0x24]], [[0xE8, 0x24], [0xF5, 0xE8]]),
+        new(0x80, 0x80, [[0x24, 0x24], [0x24, 0x24]], [[0xF5, 0xE6], [0xE6, 0x24]]),
+        new(0x80, 0x80, [[0x24, 0x24], [0x24, 0x24]], [[0x24, 0xE7], [0xE7, 0xF5]])
+    ];
 
-    private static readonly byte[] _triforce = { 0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E };
+    private static readonly ImmutableArray<byte> _triforce = [0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E];
 
     private void DrawTriforce(int top)
     {
@@ -472,7 +458,7 @@ internal sealed class SubmenuType
         GlobalFunctions.DrawChar(0xF0, 0xA0, 0x90 + top, Palette.RedBgPalette);
         GlobalFunctions.DrawChar(0xEC, 0xA8, 0x90 + top, Palette.RedBgPalette);
 
-        GlobalFunctions.DrawString(_triforce, 0x60, 0xA0 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawString(_triforce.AsSpan(), 0x60, 0xA0 + top, Palette.RedBgPalette);
 
         var x = 0x60;
         for (var i = 0; i < 8; i++, x += 8)
@@ -514,17 +500,15 @@ internal sealed class SubmenuType
         }
     }
 
-    private static readonly byte[] _map = { 0x16, 0x0A, 0x19 };
-    private static readonly byte[] _compass = { 0x0C, 0x18, 0x16, 0x19, 0x0A, 0x1C, 0x1C };
-    private static readonly byte[] _topMapLine = { 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5 };
-    private static readonly byte[] _bottomMapLine = { 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5 };
+    private static readonly ImmutableArray<byte> _topMapLine = [0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5];
+    private static readonly ImmutableArray<byte> _bottomMapLine = [0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5];
 
     private unsafe void DrawMap(int top)
     {
-        GlobalFunctions.DrawString(_map, 0x28, 0x58 + top, (Palette)1);
-        GlobalFunctions.DrawString(_compass, 0x18, 0x80 + top, (Palette)1);
-        GlobalFunctions.DrawString(_topMapLine, 0x60, 0x50 + top, (Palette)1);
-        GlobalFunctions.DrawString(_bottomMapLine, 0x60, 0x98 + top, (Palette)1);
+        GlobalFunctions.DrawString("map", 0x28, 0x58 + top, (Palette)1);
+        GlobalFunctions.DrawString("compass", 0x18, 0x80 + top, (Palette)1);
+        GlobalFunctions.DrawString(_topMapLine.AsSpan(), 0x60, 0x50 + top, (Palette)1);
+        GlobalFunctions.DrawString(_bottomMapLine.AsSpan(), 0x60, 0x98 + top, (Palette)1);
 
         var y = 0x58 + top;
         for (var r = 0; r < 8; r++, y += 8)

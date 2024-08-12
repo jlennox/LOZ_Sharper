@@ -15,6 +15,7 @@ internal sealed class GleeokHeadActor : FlyingActor
     private static readonly FlyerSpec _gleeokHeadSpec = new(_gleeokHeadAnimMap, TileSheet.Boss, Palette.Red, 0xE0);
 
     public override bool IsReoccuring => false;
+
     public GleeokHeadActor(Game game, int x, int y)
         : base(game, ObjType.GleeokHead, _gleeokHeadSpec, x, y)
     {
@@ -60,7 +61,6 @@ internal sealed class GleeokHeadActor : FlyingActor
 
 internal sealed class GleeokNeck
 {
-    private readonly Game _game;
     public const int MaxParts = 5;
     public const int HeadIndex = MaxParts - 1;
     public const int ShooterIndex = HeadIndex;
@@ -80,6 +80,7 @@ internal sealed class GleeokNeck
     private readonly SpriteImage _neckImage;
     private readonly SpriteImage _headImage;
 
+    private readonly Game _game;
     private int _startHeadTimer;
     private int _xSpeed;
     private int _ySpeed;
@@ -307,22 +308,21 @@ internal sealed class GleeokNeck
         if (distance >= yLimits.Value0) funcIndex += 3;
         if (distance >= yLimits.Value1) funcIndex += 3;
 
-        var funcs = new Action<int>[]
+        Action<int> fn = funcIndex switch
         {
-            CrossedNoLimits,
-            CrossedLowLimit,
-            CrossedMidXLimit,
-            CrossedLowLimit,
-            CrossedLowLimit,
-            CrossedMidXLimit,
-            CrossedMidYLimit,
-            CrossedMidYLimit,
-            CrossedBothMidLimits,
+            0 => CrossedNoLimits,
+            1 => CrossedLowLimit,
+            2 => CrossedMidXLimit,
+            3 => CrossedLowLimit,
+            4 => CrossedLowLimit,
+            5 => CrossedMidXLimit,
+            6 => CrossedMidYLimit,
+            7 => CrossedMidYLimit,
+            8 => CrossedBothMidLimits,
+            _ => throw new ArgumentOutOfRangeException(),
         };
 
-        Debug.Assert(funcIndex >= 0 && funcIndex < funcs.Length);
-
-        funcs[funcIndex](index);
+        fn(index);
     }
 
     private void CrossedNoLimits(int index)

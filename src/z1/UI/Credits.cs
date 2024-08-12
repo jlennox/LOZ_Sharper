@@ -24,7 +24,6 @@ internal sealed class CreditsType
     private record Line(byte Col, byte[] Text);
 
     private readonly Game _game;
-
     private readonly TableResource<LineStruct> _textTable;
     private readonly byte[] _lineBmp;
     private int _fraction;
@@ -39,7 +38,6 @@ internal sealed class CreditsType
     public CreditsType(Game game)
     {
         _game = game;
-
         _textTable = TableResource<LineStruct>.Load("credits.tab");
         _lineBmp = new Asset("creditsLinesBmp.dat").ReadAllBytes();
     }

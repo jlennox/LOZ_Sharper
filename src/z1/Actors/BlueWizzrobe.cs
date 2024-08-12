@@ -1,15 +1,16 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 
 namespace z1.Actors;
 
 internal abstract class BlueWizzrobeBase : WizzrobeBase
 {
-    public static readonly AnimationId[] WizzrobeAnimMap = {
+    public static readonly ImmutableArray<AnimationId> WizzrobeAnimMap = [
         AnimationId.UW_Wizzrobe_Right,
         AnimationId.UW_Wizzrobe_Left,
         AnimationId.UW_Wizzrobe_Right,
         AnimationId.UW_Wizzrobe_Up
-    };
+    ];
 
     protected byte FlashTimer;
     protected byte TurnTimer;
@@ -144,9 +145,9 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         TruncatePosition();
     }
 
-    private static readonly int[] _blueWizzrobeTeleportXOffsets = { -0x20, 0x20, -0x20, 0x20 };
-    private static readonly int[] _blueWizzrobeTeleportYOffsets = { -0x20, -0x20, 0x20, 0x20 };
-    private static readonly int[] _blueWizzrobeTeleportDirs = { 0xA, 9, 6, 5 };
+    private static readonly ImmutableArray<int> _blueWizzrobeTeleportXOffsets = [-0x20, 0x20, -0x20, 0x20];
+    private static readonly ImmutableArray<int> _blueWizzrobeTeleportYOffsets = [-0x20, -0x20, 0x20, 0x20];
+    private static readonly ImmutableArray<int> _blueWizzrobeTeleportDirs = [0xA, 9, 6, 5];
 
     private void TryTeleporting()
     {
@@ -210,7 +211,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
     public BlueWizzrobeActor(Game game, int x, int y)
         : base(game, ObjType.BlueWizzrobe, x, y)
     {
-        Debug.WriteLine($"BLUEWIZZ.ctor {game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
+        Debug.WriteLine($"BlueWizzrobeActor.ctor {game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
         _animator = new SpriteAnimator
         {
             DurationFrames = 16,
@@ -220,7 +221,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 
     public override void Update()
     {
-        Debug.WriteLine($"BLUEWIZZ.update {Game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
+        Debug.WriteLine($"BlueWizzrobeActor.update {Game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
         if (Game.World.GetItem(ItemSlot.Clock) != 0)
         {
             AnimateAndCheckCollisions();

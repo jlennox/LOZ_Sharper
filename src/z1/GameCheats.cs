@@ -192,9 +192,8 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class GodModeCheat : SingleWordCheat
+    public sealed class GodModeCheat() : SingleWordCheat("iddqd", true)
     {
-        public GodModeCheat() : base("iddqd", true) { }
         public override void RunPayload(Game game, string[] args)
         {
             Game.Cheats.GodMode = !Game.Cheats.GodMode;
@@ -202,9 +201,8 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class KillAllCheat : SingleWordCheat
+    public sealed class KillAllCheat() : SingleWordCheat("ka", true)
     {
-        public KillAllCheat() : base("ka", true) { }
         public override void RunPayload(Game game, string[] args)
         {
             game.World.KillAllObjects();
@@ -212,9 +210,8 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class SpeedUpCheat : SingleWordCheat
+    public sealed class SpeedUpCheat() : SingleWordCheat("su", true)
     {
-        public SpeedUpCheat() : base("su", true) { }
         public override void RunPayload(Game game, string[] args)
         {
             Game.Cheats.SpeedUp = !Game.Cheats.SpeedUp;
@@ -222,9 +219,8 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class WalkThroughWallsCheat : SingleWordCheat
+    public sealed class WalkThroughWallsCheat() : SingleWordCheat("idclip", true)
     {
-        public WalkThroughWallsCheat() : base("idclip", true) { }
         public override void RunPayload(Game game, string[] args)
         {
             Game.Cheats.NoClip = !Game.Cheats.NoClip;
@@ -232,10 +228,8 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class ItemsCheat : SingleWordCheat
+    public sealed class ItemsCheat() : SingleWordCheat("idkfa", true)
     {
-        public ItemsCheat() : base("idkfa", true) { }
-
         public override void RunPayload(Game game, string[] args)
         {
             var profile = game.World.Profile;
@@ -272,14 +266,12 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class MyPosCheat : SingleWordCheat
+    public sealed class MyPosCheat() : SingleWordCheat("idmypos", true)
     {
-        public MyPosCheat() : base("idmypos", true) { }
         public override void RunPayload(Game game, string[] args)
         {
-            var x = game.World.CurRoomId % World.WorldWidth;
-            var y = game.World.CurRoomId / World.WorldWidth;
-            game.Toast($"Position: {x}x{y}");
+            var room = game.World.CurrentRoom;
+            game.Toast($"Position: {room.X}x{room.Y}");
         }
     }
 

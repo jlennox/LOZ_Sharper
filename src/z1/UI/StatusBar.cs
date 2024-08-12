@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using System.Collections.Immutable;
+using SkiaSharp;
 
 namespace z1.UI;
 
@@ -21,7 +22,6 @@ internal readonly record struct TileInst(byte Id, byte X, byte Y, byte PaletteId
 
 internal sealed class StatusBar
 {
-    private readonly World _world;
     public const int StatusBarHeight = 0x40;
     public const int StatusBarWidth = World.TileMapWidth;
 
@@ -46,8 +46,7 @@ internal sealed class StatusBar
     public const int Tile_HalfHeart = 0x65;
     public const int Tile_EmptyHeart = 0x66;
 
-
-    private static readonly TileInst[] uiTiles = {
+    private static readonly ImmutableArray<TileInst> _uiTiles = [
         new(0xF7, 88, 24, 1),
         new(0xF9, 88, 40, 1),
         new(0x61, 88, 48, 0),
@@ -83,8 +82,9 @@ internal sealed class StatusBar
         new(0x0F, 208, 24, 1),
         new(0x0E, 216, 24, 1),
         new(0x62, 224, 24, 1),
-    };
+    ];
 
+    private readonly World _world;
     private StatusBarFeatures _features;
 
     public StatusBar(World world)
@@ -108,7 +108,7 @@ internal sealed class StatusBar
         using var _ = Graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
         Graphics.Clear(backColor, 0, baseY, StatusBarWidth, StatusBarHeight);
 
-        foreach (var tileInst in uiTiles)
+        foreach (var tileInst in _uiTiles)
         {
             DrawTile(tileInst.Id, tileInst.X, tileInst.Y + baseY, tileInst.Palette);
         }
@@ -117,7 +117,7 @@ internal sealed class StatusBar
         DrawItems(baseY);
     }
 
-    private static readonly byte[] _levelStr = { 0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x62, 0 };
+    private static readonly byte[] _levelStr = [0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x62, 0];
 
     private void DrawMiniMap(int baseY)
     {
@@ -150,7 +150,9 @@ internal sealed class StatusBar
             cursorY += row * UWMapTileHeight;
 
             if (!_world.IsUWMain(roomId))
+            {
                 showCursor = false;
+            }
 
             if (_features.HasFlag(StatusBarFeatures.MapCursors) && _world.HasCurrentCompass())
             {
@@ -166,7 +168,9 @@ internal sealed class StatusBar
                 if (!_world.GotItem(triforceRoomId))
                 {
                     if ((_world.Game.FrameCounter & 0x10) == 0)
+                    {
                         palette = Palette.RedFgPalette;
+                    }
                 }
 
                 DrawTile(0xE0, triforceX, triforceY, palette);
@@ -176,7 +180,9 @@ internal sealed class StatusBar
         if (_features.HasFlag(StatusBarFeatures.MapCursors))
         {
             if (showCursor)
+            {
                 DrawTile(0xE0, cursorX, cursorY, Palette.Player);
+            }
         }
     }
 
@@ -203,8 +209,7 @@ internal sealed class StatusBar
 
     private unsafe void DrawUWMiniMap(int baseY)
     {
-        if (!_world.HasCurrentMap())
-            return;
+        if (!_world.HasCurrentMap()) return;
 
         var levelInfo = _world.GetLevelInfo();
 
