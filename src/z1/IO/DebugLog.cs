@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading.Channels;
 
 namespace z1.IO;
 
@@ -21,71 +21,77 @@ internal readonly record struct FunctionLog(DebugLog DebugLog, string FunctionNa
     public void Write(string s) => DebugLog.Write(FunctionName, s);
 }
 
-internal sealed class DebugLogWriter
+internal sealed class DebugLogWriter : IDisposable
 {
     private const int MaxLogSize = 5 * 1024 * 1024;
 
     private static readonly Lazy<string> _logFile = new(() => Path.Combine(Directories.Save, Path.Combine("logs.txt")));
 
-    private readonly FileStream? _fs;
-    private readonly byte[] _buffer = new byte[5 * 1024];
-
     private readonly CancellationTokenSource _cts = new();
-    private readonly Channel<string> _queue = Channel.CreateBounded<string>(new BoundedChannelOptions(200)
-    {
-        SingleReader = true,
-        SingleWriter = true,
-    });
+    private readonly AutoResetEvent _linesAvailableEvent = new(false);
+    private readonly ConcurrentQueue<string> _lines = new();
+    private readonly Thread _thread;
 
     public DebugLogWriter()
     {
-        _fs = File.Open(_logFile.Value, FileMode.Create, FileAccess.Write, FileShare.Read);
-
         // Write on a background thread so that IO is not blocking the main thread.
-        // May want to move this over to a Task.Factory.StartNew(() => ... TaskCreationOptions.LongRunning)
-        // Or move this off the async-only Channel. With a single reader/writer, a normal thread is ideal here.
-        // And if we want to go really ham, reduce the string allocations.
-        new Thread(WriterThread)
+        _thread = new Thread(WriterThread)
         {
-            Name = nameof(DebugLog),
+            Name = nameof(DebugLogWriter),
             IsBackground = true,
             Priority = ThreadPriority.BelowNormal,
-        }.Start();
+        };
+        _thread.Start();
     }
-
-    private static string FormatLine(string s) => $"{DateTime.Now}: {s}\n";
 
     private void WriterThread()
     {
-        var fs = _fs ?? throw new InvalidOperationException("DebugLog not initialized.");
+        using var fs = File.Open(_logFile.Value, FileMode.Create, FileAccess.Write, FileShare.Read);
+        var reusedbuffer = new byte[5 * 1024];
+        var waitEvents = new[] { _linesAvailableEvent, _cts.Token.WaitHandle };
 
         while (!_cts.IsCancellationRequested)
         {
+            while (!_cts.IsCancellationRequested && _lines.TryDequeue(out var line))
+            {
+                // 50 is a way overshot of what the datetime and other added characters will need.
+                var maxbytes = Encoding.UTF8.GetMaxByteCount(line.Length + 50);
+                // Don't store the new buffer to prevent indefinite size creep.
+                var buffer = maxbytes > reusedbuffer.Length ? new byte[maxbytes] : reusedbuffer;
+                // Keep allocations low. $"{DateTime.Now}: {s}\n";
+                if (!DateTime.Now.TryFormat(buffer, out var encodedBytes)) continue;
+                encodedBytes += Encoding.UTF8.GetBytes(": ", buffer.AsSpan(encodedBytes));
+                encodedBytes += Encoding.UTF8.GetBytes(line, buffer.AsSpan(encodedBytes));
+                encodedBytes += Encoding.UTF8.GetBytes("\n", buffer.AsSpan(encodedBytes));
+
+                fs.Write(buffer, 0, encodedBytes);
+                fs.Flush();
+            }
+
             if (fs.Length > MaxLogSize)
             {
                 fs.SetLength(0);
             }
 
-            var s = _queue.Reader.ReadAsync(_cts.Token).AsTask().Result;
-
-            var line = FormatLine(s);
-            var maxbytes = Encoding.UTF8.GetMaxByteCount(line.Length);
-            var buffer = maxbytes > _buffer.Length ? new byte[maxbytes] : _buffer;
-            var encodedBytes = Encoding.UTF8.GetBytes(line, buffer);
-
-            fs.Write(buffer, 0, encodedBytes);
-            fs.Flush();
+            WaitHandle.WaitAny(waitEvents);
         }
 
-        try
-        {
-            fs.Close();
-            fs.Dispose();
-        }
-        catch { }
+        _cts.TryDispose();
+        _linesAvailableEvent.TryDispose();
     }
 
-    public void Write(string s) => _queue.Writer.TryWrite(s);
+    public void Write(string s)
+    {
+        _lines.Enqueue(s);
+        _linesAvailableEvent.Set();
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _thread.Join(); // Questionable but irrelevant.
+        // Disposing is taken care of inside WriterThread to prevent use/cleanup races.
+    }
 }
 
 internal sealed class DebugLog

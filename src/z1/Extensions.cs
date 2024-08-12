@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
 using z1.Actors;
@@ -181,5 +182,17 @@ internal static class Extensions
     public static System.Drawing.Rectangle GetRect(this IWindow window)
     {
         return new System.Drawing.Rectangle(window.Position.X, window.Position.Y, window.Size.X, window.Size.Y);
+    }
+
+    public static void TryDispose<T>(this T? disposable) where T : IDisposable
+    {
+        try
+        {
+            disposable?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex);
+        }
     }
 }
