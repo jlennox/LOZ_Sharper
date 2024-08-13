@@ -214,8 +214,8 @@ internal sealed class CachedSound
 
     public TimeSpan GetLength()
     {
-        var averageBytesPerSecond = (float)WaveFormat.AverageBytesPerSecond;
-        var seconds = AudioData.Length / (WaveFormat.BitsPerSample / 8f) / WaveFormat.Channels / averageBytesPerSecond;
+        var totalSamples = AudioData.Length / WaveFormat.Channels;
+        var seconds = (float)totalSamples / WaveFormat.SampleRate;
         return TimeSpan.FromSeconds(seconds);
     }
 }
@@ -403,10 +403,14 @@ internal sealed class Sound
     /// <param name="volume">0 to 100</param>
     public Sound(int volume)
     {
-        _waveOutDevice = new WaveOutEvent();
+        _waveOutDevice = new WaveOutEvent
+        {
+            DesiredLatency = 50,
+            NumberOfBuffers = 2,
+        };
         _mixer = new MixingSampleProvider(WaveFormat.CreateIeeeFloatWaveFormat(44100, 2))
         {
-            ReadFully = true
+            ReadFully = true,
         };
         _waveOutDevice.Init(_mixer);
         _waveOutDevice.Play();

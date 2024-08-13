@@ -21,7 +21,9 @@ internal sealed class GLWindow : IDisposable
 
     private readonly Game _game;
     private readonly IWindow? _window;
-    private readonly FpsCalculator _fps = new();
+    private readonly FpsCalculator _framesPerSecond = new();
+    private readonly FpsCalculator _updatesPerSecond = new();
+    private readonly FpsCalculator _rendersPerSecond = new();
 
     private GL? _gl;
     private IInputContext? _inputContext;
@@ -250,6 +252,7 @@ internal sealed class GLWindow : IDisposable
     #endregion
 
     private readonly Stopwatch _starttime = Stopwatch.StartNew();
+    private readonly Stopwatch _updateTimer = new Stopwatch();
     private TimeSpan _renderedTime = TimeSpan.Zero;
     private readonly bool _showMenu = false;
 
@@ -271,10 +274,16 @@ internal sealed class GLWindow : IDisposable
 
         Graphics.SetSurface(surface);
 
+        double ups = 0;
+        double rps = 0;
+
         // JOE: TODO: Port this over to `delta`
         // while (_starttime.Elapsed - _renderedTime >= frameTime)
         {
+            _updateTimer.Restart();
             _game.Update();
+            _updateTimer.Stop();
+            ups = _updatesPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
 
             _renderedTime += frameTime;
             updated = true;
@@ -283,15 +292,18 @@ internal sealed class GLWindow : IDisposable
         if (updated)
         {
             // JOE: TODO: Fix that clearing the surface causes flicker.
+            _updateTimer.Restart();
             _game.Draw();
             surface.Canvas.Flush();
+            _updateTimer.Stop();
+            rps = _rendersPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
         }
 
         // window.SwapBuffers();
 
         if (_game.FrameCounter % 20 == 0)
         {
-            window.Title = $"The Legend of Form1 - FPS: {_fps.Add(deltaSeconds):0.0}";
+            window.Title = $"The Legend of Form1 - FPS:{_framesPerSecond.Add(deltaSeconds):0.0}/UPS:{ups:0.0}/RPS:{rps:0.0}";
         }
 
         if (_showMenu)

@@ -85,28 +85,30 @@ internal sealed class Game
     {
         ++FrameCounter;
 
-        WorldUpdate();
+        GameUpdate();
         World.Update();
         Sound.Update();
         GameCheats.Update();
 
-        // Input comes last because it marks the buttons as old.
+        // Input comes last because it marks the buttons as old. We read them on a callback which happens async.
         Input.Update();
     }
 
-    private void WorldUpdate()
+    private void GameUpdate()
     {
         if (Input.IsButtonPressing(GameButton.AudioDecreaseVolume))
         {
             var volume = Sound.DecreaseVolume();
-            Toast($"Volume: {volume}%");
+            Toast($"Volume {volume}");
         }
-        else if (Input.IsButtonPressing(GameButton.AudioIncreaseVolume))
+
+        if (Input.IsButtonPressing(GameButton.AudioIncreaseVolume))
         {
             var volume = Sound.IncreaseVolume();
-            Toast($"Volume: {volume}%");
+            Toast($"Volume {volume}");
         }
-        else if (Input.IsButtonPressing(GameButton.AudioMuteToggle))
+
+        if (Input.IsButtonPressing(GameButton.AudioMuteToggle))
         {
             var isMuted = Sound.ToggleMute();
             Toast(isMuted ? "Sound muted" : "Sound unmuted");
