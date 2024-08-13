@@ -321,11 +321,11 @@ internal sealed class TreeActor : Actor
     {
         for (var i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
         {
-            var gameObj = Game.World.GetObject((ObjectSlot)i);
-            if (gameObj is not FireActor fire) continue;
-            if (fire.IsDeleted || fire.State != FireState.Standing || fire.ObjTimer != 2) continue;
+            var fire = Game.World.GetObject<FireActor>((ObjectSlot)i);
+            if (fire == null || fire.IsDeleted) continue;
+            if (fire.State != FireState.Standing || fire.ObjTimer != 2) continue;
 
-            // TODO: This is repeated a lot. Make generic.
+            // JOE: TODO: This is repeated a lot. Make generic.
             if (Math.Abs(fire.X - X) >= 16 || Math.Abs(fire.Y - Y) >= 16) continue;
 
             Game.World.SetMobXY(X, Y, BlockObjType.MobStairs);

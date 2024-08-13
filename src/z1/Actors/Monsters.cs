@@ -3084,7 +3084,7 @@ internal abstract class JumperActor : Actor, IDeleteEvent
             t -= 0x40;
         }
 
-        if (ObjType == ObjType.BlueTektite)
+        if (ObjType != ObjType.BlueTektite)
         {
             t &= 0x7F;
             if (r >= 0xA0)
@@ -4319,18 +4319,18 @@ internal sealed class AquamentusActor : Actor
                 ReadOnlySpan<sbyte> yOffsets = [1, 0, -1];
                 _fireballOffsets[(int)slot] = (byte)yOffsets[i];
             }
+
+            return;
         }
-        else
+
+        for (var i = ObjectSlot.Monster1; i < ObjectSlot.MaxMonsters; i++)
         {
-            for (var i = 0; i < (int)ObjectSlot.MaxMonsters; i++)
-            {
-                var obj = Game.World.GetObject((ObjectSlot)i);
+            var fireball = Game.World.GetObject<FireballProjectile>(i);
 
-                if (obj == null || obj is not FireballProjectile fireball) continue;
-                if ((Game.FrameCounter & 1) == 1) continue;
+            if (fireball == null) continue;
+            if ((Game.FrameCounter & 1) == 1) continue;
 
-                fireball.Y += _fireballOffsets[i];
-            }
+            fireball.Y += _fireballOffsets[(int)i];
         }
     }
 
