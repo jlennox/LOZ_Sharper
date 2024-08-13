@@ -5,10 +5,9 @@ namespace z1;
 // Milestone 1:
 // * Textbox and ruppee sounds are wrong.
 // * Screen sides need to be painted black.
-// * Wall masters got shield blocked, then boss sound kept going after getting brought back.
-//   And then I kept walking north and got stuck.
 // * Aquamentis blocks his own fireballs.
 // * Some how between saves my max hearts got reset?
+// * Second quest rocks push in first quest.
 
 // Minor:
 // * Vire keese seem to spawn too close together.

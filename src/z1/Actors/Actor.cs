@@ -883,12 +883,9 @@ internal abstract class Actor
             return new PlayerCollision(false, false);
         }
 
-        // JOE: NOTE: Is this right? Original code did: CollisionContext context = { 0 };
         var context = new CollisionContext(ObjectSlot.NoneFound, 0, 0, distance);
 
-        // JOE: NOTE: Original did:
-        // if ( GetType() < Obj_Person_End )
-        if (this is PersonActor)
+        if (ObjType < ObjType.PersonEnd)
         {
             fnlog.Write("💥 this is PersonActor");
             Shove(context);
