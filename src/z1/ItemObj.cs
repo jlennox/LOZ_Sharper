@@ -9,7 +9,6 @@ internal enum LadderStates { Unknown0, Unknown1, Unknown2 }
 internal sealed class LadderActor : Actor
 {
     public LadderStates State = LadderStates.Unknown1;
-    public Direction OrigDir = Direction.Down; // JOE: NOTE: This is unused in the original?
     private readonly SpriteImage _image;
 
     public LadderActor(Game game, int x, int y)
@@ -347,19 +346,9 @@ internal sealed class BombActor : Actor
     private const int Clouds = 4;
     private const int CloudFrames = 2;
 
-    private static readonly Point[][] _cloudPositions = [
-        [
-            new Point(0, 0 ),
-            new Point(-13, 0 ),
-            new Point(7, -13 ),
-            new Point(-7, 14)
-        ],
-        [
-            new Point(0, 0 ),
-            new Point(13, 0 ),
-            new Point(-7, -13 ),
-            new Point(7, 14)
-        ]
+    private static readonly ImmutableArray<ImmutableArray<Point>> _cloudPositions = [
+        [new Point(0, 0), new Point(-13, 0), new Point(7, -13), new Point(-7, 14)],
+        [new Point(0, 0), new Point(13, 0), new Point(-7, -13), new Point(7, 14)]
     ];
 
     public BombState BombState = BombState.Initing;
@@ -387,22 +376,23 @@ internal sealed class BombActor : Actor
             ObjTimer = times[(int)BombState];
             BombState++;
 
-            if (BombState == BombState.Blasting)
+            switch (BombState)
             {
-                _animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cloud);
-                _animator.Time = 0;
-                _animator.DurationFrames = _animator.Animation.Length;
-                Game.Sound.PlayEffect(SoundEffect.Bomb);
-            }
-            else if (BombState == BombState.Fading)
-            {
-                _animator.AdvanceFrame();
-            }
-            else if (BombState > BombState.Fading)
-            {
-                IsDeleted = true;
-                ObjTimer = 0;
-                return;
+                case BombState.Blasting:
+                    _animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, AnimationId.Cloud);
+                    _animator.Time = 0;
+                    _animator.DurationFrames = _animator.Animation.Length;
+                    Game.Sound.PlayEffect(SoundEffect.Bomb);
+                    break;
+
+                case BombState.Fading:
+                    _animator.AdvanceFrame();
+                    break;
+
+                case > BombState.Fading:
+                    IsDeleted = true;
+                    ObjTimer = 0;
+                    return;
             }
         }
 
@@ -424,18 +414,17 @@ internal sealed class BombActor : Actor
         {
             var offset = (16 - _animator.Animation.Width) / 2;
             _animator.Draw(TileSheet.PlayerAndItems, X + offset, Y, Palette.BlueFgPalette);
+            return;
         }
-        else
-        {
-            var positions = _cloudPositions[ObjTimer % CloudFrames];
 
-            for (var i = 0; i < Clouds; i++)
-            {
-                _animator.Draw(
-                    TileSheet.PlayerAndItems,
-                    X + positions[i].X, Y + positions[i].Y,
-                    Palette.BlueFgPalette);
-            }
+        var positions = _cloudPositions[ObjTimer % CloudFrames];
+
+        for (var i = 0; i < Clouds; i++)
+        {
+            _animator.Draw(
+                TileSheet.PlayerAndItems,
+                X + positions[i].X, Y + positions[i].Y,
+                Palette.BlueFgPalette);
         }
     }
 }
@@ -472,11 +461,10 @@ internal sealed class RockWallActor : Actor
 
 internal sealed class PlayerSwordActor : Actor
 {
-    private const int DirCount = 4;
     private const int SwordStates = 5;
     private const int LastSwordState = SwordStates - 1;
 
-    private static readonly Point[][] _swordOffsets = [
+    private static readonly ImmutableArray<ImmutableArray<Point>> _swordOffsets = [
         [new Point(-8, -11), new Point(0, -11), new Point(1, -14), new Point(-1, -9)],
         [new Point(11, 3), new Point(-11, 3), new Point(1, 13), new Point(-1, -10)],
         [new Point(7, 3), new Point(-7, 3), new Point(1, 9), new Point(-1, -9)],
@@ -525,48 +513,46 @@ internal sealed class PlayerSwordActor : Actor
         Facing = facingDir;
 
         var animMap = ObjType == ObjType.Rod ? _rodAnimMap : SwordAnimMap;
-
         var animIndex = animMap[dirOrd];
         _image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animIndex);
     }
 
     private void TryMakeWave()
     {
-        if (State == 2)
-        {
-            var makeWave = false;
-            var wave = Game.World.GetObject(ObjectSlot.PlayerSwordShot);
+        if (State != 2) return;
 
-            if (ObjType == ObjType.Rod)
+        var makeWave = false;
+        var wave = Game.World.GetObject(ObjectSlot.PlayerSwordShot);
+
+        if (ObjType == ObjType.Rod)
+        {
+            if (wave == null || wave.ObjType != ObjType.MagicWave)
             {
-                if (wave == null || wave.ObjType != ObjType.MagicWave)
+                makeWave = true;
+                Game.Sound.PlayEffect(SoundEffect.MagicWave);
+            }
+        }
+        else
+        {
+            if (wave == null)
+            {
+                // The original game skips checking hearts, and shoots, if [$529] is set.
+                // But, I haven't found any code that sets it.
+
+                var profile = Game.World.Profile;
+                var neededHeartsValue = (profile.Items[ItemSlot.HeartContainers] << 8) - 0x80;
+
+                if (profile.Hearts >= neededHeartsValue)
                 {
                     makeWave = true;
-                    Game.Sound.PlayEffect(SoundEffect.MagicWave);
+                    Game.Sound.PlayEffect(SoundEffect.SwordWave);
                 }
             }
-            else
-            {
-                if (wave == null)
-                {
-                    // The original game skips checking hearts, and shoots, if [$529] is set.
-                    // But, I haven't found any code that sets it.
+        }
 
-                    var profile = Game.World.Profile;
-                    var neededHeartsValue = (profile.Items[ItemSlot.HeartContainers] << 8) - 0x80;
-
-                    if (profile.Hearts >= neededHeartsValue)
-                    {
-                        makeWave = true;
-                        Game.Sound.PlayEffect(SoundEffect.SwordWave);
-                    }
-                }
-            }
-
-            if (makeWave)
-            {
-                MakeWave();
-            }
+        if (makeWave)
+        {
+            MakeWave();
         }
     }
 
@@ -881,58 +867,60 @@ internal sealed class DockActor : Actor
 
         var player = Game.Link;
 
-        if (_state == 0)
+        switch (_state)
         {
-            var x = Game.World.CurRoomId == 0x55 ? 0x80 : 0x60;
-            if (x != player.X) return;
+            case 0:
+                var x = Game.World.CurRoomId == 0x55 ? 0x80 : 0x60;
+                if (x != player.X) return;
 
-            X = x;
+                X = x;
 
-            switch (player.Y)
-            {
-                case 0x3D: _state = 1; break;
-                case 0x7D: _state = 2; break;
-                default: return;
-            }
+                switch (player.Y)
+                {
+                    case 0x3D: _state = 1; break;
+                    case 0x7D: _state = 2; break;
+                    default: return;
+                }
 
-            Y = player.Y + 6;
+                Y = player.Y + 6;
 
-            ReadOnlySpan<Direction> facings = [Direction.None, Direction.Down, Direction.Up];
+                ReadOnlySpan<Direction> facings = [Direction.None, Direction.Down, Direction.Up];
 
-            player.SetState(PlayerState.Paused);
-            player.Facing = facings[_state];
-            Game.Sound.PlayEffect(SoundEffect.Secret);
-        }
-        else if (_state == 1)
-        {
-            // $8FB0
-            Y++;
-            player.Y++;
+                player.SetState(PlayerState.Paused);
+                player.Facing = facings[_state];
+                Game.Sound.PlayEffect(SoundEffect.Secret);
+                break;
 
-            if (player.Y == 0x7F)
-            {
-                player.TileOffset = 2;
-                player.SetState(PlayerState.Idle);
-                _state = 0;
-            }
+            case 1:
+                // $8FB0
+                Y++;
+                player.Y++;
 
-            // Not exactly the same as the original, but close enough.
-            player.Animator.Advance();
-        }
-        else if (_state == 2)
-        {
-            Y--;
-            player.Y--;
+                if (player.Y == 0x7F)
+                {
+                    player.TileOffset = 2;
+                    player.SetState(PlayerState.Idle);
+                    _state = 0;
+                }
 
-            if (player.Y == 0x3D)
-            {
-                Game.World.LeaveRoom(player.Facing, Game.World.CurRoomId);
-                player.SetState(PlayerState.Idle);
-                _state = 0;
-            }
+                // Not exactly the same as the original, but close enough.
+                player.Animator.Advance();
+                break;
 
-            // Not exactly the same as the original, but close enough.
-            player.Animator.Advance();
+            case 2:
+                Y--;
+                player.Y--;
+
+                if (player.Y == 0x3D)
+                {
+                    Game.World.LeaveRoom(player.Facing, Game.World.CurRoomId);
+                    player.SetState(PlayerState.Idle);
+                    _state = 0;
+                }
+
+                // Not exactly the same as the original, but close enough.
+                player.Animator.Advance();
+                break;
         }
     }
 

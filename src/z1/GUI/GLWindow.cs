@@ -10,6 +10,8 @@ using SkiaSharp;
 using z1.IO;
 using z1.UI;
 using Button = Silk.NET.Input.Button;
+using Silk.NET.GLFW;
+using GamepadButton = z1.UI.GamepadButton;
 
 namespace z1.GUI;
 
@@ -19,6 +21,7 @@ internal sealed class GLWindow : IDisposable
 
     private readonly Game _game;
     private readonly IWindow? _window;
+    private readonly FpsCalculator _fps = new();
 
     private GL? _gl;
     private IInputContext? _inputContext;
@@ -64,20 +67,58 @@ internal sealed class GLWindow : IDisposable
         _windowedRect = _window.GetRect();
     }
 
+    private void OnLoad()
+    {
+        var window = _window ?? throw new Exception();
+
+        _gl = window.CreateOpenGL();
+        _inputContext = window.CreateInput();
+
+
+        _glinterface = GRGlInterface.Create() ?? throw new Exception("GRGlInterface.Create() failed.");
+        _grcontext = GRContext.CreateGl(_glinterface) ?? throw new Exception("GRContext.CreateGl() failed.");
+
+        _inputContext.ConnectionChanged += OnConnectionChanged;
+        foreach (var targetkb in _inputContext.Keyboards)
+        {
+            BindKeyboard(targetkb);
+        }
+
+        var gamepad = _inputContext.Gamepads.FirstOrDefault();
+        if (gamepad != null)
+        {
+            BindGamepad(gamepad);
+        }
+
+        var surface = CreateSkSurface();
+        _game.UpdateScreenSize(surface);
+
+        _controller = new ImGuiController(_gl, window, _inputContext);
+
+        // ImGui.CreateContext();
+        // ImGui.GetIO().ConfigFlags |= ImGuiConfigFlags.DockingEnable;
+        // ImGui.StyleColorsDark();
+    }
+
+    private void OnFramebufferResize(Vector2D<int> s)
+    {
+        var gl = _gl ?? throw new Exception();
+
+        gl.Viewport(s);
+
+        var surface = CreateSkSurface();
+        _game.UpdateScreenSize(surface);
+    }
+
     private SKSurface CreateSkSurface()
     {
         var gl = _gl ?? throw new Exception();
         var window = _window ?? throw new Exception();
 
-        _glinterface?.Dispose();
-        _grcontext?.Dispose();
         _surface?.Dispose();
         _rendertarget?.Dispose();
 
         var framebuffer = gl.GetInteger(GLEnum.FramebufferBinding);
-
-        _glinterface = GRGlInterface.Create() ?? throw new Exception("GRGlInterface.Create() failed.");
-        _grcontext = GRContext.CreateGl(_glinterface) ?? throw new Exception("GRContext.CreateGl() failed.");
 
         var framebufferinfo = new GRGlFramebufferInfo((uint)framebuffer, SKColorType.Rgba8888.ToGlSizedFormat());
         _rendertarget = new GRBackendRenderTarget(window.Size.X, window.Size.Y, 0, 8, framebufferinfo);
@@ -111,35 +152,7 @@ internal sealed class GLWindow : IDisposable
         }
     }
 
-    private void OnLoad()
-    {
-        var window = _window ?? throw new Exception();
-
-        _gl = window.CreateOpenGL();
-        _inputContext = window.CreateInput();
-
-        _inputContext.ConnectionChanged += OnConnectionChanged;
-        foreach (var targetkb in _inputContext.Keyboards)
-        {
-            BindKeyboard(targetkb);
-        }
-
-        var gamepad = _inputContext.Gamepads.FirstOrDefault();
-        if (gamepad != null)
-        {
-            BindGamepad(gamepad);
-        }
-
-        var surface = CreateSkSurface();
-        _game.UpdateScreenSize(surface);
-
-        _controller = new ImGuiController(_gl, window, _inputContext);
-
-        // ImGui.CreateContext();
-        // ImGui.GetIO().ConfigFlags |= ImGuiConfigFlags.DockingEnable;
-        // ImGui.StyleColorsDark();
-    }
-
+    #region Input
     private void OnConnectionChanged(IInputDevice device, bool connected)
     {
         if (!connected)
@@ -189,7 +202,7 @@ internal sealed class GLWindow : IDisposable
         // At least, this is true on my xbox controller.
         if (trigger.Position < 0) return;
 
-        var set = 1f - trigger.Position > .1;
+        var set = 1f - trigger.Position > .05;
         switch (trigger.Index)
         {
             case 0: _game.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;
@@ -227,29 +240,18 @@ internal sealed class GLWindow : IDisposable
         _game.Input.SetKey(mapping);
         _game.GameCheats.OnKeyPressed(key);
 
-        if (_game.Input.IsButtonPressing(GameButton.FullScreenToggle))
-        {
-            ToggleFullscreen();
-        }
+        if (_game.Input.IsButtonPressing(GameButton.FullScreenToggle)) ToggleFullscreen();
     }
 
     private void OnKeyUp(IKeyboard kb, Key key, int whoknows)
     {
         _game.Input.UnsetKey(GetKeyMapping(kb, key));
     }
-
-    private void OnFramebufferResize(Vector2D<int> s)
-    {
-        var gl = _gl ?? throw new Exception();
-
-        gl.Viewport(s);
-
-        var surface = CreateSkSurface();
-        _game.UpdateScreenSize(surface);
-    }
+    #endregion
 
     private readonly Stopwatch _starttime = Stopwatch.StartNew();
     private TimeSpan _renderedTime = TimeSpan.Zero;
+    private readonly bool _showMenu = false;
 
     private void Render(double deltaSeconds)
     {
@@ -287,32 +289,39 @@ internal sealed class GLWindow : IDisposable
 
         // window.SwapBuffers();
 
-        return;
-        // https://github.com/ocornut/imgui/blob/master/imgui_demo.cpp#L644
-        // https://github.com/dotnet/Silk.NET/blob/main/examples/CSharp/OpenGL%20Demos/ImGui/Program.cs
-        ImGui.ShowDemoWindow();
-        ImGui.NewFrame();
-        if (ImGui.BeginMainMenuBar())
+        if (_game.FrameCounter % 20 == 0)
         {
-            if (ImGui.BeginMenu("File"))
-            {
-                if (ImGui.MenuItem("Open", "Ctrl+O"))
-                {
-                    _log.Write("OPEN");
-                }
-                if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
-                ImGui.EndMenu();
-            }
-            if (ImGui.BeginMenu("File2"))
-            {
-                if (ImGui.MenuItem("Open", "Ctrl+O")) { /* Handle open */ }
-                if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
-                ImGui.EndMenu();
-            }
-            ImGui.EndMainMenuBar();
+            window.Title = $"The Legend of Form1 - FPS: {_fps.Add(deltaSeconds):0.0}";
         }
 
-        _controller.Render();
+        if (_showMenu)
+        {
+            // https://github.com/ocornut/imgui/blob/master/imgui_demo.cpp#L644
+            // https://github.com/dotnet/Silk.NET/blob/main/examples/CSharp/OpenGL%20Demos/ImGui/Program.cs
+            ImGui.ShowDemoWindow();
+            ImGui.NewFrame();
+            if (ImGui.BeginMainMenuBar())
+            {
+                if (ImGui.BeginMenu("File"))
+                {
+                    if (ImGui.MenuItem("Open", "Ctrl+O"))
+                    {
+                        _log.Write("OPEN");
+                    }
+                    if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
+                    ImGui.EndMenu();
+                }
+                if (ImGui.BeginMenu("File2"))
+                {
+                    if (ImGui.MenuItem("Open", "Ctrl+O")) { /* Handle open */ }
+                    if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
+                    ImGui.EndMenu();
+                }
+                ImGui.EndMainMenuBar();
+            }
+
+            _controller.Render();
+        }
     }
 
     public void OnClosing()

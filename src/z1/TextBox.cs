@@ -13,13 +13,13 @@ internal sealed class TextBox
     private int _charTimer;
     private bool _drawingDialog = true;
     private readonly Game _game;
-    private byte[] _startCharPtr;
-    private int _curCharIndex;
+    private byte[] _text;
+    private int _currentTextIndex;
 
     public TextBox(Game game, byte[] text, int delay)
     {
         _game = game;
-        _startCharPtr = text;
+        _text = text;
         _charDelay = Game.Cheats.SpeedUp ? 1 : delay;
         if (_charDelay < 1) _charDelay = 1;
     }
@@ -33,8 +33,8 @@ internal sealed class TextBox
     {
         _drawingDialog = true;
         _charTimer = 0;
-        _startCharPtr = text;
-        _curCharIndex = 0;
+        _text = text;
+        _currentTextIndex = 0;
     }
 
     public bool IsDone() => !_drawingDialog;
@@ -54,12 +54,12 @@ internal sealed class TextBox
             return;
         }
 
-        byte ch;
+        int ch;
         do
         {
-            var curCharPtr = _startCharPtr[_curCharIndex];
-            ch = (byte)(curCharPtr & 0x3F);
-            var attr = (byte)(curCharPtr & 0xC0);
+            var curCharPtr = _text[_currentTextIndex];
+            ch = curCharPtr & 0x3F;
+            var attr = curCharPtr & 0xC0;
             if (attr == 0xC0)
             {
                 _drawingDialog = false;
@@ -69,7 +69,7 @@ internal sealed class TextBox
                 _height += 8;
             }
 
-            _curCharIndex++;
+            _currentTextIndex++;
             if (ch != (int)Char.JustSpace)
             {
                 _game.Sound.PlayEffect(SoundEffect.Character);
@@ -83,9 +83,9 @@ internal sealed class TextBox
         var x = _left;
         var y = _top;
 
-        for (var i = 0; i < _curCharIndex; i++ )
+        for (var i = 0; i < _currentTextIndex; i++ )
         {
-            var chr = _startCharPtr[i];
+            var chr = _text[i];
             var attr = chr & 0xC0;
             var ch = chr & 0x3F;
 

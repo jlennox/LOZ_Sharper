@@ -1,22 +1,32 @@
 ﻿namespace z1.GUI;
 
-// TODO: Fix :)
-internal sealed class FpsCalculator
+internal class FpsCalculator
 {
-    public double FramesPerSecond { get; private set; }
+    private readonly double[] _buffer = new double[100];
+    private int _bufferIndex = 0;
+    private int _bufferCount = 0;
 
-    private int _tickindex;
-    private long _ticksum;
-    private readonly long[] _ticklist = new long[100];
-
-    public bool Add(long newtick)
+    public double Add(double deltaSeconds)
     {
-        _ticksum -= _ticklist[_tickindex];
-        _ticksum += newtick;
-        _ticklist[_tickindex] = newtick;
-        _tickindex = (_tickindex + 1) % _ticklist.Length;
+        var currentFps = 1.0 / deltaSeconds;
 
-        FramesPerSecond = (double)_ticksum / _ticklist.Length;
-        return _tickindex == 0;
+        _buffer[_bufferIndex] = currentFps;
+        _bufferIndex = (_bufferIndex + 1) % _buffer.Length;
+        if (_bufferCount < _buffer.Length)
+        {
+            _bufferCount++;
+        }
+
+        var weightedFpsSum = 0.0;
+        var weightSum = 0.0;
+        for (var i = 0; i < _bufferCount; i++)
+        {
+            var weight = (double)(i + 1) / _bufferCount;
+            var index = (_bufferIndex - 1 - i + _buffer.Length) % _buffer.Length;
+            weightedFpsSum += _buffer[index] * weight;
+            weightSum += weight;
+        }
+
+        return weightedFpsSum / weightSum;
     }
 }

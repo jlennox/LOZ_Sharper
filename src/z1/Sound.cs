@@ -83,13 +83,16 @@ internal enum SoundFlags
 internal unsafe struct SoundInfo
 {
     // The loop beginning and end points in frames (1/60 seconds).
-    public short Begin;
+    public short Start;
     public short End;
     public sbyte Slot;
     public sbyte Priority;
     public sbyte Flags;
     public sbyte Reserved;
     public fixed byte Filename[20];
+
+    public readonly float StartSeconds => Start * (1 / 60f);
+    public readonly float EndSeconds => End * (1 / 60f);
 
     public readonly bool HasPlayIfQuietSlot => (Flags & (byte)SoundFlags.PlayIfQuietSlot) != 0;
 
@@ -144,7 +147,9 @@ public class StreamedAudioFileReader : WaveStream, ISampleProvider
         set
         {
             lock (_lockObject)
+            {
                 _readerStream.Position = DestToSource(value);
+            }
         }
     }
 
@@ -158,7 +163,9 @@ public class StreamedAudioFileReader : WaveStream, ISampleProvider
     public int Read(float[] buffer, int offset, int count)
     {
         lock (_lockObject)
+        {
             return _sampleChannel.Read(buffer, offset, count);
+        }
     }
 
     public float Volume
@@ -204,6 +211,13 @@ internal sealed class CachedSound
         }
         AudioData = wholeFile.ToArray();
     }
+
+    public TimeSpan GetLength()
+    {
+        var averageBytesPerSecond = (float)WaveFormat.AverageBytesPerSecond;
+        var seconds = AudioData.Length / (WaveFormat.BitsPerSample / 8f) / WaveFormat.Channels / averageBytesPerSecond;
+        return TimeSpan.FromSeconds(seconds);
+    }
 }
 
 internal sealed class CachedSampleProvider : ISampleProvider
@@ -211,6 +225,7 @@ internal sealed class CachedSampleProvider : ISampleProvider
     public bool HasReachedEnd { get; private set; }
     public bool Loop { get; set; }
 
+    public WaveFormat WaveFormat => _cachedSound.WaveFormat;
     private readonly CachedSound _cachedSound;
     private int _position;
 
@@ -219,8 +234,6 @@ internal sealed class CachedSampleProvider : ISampleProvider
         _cachedSound = cachedSound;
         Loop = loop;
     }
-
-    public WaveFormat WaveFormat => _cachedSound.WaveFormat;
 
     public int Read(float[] buffer, int offset, int count)
     {
@@ -370,7 +383,7 @@ internal sealed class Sound
 
     private readonly record struct EffectRequest(SoundEffect SoundId, bool Loop);
 
-    private static readonly DebugLog _traceLog = new(nameof(Sound), DebugLogDestination.None);
+    private static readonly DebugLog _traceLog = new(nameof(Sound), DebugLogDestination.DebugBuildsOnly);
 
     private readonly CachedSound[] _effectSamples = new CachedSound[Effects];
     private readonly SoundInfo[] _effects;
@@ -445,7 +458,7 @@ internal sealed class Sound
         ref var streamBucket = ref StopSong((int)stream);
         var songinfo = _songs[(int)song];
         // JOE: TODO: Cleanup this line.
-        var waveStream = new LoopStream(_songFiles[(int)song], loop, songinfo.Begin * (1 / 60f), songinfo.End * (1 / 60f));
+        var waveStream = new LoopStream(_songFiles[(int)song], loop, songinfo.StartSeconds, songinfo.EndSeconds);
         streamBucket = waveStream;
         _mixer.AddMixerInput(streamBucket.SampleProvider);
     }
@@ -462,7 +475,10 @@ internal sealed class Sound
         if (request == null || _effects[(int)id].Priority < _effects[(int)request.Value.SoundId].Priority)
         {
             request = new EffectRequest(id, loop);
+            return;
         }
+
+        _traceLog.Write($"PlayEffect({id}, {loop}, {instance}) will not play.");
     }
 
     private void UpdateSongs()
@@ -474,7 +490,6 @@ internal sealed class Sound
         ref var eventSong = ref _playingSongSamples[(int)SongStream.EventSong];
         if (eventSong == null || !eventSong.HasReachedEnd)
         {
-            _traceLog.Write($"UpdateSongs() {eventSong == null}, {eventSong?.HasReachedEnd}");
             return;
         }
 
@@ -503,6 +518,7 @@ internal sealed class Sound
         {
             ref var request = ref _effectRequests[i];
             if (request == null) continue;
+
             var soundId = request.Value.SoundId;
             var loop = request.Value.Loop;
             request = null;
@@ -510,16 +526,13 @@ internal sealed class Sound
             ref var instance = ref _playingEffectSamples[i];
 
             var hasPlayIfQuietSlot = _effects[(int)soundId].HasPlayIfQuietSlot;
-            _traceLog.Write($"UpdateEffects({soundId}, {loop}), hasPlayIfQuietSlot={hasPlayIfQuietSlot}, instance={instance != null}");
+            _traceLog.Write($"UpdateEffects({soundId}, {loop}), hasPlayIfQuietSlot={hasPlayIfQuietSlot}, instance={instance?.HasReachedEnd}");
             if (!hasPlayIfQuietSlot || (instance == null || instance.HasReachedEnd))
             {
-                if (instance != null)
-                {
-                    _mixer.RemoveMixerInput(instance);
-                }
+                if (instance != null) _mixer.RemoveMixerInput(instance);
 
-                _traceLog.Write($"UpdateEffects({soundId}, {loop}), playing in i={i}");
                 var sample = _effectSamples[(int)soundId];
+                _traceLog.Write($"UpdateEffects({soundId}, {loop}), playing in i={i} ({sample.GetLength()})");
                 instance = new CachedSampleProvider(sample, loop);
                 _mixer.AddMixerInput(instance);
             }
