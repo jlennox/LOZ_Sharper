@@ -3814,7 +3814,7 @@ internal sealed class RedWizzrobeActor : Actor
             CheckBombAndFire(ObjectSlot.Bomb2);
             CheckBombAndFire(ObjectSlot.Fire);
             CheckBombAndFire(ObjectSlot.Fire2);
-            CheckSword(ObjectSlot.PlayerSword);
+            CheckSword(ObjectSlot.PlayerSword, false);
         }
         CheckPlayerCollision();
     }

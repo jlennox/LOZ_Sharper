@@ -8,6 +8,7 @@ namespace z1;
 // * Aquamentis blocks his own fireballs.
 // * Some how between saves my max hearts got reset?
 // * Second quest rocks push in first quest.
+// * Darknuts should make parry sound when shot with wave.
 
 // Minor:
 // * Vire keese seem to spawn too close together.

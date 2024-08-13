@@ -524,7 +524,7 @@ internal abstract class Actor
         }
     }
 
-    protected void CheckSword(ObjectSlot slot)
+    protected void CheckSword(ObjectSlot slot, bool allowRodDamage = true)
     {
         if (slot != ObjectSlot.PlayerSword) throw new ArgumentOutOfRangeException(nameof(slot));
 
@@ -545,6 +545,7 @@ internal abstract class Actor
                 break;
 
             case ObjType.Rod:
+                if (!allowRodDamage) return;
                 context.Damage = 0x20;
                 break;
         }
@@ -689,9 +690,10 @@ internal abstract class Actor
         }
         else if (this is DarknutActor)
         {
-            var combinedDir = (int)(Facing | weaponObj.Facing);
+            var combinedDir = Facing | weaponObj.Facing;
 
-            if (combinedDir == 3 || combinedDir == 0xC)
+            // If the hitter is facing the darknut's front, then parry.
+            if (combinedDir is Direction.HorizontalMask or Direction.VerticalMask)
             {
                 PlayParrySoundIfSupported(context.DamageType);
                 return;
@@ -711,7 +713,7 @@ internal abstract class Actor
             return;
         }
 
-        HP -= (byte)context.Damage; // JOE: TODO: This is sus math and casting.
+        HP -= (byte)context.Damage;
         if (HP == 0)
         {
             KillObjectNormally(context);
