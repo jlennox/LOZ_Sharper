@@ -90,19 +90,22 @@ internal sealed class GameCheats
 
     public sealed class OverworldWarpCheat : RegexCheat
     {
-        private static readonly Regex _full = new(@"^w(\d+)x(\d+);$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^w(\d*)x?(\d*);?$", DefaultRegexOptions);
+        private static readonly Regex _full = new(@"^w(\d+)[x/](\d+);$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^w(\d*)[x/]?(\d*);?$", DefaultRegexOptions);
 
         protected override Regex FullMatch => _full;
         protected override Regex PartialMatch => _partial;
 
         public override void RunPayload(Game game, string[] args)
         {
-            if (!int.TryParse(args[0], out var x) || !int.TryParse(args[0], out var y))
+            if (!int.TryParse(args[0], out var x) || !int.TryParse(args[1], out var y))
             {
                 game.Toast("Invalid warp coordinates. " + string.Join(", ", args));
                 return;
             }
+
+            x = Math.Clamp(x, 0, World.WorldWidth - 1);
+            y = Math.Clamp(y, 0, World.WorldHeight - 1);
 
             game.World.LoadOverworldRoom(x, y);
             game.Toast($"Warping to room {x}x{y}");
@@ -154,6 +157,8 @@ internal sealed class GameCheats
                 return;
             }
 
+            levelNumber = Math.Clamp(levelNumber, 1, 9);
+
             game.World.GotoLoadLevel(levelNumber);
             game.Toast($"Warping to dungeon {levelNumber}");
         }
@@ -186,9 +191,16 @@ internal sealed class GameCheats
             const ObjectSlot slot = ObjectSlot.Monster1;
             game.World.CurObjectSlot = slot;
 
-            var obj = Actor.FromType(objType, game, 80, 80);
-            game.World.SetObject(slot, obj);
-            game.Toast($"Spawned {objType} at slot {slot}");
+            try
+            {
+                var obj = Actor.FromType(objType, game, 80, 80);
+                game.World.SetObject(slot, obj);
+                game.Toast($"Spawned {objType} at slot {slot}");
+            }
+            catch (ArgumentOutOfRangeException e) when (e.ParamName == "type")
+            {
+                game.Toast($"Invalid object type {objType}");
+            }
         }
     }
 

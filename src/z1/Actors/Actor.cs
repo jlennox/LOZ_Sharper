@@ -212,7 +212,7 @@ internal abstract class Actor
             ObjType.Patra2 => PatraActor.MakePatra(game, PatraType.Spin),
             ObjType.Trap => TrapActor.MakeSet(game, 6),
             ObjType.TrapSet4 => TrapActor.MakeSet(game, 4),
-            _ => throw new NotImplementedException(),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid type."),
         };
     }
 
