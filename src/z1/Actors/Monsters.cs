@@ -3009,7 +3009,7 @@ internal abstract class JumperActor : Actor, IDeleteEvent
     private void UpdateJump()
     {
         var dir = CheckWorldMarginH(X, Facing, false);
-        if (this is BoulderActor)
+        if (this is not BoulderActor)
         {
             dir = CheckWorldMarginV(Y, dir, false);
         }
@@ -3039,7 +3039,6 @@ internal abstract class JumperActor : Actor, IDeleteEvent
         if (_curSpeed >= 0 && Math.Abs(Y - _targetY) < 3)
         {
             _state = 0;
-            // JOE: TODO: Is this right?
             ObjTimer = this is BoulderActor ? (byte)0 : (byte)GetRandomStillTime();
         }
     }
