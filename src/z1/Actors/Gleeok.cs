@@ -71,7 +71,7 @@ internal sealed class GleeokNeck
         public int Value2;
     }
 
-    private static readonly byte[] _startYs = [0x6F, 0x74, 0x79, 0x7E, 0x83];
+    private static readonly ImmutableArray<byte> _startYs = [0x6F, 0x74, 0x79, 0x7E, 0x83];
 
     public int HP;
 
@@ -400,7 +400,7 @@ internal sealed class GleeokActor : Actor
     private const int WrithingAnimFrames = 7 * 4;
     private const int TotalWrithingFrames = 7 * 7;
 
-    private static readonly byte[] _palette = [0, 0x2A, 0x1A, 0x0C];
+    private static readonly ImmutableArray<byte> _palette = [0, 0x2A, 0x1A, 0x0C];
 
     private readonly SpriteAnimator _animator;
     private int _writhingTimer;
@@ -559,7 +559,7 @@ internal sealed class GleeokActor : Actor
                         // Don't include the last slot, which is used for fireballs.
                         for (var jj = ObjectSlot.Monster1 + 1; jj < ObjectSlot.LastMonster; jj++)
                         {
-                            Game.World.SetObject(jj, null);
+                            Game.World.ClearObject(jj);
                         }
                     }
                 }

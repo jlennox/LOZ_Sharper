@@ -30,7 +30,7 @@ internal static class ZeldaString
         >= '0' and <= '9' => (byte)(c - '0'),
         >= 'a' and <= 'z' => (byte)(c - 'a' + 0x0A),
         >= 'A' and <= 'Z' => (byte)(char.ToLower(c) - 'a' + 0x0A),
-        _ => 0,
+        _ => 0x2E,
     };
 
     public static char CharFromByte(byte b) => b switch {

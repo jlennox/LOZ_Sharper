@@ -4,6 +4,7 @@ using System.Text;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using z1.IO;
+using z1.UI;
 
 namespace z1;
 
@@ -399,9 +400,10 @@ internal sealed class Sound
 
     private int _volume; // 0 to 100.
     private bool _isMuted = false;
+    private bool _isMuteSongs = false;
 
     /// <param name="volume">0 to 100</param>
-    public Sound(int volume)
+    public Sound(GameConfiguration configuration)
     {
         _waveOutDevice = new WaveOutEvent
         {
@@ -427,7 +429,10 @@ internal sealed class Sound
             _songFiles[i] = new NamedWaveFileReader(_songs[i].GetAsset());
         }
 
-        SetVolume(volume);
+        _isMuted = configuration.MuteAudio;
+        _isMuteSongs = configuration.MuteMusic;
+
+        SetVolume(configuration.AudioVolume);
     }
 
     public void SetVolume(int volume)
@@ -459,6 +464,8 @@ internal sealed class Sound
     private void PlaySongInternal(SongId song, SongStream stream, bool loop, bool play)
     {
         _traceLog.Write($"PlaySongInternal({song}, {stream}, {loop}, {play})");
+        if (_isMuteSongs) return;
+
         ref var streamBucket = ref StopSong((int)stream);
         var songinfo = _songs[(int)song];
         // JOE: TODO: Cleanup this line.

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using SkiaSharp;
 using z1.Actors;
 
@@ -83,7 +84,12 @@ internal partial class World
     {
         for (var i = 0; i < _objectsToDeleteCount; i++)
         {
-            _objectsToDelete[i] = null;
+            ref var obj = ref _objectsToDelete[i];
+            if (obj != null)
+            {
+                _traceLog.Write($"ClearDeadObjectQueue() {obj.GetType().Name} at {_objectsToDeleteCount}");
+            }
+            obj = null;
         }
 
         _objectsToDeleteCount = 0;
@@ -214,9 +220,9 @@ internal partial class World
 
     public ObjectSlot FindEmptyMonsterSlot()
     {
-        for (var i = (int)ObjectSlot.LastMonster; i >= 0; i--)
+        for (var i = ObjectSlot.LastMonster; i >= 0; i--)
         {
-            if (_objects[i] == null) return (ObjectSlot)i;
+            if (_objects[(int)i] == null) return i;
         }
         return ObjectSlot.NoneFound;
     }
@@ -251,6 +257,16 @@ internal partial class World
         for (var i = 2; i < Global.BackgroundPalCount; i++)
         {
             Graphics.SetPaletteIndexed((Palette)i, palette);
+        }
+
+        Graphics.UpdatePalettes();
+    }
+
+    private static void SetLevelPalettes(ImmutableArray<ImmutableArray<byte>> palettes) // const byte palettes[2][PaletteLength] )
+    {
+        for (var i = 0; i < 2; i++)
+        {
+            Graphics.SetPaletteIndexed((Palette)2 + i, palettes[i]);
         }
 
         Graphics.UpdatePalettes();

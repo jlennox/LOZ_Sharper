@@ -162,8 +162,7 @@ internal static class Graphics
 
     public static void LoadTileSheet(TileSheet sheet, Asset file)
     {
-        var slot = (int)sheet;
-        ref var foundRef = ref _tileSheets[slot];
+        ref var foundRef = ref _tileSheets[(int)sheet];
         if (foundRef != null)
         {
             foundRef.Dispose();
@@ -171,13 +170,20 @@ internal static class Graphics
         }
 
         var bitmap = file.DecodeSKBitmapTileData();
-        _tileSheets[slot] = bitmap;
+        foundRef = bitmap;
     }
 
     public static void LoadTileSheet(TileSheet sheet, Asset path, Asset animationFile)
     {
         LoadTileSheet(sheet, path);
         _animSpecs[(int)sheet] = TableResource<SpriteAnimationStruct>.Load(animationFile);
+    }
+
+    public static SKBitmap PaletteTileSheet(TileSheet sheet, Palette palette)
+    {
+        var image = _tileSheets[(int)sheet];
+        var cacheKey = new TileCache(null, image, _activeSystemPalette, 0, 0, palette, DrawingFlags.None);
+        return cacheKey.GetValue(image.Width, image.Height);
     }
 
     // Preprocesses an image to set all color channels to their appropriate color palette index, allowing
@@ -268,13 +274,13 @@ internal static class Graphics
 
     public static void SetPaletteIndexed(Palette paletteIndex, ReadOnlySpan<byte> sysColors)
     {
-        var colorsArgb8 = new[]
-        {
+        ReadOnlySpan<int> colorsArgb8 =
+        [
             0,
             _activeSystemPalette[sysColors[1]],
             _activeSystemPalette[sysColors[2]],
             _activeSystemPalette[sysColors[3]],
-        };
+        ];
 
         SetPalette(paletteIndex, colorsArgb8);
         var dest = GetPalette(paletteIndex);
@@ -296,13 +302,13 @@ internal static class Graphics
         for (var i = 0; i < Global.PaletteCount; i++)
         {
             var sysColors = GetPalette((Palette)i);
-            var colorsArgb8 = new[]
-            {
+            ReadOnlySpan<int> colorsArgb8 =
+            [
                 0,
                 _activeSystemPalette[sysColors[1]],
                 _activeSystemPalette[sysColors[2]],
                 _activeSystemPalette[sysColors[3]],
-            };
+            ];
             SetPalette((Palette)i, colorsArgb8);
         }
         UpdatePalettes();
@@ -456,5 +462,16 @@ internal static class Graphics
     {
         ArgumentNullException.ThrowIfNull(_surface);
         _surface.Canvas.Restore();
+    }
+
+    public static void DebugDumpTiles()
+    {
+        Asset.Initialize();
+
+        var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
+        LoadSystemPalette(sysPal);
+
+        LoadTileSheet(TileSheet.PlayerAndItems, new Asset("overworldTilesDebug.png"));
+        PaletteTileSheet(TileSheet.PlayerAndItems, Palette.LevelFgPalette).SavePng(@"C:\users\joe\desktop\delete\_z1.png");
     }
 }

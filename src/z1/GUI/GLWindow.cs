@@ -316,19 +316,11 @@ internal sealed class GLWindow : IDisposable
             {
                 if (ImGui.BeginMenu("File"))
                 {
-                    if (ImGui.MenuItem("Open", "Ctrl+O"))
-                    {
-                        _log.Write("OPEN");
-                    }
+                    if (ImGui.MenuItem("Open", "Ctrl+O")) { _log.Write("OPEN"); }
                     if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
                     ImGui.EndMenu();
                 }
-                if (ImGui.BeginMenu("File2"))
-                {
-                    if (ImGui.MenuItem("Open", "Ctrl+O")) { /* Handle open */ }
-                    if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
-                    ImGui.EndMenu();
-                }
+
                 ImGui.EndMainMenuBar();
             }
 

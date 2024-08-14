@@ -446,6 +446,27 @@ internal static class GlobalFunctions
 
     public static byte[] NumberToStringR(byte number, NumberSign sign, ref Span<byte> charBuf)
     {
+        // JOE: TODO: Make this 0 allocation. Return the length, I believe? Callers can use charBuf.
+        // var signstr = sign switch
+        // {
+        //     NumberSign.Negative => "-",
+        //     NumberSign.Positive => "+",
+        //     _ => "",
+        // };
+        //
+        // var length = number switch
+        // {
+        //     < 10 => 1,
+        //     < 100 => 2,
+        //     _ => 3,
+        // };
+        //
+        // if (sign != NumberSign.None) ++length;
+        //
+        // var str = ZeldaString.EnumerateText((signstr + number).PadLeft(charBuf.Length - length)).ToArray();
+        // str.CopyTo(charBuf);
+        // return str;
+
         var bufLen = charBuf.Length;
 
         Debug.Assert(bufLen >= 3);

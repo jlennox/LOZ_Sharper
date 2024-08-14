@@ -3,9 +3,8 @@
 namespace z1;
 
 // Milestone 1:
-// * Textbox and ruppee sounds are wrong.
+// * Textbox and rupee sounds are wrong.
 // * Screen sides need to be painted black.
-// * Aquamentis blocks his own fireballs.
 // * Some how between saves my max hearts got reset?
 // * Second quest rocks push in first quest.
 // * Darknuts should make parry sound when shot with wave.

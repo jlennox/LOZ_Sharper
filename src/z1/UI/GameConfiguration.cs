@@ -40,6 +40,7 @@ internal sealed class GameConfiguration : IInitializable
     public int Version { get; set; } = 1;
     public bool EnableEnhancements { get; set; } = true;
     public bool MuteAudio { get; set; } = false;
+    public bool MuteMusic { get; set; } = true;
     public bool? IsJoe { get; set; }
     public int TextSpeed { get; set; } = 1; // 1 is normal, 5 is max speed.
     public int AudioVolume { get; set; } = 80; // 0 to 100. Default to 80 because it sounds really loud at 100.

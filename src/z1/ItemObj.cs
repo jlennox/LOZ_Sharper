@@ -485,7 +485,7 @@ internal sealed class PlayerSwordActor : Actor
         AnimationId.Wand_Up
     ];
 
-    private static readonly byte[] _swordStateDurations = [5, 8, 1, 1, 1];
+    private static readonly ImmutableArray<byte> _swordStateDurations = [5, 8, 1, 1, 1];
 
     public int State;
     private int _timer;

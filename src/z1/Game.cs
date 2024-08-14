@@ -78,7 +78,7 @@ internal sealed class Game
         World = new World(this);
         Input = new Input(Configuration.Input);
         GameCheats = new GameCheats(this, Input);
-        Sound = new Sound(Configuration.AudioVolume);
+        Sound = new Sound(Configuration);
     }
 
     public void Update()
@@ -137,14 +137,17 @@ internal sealed class Game
         surface.Canvas.Scale(scale, scale);
     }
 
-    public void ShootFireball(ObjType type, int x, int y)
+    // JOE: TODO: Move to TryShoot pattern?
+    public ObjectSlot ShootFireball(ObjType type, int x, int y)
     {
-        var newSlot = World.FindEmptyMonsterSlot();
-        if (newSlot >= 0)
+        if (World.TryFindEmptyMonsterSlot(out var slot))
         {
             var fireball = new FireballProjectile(this, type, x + 4, y, 1.75f);
-            World.SetObject(newSlot, fireball);
+            World.SetObject(slot, fireball);
+            return slot;
         }
+
+        return ObjectSlot.NoneFound;
     }
 
     public void Toast(string text) => OnScreenDisplay.Toast(text);

@@ -283,7 +283,24 @@ internal sealed class GameCheats
         public override void RunPayload(Game game, string[] args)
         {
             var room = game.World.CurrentRoom;
-            game.Toast($"Position: {room.X}x{room.Y}");
+            var link = game.Link;
+            game.Toast($"Room: {room.X},{room.Y} ({room.X:X2},{room.Y:X2})");
+            game.Toast($"Link: {link.X},{link.Y} ({link.X:X2},{link.Y:X2})");
+        }
+    }
+
+    public sealed class PosAllCheat() : SingleWordCheat("idpos", true)
+    {
+        public override void RunPayload(Game game, string[] args)
+        {
+            for (var slot = ObjectSlot.Monster1; slot < ObjectSlot.MaxObjects; slot++)
+            {
+                var actor = game.World.GetObject(slot);
+                if (actor != null)
+                {
+                    game.Toast($"{actor.ObjType}: {slot} {actor.X},{actor.Y} ({actor.X:X2},{actor.Y:X2})");
+                }
+            }
         }
     }
 
@@ -297,6 +314,7 @@ internal sealed class GameCheats
         new ItemCheat(),
         new ItemsCheat(),
         new MyPosCheat(),
+        new PosAllCheat(),
         new KillAllCheat(),
         new SpeedUpCheat(),
         new WalkThroughWallsCheat(),
