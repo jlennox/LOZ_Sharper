@@ -9,7 +9,6 @@ namespace z1;
 // * Second quest rocks push in first quest.
 // * Darknuts should make parry sound when shot with wave.
 // * A blue wizzrobe went through the floor and out the ceiling.
-// * Your position shows in pause map when underground.
 
 // Minor:
 // * Vire keese seem to spawn too close together.

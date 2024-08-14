@@ -111,16 +111,6 @@ internal partial class World
         _objects[(int)slot] = obj;
     }
 
-    private LadderActor? GetLadderObj()
-    {
-        return GetObject(ObjectSlot.Ladder) as LadderActor;
-    }
-
-    private void SetLadderObj(LadderActor? ladder)
-    {
-        SetOnlyObject(ObjectSlot.Ladder, ladder);
-    }
-
     private void SetBlockObj(Actor block)
     {
         SetOnlyObject(ObjectSlot.Block, block);
@@ -272,6 +262,7 @@ internal partial class World
         Graphics.UpdatePalettes();
     }
 
+    // JOE: TODO: Cleanup.
     private static void SetLevelPalettes(byte[][] palettes) // const byte palettes[2][PaletteLength] )
     {
         for (var i = 0; i < 2; i++)

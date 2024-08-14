@@ -524,6 +524,7 @@ internal sealed class SubmenuType
         var levelInfo = _game.World.GetLevelInfo();
         var hasMap = _game.World.HasCurrentMap();
         var hasCompass = _game.World.HasCurrentCompass();
+        var isCellar = _game.World.IsUWCellar();
 
         if (hasMap) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Map, 0x30, 0x68 + top);
         if (hasCompass) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Compass, 0x30, 0x90 + top);
@@ -561,14 +562,18 @@ internal sealed class SubmenuType
             }
         }
 
-        var curRoomId = _game.World.CurRoomId;
-        var playerRow = (curRoomId >> 4) & 0xF;
-        var playerCol = curRoomId & 0xF;
-        playerCol = (playerCol + levelInfo.DrawnMapOffset) & 0xF;
-        playerCol -= 4;
+        // Do not draw link's cursor when he's in the cellar of a dungeon.
+        if (!isCellar)
+        {
+            var curRoomId = _game.World.CurRoomId;
+            var playerRow = (curRoomId >> 4) & 0xF;
+            var playerCol = curRoomId & 0xF;
+            playerCol = (playerCol + levelInfo.DrawnMapOffset) & 0xF;
+            playerCol -= 4;
 
-        y = ActiveMapY + top + playerRow * 8 + 3;
-        x = ActiveMapX + playerCol * 8 + 2;
-        GlobalFunctions.DrawChar(0xE0, x, y, Palette.Player);
+            y = ActiveMapY + top + playerRow * 8 + 3;
+            x = ActiveMapX + playerCol * 8 + 2;
+            GlobalFunctions.DrawChar(0xE0, x, y, Palette.Player);
+        }
     }
 }
