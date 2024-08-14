@@ -52,6 +52,11 @@ internal abstract class Actor
         {
             _isDeleted = value;
 
+            if (value)
+            {
+                _traceLog.Write($"Deleted {GetType().Name} at {X:X2},{Y:X2} ({CurObjectSlot})");
+            }
+
             // JOE: TODO: Arg. Don't do this.
             // I don't like properties that have side effects but here we are :)
             if (value && this is IDeleteEvent deleteEvent && !_ranDeletedEvent)
@@ -72,19 +77,7 @@ internal abstract class Actor
     protected byte InvincibilityMask;
     protected Direction ShoveDirection = Direction.None;
     protected byte ShoveDistance;
-    public Direction Facing
-    {
-        get => _facing;
-        set
-        {
-            if (this is Link && value == Direction.None)
-            {
-                // Debugger.Break();
-            }
-            _facing = value;
-        }
-    }
-    public Direction _facing = Direction.None;
+    public Direction Facing = Direction.None;
     public sbyte TileOffset;
     protected byte Fraction;
     public byte Moving;
@@ -103,6 +96,7 @@ internal abstract class Actor
     public ObjectAttr Attributes => Game.World.GetObjectAttrs(ObjType);
 
     protected bool IsStunned => _isStunned();
+    protected ObjectSlot CurObjectSlot => Game.World.CurObjectSlot;
 
     // JOE: TODO: Consider bringing this back.
     //public ActorColor Color;
@@ -294,7 +288,7 @@ internal abstract class Actor
 
     protected void InitCommonFacing()
     {
-        InitCommonFacing(X, Y, ref _facing);
+        InitCommonFacing(X, Y, ref Facing);
     }
 
     private void InitCommonFacing(int x, int y, ref Direction facing)
@@ -932,7 +926,13 @@ internal abstract class Actor
 
     protected Direction CheckWorldMarginH(int x, Direction dir, bool adjust)
     {
+        return CheckWorldMarginH(x, dir, adjust, out _);
+    }
+
+    protected Direction CheckWorldMarginH(int x, Direction dir, bool adjust, out CheckWorldReason reason)
+    {
         var curDir = Direction.Left;
+        reason = CheckWorldReason.None;
 
         if (adjust)
         {
@@ -950,16 +950,24 @@ internal abstract class Actor
 
             if (x < Game.World.MarginRight)
             {
+                reason = CheckWorldReason.InBounds;
                 return dir;
             }
         }
 
+        reason = CheckWorldReason.OutOfBounds;
         return (dir & curDir) != 0 ? Direction.None : dir;
     }
 
     protected Direction CheckWorldMarginV(int y, Direction dir, bool adjust)
     {
+        return CheckWorldMarginV(y, dir, adjust, out _);
+    }
+
+    protected Direction CheckWorldMarginV(int y, Direction dir, bool adjust, out CheckWorldReason reason)
+    {
         var curDir = Direction.Up;
+        reason = CheckWorldReason.None;
 
         if (adjust)
         {
@@ -977,14 +985,26 @@ internal abstract class Actor
 
             if (y < Game.World.MarginBottom)
             {
+                reason = CheckWorldReason.InBounds;
                 return dir;
             }
         }
 
+        reason = CheckWorldReason.OutOfBounds;
         return (dir & curDir) != 0 ? Direction.None : dir;
     }
 
+    protected enum CheckWorldReason
+    {
+        None, InBounds, OutOfBounds
+    }
+
     protected Direction CheckWorldMargin(Direction dir)
+    {
+        return CheckWorldMargin(dir, out _);
+    }
+
+    protected Direction CheckWorldMargin(Direction dir, out CheckWorldReason reason)
     {
         var slot = Game.World.CurObjectSlot;
         var adjust = slot > ObjectSlot.Buffer || this is LadderActor;
@@ -995,8 +1015,8 @@ internal abstract class Actor
             adjust = false;
         }
 
-        dir = CheckWorldMarginH(X, dir, adjust);
-        return CheckWorldMarginV(Y, dir, adjust);
+        dir = CheckWorldMarginH(X, dir, adjust, out reason);
+        return CheckWorldMarginV(Y, dir, adjust, out reason);
     }
 
     protected Direction CheckTileCollision(Direction dir)
@@ -1374,9 +1394,9 @@ internal abstract class Actor
         return slot;
     }
 
-    protected void ShootFireball(ObjType type, int x, int y)
+    protected ObjectSlot ShootFireball(ObjType type, int x, int y)
     {
-        Game.ShootFireball(type, x, y);
+        return Game.ShootFireball(type, x, y);
     }
 }
 

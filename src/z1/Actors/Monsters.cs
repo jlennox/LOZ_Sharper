@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using z1.IO;
 
 namespace z1.Actors;
 
@@ -395,8 +396,8 @@ internal sealed class GanonActor : BlueWizzrobeBase
         Pieces = 4,
     }
 
-    private static readonly byte[] _ganonNormalPalette = [0x16, 0x2C, 0x3C];
-    private static readonly byte[] _ganonRedPalette = [0x07, 0x17, 0x30];
+    private static readonly ImmutableArray<byte> _ganonNormalPalette = [0x16, 0x2C, 0x3C];
+    private static readonly ImmutableArray<byte> _ganonRedPalette = [0x07, 0x17, 0x30];
 
     private readonly ImmutableArray<SlashSpec> _slashSpecs = [
         new(TileSheet.Boss,           AnimationId.B3_Slash_U, 0),
@@ -740,7 +741,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
         }
     }
 
-    private void SetBossPalette(byte[] palette)
+    private void SetBossPalette(ImmutableArray<byte> palette)
     {
         Graphics.SetColorIndexed(Palette.SeaPal, 1, palette[0]);
         Graphics.SetColorIndexed(Palette.SeaPal, 2, palette[1]);
@@ -4222,12 +4223,14 @@ internal sealed class AquamentusActor : Actor
     private const int AquamentusX = 0xB0;
     private const int AquamentusY = 0x80;
 
-    private static readonly byte[] _palette = [0, 0x0A, 0x29, 0x30];
+    private static readonly DebugLog _traceLog = new(nameof(AquamentusActor), DebugLogDestination.None);
+
+    private static readonly ImmutableArray<byte> _palette = [0, 0x0A, 0x29, 0x30];
 
     private int _distance;
     private readonly SpriteAnimator _animator;
     private readonly SpriteImage _mouthImage;
-    private readonly byte[] _fireballOffsets = new byte[(int)ObjectSlot.MaxMonsters];
+    private readonly int[] _fireballOffsets = new int[(int)ObjectSlot.MaxMonsters];
 
     public override bool IsReoccuring => false;
 
@@ -4309,15 +4312,12 @@ internal sealed class AquamentusActor : Actor
             var r = Random.Shared.GetByte();
             ObjTimer = (byte)(r | 0x70);
 
-
             for (var i = 0; i < 3; i++)
             {
-                var slot = Game.World.FindEmptyMonsterSlot();
+                var slot = ShootFireball(ObjType.Fireball, X, Y);
                 if (slot < 0) break;
-
-                ShootFireball(ObjType.Fireball, X, Y);
-                ReadOnlySpan<sbyte> yOffsets = [1, 0, -1];
-                _fireballOffsets[(int)slot] = (byte)yOffsets[i];
+                ReadOnlySpan<int> yOffsets = [1, 0, -1];
+                _fireballOffsets[(int)slot] = yOffsets[i];
             }
 
             return;
@@ -4330,7 +4330,10 @@ internal sealed class AquamentusActor : Actor
             if (fireball == null) continue;
             if ((Game.FrameCounter & 1) == 1) continue;
 
-            fireball.Y += _fireballOffsets[(int)i];
+            var offset = _fireballOffsets[(int)i];
+            _traceLog.Write($"Fireball {i} ({fireball.X:X2},{fireball.Y:X2}) += {offset}");
+
+            fireball.Y += offset;
         }
     }
 
@@ -4365,7 +4368,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     private static readonly WalkerSpec _dodongoWalkSpec = new(_dodongoWalkAnimMap, 20, Palette.Red, StandardSpeed);
 
-    private static readonly byte[] _palette = [0, 0x17, 0x27, 0x30];
+    private static readonly ImmutableArray<byte> _palette = [0, 0x17, 0x27, 0x30];
     private static readonly ImmutableArray<int> _negBounds = [-0x10, 0, -8, 0, -8, -4, -4, -0x10, 0, 0];
     private static readonly ImmutableArray<int> _posBounds = [0, 0x10, 8, 0, 8, 4, 4, 0, 0, 0x10];
 

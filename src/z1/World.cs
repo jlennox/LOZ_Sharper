@@ -1,6 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.Marshalling;
 using SkiaSharp;
 using z1.Actors;
 using z1.IO;
@@ -116,6 +116,8 @@ internal sealed unsafe partial class World
     private enum Cave { Items = 0x79, Shortcut = 0x7A, }
     private enum TileScheme { Overworld, UnderworldMain, UnderworldCellar }
     private enum UniqueRoomIds { TopRightOverworldSecret = 0x0F }
+
+    private static readonly DebugLog _traceLog = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
 
     public Game Game { get; }
     public Link Player => Game.Link;
@@ -660,6 +662,15 @@ internal sealed unsafe partial class World
         return slot == ObjectSlot.Player ? Game.Link : _objects[(int)slot];
     }
 
+    public IEnumerable<T> GetObjects<T>() where T : Actor
+    {
+        for (var slot = ObjectSlot.Monster1; slot < ObjectSlot.MaxObjects; slot++)
+        {
+            var obj = GetObject(slot);
+            if (obj is T actor) yield return actor;
+        }
+    }
+
     public IEnumerable<T> GetMonsters<T>(bool skipStart = false) where T : Actor
     {
         var start = skipStart ? ObjectSlot.Monster1 + 1 : ObjectSlot.Monster1;
@@ -667,10 +678,7 @@ internal sealed unsafe partial class World
         for (var slot = start; slot < end; slot++)
         {
             var obj = GetObject(slot);
-            if (obj is T monster)
-            {
-                yield return monster;
-            }
+            if (obj is T monster) yield return monster;
         }
     }
 
@@ -685,8 +693,15 @@ internal sealed unsafe partial class World
         return null;
     }
 
-    public void SetObject(ObjectSlot slot, Actor? obj)
+    public void ClearObject(ObjectSlot slot)
     {
+        _traceLog.Write($"ClearObject({slot})");
+        SetOnlyObject(slot, null);
+    }
+
+    public void SetObject(ObjectSlot slot, Actor obj)
+    {
+        _traceLog.Write($"SetObject({slot}, {obj?.ObjType}); {obj?.X:X2},{obj?.Y:X2}");
         SetOnlyObject(slot, obj);
     }
 
@@ -4354,7 +4369,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    private static readonly byte[][] _deathRedPals = [
+    private static readonly ImmutableArray<ImmutableArray<byte>> _deathRedPals = [
         [0x0F, 0x17, 0x16, 0x26],
         [0x0F, 0x17, 0x16, 0x26]
     ];

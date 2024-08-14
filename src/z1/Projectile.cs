@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using z1.Actors;
+using z1.IO;
 
 namespace z1;
 
@@ -237,10 +238,12 @@ internal sealed class FlyingRockProjectile : Projectile
     }
 }
 
-internal enum FireballState { Unknown0, Unknown1 }
+internal enum FireballState { Initializing, Firing }
 
 internal sealed class FireballProjectile : Actor, IBlockableProjectile
 {
+    private static readonly DebugLog _traceLog = new(nameof(FireballProjectile), DebugLogDestination.None);
+
     private static readonly ImmutableArray<Direction> _sector16Dirs = [
         Direction.Right,
         Direction.Right | Direction.Down,
@@ -262,7 +265,27 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
 
     public bool RequiresMagicShield => true;
 
-    // JOE: NOTE: This appears to mirror the original X/Y values so they're floats instead?
+    public new int X
+    {
+        get => base.X;
+        set
+        {
+            base.X = value;
+            _x = value;
+        }
+    }
+
+    public new int Y
+    {
+        get => base.Y;
+        set
+        {
+            base.Y = value;
+            _y = value;
+        }
+    }
+
+    // JOE: NOTE: These mirror the original X/Y values but are floats to keep precision?
     private float _x;
     private float _y;
     private readonly float _speedX;
@@ -284,7 +307,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         _x = x;
         _y = y;
 
-        _state = FireballState.Unknown0;
+        _state = FireballState.Initializing;
         var xDist = Game.Link.X - x;
         var yDist = Game.Link.Y - y;
 
@@ -295,6 +318,8 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
 
         _speedX = (float)Math.Cos(angle) * speed;
         _speedY = (float)Math.Sin(angle) * speed;
+
+        _traceLog.Write($"ctor({type}, {X:X2},{Y:X2}, {speed}) {CurObjectSlot}  pos:({_x},{_y}) speed:({_speedX},{_speedY})");
     }
 
     public override void Update()
@@ -302,7 +327,8 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         if (_state == 0)
         {
             ObjTimer = 0x10;
-            _state = FireballState.Unknown1;
+            _state = FireballState.Firing;
+            _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) _state == 0");
             return;
         }
 
@@ -310,6 +336,11 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         {
             if (CheckWorldMargin(Facing) == Direction.None)
             {
+            }
+
+            if (CheckWorldMargin(Facing, out var reason) == Direction.None)
+            {
+                _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) ObjTimer == 0, IsDeleted = true {reason}");
                 IsDeleted = true;
                 return;
             }
@@ -318,11 +349,14 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
             _y += _speedY;
             X = (int)_x;
             Y = (int)_y;
+
+            _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) speed:({_speedX},{_speedY})");
         }
 
         var collision = CheckPlayerCollision();
         if (collision.Collides || collision.ShotCollides)
         {
+            _traceLog.Write($"Update() {CurObjectSlot} collision.Collides, IsDeleted = true");
             IsDeleted = true;
         }
     }
@@ -374,7 +408,7 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
         {
             Time = 0
         };
-        _animator.DurationFrames = _animator.Animation.Length * 2;
+        _animator.DurationFrames = _animator.Animation!.Length * 2;
 
         if (!IsPlayerWeapon())
         {
