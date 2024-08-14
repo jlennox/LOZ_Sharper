@@ -102,7 +102,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
     protected void TryShooting()
     {
-        if (Game.World.GetItem(ItemSlot.Clock) != 0) return;
+        if (Game.World.HasItem(ItemSlot.Clock)) return;
         if (FlashTimer != 0) return;
         if ((Game.FrameCounter % 0x20) != 0) return;
 
@@ -222,13 +222,13 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
     public override void Update()
     {
         Debug.WriteLine($"BlueWizzrobeActor.update {Game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
-        if (Game.World.GetItem(ItemSlot.Clock) != 0)
+        if (Game.World.HasItem(ItemSlot.Clock))
         {
+            // Force them to draw.
+            FlashTimer = 0;
             AnimateAndCheckCollisions();
             return;
         }
-
-        var origFacing = Facing; // JOE: TODO: IS this intentionally unused?
 
         MoveOrTeleport();
         TryShooting();

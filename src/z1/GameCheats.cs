@@ -90,8 +90,8 @@ internal sealed class GameCheats
 
     public sealed class OverworldWarpCheat : RegexCheat
     {
-        private static readonly Regex _full = new(@"^w(\d+)[x/](\d+);$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^w(\d*)[x/]?(\d*);?$", DefaultRegexOptions);
+        private static readonly Regex _full = new(@"^w(\d{1,3})[x/](\d{1,3});$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^w(\d{0,3})[x/]?(\d{0,3});?$", DefaultRegexOptions);
 
         protected override Regex FullMatch => _full;
         protected override Regex PartialMatch => _partial;
@@ -107,6 +107,8 @@ internal sealed class GameCheats
             x = Math.Clamp(x, 0, World.WorldWidth - 1);
             y = Math.Clamp(y, 0, World.WorldHeight - 1);
 
+            // Need to be sure all the objects are flushed.
+            game.World.KillAllObjects();
             game.World.LoadOverworldRoom(x, y);
             game.Toast($"Warping to room {x}x{y}");
         }
@@ -114,8 +116,8 @@ internal sealed class GameCheats
 
     public sealed class ItemCheat : RegexCheat
     {
-        private static readonly Regex _full = new(@"^idbehold(\w+);$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^id?b?e?h?o?l?d?\w*;", DefaultRegexOptions);
+        private static readonly Regex _full = new(@"^idbehold(\w{1,10});$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^id?b?e?h?o?l?d?\w{0,10};?$", DefaultRegexOptions);
 
         protected override Regex FullMatch => _full;
         protected override Regex PartialMatch => _partial;
@@ -128,14 +130,20 @@ internal sealed class GameCheats
                 return;
             }
 
-            game.World.DebugSpawnItem(itemId);
+            Spawn(game, itemId);
+        }
+
+        public static void Spawn(Game game, ItemId itemId)
+        {
+            var slot = game.World.DebugSpawnItem(itemId);
+            game.Toast($"Spawned {itemId} at slot {slot}");
         }
     }
 
     public sealed class DungeonWarpCheat : RegexCheat
     {
-        private static readonly Regex _full = new(@"^w(w|\d+);$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^w(w?|\d*);?$", DefaultRegexOptions);
+        private static readonly Regex _full = new(@"^w(w|\d{1,2});$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^w(w?|\d{0,2});?$", DefaultRegexOptions);
 
         protected override Regex FullMatch => _full;
         protected override Regex PartialMatch => _partial;
@@ -159,6 +167,8 @@ internal sealed class GameCheats
 
             levelNumber = Math.Clamp(levelNumber, 1, 9);
 
+            // Need to be sure all the objects are flushed.
+            game.World.KillAllObjects();
             game.World.GotoLoadLevel(levelNumber);
             game.Toast($"Warping to dungeon {levelNumber}");
         }
@@ -166,8 +176,8 @@ internal sealed class GameCheats
 
     public sealed class SpawnCheat : RegexCheat
     {
-        private static readonly Regex _full = new(@"^s(\w+);$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^s\w*;?$", DefaultRegexOptions);
+        private static readonly Regex _full = new(@"^s(\w{1,15});$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^s\w{0,15};?$", DefaultRegexOptions);
 
         protected override Regex FullMatch => _full;
         protected override Regex PartialMatch => _partial;
@@ -237,6 +247,18 @@ internal sealed class GameCheats
         {
             Game.Cheats.NoClip = !Game.Cheats.NoClip;
             game.Toast("Walk through walls " + (Game.Cheats.NoClip ? "enabled" : "disabled"));
+        }
+    }
+
+    public sealed class FullHealthCheat() : SingleWordCheat("idfa", true)
+    {
+        public override void RunPayload(Game game, string[] args)
+        {
+            var profile = game.World.Profile;
+            if (profile == null) return;
+            var containers = profile.GetItem(ItemSlot.HeartContainers);
+            profile.Hearts = PlayerProfile.GetMaxHeartsValue(containers);
+            game.Toast("Health refilled.");
         }
     }
 
@@ -318,6 +340,7 @@ internal sealed class GameCheats
         new KillAllCheat(),
         new SpeedUpCheat(),
         new WalkThroughWallsCheat(),
+        new FullHealthCheat(),
         new SpawnCheat()
     ];
 
@@ -345,6 +368,7 @@ internal sealed class GameCheats
     {
         if (_input.IsButtonPressing(GameButton.CheatKillAll)) TriggerCheat<KillAllCheat>();
         if (_input.IsButtonPressing(GameButton.CheatSpeedUp)) TriggerCheat<SpeedUpCheat>();
+        if (_input.IsButtonPressing(GameButton.CheatBeHoldClock)) ItemCheat.Spawn(_game, ItemId.Clock);
     }
 
     public void TriggerCheat<T>() where T : Cheat

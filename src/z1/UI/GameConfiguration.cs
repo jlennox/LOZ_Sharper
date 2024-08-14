@@ -99,6 +99,10 @@ internal sealed class InputConfiguration
         { new KeyboardMapping(Key.Minus), GameButton.AudioDecreaseVolume },
         { new KeyboardMapping(Key.Equal), GameButton.AudioIncreaseVolume },
         { new KeyboardMapping(Key.Equal, KeyboardModifiers.Shift), GameButton.AudioIncreaseVolume },
+
+        { new KeyboardMapping(Key.X, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatKillAll },
+        { new KeyboardMapping(Key.Z, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatSpeedUp },
+        { new KeyboardMapping(Key.C, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatBeHoldClock },
     };
 
     private static readonly GamepadMap _defaultGamepadMap = new Dictionary<GamepadButton, GameButton>

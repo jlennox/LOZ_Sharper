@@ -1779,7 +1779,7 @@ internal sealed class ZoraActor : DigWanderer
 
     public override void Update()
     {
-        if (Game.World.GetItem(ItemSlot.Clock) != 0) return;
+        if (Game.World.HasItem(ItemSlot.Clock)) return;
 
         UpdateDig();
 
@@ -2319,7 +2319,7 @@ internal sealed class FlyingGhiniActor : FlyingActor
         }
         else
         {
-            if (Game.World.GetItem(ItemSlot.Clock) == 0)
+            if (!Game.World.HasItem(ItemSlot.Clock))
             {
                 UpdateStateAndMove();
             }
@@ -2394,7 +2394,7 @@ internal sealed class KeeseActor : FlyingActor
 
     public override void Update()
     {
-        if (Game.World.GetItem(ItemSlot.Clock) == 0
+        if (!Game.World.HasItem(ItemSlot.Clock)
             && !Game.World.IsLiftingItem())
         {
             UpdateStateAndMove();
@@ -2481,7 +2481,7 @@ internal sealed class MoldormActor : FlyingActor
     {
         if (Facing == Direction.None) return;
 
-        if (Game.World.GetItem(ItemSlot.Clock) == 0)
+        if (!Game.World.HasItem(ItemSlot.Clock))
         {
             UpdateStateAndMove();
         }
@@ -3659,8 +3659,10 @@ internal sealed class RedWizzrobeActor : Actor
 
     public override void Update()
     {
-        if (Game.World.GetItem(ItemSlot.Clock) != 0)
+        if (Game.World.HasItem(ItemSlot.Clock))
         {
+            // Force them visible.
+            _stateTimer = 2 << 6;
             _animator.Advance();
             CheckRedWizzrobeCollisions();
             return;
@@ -3688,7 +3690,8 @@ internal sealed class RedWizzrobeActor : Actor
     {
         var state = GetState();
 
-        if (state == 2 || (state > 0 && (_flashTimer & 1) == 0))
+        if (state == 2
+            || (state > 0 && (_flashTimer & 1) == 0))
         {
             var pal = CalcPalette(Palette.Red);
             _animator.Draw(TileSheet.Npcs, X, Y, pal);
@@ -3730,10 +3733,15 @@ internal sealed class RedWizzrobeActor : Actor
     {
         if (_stateTimer == 0xB0)
         {
-            if (Game.World.GetItem(ItemSlot.Clock) == 0)
+            if (!Game.World.HasItem(ItemSlot.Clock))
             {
                 Game.Sound.PlayEffect(SoundEffect.MagicWave);
                 Shoot(ObjType.MagicWave2, X, Y, Facing);
+            }
+            else
+            {
+                // JOE: NOTE: This branch should be logically unreachable.
+                throw new Exception($"{nameof(RedWizzrobeActor)} UpdateVisible");
             }
         }
 
@@ -3872,7 +3880,7 @@ internal sealed class LamnolaActor : Actor
     {
         if (Facing == Direction.None) return;
 
-        if (Game.World.GetItem(ItemSlot.Clock) == 0)
+        if (!Game.World.HasItem(ItemSlot.Clock))
         {
             var speed = ObjType - ObjType.RedLamnola + 1;
             var slot = Game.World.CurObjectSlot;
@@ -4255,7 +4263,7 @@ internal sealed class AquamentusActor : Actor
 
     public override void Update()
     {
-        if (Game.World.GetItem(ItemSlot.Clock) == 0)
+        if (!Game.World.HasItem(ItemSlot.Clock))
         {
             Move();
             TryShooting();
@@ -5531,7 +5539,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
             }
         }
 
-        if (Game.World.GetItem(ItemSlot.Clock) != 0) return;
+        if (Game.World.HasItem(ItemSlot.Clock)) return;
 
         var shot = Shoot(ObjType.Boomerang);
         if (shot != ObjectSlot.NoneFound)

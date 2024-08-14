@@ -487,20 +487,9 @@ internal sealed unsafe partial class World
         _ => _curMode
     };
 
-    public Point GetObservedPlayerPos()
-    {
-        return _fakePlayerPos;
-    }
-
-    public LadderActor? GetLadder()
-    {
-        return GetLadderObj();
-    }
-
-    public void SetLadder(LadderActor? ladder)
-    {
-        SetLadderObj(ladder);
-    }
+    public Point GetObservedPlayerPos() => _fakePlayerPos;
+    public LadderActor? GetLadder() => GetObject<LadderActor>(ObjectSlot.Ladder);
+    public void SetLadder(LadderActor? ladder) => SetOnlyObject(ObjectSlot.Ladder, ladder);
 
     public void UseRecorder()
     {
@@ -790,7 +779,7 @@ internal sealed unsafe partial class World
 
         if (y < TileMapBaseY)
         {
-            // JOE: FIXME: Arg. This is a bug in the original C++ but the oringal C++ is a proper translation
+            // JOE: FIXME: Arg. This is a bug in the original C++ but the original C++ is a proper translation
             // from the assembly. I was unable to reproduce this issue in the original game, so it's either a
             // logic change or an issue higher up.
             y = TileMapBaseY;
@@ -958,7 +947,6 @@ internal sealed unsafe partial class World
     private void AdjustInventory()
     {
         var profile = GetProfile();
-
         if (profile.SelectedItem == 0)
         {
             profile.SelectedItem = ItemSlot.Boomerang;
@@ -1330,9 +1318,16 @@ internal sealed unsafe partial class World
     private bool GotShortcut(int roomId) => GetRoomFlags(roomId).ShortcutState;
     private bool GotSecret() => GetRoomFlags(CurRoomId).SecretState;
 
-    public void DebugSpawnItem(ItemId itemId)
+    public ObjectSlot DebugSpawnItem(ItemId itemId)
     {
-        _objects[(int)ObjectSlot.Monster1] = GlobalFunctions.MakeItem(Game, itemId, 20, 20, false);
+        if (TryFindEmptyMonsterSlot(out var slot))
+        {
+            _objects[(int)slot] = GlobalFunctions.MakeItem(
+                Game, itemId, Game.Link.X, Game.Link.Y - TileHeight, false);
+            return slot;
+        }
+
+        return ObjectSlot.NoneFound;
     }
 
     public ReadOnlySpan<byte> GetShortcutRooms()
@@ -2846,7 +2841,7 @@ internal sealed unsafe partial class World
 
         if (caveIndex >= caves.Count)
         {
-            throw new Exception("JOE: This logic was in the original but seems questionable?");
+            throw new Exception("JOE: This logic was in the C++ but seems questionable?");
             return;
         }
 
@@ -3014,7 +3009,8 @@ internal sealed unsafe partial class World
         _edgeX = x;
         _edgeY = y;
 
-        if (Math.Abs(Game.Link.X - x) >= 0x22 || Math.Abs(Game.Link.Y - y) >= 0x22)
+        if (Math.Abs(Game.Link.X - x) >= 0x22
+            || Math.Abs(Game.Link.Y - y) >= 0x22)
         {
             // What?
             var obj = Actor.FromType((ObjType)_placeholderTypes[CurObjSlot], Game, x, y - 3);
@@ -3170,7 +3166,9 @@ internal sealed unsafe partial class World
 
         Actor.MoveSimple(ref roomCol, ref roomRow, _state.Scroll.ScrollDir, 1);
 
-        var nextRoomId = CalcMazeStayPut(_state.Scroll.ScrollDir) ? _state.Scroll.CurRoomId : MakeRoomId(roomRow, roomCol);
+        var nextRoomId = CalcMazeStayPut(_state.Scroll.ScrollDir)
+            ? _state.Scroll.CurRoomId
+            : MakeRoomId(roomRow, roomCol);
 
         _state.Scroll.NextRoomId = nextRoomId;
         _state.Scroll.Substate = ScrollState.Substates.AnimatingColors;

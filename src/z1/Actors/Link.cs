@@ -83,7 +83,7 @@ internal sealed class Link : Actor, IThrower
         // because foes will check invincibilityTimer AND the clock item.
         // I suspect that the original game did this in the drawing code.
         var profile = Game.World.Profile ?? throw new Exception();
-        if (profile.GetItem(ItemSlot.Clock) != 0)
+        if (profile.HasItem(ItemSlot.Clock))
         {
             InvincibilityTimer += 0x10;
         }

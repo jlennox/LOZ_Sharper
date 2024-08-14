@@ -408,7 +408,7 @@ internal abstract class Actor
 
     protected bool _isStunned()
     {
-        if (Game.World.GetItem(ItemSlot.Clock) != 0) return true;
+        if (Game.World.HasItem(ItemSlot.Clock)) return true;
         return StunTimer != 0;
     }
 
