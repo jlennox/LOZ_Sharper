@@ -8,7 +8,9 @@ namespace z1;
 // * Some how between saves my max hearts got reset?
 // * Second quest rocks push in first quest.
 // * Darknuts should make parry sound when shot with wave.
-// * A blue wizzrobe went through the floor and out the ceiling.
+// * Warp roads are broken.
+// * Coming out of stairs into spiral room spawns you in a bad spot.
+//   Example in 9, up 2, left 2.
 
 // Minor:
 // * Vire keese seem to spawn too close together.
