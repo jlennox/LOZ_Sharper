@@ -3619,7 +3619,7 @@ internal sealed class PolsVoiceActor : Actor
     }
 }
 
-internal sealed class RedWizzrobeActor : Actor
+internal sealed class RedWizzrobeActor : WizzrobeBase
 {
     private static readonly ImmutableArray<Direction> _wizzrobeDirs = [
         Direction.Down,
@@ -3650,6 +3650,7 @@ internal sealed class RedWizzrobeActor : Actor
         : base(game, ObjType.RedWizzrobe, x, y)
     {
         Decoration = 0;
+        ObjTimer = 0;
         _animator = new SpriteAnimator
         {
             DurationFrames = 8,
@@ -3664,7 +3665,7 @@ internal sealed class RedWizzrobeActor : Actor
             // Force them visible.
             _stateTimer = 2 << 6;
             _animator.Advance();
-            CheckRedWizzrobeCollisions();
+            CheckWizzrobeCollisions();
             return;
         }
 
@@ -3725,7 +3726,7 @@ internal sealed class RedWizzrobeActor : Actor
 
         if ((_flashTimer & 1) == 0)
         {
-            CheckRedWizzrobeCollisions();
+            CheckWizzrobeCollisions();
         }
     }
 
@@ -3745,7 +3746,7 @@ internal sealed class RedWizzrobeActor : Actor
             }
         }
 
-        CheckRedWizzrobeCollisions();
+        CheckWizzrobeCollisions();
     }
 
     private int CheckWizzrobeTileCollision(int x, int y, Direction dir)
@@ -3806,26 +3807,8 @@ internal sealed class RedWizzrobeActor : Actor
         _flashTimer++;
         if ((_flashTimer & 1) == 0)
         {
-            CheckRedWizzrobeCollisions();
+            CheckWizzrobeCollisions();
         }
-    }
-
-    private void CheckRedWizzrobeCollisions()
-    {
-        // If I really wanted, I could make a friend function or class to do this, which is the same
-        // as in BlueWizzrobe.
-
-        InvincibilityMask = 0xF6;
-        if (InvincibilityTimer == 0)
-        {
-            CheckWave(ObjectSlot.PlayerSwordShot);
-            CheckBombAndFire(ObjectSlot.Bomb);
-            CheckBombAndFire(ObjectSlot.Bomb2);
-            CheckBombAndFire(ObjectSlot.Fire);
-            CheckBombAndFire(ObjectSlot.Fire2);
-            CheckSword(ObjectSlot.PlayerSword, false);
-        }
-        CheckPlayerCollision();
     }
 }
 

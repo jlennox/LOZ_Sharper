@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Diagnostics;
 
 namespace z1.Actors;
 
@@ -19,6 +18,10 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         : base(game, type, x, y)
     {
         Decoration = 0;
+        ObjTimer = 0;
+
+        // Facing is required to be set, but ObjTimer = 0 causes `Turn` to be called first.
+        // JOE: TODO: Add unit tests for this.
     }
 
     private void TruncatePosition()
@@ -175,23 +178,15 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
         TruncatePosition();
     }
-}
-
-internal abstract class WizzrobeBase : Actor
-{
-    protected WizzrobeBase(Game game, ObjType type, int x, int y)
-        : base(game, type, x, y) { }
 
     protected int CheckWizzrobeTileCollision(int x, int y, Direction dir)
     {
         ReadOnlySpan<int> allWizzrobeCollisionXOffsets = [0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0];
         ReadOnlySpan<int> allWizzrobeCollisionYOffsets = [4, 4, 0, 8, 8, 8, 0, -8, 0, 0];
 
-        // JOE: TODO: Research and fix this hacky workaround.
         if (dir == Direction.None)
         {
-            Debug.WriteLine($"{nameof(WizzrobeBase)} hacky workaround.");
-            return 1;
+            throw new Exception($"{ObjType} at {Game.World.CurObjectSlot} attempted to CheckWizzrobeTileCollision with no direction.");
         }
 
         // JOE: TODO: This can crash.
@@ -208,6 +203,27 @@ internal abstract class WizzrobeBase : Actor
     }
 }
 
+internal abstract class WizzrobeBase : Actor
+{
+    protected WizzrobeBase(Game game, ObjType type, int x, int y)
+        : base(game, type, x, y) { }
+
+    protected void CheckWizzrobeCollisions()
+    {
+        InvincibilityMask = 0xF6;
+        if (InvincibilityTimer == 0)
+        {
+            CheckWave(ObjectSlot.PlayerSwordShot);
+            CheckBombAndFire(ObjectSlot.Bomb);
+            CheckBombAndFire(ObjectSlot.Bomb2);
+            CheckBombAndFire(ObjectSlot.Fire);
+            CheckBombAndFire(ObjectSlot.Fire2);
+            CheckSword(ObjectSlot.PlayerSword, false);
+        }
+        CheckPlayerCollision();
+    }
+}
+
 internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 {
     private readonly SpriteAnimator _animator;
@@ -215,7 +231,6 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
     public BlueWizzrobeActor(Game game, int x, int y)
         : base(game, ObjType.BlueWizzrobe, x, y)
     {
-        Debug.WriteLine($"BlueWizzrobeActor.ctor {game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
         _animator = new SpriteAnimator
         {
             DurationFrames = 16,
@@ -225,7 +240,6 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 
     public override void Update()
     {
-        Debug.WriteLine($"BlueWizzrobeActor.update {Game.World.CurObjectSlot} ObjTimer: {ObjTimer}");
         if (Game.World.HasItem(ItemSlot.Clock))
         {
             // Force them to draw.
@@ -247,6 +261,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 
     public override void Draw()
     {
+        // See comment in constructor.
         if ((FlashTimer & 1) == 0 && Facing != Direction.None)
         {
             var pal = CalcPalette(Palette.Blue);
@@ -263,20 +278,6 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
     private void AnimateAndCheckCollisions()
     {
         _animator.Advance();
-
-        // If I really wanted, I could make a friend function or class to do this, which is the same
-        // as in RedWizzrobe.
-
-        InvincibilityMask = 0xF6;
-        if (InvincibilityTimer == 0)
-        {
-            CheckWave(ObjectSlot.PlayerSwordShot);
-            CheckBombAndFire(ObjectSlot.Bomb);
-            CheckBombAndFire(ObjectSlot.Bomb2);
-            CheckBombAndFire(ObjectSlot.Fire);
-            CheckBombAndFire(ObjectSlot.Fire2);
-            CheckSword(ObjectSlot.PlayerSword, false);
-        }
-        CheckPlayerCollision();
+        CheckWizzrobeCollisions();
     }
 }
