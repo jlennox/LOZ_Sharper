@@ -116,7 +116,7 @@ internal sealed class PlayerProfile
                 Items[slot] = slot switch
                 {
                     ItemSlot.HeartContainers => DefaultHearts,
-                    ItemSlot.Bombs => DefaultBombs,
+                    ItemSlot.MaxBombs => DefaultBombs,
                     _ => 0,
                 };
             }
