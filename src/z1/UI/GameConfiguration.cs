@@ -101,8 +101,11 @@ internal sealed class InputConfiguration
         { new KeyboardMapping(Key.Equal, KeyboardModifiers.Shift), GameButton.AudioIncreaseVolume },
 
         { new KeyboardMapping(Key.X, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatKillAll },
-        { new KeyboardMapping(Key.Z, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatSpeedUp },
-        { new KeyboardMapping(Key.C, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatBeHoldClock },
+        { new KeyboardMapping(Key.S, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatSpeedUp },
+        { new KeyboardMapping(Key.C, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatClip },
+        { new KeyboardMapping(Key.B, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatBeHoldClock },
+        { new KeyboardMapping(Key.F, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatFullHealth },
+        { new KeyboardMapping(Key.Q, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatGodMode },
     };
 
     private static readonly GamepadMap _defaultGamepadMap = new Dictionary<GamepadButton, GameButton>

@@ -241,7 +241,7 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class WalkThroughWallsCheat() : SingleWordCheat("idclip", true)
+    public sealed class ClipCheat() : SingleWordCheat("idclip", true)
     {
         public override void RunPayload(Game game, string[] args)
         {
@@ -258,6 +258,7 @@ internal sealed class GameCheats
             if (profile == null) return;
             var containers = profile.GetItem(ItemSlot.HeartContainers);
             profile.Hearts = PlayerProfile.GetMaxHeartsValue(containers);
+            profile.Items[ItemSlot.Bombs] = profile.GetItem(ItemSlot.MaxBombs);
             game.Toast("Health refilled.");
         }
     }
@@ -339,7 +340,7 @@ internal sealed class GameCheats
         new PosAllCheat(),
         new KillAllCheat(),
         new SpeedUpCheat(),
-        new WalkThroughWallsCheat(),
+        new ClipCheat(),
         new FullHealthCheat(),
         new SpawnCheat()
     ];
@@ -369,6 +370,9 @@ internal sealed class GameCheats
         if (_input.IsButtonPressing(GameButton.CheatKillAll)) TriggerCheat<KillAllCheat>();
         if (_input.IsButtonPressing(GameButton.CheatSpeedUp)) TriggerCheat<SpeedUpCheat>();
         if (_input.IsButtonPressing(GameButton.CheatBeHoldClock)) ItemCheat.Spawn(_game, ItemId.Clock);
+        if (_input.IsButtonPressing(GameButton.CheatFullHealth)) TriggerCheat<FullHealthCheat>();
+        if (_input.IsButtonPressing(GameButton.CheatGodMode)) TriggerCheat<GodModeCheat>();
+        if (_input.IsButtonPressing(GameButton.CheatClip)) TriggerCheat<ClipCheat>();
     }
 
     public void TriggerCheat<T>() where T : Cheat

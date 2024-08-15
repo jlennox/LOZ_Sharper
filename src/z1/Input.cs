@@ -33,6 +33,9 @@ internal enum GameButton
     CheatKillAll,
     CheatSpeedUp,
     CheatBeHoldClock,
+    CheatFullHealth,
+    CheatGodMode,
+    CheatClip,
 
     AudioMuteToggle,
     AudioIncreaseVolume,
