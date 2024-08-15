@@ -357,8 +357,6 @@ internal struct SparseRoomAttr
 {
     public readonly byte roomId;
     public readonly RoomAttrs attrs;
-
-    public readonly OWRoomAttrs OWRoomAttrs => attrs;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

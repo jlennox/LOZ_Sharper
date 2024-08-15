@@ -506,28 +506,24 @@ internal sealed unsafe partial class World
         {
             ReadOnlySpan<byte> roomIds = [0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72];
 
-            var makeWhirlwind = true;
-
-            for (var i = 0; i < roomIds.Length; i++)
+            var i = roomIds.IndexOf((byte)CurRoomId);
+            // The first one is level 7 entrance, the others are second quest only.
+            var foundSecret = i switch
             {
-                if (roomIds[i] == CurRoomId)
-                {
-                    if ((i == 0 && Profile.Quest == 0)
-                        || (i != 0 && Profile.Quest != 0))
-                    {
-                        makeWhirlwind = false;
-                    }
-                    break;
-                }
-            }
+                0 => Profile.Quest == 0,
+                > 1 => Profile.Quest != 0,
+                _ => false
+            };
 
-            if (makeWhirlwind)
+            _traceLog.Write($"UseRecorder: {CurRoomId:X2}, i:{i}, foundSecret:{foundSecret}");
+
+            if (foundSecret)
             {
-                SummonWhirlwind();
+                MakeFluteSecret();
             }
             else
             {
-                MakeFluteSecret();
+                SummonWhirlwind();
             }
         }
     }
@@ -1689,6 +1685,9 @@ internal sealed unsafe partial class World
 
     private void LoadLayout(int uniqueRoomId, int tileMapIndex, TileScheme tileScheme)
     {
+        var logfn = _traceLog.CreateFunctionLog();
+        logfn.Write($"({uniqueRoomId}, {tileMapIndex}, {tileScheme})");
+
         var maxColumnStartOffset = (_colCount / 2 - 1) * _rowCount / 2;
 
         var columns = _roomCols[uniqueRoomId];
@@ -1705,6 +1704,10 @@ internal sealed unsafe partial class World
             _ => _loadMobFunc
         };
 
+        var owRoomAttrs = CurrentOWRoomAttrs;
+        var roomAttrs = CurrentOWRoomAttrs.Attrs;
+        logfn.Write($"owRoomAttrs:{roomAttrs.A:X2},{roomAttrs.D:X2},{roomAttrs.C:X2},{roomAttrs.D:X2}");
+
         for (var i = 0; i < _colCount / 2; i++)
         {
             var columnDesc = columns.ColumnDesc[i];
@@ -1713,11 +1716,11 @@ internal sealed unsafe partial class World
 
             var table = _colTables.GetItem(tableIndex);
             var k = 0;
-            var j = 0;
+            var columnStart = 0;
 
-            for (j = 0; j <= maxColumnStartOffset; j++)
+            for (columnStart = 0; columnStart <= maxColumnStartOffset; columnStart++)
             {
-                var t = table[j];
+                var t = table[columnStart];
 
                 if ((t & 0x80) != 0)
                 {
@@ -1726,23 +1729,24 @@ internal sealed unsafe partial class World
                 }
             }
 
-            if (j > maxColumnStartOffset) throw new Exception();
+            if (columnStart > maxColumnStartOffset) throw new Exception();
 
             var c = _startCol + i * 2;
 
-            for (var r = _startRow; r < rowEnd; j++)
+            for (var r = _startRow; r < rowEnd; columnStart++)
             {
-                var t = table[j];
+                var t = table[columnStart];
                 var tileRef = owLayoutFormat ? (byte)(t & 0x3F) : (byte)(t & 0x7);
 
                 _loadMobFunc(ref map, r, c, tileRef);
 
                 var attr = _tileAttrs[tileRef];
-                var action = TileAttr.GetAction(attr);
+                var action = owRoomAttrs.IsInQuest(Profile.Quest) ? TileAttr.GetAction(attr) : TileAction.None;
                 TileActionDel? actionFunc = null;
 
-                if (action != 0)
+                if (action != TileAction.None)
                 {
+                    logfn.Write($"tileRef:{tileRef}, attr:{attr:X2}, action:{action}, pos:{r:X2},{c:X2}");
                     actionFunc = ActionFuncs[(int)action];
                     actionFunc(r, c, TileInteraction.Load);
                 }

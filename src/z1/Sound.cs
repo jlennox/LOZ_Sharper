@@ -384,7 +384,7 @@ internal sealed class Sound
 
     private readonly record struct EffectRequest(SoundEffect SoundId, bool Loop);
 
-    private static readonly DebugLog _traceLog = new(nameof(Sound), DebugLogDestination.DebugBuildsOnly);
+    private static readonly DebugLog _traceLog = new(nameof(Sound), DebugLogDestination.None);
 
     private readonly CachedSound[] _effectSamples = new CachedSound[Effects];
     private readonly SoundInfo[] _effects;

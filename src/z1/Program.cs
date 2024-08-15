@@ -6,7 +6,6 @@ namespace z1;
 // * Textbox and rupee sounds are wrong.
 // * Screen sides need to be painted black.
 // * Some how between saves my max hearts got reset?
-// * Second quest rocks push in first quest.
 // * Darknuts should make parry sound when shot with wave.
 // * Coming out of stairs into spiral room spawns you in a bad spot.
 //   Example in 9, up 2, left 2.

@@ -8,12 +8,11 @@ internal unsafe struct RoomAttrs
     public byte UniqueRoomId;
     public byte PalettesAndMonsterCount;
     public byte MonsterListId;
-    public fixed byte Specific[4];
 
-    public readonly byte A => Specific[0];
-    public readonly byte B => Specific[1];
-    public readonly byte C => Specific[2];
-    public readonly byte D => Specific[3];
+    public byte A;
+    public byte B;
+    public byte C;
+    public byte D;
 
     public readonly int GetUniqueRoomId() => UniqueRoomId & 0x7F;
     public readonly Palette GetOuterPalette() => (Palette)(PalettesAndMonsterCount & 0x03);
@@ -32,6 +31,11 @@ internal readonly record struct OWRoomAttrs(RoomAttrs Attrs)
     public bool HasZora() => (Attrs.C & 0x04) != 0;
     public bool MonstersEnter() => (Attrs.C & 0x08) != 0;
     public bool HasAmbientSound() => (Attrs.C & 0x10) != 0;
+    public bool IsInQuest(int quest)
+    {
+        var questId = Attrs.B >> 6;
+        return questId == 0 || questId == quest + 1;
+    }
 
     public int GetUniqueRoomId() => Attrs.GetUniqueRoomId();
     public Palette GetOuterPalette() => Attrs.GetOuterPalette();

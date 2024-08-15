@@ -1080,35 +1080,39 @@ namespace ExtractLoz
         // - Touch
         // - Cover
 
+        private class TileAttribute
+        {
+        }
+
         private static void ExtractOverworldTileAttrs( Options options )
         {
             int[] tileAttrs = new int[56];
             var tileActions = new TileAction[56];
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = PrimarySquareTable;
-                var primaries = reader.ReadBytes( 56 );
+                var primaries = reader.ReadBytes(56);
 
                 reader.BaseStream.Position = SecondarySquareTable;
-                var secondaries = reader.ReadBytes( 16 * 4 );       // 16 squares, 4 8x8 tiles each
+                var secondaries = reader.ReadBytes(16 * 4);       // 16 squares, 4 8x8 tiles each
 
                 reader.BaseStream.Position = SecretSquareTable;
-                var secrets = reader.ReadBytes( 6 );                // 1 byte refs to primary squares
+                var secrets = reader.ReadBytes(6);                // 1 byte refs to primary squares
 
-                for ( int i = 0; i < 56; i++ )
+                for (int i = 0; i < 56; i++)
                 {
                     int attr = 0;
                     int walkBit = 1;
 
-                    if ( i < 16 )
+                    if (i < 16)
                     {
                         var primary = i * 4;
 
-                        for ( int j = 0; j < 4; j++ )
+                        for (int j = 0; j < 4; j++)
                         {
                             var t = secondaries[primary + j];
-                            if ( !IsWalkable( t ) )
+                            if (!IsWalkable(t))
                                 attr |= walkBit;
                             walkBit <<= 1;
                         }
@@ -1117,22 +1121,22 @@ namespace ExtractLoz
                     {
                         var primary = primaries[i];
 
-                        if ( primary >= 0xE5 && primary <= 0xEA )
+                        if (primary >= 0xE5 && primary <= 0xEA)
                         {
                             primary = secrets[primary - 0xE5];
                         }
 
-                        for ( int j = 0; j < 4; j++ )
+                        for (int j = 0; j < 4; j++)
                         {
-                            var t = (byte) (primary + j);
-                            if ( !IsWalkable( t ) )
+                            var t = (byte)(primary + j);
+                            if (!IsWalkable(t))
                                 attr |= walkBit;
                             walkBit <<= 1;
                         }
                     }
 
                     tileAttrs[i] = attr;
-                    tileActions[i] = GetAction( i );
+                    tileActions[i] = GetAction(i);
                 }
             }
 

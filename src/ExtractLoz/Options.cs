@@ -37,6 +37,11 @@ namespace ExtractLoz
             return options;
         }
 
+        public BinaryReader GetBinaryReader()
+        {
+            return new BinaryReader(File.OpenRead(RomPath));
+        }
+
         public void AddFile(string relativePath, byte[] data)
         {
             Files.Add(relativePath, data);
