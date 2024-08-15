@@ -525,6 +525,8 @@ internal sealed class PersonActor : Actor
                 break;
             }
         }
+
+        throw new Exception($"CheckStairsHit: Unable to locate {Game.World.CurRoomId} in {string.Join(", ", rooms.ToArray())}");
     }
 
     public override void Draw()

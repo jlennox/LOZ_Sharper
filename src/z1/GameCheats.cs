@@ -153,7 +153,7 @@ internal sealed class GameCheats
             var target = args[0];
             switch (target)
             {
-                case "w":
+                case "w" or "W":
                     game.World.ShowShortcutStairs(7 * 16 + 9, 1);
                     game.Toast("Warping to stairs.");
                     return;

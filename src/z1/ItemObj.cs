@@ -118,7 +118,6 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
         var player = Game.Link;
         if (player == null) return;
 
-        var bounds = player.GetBounds(); // JOE: IS this a bug that this is unused?
         var dir = player.MovingDirection;
 
         if (!AllowHorizontal && dir.IsHorizontal())

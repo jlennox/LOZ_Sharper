@@ -425,11 +425,6 @@ internal sealed class Link : Actor, IThrower
 
             TileOffset += TileOffset >= 0 ? (sbyte)-8 : (sbyte)8;
             _movementTraceLog.Write($"{nameof(Align)}: !Facing.IsGrowing && TileOffset >= 0 {TileOffset}");
-
-            // if (TileOffset >= 0)
-            //     TileOffset -= 8;
-            // else
-            //     TileOffset += 8;
         }
         else
         {

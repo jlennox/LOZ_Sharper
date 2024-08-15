@@ -1334,7 +1334,7 @@ internal sealed unsafe partial class World
     {
         var valueArray = _sparseRoomAttrs.GetItems<byte>(Sparse.Shortcut);
         // elemSize is at 1, but we don't need it.
-        return valueArray[2..valueArray[0]];
+        return valueArray[2..(2 + valueArray[0])];
     }
 
     private void TakeShortcut() => GetRoomFlags(CurRoomId).ShortcutState = true;
@@ -2841,8 +2841,7 @@ internal sealed unsafe partial class World
 
         if (caveIndex >= caves.Count)
         {
-            throw new Exception("JOE: This logic was in the C++ but seems questionable?");
-            return;
+            throw new Exception($"Invalid caveIndex. {caveIndex} >= {caves.Count}");
         }
 
         var cave = caves[caveIndex];
