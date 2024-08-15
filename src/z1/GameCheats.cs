@@ -223,7 +223,7 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class KillAllCheat() : SingleWordCheat("ka", true)
+    public sealed class KillAllCheat() : SingleWordCheat("idka", true)
     {
         public override void RunPayload(Game game, string[] args)
         {
@@ -232,7 +232,7 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class SpeedUpCheat() : SingleWordCheat("su", true)
+    public sealed class SpeedUpCheat() : SingleWordCheat("idsu", true)
     {
         public override void RunPayload(Game game, string[] args)
         {
