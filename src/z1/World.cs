@@ -1881,7 +1881,7 @@ internal sealed unsafe partial class World
         _state.Play.LiftItemId = 0;
         _state.Play.PersonWallY = 0;
 
-        if (FindSparseFlag(Sparse.Dock, CurRoomId))
+        if (IsOverworld() && FindSparseFlag(Sparse.Dock, CurRoomId))
         {
             var slot = FindEmptyMonsterSlot();
             var dock = new DockActor(Game, 0, 0);
