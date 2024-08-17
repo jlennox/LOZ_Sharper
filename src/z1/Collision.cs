@@ -26,6 +26,8 @@ internal readonly record struct PlayerCollision(bool Collides, bool ShotCollides
 internal record struct TileCollision(bool Collides, TileBehavior TileBehavior, int FineCol, int FineRow)
 {
     public static implicit operator bool(TileCollision b) => b.Collides;
+
+    public override string ToString() => $"Collides:{Collides}, TileBehavior:{TileBehavior}, FineCol:{FineCol}, FineRow:{FineRow}";
 }
 
 internal enum TileBehavior : byte

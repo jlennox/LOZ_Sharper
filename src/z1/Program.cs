@@ -1,5 +1,7 @@
 ﻿using z1.GUI;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("z1.Tests")]
+
 namespace z1;
 
 // Milestone 1:
@@ -9,6 +11,17 @@ namespace z1;
 // * Darknuts should make parry sound when shot with wave.
 // * Coming out of stairs into spiral room spawns you in a bad spot.
 //   Example in 9, up 2, left 2.
+// * I was still stuck after killing a likelike who wrapped me.
+//   I might have been stuck in the wall?
+// * Red Ring Room Problems:
+//   - w9; w7x1;
+//   - You get stuck in dungeon push blocks super easy now.
+//   - Blue wizzrobes still faze through the floor/ceiling.
+//   - I can't push the push block in the room with the red ring. Everything is normal again on renter...
+//   - Baubles are acting awful? They're moving through the pushblock and
+//     they're able to shove link hard enough to go through it.
+// * Implement autosave.
+// * Name entry can go on forever, and can't be backed over. Add backspace support.
 
 // Minor:
 // * Vire keese seem to spawn too close together.
@@ -23,6 +36,7 @@ namespace z1;
 // * Do bubbles work properly? (normal kind: yes)
 // * Ensure magic shield works.
 // * Boss noises when next to boss room.
+// * Grumble grumble.
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.

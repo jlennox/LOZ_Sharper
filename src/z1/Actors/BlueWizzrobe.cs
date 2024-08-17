@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using z1.IO;
 
 namespace z1.Actors;
 
@@ -11,7 +12,9 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         AnimationId.UW_Wizzrobe_Up
     ];
 
-    protected byte FlashTimer;
+    private static readonly DebugLog _log = new(nameof(BlueWizzrobeBase));
+
+    protected byte FlashTimer; // ObjRemDistance
     protected byte TurnTimer;
 
     protected BlueWizzrobeBase(Game game, ObjType type, int x, int y)
@@ -24,6 +27,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         // JOE: TODO: Add unit tests for this.
     }
 
+    // BlueWizzrobe_AlignWithNearestSquare
     private void TruncatePosition()
     {
         X = (X + 8) & 0xF0;
@@ -31,6 +35,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         Y -= 3;
     }
 
+    // BlueWizzrobe_WalkOrTeleport
     protected void MoveOrTeleport()
     {
         if (ObjTimer != 0)
@@ -43,6 +48,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
                 }
                 else
                 {
+                    // BlueWizzrobe_TurnSometimesAndMoveAndCheckTile
                     TurnTimer++;
                     TurnIfNeeded();
                     MoveAndCollide();
@@ -56,6 +62,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
             return;
         }
 
+        // BlueWizzrobe_AlignWithNearestSquareAndRandomizeTimer
         if (FlashTimer == 0)
         {
             var r = Random.Shared.GetByte();
@@ -69,31 +76,42 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         MoveAndCollide();
     }
 
+    // BlueWizzrobe_TurnSometimesAndMoveAndCheckTile is this with a:
+    //   - TurnTimer++
+    //   - TurnIfNeeded();
+    //   - MoveAndCollide();
+
+    // BlueWizzrobe_MoveAndCheckTile
     protected void MoveAndCollide()
     {
         Move();
 
         var collisionResult = CheckWizzrobeTileCollision(X, Y, Facing);
 
-        if (collisionResult == 1)
+        switch (collisionResult)
         {
-            if (Facing.IsVertical()) Facing ^= Direction.VerticalMask;
-            if (Facing.IsHorizontal()) Facing ^= Direction.HorizontalMask;
+            case WizzrobeTileCollisionResult.WallCollision:
+                if (Facing.IsVertical()) Facing ^= Direction.VerticalMask;
+                if (Facing.IsHorizontal()) Facing ^= Direction.HorizontalMask;
 
-            Move();
-        }
-        else if (collisionResult == 2)
-        {
-            if (FlashTimer == 0)
-            {
-                FlashTimer = 0x20;
-                TurnTimer ^= 0x40;
-                ObjTimer = 0;
-                TruncatePosition();
-            }
+                Move();
+                break;
+
+            case WizzrobeTileCollisionResult.OtherCollision:
+                if (FlashTimer == 0)
+                {
+                    // BeginTeleporting
+                    FlashTimer = 0x20;
+                    TurnTimer ^= 0x40;
+                    ObjTimer = 0;
+                    TruncatePosition();
+                }
+
+                break;
         }
     }
 
+    // BlueWizzrobe_Move
     private void Move()
     {
         ReadOnlySpan<int> blueWizzrobeXSpeeds = [0, 1, -1, 0, 0, 1, -1, 0, 0, 1, -1];
@@ -128,6 +146,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         Shoot(ObjType.MagicWave, X, Y, Facing);
     }
 
+    // L_BlueWizzrobe_TurnTowardLinkIfNeeded
     protected void TurnIfNeeded()
     {
         if ((TurnTimer & 0x3F) == 0)
@@ -136,6 +155,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         }
     }
 
+    // BlueWizzrobe_TurnTowardLink
     private void Turn()
     {
         var dir = (TurnTimer & 0x40) != 0
@@ -150,8 +170,9 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
     private static readonly ImmutableArray<int> _blueWizzrobeTeleportXOffsets = [-0x20, 0x20, -0x20, 0x20];
     private static readonly ImmutableArray<int> _blueWizzrobeTeleportYOffsets = [-0x20, -0x20, 0x20, 0x20];
-    private static readonly ImmutableArray<int> _blueWizzrobeTeleportDirs = [0xA, 9, 6, 5];
+    private static readonly ImmutableArray<int> _blueWizzrobeTeleportDirs = [0x0A, 9, 6, 5];
 
+    // BlueWizzrobe_ChooseTeleportTarget
     private void TryTeleporting()
     {
         var index = Random.Shared.Next(4);
@@ -161,13 +182,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         var dir = (Direction)_blueWizzrobeTeleportDirs[index];
 
         var collisionResult = CheckWizzrobeTileCollision(teleportX, teleportY, dir);
-
-        if (collisionResult != 0)
-        {
-            var r = Random.Shared.GetByte();
-            ObjTimer = (byte)(r | 0x70);
-        }
-        else
+        if (collisionResult == WizzrobeTileCollisionResult.NoCollision)
         {
             Facing = dir;
 
@@ -175,31 +190,54 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
             TurnTimer ^= 0x40;
             ObjTimer = 0;
         }
+        else
+        {
+            var r = Random.Shared.GetByte();
+            ObjTimer = (byte)(r | 0x70);
+        }
 
         TruncatePosition();
     }
 
-    protected int CheckWizzrobeTileCollision(int x, int y, Direction dir)
+    internal enum WizzrobeTileCollisionResult
     {
-        ReadOnlySpan<int> allWizzrobeCollisionXOffsets = [0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0];
-        ReadOnlySpan<int> allWizzrobeCollisionYOffsets = [4, 4, 0, 8, 8, 8, 0, -8, 0, 0];
+        NoCollision = 0,
+        WallCollision = 1,
+        OtherCollision = 2
+    }
 
-        if (dir == Direction.None)
+    // Wizzrobe_GetCollidableTile implies dir=Facing.
+    // Wizzrobe_GetCollidableTileForDir
+    protected WizzrobeTileCollisionResult CheckWizzrobeTileCollision(int x, int y, Direction dir)
+    {
+        ReadOnlySpan<int> allWizzrobeCollisionXOffsets = [0xF0, 0x0F, 0, 0, 4, 8, 0, 0, 4, 8, 0];
+        ReadOnlySpan<int> allWizzrobeCollisionYOffsets = [0x9F, 4, 4, 0, 8, 8, 8, 0, -8, 0, 0];
+
+        var fnlog = _log.CreateFunctionLog();
+
+        if (dir == Direction.None && this is not GanonActor)
         {
             throw new Exception($"{ObjType} at {Game.World.CurObjectSlot} attempted to CheckWizzrobeTileCollision with no direction.");
         }
 
-        // JOE: TODO: This can crash.
-        var ord = dir - 1;
+        // JOE: NOTE: This is a deviation from the original game and C++ code.
+        // In both it was "var ord = dir - 1;" and this would cause Ganon's index to underflow and read from index
+        // 0xFF because their Facing isn't set beyond Direction.None before the initial calls to this function.
+        // To keep with the original game's behavior, instead index 0 is initialized to the values found in the PRG0 ROM at those indexes.
+
+        var ord = dir;
         x += allWizzrobeCollisionXOffsets[(int)ord];
         y += allWizzrobeCollisionYOffsets[(int)ord];
 
         var collision = Game.World.CollidesWithTileStill(x, y);
-        if (!collision.Collides) return 0;
+        fnlog.Write($"{Game.World.CurObjectSlot} FlashTimer:{FlashTimer} {dir} {x:X2},{y:X2} collision:({collision})");
+        if (!collision.Collides) return WizzrobeTileCollisionResult.NoCollision;
 
         // This isn't quite the same as the original game, because the original contrasted
         // blocks and water together with everything else.
-        return World.CollidesWall(collision.TileBehavior) ? 1 : 2;
+        return World.CollidesWall(collision.TileBehavior)
+            ? WizzrobeTileCollisionResult.WallCollision
+            : WizzrobeTileCollisionResult.OtherCollision;
     }
 }
 
@@ -261,7 +299,6 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 
     public override void Draw()
     {
-        // See comment in constructor.
         if ((FlashTimer & 1) == 0 && Facing != Direction.None)
         {
             var pal = CalcPalette(Palette.Blue);

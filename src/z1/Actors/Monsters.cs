@@ -383,9 +383,17 @@ internal sealed class OctorokActor : DelayedWanderer
     }
 }
 
+
 internal sealed class GanonActor : BlueWizzrobeBase
 {
     private readonly record struct SlashSpec(TileSheet Sheet, AnimationId AnimIndex, byte Flags);
+
+    internal enum GanonState
+    {
+        HoldDark,
+        HoldLight,
+        Active,
+    }
 
     [Flags]
     private enum Visual
@@ -413,7 +421,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
     public override bool IsReoccuring => false;
 
     private Visual _visual;
-    private int _state;
+    private GanonState _state;
     private byte _lastHitTimer;
     private int _dyingTimer;
     private int _frame;
@@ -460,9 +468,9 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         switch (_state)
         {
-            case 0: UpdateHoldDark(); break;
-            case 1: UpdateHoldLight(); break;
-            case 2: UpdateActive(); break;
+            case GanonState.HoldDark: UpdateHoldDark(); break;
+            case GanonState.HoldLight: UpdateHoldLight(); break;
+            case GanonState.Active: UpdateActive(); break;
         }
     }
 
@@ -525,7 +533,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
             if (Game.World.GetFadeStep() == 0)
             {
-                _state = 1;
+                _state = GanonState.HoldLight;
                 Game.Link.ObjTimer = 0xC0;
             }
             _visual = Visual.Ganon;
@@ -542,7 +550,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
             Game.World.LiftItem(ItemId.None);
             Game.Sound.PlaySong(SongId.Level9, SongStream.MainSong, true);
             Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance);
-            _state = 2;
+            _state = GanonState.Active;
         }
 
         _visual = Visual.Ganon;
@@ -689,6 +697,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
         }
     }
 
+    // Ganon_MoveAndShoot
     private void UpdateMoveAndShoot()
     {
         _frame++;
@@ -705,9 +714,11 @@ internal sealed class GanonActor : BlueWizzrobeBase
         }
     }
 
+    // Ganon_MoveAndShoot.@Move
     private void MoveAround()
     {
         FlashTimer = 1;
+        // BlueWizzrobe_TurnSometimesAndMoveAndCheckTile
         TurnTimer++;
         TurnIfNeeded();
         MoveAndCollide();
@@ -1629,6 +1640,8 @@ internal sealed class LikeLikeActor : WandererWalkerActor
 
     private static readonly WalkerSpec _likeLikeSpec = new(_likeLikeAnimMap, 24, Palette.Red, StandardSpeed);
 
+    private static readonly DebugLog _log = new(nameof(LikeLikeActor));
+
     public override bool CanHoldRoomItem => true;
 
     private int _framesHeld;
@@ -1665,6 +1678,11 @@ internal sealed class LikeLikeActor : WandererWalkerActor
                 Flags |= ActorFlags.DrawAbovePlayer;
             }
 
+            if (Decoration != 0)
+            {
+                _log.Write("🚨🚨 LikeLike killed same frame as being held.");
+                player.IsParalyzed = false;
+            }
             return;
         }
 
