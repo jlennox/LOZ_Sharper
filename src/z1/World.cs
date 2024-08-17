@@ -791,7 +791,8 @@ internal sealed unsafe partial class World
 
         var fineCol2 = dir.IsVertical() ? (byte)((x + 8) / 8) : fineCol1;
 
-        for (var c = fineCol1; c <= fineCol2; c++)
+        // Upcast to an int, otherwise `fineCol2` being 0xFF will cause a non-terminating loop.
+        for (var c = (int)fineCol1; c <= fineCol2; c++)
         {
             var curBehavior = GetTileBehavior(fineRow, c);
             if (curBehavior == TileBehavior.Water && _state.Play.AllowWalkOnWater)
@@ -802,7 +803,7 @@ internal sealed unsafe partial class World
             if (curBehavior > behavior)
             {
                 behavior = curBehavior;
-                hitFineCol = c;
+                hitFineCol = (byte)c;
             }
         }
 
