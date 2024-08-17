@@ -79,7 +79,7 @@ internal sealed unsafe partial class World
     private const int TileActions = 16;
     private const int LoadingTileActions = 4;
     private const int SparseAttrs = 11;
-    private const int RoomHistoryLength = 6; // JOE: TODO: Nuke this and just use the array length.
+    private const int RoomHistoryLength = 6;
     private const int Modes = (int)GameMode.Max;
 
     private const int OWMarginRight = 0xE0;
@@ -1327,6 +1327,12 @@ internal sealed unsafe partial class World
         return ObjectSlot.NoneFound;
     }
 
+    public void DebugClearHistory()
+    {
+        Array.Clear(_levelKillCounts);
+        Array.Clear(_roomHistory);
+    }
+
     public ReadOnlySpan<byte> GetShortcutRooms()
     {
         var valueArray = _sparseRoomAttrs.GetItems<byte>(Sparse.Shortcut);
@@ -1338,7 +1344,11 @@ internal sealed unsafe partial class World
     public void TakeSecret() => GetRoomFlags(CurRoomId).SecretState = true;
     public bool GotItem() => GotItem(CurRoomId);
     public bool GotItem(int roomId) => GetRoomFlags(roomId).ItemState;
-    public void MarkItem() => GetRoomFlags(CurRoomId).ItemState = true;
+    public void MarkItem()
+    {
+        GetRoomFlags(CurRoomId).ItemState = true;
+        Game.Save();
+    }
     private bool GetDoorState(int roomId, Direction door) => GetRoomFlags(roomId).GetDoorState(door);
     private void SetDoorState(int roomId, Direction door) => GetRoomFlags(roomId).SetDoorState(door);
 
@@ -1474,7 +1484,7 @@ internal sealed unsafe partial class World
 
     private bool IsRoomInHistory()
     {
-        for (var i = 0; i < RoomHistoryLength; i++)
+        for (var i = 0; i < _roomHistory.Length; i++)
         {
             if (_roomHistory[i] == CurRoomId) return true;
         }
@@ -1485,16 +1495,16 @@ internal sealed unsafe partial class World
     {
         var i = 0;
 
-        for (; i < RoomHistoryLength; i++)
+        for (; i < _roomHistory.Length; i++)
         {
             if (_roomHistory[i] == CurRoomId) break;
         }
 
-        if (i == RoomHistoryLength)
+        if (i == _roomHistory.Length)
         {
             _roomHistory[_nextRoomHistorySlot] = (byte)CurRoomId;
             _nextRoomHistorySlot++;
-            if (_nextRoomHistorySlot >= RoomHistoryLength)
+            if (_nextRoomHistorySlot >= _roomHistory.Length)
             {
                 _nextRoomHistorySlot = 0;
             }

@@ -142,8 +142,8 @@ internal sealed class GameCheats
 
     public sealed class DungeonWarpCheat : RegexCheat
     {
-        private static readonly Regex _full = new(@"^w(w|\d{1,2});$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^w(w?|\d{0,2});?$", DefaultRegexOptions);
+        private static readonly Regex _full = new(@"^w(w|rr|\d{1,2});$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^w(w|rr?|\d{0,2})?;?$", DefaultRegexOptions);
 
         protected override Regex FullMatch => _full;
         protected override Regex PartialMatch => _partial;
@@ -151,9 +151,9 @@ internal sealed class GameCheats
         public override void RunPayload(Game game, string[] args)
         {
             var target = args[0];
-            switch (target)
+            switch (target.ToLowerInvariant())
             {
-                case "w" or "W":
+                case "w":
                     game.World.ShowShortcutStairs(7 * 16 + 9, 1);
                     game.Toast("Warping to stairs.");
                     return;
@@ -263,6 +263,15 @@ internal sealed class GameCheats
         }
     }
 
+    public sealed class ClearHistoryCheat() : SingleWordCheat("clearhis", true)
+    {
+        public override void RunPayload(Game game, string[] args)
+        {
+            game.World.DebugClearHistory();
+            game.Toast("History cleared.");
+        }
+    }
+
     public sealed class ItemsCheat() : SingleWordCheat("idkfa", true)
     {
         public override void RunPayload(Game game, string[] args)
@@ -335,6 +344,7 @@ internal sealed class GameCheats
         new DungeonWarpCheat(),
         new GodModeCheat(),
         new ItemCheat(),
+        new ClearHistoryCheat(),
         new ItemsCheat(),
         new MyPosCheat(),
         new PosAllCheat(),
