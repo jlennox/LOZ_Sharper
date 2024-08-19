@@ -17,6 +17,7 @@
     <ProjectReference Include="..\ExtractNsf\ExtractNsf.vcxproj">
       <Name>ExtractNsf</Name>
     </ProjectReference>
+    <ProjectReference Include="..\z1.Common\z1.Common.csproj" />
   </ItemGroup>
   
 </Project>
