@@ -33,7 +33,7 @@ internal sealed class CreditsType
     private int _windowTopLine;
     private int _windowBottomLine = 1;
     private int _windowFirstMappedLine;
-    private byte[]? _playerLine;
+    private int[]? _playerLine;
 
     public CreditsType(Game game)
     {
@@ -86,7 +86,7 @@ internal sealed class CreditsType
         }
     }
 
-    private byte[] GetPlayerLine(Line line)
+    private int[] GetPlayerLine(Line line)
     {
         var profile = _game.World.GetProfile();
         // JOE: TODO: I think you messed this up.
@@ -148,9 +148,12 @@ internal sealed class CreditsType
                 var x = line.Col * 8;
                 if (profile.Quest == 1 && mappedLine == 13)
                 {
-                    text = GetPlayerLine(line);
+                    GlobalFunctions.DrawString(GetPlayerLine(line), x, y, (Palette)pal);
                 }
-                GlobalFunctions.DrawString(text, x, y, (Palette)pal);
+                else
+                {
+                    GlobalFunctions.DrawString(text, x, y, (Palette)pal);
+                }
                 mappedLine++;
             }
             if (i == 1)

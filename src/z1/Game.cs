@@ -57,13 +57,13 @@ internal sealed class Game
         if (Input.IsButtonPressing(GameButton.AudioDecreaseVolume))
         {
             var volume = Sound.DecreaseVolume();
-            Toast($"Volume: {volume}%");
+            Toast($"Volume:{volume}%");
         }
 
         if (Input.IsButtonPressing(GameButton.AudioIncreaseVolume))
         {
             var volume = Sound.IncreaseVolume();
-            Toast($"Volume: {volume}%");
+            Toast($"Volume:{volume}%");
         }
 
         if (Input.IsButtonPressing(GameButton.AudioMuteToggle))

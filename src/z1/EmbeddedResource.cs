@@ -1,17 +1,19 @@
-﻿using System.Drawing;
+﻿using System.Collections.Immutable;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.Reflection;
 using Silk.NET.Core;
+using SkiaSharp;
 
 namespace z1;
 
 internal sealed class EmbeddedResource
 {
-    private static readonly Lazy<string[]> _resourceNames = new(() => Assembly.GetExecutingAssembly().GetManifestResourceNames());
+    private static readonly ImmutableArray<string> _resourceNames = [..Assembly.GetExecutingAssembly().GetManifestResourceNames()];
 
     public static Stream GetEmbeddedResource(string name)
     {
-        var resourceName = _resourceNames.Value.FirstOrDefault(t => t.EndsWith(name))
+        var resourceName = _resourceNames.FirstOrDefault(t => t.EndsWith(name))
             ?? throw new FileNotFoundException($"Resource not found: {name}");
 
         return Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
@@ -34,5 +36,11 @@ internal sealed class EmbeddedResource
 
         bitmap.UnlockBits(bitmapData);
         return rawImage;
+    }
+
+    public static SKBitmap SKBitmapFromResource(string name)
+    {
+        using var stream = GetEmbeddedResource(name);
+        return SKBitmap.Decode(stream);
     }
 }

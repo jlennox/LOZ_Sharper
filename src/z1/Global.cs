@@ -290,12 +290,21 @@ internal static class GlobalFunctions
     }
 
     public static void DrawChar(Char ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency) => DrawChar((byte)ch, x, y, palette, flags);
-    public static void DrawChar(byte ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
+    public static void DrawChar(int ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
     {
-        var srcX = (ch & 0x0F) * 8;
-        var srcY = (ch & 0xF0) / 2;
+        var srcX = (ch % 16) * 8;
+        var srcY = (ch / 16) * 8;
 
         Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags);
+    }
+
+    public static void DrawString(ReadOnlySpan<int> str, int x, int y, Palette palette)
+    {
+        foreach (var t in str)
+        {
+            DrawChar(t, x, y, palette);
+            x += 8;
+        }
     }
 
     public static void DrawString(ReadOnlySpan<byte> str, int x, int y, Palette palette)

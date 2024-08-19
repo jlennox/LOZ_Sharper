@@ -21,7 +21,9 @@
   </ItemGroup>
   
   <ItemGroup>
+    <None Remove="font-addendum.png" />
     <None Remove="icon.ico" />
+    <EmbeddedResource Include="font-addendum.png" />
     <EmbeddedResource Include="icon.ico" />
     <ProjectReference Include="..\ExtractLoz\ExtractLoz.csproj" />
     <ProjectReference Include="..\z1.Common\z1.Common.csproj" />
