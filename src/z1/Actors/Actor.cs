@@ -109,6 +109,8 @@ internal abstract class Actor
         ObjType = type;
         Position = new Point(x, y);
 
+        _traceLog.Write($"Created {GetType().Name} at {X:X2},{Y:X2} ({game.World.CurObjectSlot})");
+
         // JOE: "monsters and persons not armos or flying ghini"
         if (type < ObjType.PersonEnd
             && type != ObjType.Armos && type != ObjType.FlyingGhini)
@@ -1143,6 +1145,7 @@ internal abstract class Actor
 
     protected Direction StopAtPersonWallUW(Direction dir)
     {
+        if (Game.Cheats.NoClip) return dir;
         // ($6E46) if first object is grumble or person, block movement up above $8E.
 
         var firstObj = Game.World.GetObject(ObjectSlot.Monster1);

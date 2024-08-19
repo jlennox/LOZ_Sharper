@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using z1.Actors;
+using z1.IO;
 
 namespace z1;
 
@@ -50,6 +51,8 @@ internal enum BlockObjType
 
 internal abstract class BlockObjBase : Actor, IBlocksPlayer
 {
+    private static readonly DebugLog _log = new(nameof(BlockObjBase));
+
     public int Timer;
     public int TargetPos;
     public int OrigX;
@@ -92,6 +95,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
         if (Math.Abs(playerX - X) < World.MobTileWidth
             && Math.Abs(playerY - Y) < World.MobTileHeight)
         {
+            _log.Write(nameof(CheckCollision), $"Blocked {X:X2},{Y:X2}");
             return CollisionResponse.Blocked;
         }
 
@@ -154,6 +158,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
             Facing = dir;
             OrigX = X;
             OrigY = Y;
+            _log.Write(nameof(CheckCollision), $"Moving {X:X2},{Y:X2} TargetPos:{TargetPos}, dir:{dir}");
             _curUpdate = UpdateMoving;
         }
     }
@@ -163,6 +168,8 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
         MoveDirection(0x20, Facing);
 
         var done = Facing.IsHorizontal() ? X == TargetPos : Y == TargetPos;
+
+        _log.Write(nameof(UpdateMoving), $"{X:X2},{Y:X2} done:{done}");
 
         if (done)
         {
