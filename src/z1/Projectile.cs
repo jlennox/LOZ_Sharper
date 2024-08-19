@@ -267,7 +267,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
 
     public new int X
     {
-        get => base.X;
+        get => (int)_x;
         set
         {
             base.X = value;
@@ -277,7 +277,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
 
     public new int Y
     {
-        get => base.Y;
+        get => (int)_y;
         set
         {
             base.Y = value;
@@ -306,6 +306,8 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
 
         _x = x;
         _y = y;
+        base.X = (int)_x;
+        base.Y = (int)_y;
 
         _state = FireballState.Initializing;
         var xDist = Game.Link.X - x;
@@ -334,10 +336,6 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
 
         if (ObjTimer == 0)
         {
-            if (CheckWorldMargin(Facing) == Direction.None)
-            {
-            }
-
             if (CheckWorldMargin(Facing, out var reason) == Direction.None)
             {
                 _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) ObjTimer == 0, IsDeleted = true {reason}");
@@ -347,8 +345,8 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
 
             _x += _speedX;
             _y += _speedY;
-            X = (int)_x;
-            Y = (int)_y;
+            base.X = (int)_x;
+            base.Y = (int)_y;
 
             _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) speed:({_speedX},{_speedY})");
         }

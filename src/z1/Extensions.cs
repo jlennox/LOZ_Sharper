@@ -115,15 +115,12 @@ internal static class Extensions
 
     public static PointF Rotate(this PointF point, float angle)
     {
-        var x = point.X;
-        var y = point.Y;
-        var sin = Math.Sin(angle);
-        var cos = Math.Cos(angle);
+        var sine = Math.Sin(angle);
+        var cosine = Math.Cos(angle);
 
-        // JOE: NOTE: The original had an unused variable of `y1` but I think
-        // that's ok, they only needed `x1` due to the reassignment.
-
-        return new PointF((float)(x * cos - y * sin), (float)(x * sin + y * cos));
+        return new PointF(
+            (float)(point.X * cosine - point.Y * sine),
+            (float)(point.X * sine + point.Y * cosine));
     }
 
     public static int GetSector16(this PointF point)
