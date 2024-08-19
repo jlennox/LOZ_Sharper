@@ -1,57 +1,15 @@
-﻿using SkiaSharp;
+﻿using System.Runtime.CompilerServices;
+using SkiaSharp;
 using z1.Actors;
 using z1.IO;
 using z1.UI;
 
 namespace z1;
 
-[Flags]
-internal enum Direction
-{
-    None = 0,
-    Right = 1,
-    Left = 2,
-    Down = 4,
-    Up = 8,
-    DirectionMask = 0x0F,
-    FullMask = 0xFF,
-    VerticalMask = Down | Up,
-    HorizontalMask = Left | Right,
-    OppositeVerticals = VerticalMask,
-    OppositeHorizontals = HorizontalMask,
-}
-
-internal enum GameMode
-{
-    Demo,
-    GameMenu,
-    LoadLevel,
-    Unfurl,
-    Enter,
-    Play,
-    Leave,
-    Scroll,
-    ContinueQuestion,
-    PlayCellar,
-    LeaveCellar,
-    PlayCave,
-    PlayShortcuts,
-    UnknownD__,
-    Register,
-    Elimination,
-    Stairs,
-    Death,
-    EndLevel,
-    WinGame,
-
-    InitPlayCellar,
-    InitPlayCave,
-
-    Max,
-}
-
 internal sealed class Game
 {
+    private static readonly DebugLog _log = new(nameof(Game));
+
     public Link Link;
 
     public readonly Sound Sound;
@@ -63,7 +21,7 @@ internal sealed class Game
         public static bool NoClip = false;
     }
 
-    public bool Enhancements => Configuration.EnableEnhancements;
+    public GameEnhancements Enhancements => Configuration.Enhancements;
 
     public World World;
     public Input Input;
@@ -78,7 +36,7 @@ internal sealed class Game
         World = new World(this);
         Input = new Input(Configuration.Input);
         GameCheats = new GameCheats(this, Input);
-        Sound = new Sound(Configuration);
+        Sound = new Sound(Configuration.Audio);
     }
 
     public void Update()
@@ -99,13 +57,13 @@ internal sealed class Game
         if (Input.IsButtonPressing(GameButton.AudioDecreaseVolume))
         {
             var volume = Sound.DecreaseVolume();
-            Toast($"Volume {volume}");
+            Toast($"Volume: {volume}%");
         }
 
         if (Input.IsButtonPressing(GameButton.AudioIncreaseVolume))
         {
             var volume = Sound.IncreaseVolume();
-            Toast($"Volume {volume}");
+            Toast($"Volume: {volume}%");
         }
 
         if (Input.IsButtonPressing(GameButton.AudioMuteToggle))
@@ -148,6 +106,18 @@ internal sealed class Game
         }
 
         return ObjectSlot.NoneFound;
+    }
+
+    public void AutoSave(bool announce = true, [CallerMemberName] string functionName = "")
+    {
+        _log.Write("AutoSave", $"Saving from {functionName}");
+
+        if (announce)
+        {
+            Toast("Auto-saving...");
+        }
+
+        SaveFolder.SaveProfiles();
     }
 
     public void Toast(string text) => OnScreenDisplay.Toast(text);

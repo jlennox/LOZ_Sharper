@@ -13,6 +13,51 @@ internal enum TileInteraction { Load, Push, Touch, Cover }
 internal enum SpritePriority { None, AboveBg, BelowBg }
 internal enum SubmenuState { IdleClosed, StartOpening, EndOpening = 7, IdleOpen, StartClose }
 
+[Flags]
+internal enum Direction
+{
+    None = 0,
+    Right = 1,
+    Left = 2,
+    Down = 4,
+    Up = 8,
+    DirectionMask = 0x0F,
+    FullMask = 0xFF,
+    VerticalMask = Down | Up,
+    HorizontalMask = Left | Right,
+    OppositeVerticals = VerticalMask,
+    OppositeHorizontals = HorizontalMask,
+}
+
+internal enum GameMode
+{
+    Demo,
+    GameMenu,
+    LoadLevel,
+    Unfurl,
+    Enter,
+    Play,
+    Leave,
+    Scroll,
+    ContinueQuestion,
+    PlayCellar,
+    LeaveCellar,
+    PlayCave,
+    PlayShortcuts,
+    UnknownD__,
+    Register,
+    Elimination,
+    Stairs,
+    Death,
+    EndLevel,
+    WinGame,
+
+    InitPlayCellar,
+    InitPlayCave,
+
+    Max,
+}
+
 internal record Cell(byte Row, byte Col)
 {
     public const int MobPatchCellCount = 16;
@@ -1344,11 +1389,7 @@ internal sealed unsafe partial class World
     public void TakeSecret() => GetRoomFlags(CurRoomId).SecretState = true;
     public bool GotItem() => GotItem(CurRoomId);
     public bool GotItem(int roomId) => GetRoomFlags(roomId).ItemState;
-    public void MarkItem()
-    {
-        GetRoomFlags(CurRoomId).ItemState = true;
-        Game.Save();
-    }
+    public void MarkItem() => GetRoomFlags(CurRoomId).ItemState = true;
     private bool GetDoorState(int roomId, Direction door) => GetRoomFlags(roomId).GetDoorState(door);
     private void SetDoorState(int roomId, Direction door) => GetRoomFlags(roomId).SetDoorState(door);
 
@@ -1944,7 +1985,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if (Game.Enhancements && Game.Input.IsButtonDown(GameButton.Select) && Game.Input.IsButtonDown(GameButton.Start))
+        if (Game.Enhancements.ImprovedMenus && Game.Input.AreBothButtonsDown(GameButton.Select, GameButton.Start))
         {
             GotoContinueQuestion();
             return;
@@ -1958,7 +1999,7 @@ internal sealed unsafe partial class World
 
         if (_pause == PauseState.Unpaused)
         {
-            if (Game.Enhancements)
+            if (Game.Enhancements.ImprovedMenus)
             {
                 if (IsButtonPressing(GameButton.ItemNext)) Menu.SelectNextItem();
                 if (IsButtonPressing(GameButton.ItemPrevious)) Menu.SelectPreviousItem();

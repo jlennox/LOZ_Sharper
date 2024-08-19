@@ -307,6 +307,7 @@ internal sealed class PersonActor : Actor
         Game.World.LiftItem(itemId);
         Game.Sound.PushSong(SongId.ItemLift);
         Spec.ClearShowPrices();
+        Game.AutoSave();
     }
 
     private void HandlePickUpHint(int index)

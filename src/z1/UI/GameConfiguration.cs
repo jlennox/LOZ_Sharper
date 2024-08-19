@@ -30,23 +30,56 @@ internal enum  GamepadButton
     TriggerRight = 101,
 }
 
+internal sealed class GameEnhancements
+{
+    public bool AutoSave { get; set; }
+    public bool RedCandleLightsDarkRooms { get; set; }
+    public bool ImprovedMenus { get; set; }
+    public bool EasySaveMenu { get; set; }
+    public int TextSpeed { get; set; } = 1; // 1 is normal, 5 is max speed.
+
+    public static GameEnhancements MakeDefaults() => new()
+    {
+        AutoSave = false,
+        RedCandleLightsDarkRooms = false,
+        ImprovedMenus = true,
+        EasySaveMenu = true,
+        TextSpeed = 1,
+    };
+
+    public void Initialize()
+    {
+        TextSpeed = Math.Clamp(TextSpeed, 1, 5);
+    }
+}
+
+internal sealed class AudioConfiguration
+{
+    public bool Mute { get; set; } = false;
+    public bool MuteMusic { get; set; } = true;
+    public int Volume { get; set; } = 80; // 0 to 100. Default to 80 because it sounds really loud at 100.
+
+    public static AudioConfiguration MakeDefaults() => new();
+
+    public void Initialize()
+    {
+        Volume = Math.Clamp(Volume, 0, 100);
+    }
+}
+
 internal sealed class GameConfiguration : IInitializable
 {
-    public static GameConfiguration MakeDefaults() => new();
-
-    [JsonIgnore]
-    public InputConfiguration Input => _input ?? InputConfiguration.MakeDefaults();
+    public static GameConfiguration MakeDefaults()
+    {
+        var def = new GameConfiguration();
+        def.Initialize();
+        return def;
+    }
 
     public int Version { get; set; } = 1;
-    public bool EnableEnhancements { get; set; } = true;
-    public bool MuteAudio { get; set; } = false;
-    public bool MuteMusic { get; set; } = true;
-    public bool? IsJoe { get; set; }
-    public int TextSpeed { get; set; } = 1; // 1 is normal, 5 is max speed.
-    public int AudioVolume { get; set; } = 80; // 0 to 100. Default to 80 because it sounds really loud at 100.
-
-    [JsonPropertyName("Input")]
-    private readonly InputConfiguration? _input;
+    public InputConfiguration Input { get; set; }
+    public GameEnhancements Enhancements { get; set; }
+    public AudioConfiguration Audio { get; set; }
 
     public void Save()
     {
@@ -55,8 +88,12 @@ internal sealed class GameConfiguration : IInitializable
 
     public void Initialize()
     {
-        TextSpeed = Math.Clamp(TextSpeed, 1, 5);
-        AudioVolume = Math.Clamp(AudioVolume, 0, 100);
+        Input ??= InputConfiguration.MakeDefaults();
+        Enhancements ??= GameEnhancements.MakeDefaults();
+        Audio ??= AudioConfiguration.MakeDefaults();
+
+        Enhancements.Initialize();
+        Audio.Initialize();
     }
 }
 

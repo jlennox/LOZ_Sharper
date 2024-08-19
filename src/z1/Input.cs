@@ -181,6 +181,7 @@ internal sealed class Input
     }
 
     public bool IsButtonDown(GameButton button) => _inputState.Has(button);
+    public bool AreBothButtonsDown(GameButton a, GameButton b) => IsButtonDown(a) && IsButtonDown(b);
     public bool IsButtonPressing(GameButton button) => GetButton(button) == ButtonState.Pressing;
     public bool IsAnyButtonPressing(GameButton a, GameButton b) => IsButtonPressing(a) || IsButtonPressing(b);
     public IEnumerable<char> GetCharactersPressing()

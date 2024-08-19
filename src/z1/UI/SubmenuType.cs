@@ -281,7 +281,7 @@ internal sealed class SubmenuType
 
         if (ydir != 0)
         {
-            if (_game.Enhancements)
+            if (_game.Enhancements.ImprovedMenus)
             {
                 var amount = ItemsPerRow * ydir;
                 var target = (_activeUISlot + amount) % ActiveItems;

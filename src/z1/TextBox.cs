@@ -25,7 +25,7 @@ internal sealed class TextBox
     }
 
     public TextBox(Game game, byte[] text)
-        : this(game, text, CharDelay - game.Configuration.TextSpeed + 1)
+        : this(game, text, CharDelay - game.Enhancements.TextSpeed + 1)
     {
     }
 

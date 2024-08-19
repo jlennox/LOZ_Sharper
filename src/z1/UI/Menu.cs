@@ -422,7 +422,7 @@ internal sealed class RegisterMenu : Menu
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
 
-        if (_game.Enhancements && inTextEntry)
+        if (_game.Enhancements.ImprovedMenus && inTextEntry)
         {
             foreach (var c in _game.Input.GetCharactersPressing())
             {

@@ -402,12 +402,11 @@ internal sealed class Sound
     private bool _isMuted = false;
     private bool _isMuteSongs = false;
 
-    /// <param name="volume">0 to 100</param>
-    public Sound(GameConfiguration configuration)
+    public Sound(AudioConfiguration configuration)
     {
         _waveOutDevice = new WaveOutEvent
         {
-            DesiredLatency = 50,
+            DesiredLatency = 75,
             NumberOfBuffers = 2,
         };
         _mixer = new MixingSampleProvider(WaveFormat.CreateIeeeFloatWaveFormat(44100, 2))
@@ -429,10 +428,10 @@ internal sealed class Sound
             _songFiles[i] = new NamedWaveFileReader(_songs[i].GetAsset());
         }
 
-        _isMuted = configuration.MuteAudio;
+        _isMuted = configuration.Mute;
         _isMuteSongs = configuration.MuteMusic;
 
-        SetVolume(configuration.AudioVolume);
+        SetVolume(configuration.Volume);
     }
 
     public void SetVolume(int volume)

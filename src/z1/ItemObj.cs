@@ -759,11 +759,13 @@ internal sealed class ItemObjActor : Actor
                 if (_itemId == ItemId.TriforcePiece)
                 {
                     Game.World.EndLevel();
+                    Game.AutoSave();
                 }
                 else if (Game.World.IsUWCellar())
                 {
                     Game.World.LiftItem(_itemId);
                     Game.Sound.PushSong(SongId.ItemLift);
+                    Game.AutoSave();
                 }
             }
         }

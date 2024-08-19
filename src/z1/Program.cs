@@ -21,7 +21,7 @@ namespace z1;
 //   - Baubles are acting awful? They're moving through the pushblock and
 //     they're able to shove link hard enough to go through it.
 // * Implement autosave.
-// * Name entry can go on forever, and can't be backed over. Add backspace support.
+// * Name entry can go on forever, and can't be backed over. Add backspace support. It skips initial spaces?
 
 // Minor:
 // * Vire keese seem to spawn too close together.
