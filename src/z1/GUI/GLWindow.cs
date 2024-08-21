@@ -202,9 +202,8 @@ internal sealed class GLWindow : IDisposable
     {
         // They trigger when the program starts up at -1. They range from -1 to 1, passing 0 I presume in the middle.
         // At least, this is true on my xbox controller.
-        if (trigger.Position < 0) return;
 
-        var set = 1f - trigger.Position > .05;
+        var set = trigger.Position >= .8f;
         switch (trigger.Index)
         {
             case 0: _game.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;

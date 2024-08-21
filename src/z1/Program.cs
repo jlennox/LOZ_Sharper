@@ -45,6 +45,8 @@ namespace z1;
 // * Move history out of World.
 // * Try this for the palettes? https://skia.org/docs/user/sksl/
 // * File select dialog?
+// * Add levels to DebugLog.
+// * Make a RoomID object.
 
 // BUGS TO ADD:
 // * Canana key?
