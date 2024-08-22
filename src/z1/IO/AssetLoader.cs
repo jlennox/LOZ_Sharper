@@ -11,7 +11,7 @@ internal readonly struct AssetLoader
 
     private class AssetMetadata
     {
-        public const int AssetVersion = 1;
+        public const int AssetVersion = 2;
         public int Version { get; set; }
 
         public static bool IsValid(string basepath)

@@ -2163,8 +2163,8 @@ namespace ExtractLoz
                 roomAttrs.inner[0x0E] = 0x7B;
                 roomAttrs.inner[0x0F] = 0x83;
                 roomAttrs.inner[0x22] = 0x84;
-                roomAttrs.inner[0x34] = 0x0F;
-                roomAttrs.inner[0x3C] = 0x0B;
+                roomAttrs.inner[0x34] = 0x0F - (1 << 2);
+                roomAttrs.inner[0x3C] = 0x0B + (1 << 2);
                 roomAttrs.inner[0x45] = 0x12;
                 roomAttrs.inner[0x74] = 0x7A;
                 roomAttrs.monsterListIDs[0x0B] = 0x2F;
