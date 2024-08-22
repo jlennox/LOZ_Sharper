@@ -316,7 +316,7 @@ internal sealed class GameCheats
         {
             var room = game.World.CurrentRoom;
             var link = game.Link;
-            game.Toast($"Room: {room.X},{room.Y} ({room.X:X2},{room.Y:X2})");
+            game.Toast($"Room: {room.X},{room.Y} ({room.X:X2},{room.Y:X2}) {game.World.CurRoomId}");
             game.Toast($"Link: {link.X},{link.Y} ({link.X:X2},{link.Y:X2})");
         }
     }

@@ -31,7 +31,7 @@ internal sealed class Link : Actor, IThrower
 
     public static ReadOnlySpan<byte> PlayerLimits => [0xF0, 0x00, 0xDD, 0x3D];
 
-    private static readonly DebugLog _movementTraceLog = new(nameof(Link), "MovementTrace", DebugLogDestination.DebugBuildsOnly);
+    private static readonly DebugLog _movementTraceLog = new(nameof(Link), "MovementTrace", DebugLogDestination.None);
 
     public override bool IsPlayer => true;
 

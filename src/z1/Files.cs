@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using z1.Actors;
@@ -150,6 +151,7 @@ internal readonly struct ListResource<T>
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1, Size = Length)]
+[DebuggerDisplay("{ToString()}")]
 internal unsafe struct FixedString
 {
     private const int Length = 32;
@@ -164,7 +166,7 @@ internal unsafe struct FixedString
     {
         fixed (byte* p = Str)
         {
-            var span = new Span<byte>(p, 32);
+            var span = new Span<byte>(p, Length);
             var end = span.IndexOf((byte)0);
             return Encoding.ASCII.GetString(p, end == -1 ? Length : end);
         }

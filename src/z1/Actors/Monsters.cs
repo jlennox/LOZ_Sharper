@@ -404,6 +404,8 @@ internal sealed class GanonActor : BlueWizzrobeBase
         Pieces = 4,
     }
 
+    private static readonly DebugLog _log = new(nameof(GanonActor));
+
     private static readonly ImmutableArray<byte> _ganonNormalPalette = [0x16, 0x2C, 0x3C];
     private static readonly ImmutableArray<byte> _ganonRedPalette = [0x07, 0x17, 0x30];
 
@@ -1681,7 +1683,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
             if (Decoration != 0)
             {
                 _log.Write("🚨🚨 LikeLike killed same frame as being held.");
-                player.IsParalyzed = false;
+                // player.IsParalyzed = false;
             }
             return;
         }
@@ -1704,6 +1706,8 @@ internal sealed class LikeLikeActor : WandererWalkerActor
 
         if (Decoration != 0)
         {
+            _log.Write("🚨🚨 LikeLike released.");
+
             player.IsParalyzed = false;
         }
     }

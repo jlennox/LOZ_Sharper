@@ -163,6 +163,7 @@ internal sealed unsafe partial class World
     private enum UniqueRoomIds { TopRightOverworldSecret = 0x0F }
 
     private static readonly DebugLog _traceLog = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
+    private static readonly DebugLog _log = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
 
     public Game Game { get; }
     public Link Player => Game.Link;
@@ -3963,7 +3964,6 @@ internal sealed unsafe partial class World
         switch (_state.Stairs.Substate)
         {
             case StairsState.Substates.Start:
-            {
                 _state.Stairs.PlayerPriority = SpritePriority.BelowBg;
 
                 if (IsOverworld()) Game.Sound.StopAll();
@@ -3987,11 +3987,12 @@ internal sealed unsafe partial class World
                 }
                 break;
 
-            }
             case StairsState.Substates.Walk when IsOverworld():
-            {
+            case StairsState.Substates.WalkCave when Game.Link.X == _state.Stairs.TargetX
+                && Game.Link.Y == _state.Stairs.TargetY:
                 var owRoomAttrs = CurrentOWRoomAttrs;
                 var cave = owRoomAttrs.GetCaveId();
+                _log.Write($"Cave: {cave}");
 
                 if (cave <= 9)
                 {
@@ -4003,28 +4004,10 @@ internal sealed unsafe partial class World
                 }
                 break;
 
-            }
             case StairsState.Substates.Walk:
                 GotoPlayCellar();
                 break;
 
-            case StairsState.Substates.WalkCave when Game.Link.X == _state.Stairs.TargetX
-                && Game.Link.Y == _state.Stairs.TargetY:
-            {
-                var owRoomAttrs = CurrentOWRoomAttrs;
-                var cave = owRoomAttrs.GetCaveId();
-
-                if (cave <= 9)
-                {
-                    GotoLoadLevel(cave);
-                }
-                else
-                {
-                    GotoPlayCave();
-                }
-                break;
-
-            }
             case StairsState.Substates.WalkCave:
                 MovePlayer(_state.Stairs.ScrollDir, _state.Stairs.PlayerSpeed, ref _state.Stairs.PlayerFraction);
                 Game.Link.Animator.Advance();

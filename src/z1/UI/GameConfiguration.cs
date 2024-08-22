@@ -137,12 +137,14 @@ internal sealed class InputConfiguration
         { new KeyboardMapping(Key.Equal), GameButton.AudioIncreaseVolume },
         { new KeyboardMapping(Key.Equal, KeyboardModifiers.Shift), GameButton.AudioIncreaseVolume },
 
+#if DEBUG
         { new KeyboardMapping(Key.X, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatKillAll },
         { new KeyboardMapping(Key.S, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatSpeedUp },
         { new KeyboardMapping(Key.C, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatClip },
         { new KeyboardMapping(Key.B, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatBeHoldClock },
         { new KeyboardMapping(Key.F, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatFullHealth },
         { new KeyboardMapping(Key.Q, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatGodMode },
+#endif
     };
 
     private static readonly GamepadMap _defaultGamepadMap = new Dictionary<GamepadButton, GameButton>
@@ -151,8 +153,6 @@ internal sealed class InputConfiguration
         { GamepadButton.Back, GameButton.Select },
         { GamepadButton.B, GameButton.A }, // A/B are spatially B/A on NES.
         { GamepadButton.A, GameButton.B },
-        { GamepadButton.X, GameButton.None },
-        { GamepadButton.Y, GameButton.None },
         { GamepadButton.DPadLeft, GameButton.Left },
         { GamepadButton.DPadRight, GameButton.Right },
         { GamepadButton.DPadDown, GameButton.Down },
@@ -162,8 +162,13 @@ internal sealed class InputConfiguration
         { GamepadButton.BumperRight, GameButton.ItemNext },
         { GamepadButton.StickLeft, GameButton.None },
         { GamepadButton.StickRight, GameButton.None },
+
+#if DEBUG
+        { GamepadButton.X, GameButton.CheatFullHealth },
+        { GamepadButton.Y, GameButton.CheatClip },
         { GamepadButton.TriggerLeft, GameButton.CheatKillAll },
         { GamepadButton.TriggerRight, GameButton.CheatSpeedUp },
+#endif
     };
 
     [JsonIgnore]

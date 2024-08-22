@@ -3,7 +3,7 @@
 namespace z1;
 
 [StructLayout(LayoutKind.Sequential)]
-internal unsafe struct RoomAttrs
+internal struct RoomAttrs
 {
     public byte UniqueRoomId;
     public byte PalettesAndMonsterCount;

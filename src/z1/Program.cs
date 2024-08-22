@@ -15,13 +15,15 @@ namespace z1;
 //   I might have been stuck in the wall?
 // * Red Ring Room Problems:
 //   - w9; w7x1;
-//   - You get stuck in dungeon push blocks super easy now.
+//   - You get stuck in dungeon push blocks super easy now. -- they appear to enter their "moving" state but don't move.
+//     - This is Moving state issue: I can't push the push block in the room with the red ring. Everything is normal again on renter...
 //   - Blue wizzrobes still faze through the floor/ceiling.
-//   - I can't push the push block in the room with the red ring. Everything is normal again on renter...
 //   - Baubles are acting awful? They're moving through the pushblock and
 //     they're able to shove link hard enough to go through it.
 // * Implement autosave.
 // * Name entry can go on forever, and can't be backed over. Add backspace support. It skips initial spaces?
+// * Too many wallmasters can make it out. I think? And stopwatch doesn't stop them from appearing.
+// * Do second quest skeletons fire swords?
 
 // Minor:
 // * Vire keese seem to spawn too close together.
