@@ -493,7 +493,7 @@ internal sealed unsafe partial class World
             _nextGameMenu = null;
         }
 
-        ModeFuncs[(int)_curMode]!();
+        GetUpdateFunction(_curMode)!();
     }
 
     public void Draw()
@@ -503,7 +503,7 @@ internal sealed unsafe partial class World
             _statusBar.Draw(_submenuOffsetY);
         }
 
-        GetDrawFuncs(_curMode)!();
+        GetDrawFunction(_curMode)!();
     }
 
     private bool IsButtonPressing(GameButton button) => Game.Input.IsButtonPressing(button);

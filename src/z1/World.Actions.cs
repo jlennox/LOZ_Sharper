@@ -169,32 +169,34 @@ internal partial class World
         NoneTileAction
     ];
 
-    private ImmutableArray<Action?> ModeFuncs => [
-        null,
-        UpdateGameMenu,
-        UpdateLoadLevel,
-        UpdateUnfurl,
-        UpdateEnter,
-        UpdatePlay,
-        UpdateLeave,
-        UpdateScroll,
-        UpdateContinueQuestion,
-        UpdatePlay,
-        UpdateLeaveCellar,
-        UpdatePlay,
-        null,
-        null,
-        UpdateRegisterMenu,
-        UpdateEliminateMenu,
-        UpdateStairsState,
-        UpdateDie,
-        UpdateEndLevel,
-        UpdateWinGame,
-        UpdatePlayCellar,
-        UpdatePlayCave
-    ];
+    private Action? GetUpdateFunction(GameMode mode) => mode switch
+    {
+        GameMode.Demo => null,
+        GameMode.GameMenu => UpdateGameMenu,
+        GameMode.LoadLevel => UpdateLoadLevel,
+        GameMode.Unfurl => UpdateUnfurl,
+        GameMode.Enter => UpdateEnter,
+        GameMode.Play => UpdatePlay,
+        GameMode.Leave => UpdateLeave,
+        GameMode.Scroll => UpdateScroll,
+        GameMode.ContinueQuestion => UpdateContinueQuestion,
+        GameMode.PlayCellar => UpdatePlay,
+        GameMode.LeaveCellar => UpdateLeaveCellar,
+        GameMode.PlayCave => UpdatePlay,
+        GameMode.PlayShortcuts => null,
+        GameMode.UnknownD__ => null,
+        GameMode.Register => UpdateRegisterMenu,
+        GameMode.Elimination => UpdateEliminateMenu,
+        GameMode.Stairs => UpdateStairsState,
+        GameMode.Death => UpdateDie,
+        GameMode.EndLevel => UpdateEndLevel,
+        GameMode.WinGame => UpdateWinGame,
+        GameMode.InitPlayCellar => UpdatePlayCellar,
+        GameMode.InitPlayCave => UpdatePlayCave,
+        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Invalid game mode.")
+    };
 
-    private Action? GetDrawFuncs(GameMode mode) => mode switch
+private Action? GetDrawFunction(GameMode mode) => mode switch
     {
         GameMode.Demo => null,
         GameMode.GameMenu => DrawGameMenu,
