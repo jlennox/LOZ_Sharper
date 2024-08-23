@@ -6,7 +6,6 @@ namespace z1;
 
 // Milestone 1:
 // * Textbox and rupee sounds are wrong.
-// * Screen sides need to be painted black.
 // * Some how between saves my max hearts got reset?
 // * Darknuts should make parry sound when shot with wave.
 // * Coming out of stairs into spiral room spawns you in a bad spot.

@@ -264,6 +264,8 @@ internal sealed class GLWindow : IDisposable
         // gl.ClearColor(0f, 0f, 0f, 1f);
         // gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
 
+        surface.Canvas.Clear(SKColors.Black);
+
         _controller.Update((float)deltaSeconds);
 
         var updated = false;

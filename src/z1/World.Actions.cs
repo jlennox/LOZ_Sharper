@@ -194,30 +194,32 @@ internal partial class World
         UpdatePlayCave
     ];
 
-    private ImmutableArray<Action?> DrawFuncs => [
-        null,
-        DrawGameMenu,
-        DrawLoadLevel,
-        DrawUnfurl,
-        DrawEnter,
-        DrawPlay,
-        DrawLeave,
-        DrawScroll,
-        DrawContinueQuestion,
-        DrawPlay,
-        DrawLeaveCellar,
-        DrawPlay,
-        null,
-        null,
-        DrawGameMenu,
-        DrawGameMenu,
-        DrawStairsState,
-        DrawDie,
-        DrawEndLevel,
-        DrawWinGame,
-        DrawPlayCellar,
-        DrawPlayCave
-    ];
+    private Action? GetDrawFuncs(GameMode mode) => mode switch
+    {
+        GameMode.Demo => null,
+        GameMode.GameMenu => DrawGameMenu,
+        GameMode.LoadLevel => DrawLoadLevel,
+        GameMode.Unfurl => DrawUnfurl,
+        GameMode.Enter => DrawEnter,
+        GameMode.Play => DrawPlay,
+        GameMode.Leave => DrawLeave,
+        GameMode.Scroll => DrawScroll,
+        GameMode.ContinueQuestion => DrawContinueQuestion,
+        GameMode.PlayCellar => DrawPlay,
+        GameMode.LeaveCellar => DrawLeaveCellar,
+        GameMode.PlayCave => DrawPlay,
+        GameMode.PlayShortcuts => null,
+        GameMode.UnknownD__ => null,
+        GameMode.Register => DrawGameMenu,
+        GameMode.Elimination => DrawGameMenu,
+        GameMode.Stairs => DrawStairsState,
+        GameMode.Death => DrawDie,
+        GameMode.EndLevel => DrawEndLevel,
+        GameMode.WinGame => DrawWinGame,
+        GameMode.InitPlayCellar => DrawPlayCellar,
+        GameMode.InitPlayCave => DrawPlayCave,
+        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Invalid game mode.")
+    };
 
     private ImmutableArray<Action> PlayCellarFuncs => [
         UpdatePlayCellar_Start,

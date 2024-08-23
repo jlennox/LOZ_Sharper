@@ -503,7 +503,7 @@ internal sealed unsafe partial class World
             _statusBar.Draw(_submenuOffsetY);
         }
 
-        DrawFuncs[(int)_curMode]!();
+        GetDrawFuncs(_curMode)!();
     }
 
     private bool IsButtonPressing(GameButton button) => Game.Input.IsButtonPressing(button);
@@ -3646,10 +3646,9 @@ internal sealed unsafe partial class World
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
-        if (_state.Enter.Substate != EnterState.Substates.Start)
-        {
-            DrawRoomNoObjects(_state.Enter.PlayerPriority);
-        }
+        // JOE: The C++ code base had this check but it causes a black frame to be drawn.
+        // if (_state.Enter.Substate != EnterState.Substates.Start)
+        DrawRoomNoObjects(_state.Enter.PlayerPriority);
     }
 
     public void GotoLoadLevel(int level, bool restartOW = false)
