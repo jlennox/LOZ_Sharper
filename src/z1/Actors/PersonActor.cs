@@ -34,7 +34,7 @@ internal sealed class PersonActor : Actor
     private static readonly ImmutableArray<byte> _itemXs = [0x58, 0x78, 0x98];
     private static readonly ImmutableArray<byte> _priceXs = [0x48, 0x68, 0x88];
 
-    private static readonly ImmutableArray<ItemGraphics> _sPersonGraphics = [
+    private static readonly ImmutableArray<ItemGraphics> _personGraphics = [
         new(AnimationId.OldMan,   Palette.Red),
         new(AnimationId.OldWoman, Palette.Red),
         new(AnimationId.Merchant, Palette.Player),
@@ -119,7 +119,7 @@ internal sealed class PersonActor : Actor
         }
 
         var animIndex = spec.DwellerType - ObjType.OldMan;
-        var animId = _sPersonGraphics[animIndex].AnimId;
+        var animId = _personGraphics[animIndex].AnimId;
         _image = new SpriteImage(TileSheet.PlayerAndItems, animId);
         TextBox = new TextBox(Game, Game.World.GetString(stringId).ToArray());
 
@@ -547,7 +547,7 @@ internal sealed class PersonActor : Actor
         if (_image == null) throw new NullReferenceException("_image is null.");
 
         var animIndex = Spec.DwellerType - ObjType.OldMan;
-        var palette = _sPersonGraphics[animIndex].Palette;
+        var palette = _personGraphics[animIndex].Palette;
         palette = CalcPalette(palette);
         _image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
 

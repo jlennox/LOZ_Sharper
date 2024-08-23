@@ -340,6 +340,7 @@ internal sealed unsafe partial class World
 
     private void LoadOverworldContext()
     {
+        _prevRoomWasCellar = false;
         LoadOpenRoomContext();
         LoadMapResourcesFromDirectory(124);
         _primaryMobs = ListResource<byte>.Load(new Asset("owPrimaryMobs.list"));
@@ -349,6 +350,7 @@ internal sealed unsafe partial class World
 
     private void LoadUnderworldContext()
     {
+        _prevRoomWasCellar = false;
         LoadClosedRoomContext();
         LoadMapResourcesFromDirectory(64);
         _primaryMobs = ListResource<byte>.Load(new Asset("uwPrimaryMobs.list"));
@@ -357,6 +359,7 @@ internal sealed unsafe partial class World
 
     private void LoadCellarContext()
     {
+        _prevRoomWasCellar = true;
         LoadOpenRoomContext();
 
         _roomCols = ListResource<RoomCols>.LoadList("underworldCellarRoomCols.dat", 2).ToArray();
@@ -387,7 +390,6 @@ internal sealed unsafe partial class World
         _tempShutterRoomId = 0;
         _tempShutterDoorDir = 0;
         _tempShutters = false;
-        _prevRoomWasCellar = false;
         _darkRoomFadeStep = 0;
         Array.Clear(_levelKillCounts);
         Array.Clear(_roomHistory);
@@ -1581,12 +1583,10 @@ internal sealed unsafe partial class World
         if (IsUWCellar(roomId))
         {
             LoadCellarContext();
-            _prevRoomWasCellar = true;
         }
         else if (_prevRoomWasCellar)
         {
             LoadUnderworldContext();
-            _prevRoomWasCellar = false;
         }
 
         CurRoomId = roomId;
@@ -2471,7 +2471,6 @@ internal sealed unsafe partial class World
         _tempShutterDoorDir = 0;
         _tempShutterRoomId = 0;
         _tempShutters = false;
-        _prevRoomWasCellar = false;
         WhirlwindTeleporting = 0;
 
         _roomKillCount = 0;
