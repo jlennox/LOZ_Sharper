@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Text;
 using SkiaSharp;
 using z1.Actors;
 using z1.IO;
@@ -28,6 +29,7 @@ internal sealed class Game
     public GameCheats GameCheats;
     public GameConfiguration Configuration = SaveFolder.Configuration;
     public readonly OnScreenDisplay OnScreenDisplay = new();
+    public readonly DebugInfo DebugInfo;
 
     public int FrameCounter { get; private set; }
 
@@ -37,6 +39,7 @@ internal sealed class Game
         Input = new Input(Configuration.Input);
         GameCheats = new GameCheats(this, Input);
         Sound = new Sound(Configuration.Audio);
+        DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
     }
 
     public void Update()
@@ -71,12 +74,18 @@ internal sealed class Game
             var isMuted = Sound.ToggleMute();
             Toast(isMuted ? "Sound muted" : "Sound unmuted");
         }
+
+        if (Input.IsButtonPressing(GameButton.ToggleDebugInfo))
+        {
+            Configuration.DebugInfo.Enabled = !Configuration.DebugInfo.Enabled;
+        }
     }
 
     public void Draw()
     {
         World.Draw();
         OnScreenDisplay.Draw();
+        DebugInfo.Draw();
     }
 
     // JOE: TODO: This function is a bit weird now.
@@ -112,10 +121,7 @@ internal sealed class Game
     {
         _log.Write("AutoSave", $"Saving from {functionName}");
 
-        if (announce)
-        {
-            Toast("Auto-saving...");
-        }
+        if (announce) Toast("Auto-saving...");
 
         SaveFolder.SaveProfiles();
     }

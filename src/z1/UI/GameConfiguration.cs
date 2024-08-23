@@ -67,6 +67,18 @@ internal sealed class AudioConfiguration
     }
 }
 
+internal sealed class DebugInfoConfiguration
+{
+    public bool Enabled { get; set; } = true;
+    public bool RoomId { get; set; } = true;
+
+    public static DebugInfoConfiguration MakeDefaults() => new();
+
+    public void Initialize()
+    {
+    }
+}
+
 internal sealed class GameConfiguration : IInitializable
 {
     public static GameConfiguration MakeDefaults()
@@ -80,6 +92,7 @@ internal sealed class GameConfiguration : IInitializable
     public InputConfiguration Input { get; set; }
     public GameEnhancements Enhancements { get; set; }
     public AudioConfiguration Audio { get; set; }
+    public DebugInfoConfiguration DebugInfo { get; set; }
 
     public void Save()
     {
@@ -91,9 +104,11 @@ internal sealed class GameConfiguration : IInitializable
         Input ??= InputConfiguration.MakeDefaults();
         Enhancements ??= GameEnhancements.MakeDefaults();
         Audio ??= AudioConfiguration.MakeDefaults();
+        DebugInfo ??= DebugInfoConfiguration.MakeDefaults();
 
         Enhancements.Initialize();
         Audio.Initialize();
+        DebugInfo.Initialize();
     }
 }
 
@@ -144,6 +159,7 @@ internal sealed class InputConfiguration
         { new KeyboardMapping(Key.B, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatBeHoldClock },
         { new KeyboardMapping(Key.F, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatFullHealth },
         { new KeyboardMapping(Key.Q, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatGodMode },
+        { new KeyboardMapping(Key.D, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.ToggleDebugInfo },
 #endif
     };
 

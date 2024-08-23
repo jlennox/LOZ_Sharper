@@ -113,7 +113,7 @@ internal unsafe struct SoundInfo
 }
 
 // This is a version of `AudioFileReader` modified to take a stream instead of a filename.
-public class StreamedAudioFileReader : WaveStream, ISampleProvider
+internal class StreamedAudioFileReader : WaveStream, ISampleProvider
 {
     private WaveStream _readerStream;
     private readonly SampleChannel _sampleChannel;

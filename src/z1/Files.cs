@@ -383,7 +383,7 @@ internal struct SparseRoomItem
     public readonly ItemId AsItemId => (ItemId)itemId;
 }
 
-public enum Sparse
+internal enum Sparse
 {
     ArmosStairs,
     ArmosItem,
@@ -398,7 +398,7 @@ public enum Sparse
     RoomReplacement,
 }
 
-public enum Extra
+internal enum Extra
 {
     PondColors,
     SpawnSpots,
