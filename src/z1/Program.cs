@@ -24,6 +24,7 @@ namespace z1;
 // * Too many wallmasters can make it out. I think?
 //   - And stopwatch doesn't stop them from appearing.
 // * Do second quest skeletons fire swords?
+// * Add reduced flashing.
 
 // Minor:
 // * Vire keese seem to spawn too close together.

@@ -1356,20 +1356,11 @@ internal abstract class Actor
 
     protected static Direction TurnRandomly8(Direction facing)
     {
-        switch (Random.Shared.GetByte())
-        {
-            case >= 0xA0:
-                ;   // keep going in the same direction
-                break;
-            case >= 0x50:
-                facing = facing.GetNextDirection8();
-                break;
-            default:
-                facing = facing.GetPrevDirection8();
-                break;
-        }
-
-        return facing;
+        return Random.Shared.GetByte() switch {
+            >= 0xA0 => facing, // keep going in the same direction
+            >= 0x50 => facing.GetNextDirection8(),
+            _ => facing.GetPrevDirection8()
+        };
     }
 
     protected ObjectSlot Shoot(ObjType shotType, int x, int y, Direction facing)

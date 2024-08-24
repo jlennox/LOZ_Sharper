@@ -46,7 +46,7 @@ internal sealed class GleeokHeadActor : FlyingActor
 
     protected override void UpdateFullSpeedImpl()
     {
-        var nextState = 2;
+        var nextState = FlyingActorState.Chase;
         var r = Random.Shared.GetByte();
 
         if (r >= 0xD0)

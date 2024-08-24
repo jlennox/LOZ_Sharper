@@ -31,7 +31,7 @@ internal abstract class WalkerActor : Actor
     protected int ShootTimer;
     protected bool WantToShoot;
 
-    protected virtual bool HasProjectile => Spec.ShotType != ObjType.None;
+    protected bool HasProjectile => Spec.ShotType != ObjType.None;
 
     protected WalkerActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
         : base(game, type, x, y)
@@ -362,8 +362,6 @@ internal sealed class OctorokActor : DelayedWanderer
     private static readonly WalkerSpec _blueFastOctorockSpec = new(_octorockAnimMap, 12, Palette.Blue, FastSpeed, ShotFromOctorock);
     private static readonly WalkerSpec _redSlowOctorockSpec = new(_octorockAnimMap, 12, Palette.Red, StandardSpeed, ShotFromOctorock);
     private static readonly WalkerSpec _redFastOctorockSpec = new(_octorockAnimMap, 12, Palette.Red, FastSpeed, ShotFromOctorock);
-
-    protected override bool HasProjectile => true;
 
     private OctorokActor(Game game, ObjType type, WalkerSpec spec, int turnRate, int x, int y)
         : base(game, type, spec, turnRate, x, y)
@@ -1002,7 +1000,7 @@ internal sealed class FairyActor : FlyingActor
 
     protected override void UpdateFullSpeedImpl()
     {
-        GoToState(3, 6);
+        GoToState(FlyingActorState.Turn, 6);
     }
 
     protected override int GetFrame()
@@ -2061,10 +2059,20 @@ internal sealed class RedLeeverActor : Actor
 
 internal readonly record struct FlyerSpec(ImmutableArray<AnimationId> AnimationMap, TileSheet Sheet, Palette Palette, int Speed = 0);
 
+internal enum FlyingActorState
+{
+    Hastening, // 0
+    FullSpeed, // 1
+    Chase, // 2
+    Turn, // 3
+    Slowing, // 4
+    Still, // 5
+}
+
 internal abstract class FlyingActor : Actor
 {
     protected SpriteAnimator Animator;
-    protected int State;
+    protected FlyingActorState State;
     protected int SprintsLeft;
     protected int CurSpeed;
     protected int AccelStep;
@@ -2088,18 +2096,16 @@ internal abstract class FlyingActor : Actor
     {
         var origFacing = Facing;
 
-        Action func = State switch
+        switch (State)
         {
-            0 => UpdateHastening,
-            1 => UpdateFullSpeed,
-            2 => UpdateChase,
-            3 => UpdateTurn,
-            4 => UpdateSlowing,
-            5 => UpdateStill,
-            _ => throw new ArgumentOutOfRangeException(nameof(State), State, $"Invalid state for {ObjType}.")
-        };
-
-        func();
+            case FlyingActorState.Hastening: UpdateHastening(); break;
+            case FlyingActorState.FullSpeed: UpdateFullSpeed(); break;
+            case FlyingActorState.Chase: UpdateChase(); break;
+            case FlyingActorState.Turn: UpdateTurn(); break;
+            case FlyingActorState.Slowing: UpdateSlowing(); break;
+            case FlyingActorState.Still: UpdateStill(); break;
+            default: throw new ArgumentOutOfRangeException(nameof(State), State, $"Invalid state for {ObjType}.");
+        }
 
         Move();
 
@@ -2150,7 +2156,7 @@ internal abstract class FlyingActor : Actor
         }
     }
 
-    protected void GoToState(int state, int sprints)
+    protected void GoToState(FlyingActorState state, int sprints)
     {
         State = state;
         SprintsLeft = sprints;
@@ -2186,7 +2192,7 @@ internal abstract class FlyingActor : Actor
         if ((CurSpeed & 0xE0) >= Spec.Speed)
         {
             CurSpeed = Spec.Speed;
-            State = 1;
+            State = FlyingActorState.FullSpeed;
         }
     }
 
@@ -2196,7 +2202,7 @@ internal abstract class FlyingActor : Actor
         if ((CurSpeed & 0xE0) <= 0)
         {
             CurSpeed = 0;
-            State = 5;
+            State = FlyingActorState.Still;
             ObjTimer = (byte)(Random.Shared.Next(64) + 64);
         }
     }
@@ -2211,9 +2217,9 @@ internal abstract class FlyingActor : Actor
         var r = Random.Shared.GetByte();
 
         State = r switch {
-            >= 0xB0 => 2,
-            >= 0x20 => 3,
-            _ => 4
+            >= 0xB0 => FlyingActorState.Chase,
+            >= 0x20 => FlyingActorState.Turn,
+            _ => FlyingActorState.Slowing,
         };
         SprintsLeft = 6;
     }
@@ -2230,7 +2236,7 @@ internal abstract class FlyingActor : Actor
         SprintsLeft--;
         if (SprintsLeft == 0)
         {
-            State = 1;
+            State = FlyingActorState.FullSpeed;
             return;
         }
 
@@ -2251,7 +2257,7 @@ internal abstract class FlyingActor : Actor
         SprintsLeft--;
         if (SprintsLeft == 0)
         {
-            State = 1;
+            State = FlyingActorState.FullSpeed;
             return;
         }
 
@@ -2300,7 +2306,7 @@ internal sealed class PeahatActor : StdFlyerActor
             UpdateStateAndMove();
         }
 
-        if (State == 5)
+        if (State == FlyingActorState.Still)
         {
             CheckCollisions();
         }
@@ -2313,6 +2319,11 @@ internal sealed class PeahatActor : StdFlyerActor
 
 internal sealed class FlyingGhiniActor : FlyingActor
 {
+    private enum FlyingGhiniState
+    {
+        FadingIn, Flying
+    }
+
     private static readonly ImmutableArray<AnimationId> _flyingGhiniAnimMap = [
         AnimationId.OW_Ghini_Right,
         AnimationId.OW_Ghini_Left,
@@ -2321,6 +2332,8 @@ internal sealed class FlyingGhiniActor : FlyingActor
     ];
 
     private static readonly FlyerSpec _flyingGhiniSpec = new(_flyingGhiniAnimMap, TileSheet.Npcs, Palette.Blue, 0xA0);
+
+    private FlyingGhiniState _ghiniState;
 
     public FlyingGhiniActor(Game game, int x, int y)
         : base(game, ObjType.FlyingGhini, _flyingGhiniSpec, x, y)
@@ -2332,37 +2345,33 @@ internal sealed class FlyingGhiniActor : FlyingActor
 
     public override void Update()
     {
-        if (State == 0)
+        if (_ghiniState == FlyingGhiniState.FadingIn)
         {
-            if (ObjTimer == 0)
-            {
-                State++;
-            }
+            if (ObjTimer == 0) _ghiniState = FlyingGhiniState.Flying;
+            return;
         }
-        else
-        {
-            if (!Game.World.HasItem(ItemSlot.Clock))
-            {
-                UpdateStateAndMove();
-            }
 
-            CheckPlayerCollision();
+        if (!Game.World.HasItem(ItemSlot.Clock))
+        {
+            UpdateStateAndMove();
         }
+
+        CheckPlayerCollision();
     }
 
     public override void Draw()
     {
-        if (State == 0)
+        if (_ghiniState == FlyingGhiniState.FadingIn)
         {
             if ((ObjTimer & 1) == 1)
             {
                 base.Draw();
             }
+
+            return;
         }
-        else
-        {
-            base.Draw();
-        }
+
+        base.Draw();
     }
 
     protected override void UpdateFullSpeedImpl()
@@ -2370,9 +2379,9 @@ internal sealed class FlyingGhiniActor : FlyingActor
         var r = Random.Shared.GetByte();
         var newState = r switch
         {
-            >= 0xA0 => 2,
-            >= 8 => 3,
-            _ => 4
+            >= 0xA0 => FlyingActorState.Chase,
+            >= 8 => FlyingActorState.Turn,
+            _ => FlyingActorState.Slowing,
         };
 
         GoToState(newState, 6);
@@ -2432,9 +2441,9 @@ internal sealed class KeeseActor : FlyingActor
     {
         var r = Random.Shared.GetByte();
         var newstate = r switch {
-            >= 0xA0 => 2,
-            >= 0x20 => 3,
-            _ => 4,
+            >= 0xA0 => FlyingActorState.Chase,
+            >= 0x20 => FlyingActorState.Turn,
+            _ => FlyingActorState.Slowing,
         };
 
         GoToState(newstate, 6);
@@ -2474,7 +2483,7 @@ internal sealed class MoldormActor : FlyingActor
 
         CurSpeed = 0x80;
 
-        GoToState(2, 1);
+        GoToState(FlyingActorState.Chase, 1);
     }
 
     public static MoldormActor MakeSet(Game game)
@@ -2572,7 +2581,7 @@ internal sealed class MoldormActor : FlyingActor
         if (ObjTimer == 0)
         {
             var r = Random.Shared.GetByte();
-            GoToState(r < 0x40 ? 3 : 2, 8);
+            GoToState(r < 0x40 ? FlyingActorState.Turn : FlyingActorState.Chase, 8);
 
             ObjTimer = 0x10;
 
@@ -2731,7 +2740,7 @@ internal sealed class PatraActor : FlyingActor
     protected override void UpdateFullSpeedImpl()
     {
         var r = Random.Shared.GetByte();
-        GoToState(r >= 0x40 ? 2 : 3, 8);
+        GoToState(r >= 0x40 ? FlyingActorState.Chase : FlyingActorState.Turn, 8);
     }
 }
 
