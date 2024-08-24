@@ -79,6 +79,18 @@ internal sealed class DebugInfoConfiguration
     }
 }
 
+internal sealed class VideoConfiguration
+{
+    public int Width { get; set; }
+    public int Height { get; set; }
+
+    public static VideoConfiguration MakeDefaults() => new();
+
+    public void Initialize()
+    {
+    }
+}
+
 internal sealed class GameConfiguration : IInitializable
 {
     public static GameConfiguration MakeDefaults()
@@ -92,6 +104,7 @@ internal sealed class GameConfiguration : IInitializable
     public InputConfiguration Input { get; set; }
     public GameEnhancements Enhancements { get; set; }
     public AudioConfiguration Audio { get; set; }
+    public VideoConfiguration Video { get; set; }
     public DebugInfoConfiguration DebugInfo { get; set; }
 
     public void Save()
@@ -104,10 +117,12 @@ internal sealed class GameConfiguration : IInitializable
         Input ??= InputConfiguration.MakeDefaults();
         Enhancements ??= GameEnhancements.MakeDefaults();
         Audio ??= AudioConfiguration.MakeDefaults();
+        Video ??= VideoConfiguration.MakeDefaults();
         DebugInfo ??= DebugInfoConfiguration.MakeDefaults();
 
         Enhancements.Initialize();
         Audio.Initialize();
+        Video.Initialize();
         DebugInfo.Initialize();
     }
 }

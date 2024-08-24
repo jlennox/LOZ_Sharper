@@ -43,7 +43,7 @@ internal static class Graphics
     // SystemPalette is intentionally a referenced based compare for speed.
     private readonly record struct TileCache(TileSheet? Slot, SKBitmap? Bitmap, int[] SystemPalette, int X, int Y, Palette Palette, DrawingFlags Flags)
     {
-        private static readonly Dictionary<TileCache, SKBitmap> _tileCache = new(200);
+        private static readonly Dictionary<TileCache, SKImage> _tileCache = new(200);
         private static readonly Vector256<int> _zeroCheck = Vector256.Create(0);
         private static readonly Vector256<int> _oneCheck = Vector256.Create(0x01010101);
         private static readonly Vector256<int> _twoCheck = Vector256.Create(0x02020202);
@@ -56,9 +56,9 @@ internal static class Graphics
             _tileCache.Clear();
         }
 
-        public unsafe SKBitmap GetValue(int width, int height)
+        public unsafe SKImage GetValue(int width, int height)
         {
-            if (_tileCache.TryGetValue(this, out var tile)) return tile;
+            if (_tileCache.TryGetValue(this, out var image)) return image;
 
             var sheet = Bitmap ?? _tileSheets[(int)Slot] ?? throw new Exception();
 
@@ -66,7 +66,7 @@ internal static class Graphics
             var paletteY = (int)Palette * _paletteBmpWidth;
             var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..];
 
-            tile = sheet.Extract(X, Y, width, height, null, Flags);
+            var tile = sheet.Extract(X, Y, width, height, null, Flags);
 
             var color0 = makeTransparent ? SKColors.Transparent : paletteSpan[0];
             var color1 = paletteSpan[1];
@@ -112,7 +112,7 @@ internal static class Graphics
                         Avx.Store((int*)px, blended);
                     }
 
-                    return _tileCache[this] = tile;
+                    return _tileCache[this] = SKImage.FromBitmap(tile);
                 }
 
                 var paletteUnrolled = stackalloc SKColor[] { color0, color1, color2, color3 };
@@ -129,7 +129,7 @@ internal static class Graphics
                     px[7] = paletteUnrolled[px[7].Blue];
                 }
 
-                return _tileCache[this] = tile;
+                return _tileCache[this] = SKImage.FromBitmap(tile);
             }
 
             var palette = stackalloc SKColor[] { color0, color1, color2, color3 };
@@ -142,7 +142,7 @@ internal static class Graphics
                 }
             }
 
-            return _tileCache[this] = tile;
+            return _tileCache[this] = SKImage.FromBitmap(tile);
         }
     }
 
@@ -179,7 +179,7 @@ internal static class Graphics
         _animSpecs[(int)sheet] = TableResource<SpriteAnimationStruct>.Load(animationFile);
     }
 
-    public static SKBitmap PaletteTileSheet(TileSheet sheet, Palette palette)
+    public static SKImage PaletteTileSheet(TileSheet sheet, Palette palette)
     {
         var image = _tileSheets[(int)sheet];
         var cacheKey = new TileCache(null, image, _activeSystemPalette, 0, 0, palette, DrawingFlags.None);
@@ -346,7 +346,7 @@ internal static class Graphics
 
         var cacheKey = new TileCache(null, bitmap, _activeSystemPalette, srcX, srcY, palette, flags);
         var tile = cacheKey.GetValue(width, height);
-        _surface.Canvas.DrawBitmap(tile, destRect);
+        _surface.Canvas.DrawImage(tile, destRect);
     }
 
     public static void DrawSpriteTile(
@@ -383,7 +383,7 @@ internal static class Graphics
         var tile = cacheKey.GetValue(width, height);
 
         var destRect = new SKRect(destX, destY, destX + width, destY + height);
-        _surface.Canvas.DrawBitmap(tile, destRect);
+        _surface.Canvas.DrawImage(tile, destRect);
     }
 
     public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)
@@ -468,10 +468,10 @@ internal static class Graphics
     {
         Asset.Initialize();
 
-        var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
-        LoadSystemPalette(sysPal);
-
-        LoadTileSheet(TileSheet.PlayerAndItems, new Asset("overworldTilesDebug.png"));
-        PaletteTileSheet(TileSheet.PlayerAndItems, Palette.LevelFgPalette).SavePng(@"C:\users\joe\desktop\delete\_z1.png");
+        // var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
+        // LoadSystemPalette(sysPal);
+        //
+        // LoadTileSheet(TileSheet.PlayerAndItems, new Asset("overworldTilesDebug.png"));
+        // PaletteTileSheet(TileSheet.PlayerAndItems, Palette.LevelFgPalette).SavePng(@"C:\users\joe\desktop\delete\_z1.png");
     }
 }
