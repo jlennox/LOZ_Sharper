@@ -31,7 +31,7 @@ internal abstract class WalkerActor : Actor
     protected int ShootTimer;
     protected bool WantToShoot;
 
-    protected virtual bool HasProjectile => false;
+    protected virtual bool HasProjectile => Spec.ShotType != ObjType.None;
 
     protected WalkerActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
         : base(game, type, x, y)
