@@ -16,8 +16,10 @@ internal interface IBlockableProjectile
 
 internal enum ProjectileState { Flying, Spark, Bounce, Spreading }
 
-internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
+internal abstract class Projectile : Actor, IProjectile
 {
+    private static readonly DebugLog _log = new(nameof(Projectile));
+
     public ProjectileState State = ProjectileState.Flying;
 
     public bool IsPlayerWeapon => Game.World.CurObjectSlot > ObjectSlot.Buffer;
@@ -33,12 +35,17 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
         }
     }
 
-    public void OnDelete()
+    public override bool Delete()
     {
-        if (!IsPlayerWeapon)
+        if (base.Delete())
         {
-            --Game.World.ActiveShots;
+            if (!IsPlayerWeapon)
+            {
+                --Game.World.ActiveShots;
+            }
+            return true;
         }
+        return false;
     }
 
     public virtual bool IsInShotStartState() => State == ProjectileState.Flying;
@@ -60,7 +67,7 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
             var collision = CheckPlayerCollision();
             if (collision.Collides)
             {
-                IsDeleted = true;
+                Delete();
             }
             else if (collision.ShotCollides)
             {
@@ -84,7 +91,7 @@ internal abstract class Projectile : Actor, IProjectile, IDeleteEvent
 
         if (TileOffset >= 0x20)
         {
-            IsDeleted = true;
+            Delete();
         }
     }
 }
@@ -127,7 +134,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
             }
             else
             {
-                IsDeleted = true;
+                Delete();
             }
 
             return;
@@ -142,7 +149,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
         if (_distance == 21)
         {
             // The original game still drew in this frame, but we won't.
-            IsDeleted = true;
+            Delete();
             return;
         }
         _distance++;
@@ -215,14 +222,14 @@ internal sealed class FlyingRockProjectile : Projectile
         {
             if (Game.World.CollidesWithTileMoving(X, Y, Facing, false))
             {
-                IsDeleted = true;
+                Delete();
                 return;
             }
         }
 
         if (Direction.None == CheckWorldMargin(Facing))
         {
-            IsDeleted = true;
+            Delete();
             return;
         }
 
@@ -339,7 +346,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
             if (CheckWorldMargin(Facing, out var reason) == Direction.None)
             {
                 _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) ObjTimer == 0, IsDeleted = true {reason}");
-                IsDeleted = true;
+                Delete();
                 return;
             }
 
@@ -355,7 +362,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         if (collision.Collides || collision.ShotCollides)
         {
             _traceLog.Write($"Update() {CurObjectSlot} collision.Collides, IsDeleted = true");
-            IsDeleted = true;
+            Delete();
         }
     }
 
@@ -368,12 +375,14 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
     }
 }
 
-internal enum BoomerangState { Unknown1, Unknown2, Unknown3, Unknown4, Unknown5 }
+internal enum BoomerangState { Unknown0, Unknown1, Unknown2, Unknown3, Unknown4, Unknown5 }
 
-internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
+internal sealed class BoomerangProjectile : Actor, IProjectile
 {
     public const int YellowsDistance = 0x31;
     public const int RedsDistance = 0xFF;
+
+    private static readonly DebugLog _log = new(nameof(BoomerangProjectile));
 
     private readonly int _startX;
     private readonly int _startY;
@@ -414,23 +423,28 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
         }
     }
 
+    public override bool Delete()
+    {
+        if (base.Delete())
+        {
+            if (!IsPlayerWeapon())
+            {
+                --Game.World.ActiveShots;
+            }
+            return true;
+        }
+        return false;
+    }
+
     // JOE: TODO: This is a global function in the original code and feels a bit off being repeated a few times.
     public bool IsPlayerWeapon()
     {
         return Game.World.CurObjSlot > (int)ObjectSlot.Buffer;
     }
 
-    public void OnDelete()
-    {
-        if (!IsPlayerWeapon())
-        {
-            --Game.World.ActiveShots;
-        }
-    }
-
     public bool IsInShotStartState()
     {
-        return _state == BoomerangState.Unknown2;
+        return _state == BoomerangState.Unknown1;
     }
 
     public void SetState(BoomerangState state)
@@ -517,13 +531,13 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
     {
         if (_owner == null || _owner.Decoration != 0)
         {
-            IsDeleted = true;
+            Delete();
             return;
         }
 
         if (_owner is not IThrower thrower)
         {
-            IsDeleted = true;
+            Delete();
             return;
         }
 
@@ -533,7 +547,7 @@ internal sealed class BoomerangProjectile : Actor, IDeleteEvent, IProjectile
         if (Math.Abs(xDist) < 9 && Math.Abs(yDist) < 9)
         {
             thrower.Catch();
-            IsDeleted = true;
+            Delete();
             return;
         }
 
@@ -669,7 +683,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
                 AddFire();
             }
 
-            IsDeleted = true;
+            Delete();
             return;
         }
 
@@ -765,7 +779,7 @@ internal sealed class ArrowProjectile : Projectile
         _timer--;
         if (_timer == 0)
         {
-            IsDeleted = true;
+            Delete();
         }
     }
 

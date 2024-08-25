@@ -933,7 +933,7 @@ internal sealed class RupeeStashActor : Actor
         {
             Game.World.PostRupeeWin(1);
             Game.World.IncrementRoomKillCount();
-            IsDeleted = true;
+            Delete();
         }
     }
 
@@ -978,7 +978,7 @@ internal sealed class FairyActor : FlyingActor
 
         if (_timer == 0)
         {
-            IsDeleted = true;
+            Delete();
             return;
         }
 
@@ -992,7 +992,7 @@ internal sealed class FairyActor : FlyingActor
             if (obj != null && !obj.IsDeleted && TouchesObject(obj))
             {
                 Game.World.AddItem(ItemId.Fairy);
-                IsDeleted = true;
+                Delete();
                 break;
             }
         }
@@ -1468,7 +1468,7 @@ internal sealed class ZolActor : WandererWalkerActor
         ReadOnlySpan<Direction> sHDirs = [Direction.Right, Direction.Left];
         ReadOnlySpan<Direction> sVDirs = [Direction.Down, Direction.Up];
 
-        IsDeleted = true;
+        Delete();
         Game.World.RoomObjCount++;
 
         var orthoDirs = Facing.IsHorizontal() ? sVDirs : sHDirs;
@@ -1613,7 +1613,7 @@ internal sealed class VireActor : WandererWalkerActor
 
     private void UpdateSplit()
     {
-        IsDeleted = true;
+        Delete();
         Game.World.RoomObjCount++;
 
         for (var i = 0; i < 2; i++)
@@ -2933,7 +2933,7 @@ internal readonly record struct JumperSpec(
     int Speed,
     ImmutableArray<byte> AccelMap);
 
-internal abstract class JumperActor : Actor, IDeleteEvent
+internal abstract class JumperActor : Actor
 {
     public static readonly ImmutableArray<int> JumperStartDirs = [1, 2, 5, 0xA];
     private static readonly ImmutableArray<int> _targetYOffset = [0, 0, 0, 0, 0, 0x20, 0x20, 0, 0, -0x20, -0x20];
@@ -2968,12 +2968,17 @@ internal abstract class JumperActor : Actor, IDeleteEvent
         }
     }
 
-    public void OnDelete()
+    public override bool Delete()
     {
-        if (this is BoulderActor)
+        if (base.Delete())
         {
-            BouldersActor.Count--;
+            if (this is BoulderActor)
+            {
+                BouldersActor.Count--;
+            }
+            return true;
         }
+        return false;
     }
 
     public override void Update()
@@ -2996,7 +3001,7 @@ internal abstract class JumperActor : Actor, IDeleteEvent
             CheckPlayerCollision();
             if (Y >= World.WorldLimitBottom)
             {
-                IsDeleted = true;
+                Delete();
             }
         }
         else
@@ -4559,7 +4564,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
         _state++;
         _bloatedSubstate = 0;
-        bomb.IsDeleted = true;
+        bomb.Delete();
     }
 
 
@@ -4655,7 +4660,7 @@ internal sealed class DodongoActor : WandererWalkerActor
                     var bomb = Game.World.GetObject<BombActor>(ObjectSlot.FirstBomb);
                     if (bomb != null)
                     {
-                        bomb.IsDeleted = true;
+                        bomb.Delete();
                     }
                     _bombHits++;
                 }
@@ -5157,7 +5162,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
             }
             Game.Sound.PlayEffect(SoundEffect.BossHit);
             Game.Sound.StopEffect(StopEffect.AmbientInstance);
-            IsDeleted = true;
+            Delete();
         }
     }
 }

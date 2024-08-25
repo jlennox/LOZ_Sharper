@@ -88,6 +88,7 @@ internal partial class World
             if (obj != null)
             {
                 _traceLog.Write($"ClearDeadObjectQueue() {obj.GetType().Name} at {_objectsToDeleteCount}");
+                obj.Delete();
             }
             obj = null;
         }
@@ -99,16 +100,17 @@ internal partial class World
     {
         Debug.Assert(slot >= 0 && slot < ObjectSlot.MaxObjects);
 
-        if (_objects[(int)slot] != null)
+        ref var objSlot = ref _objects[(int)slot];
+        if (objSlot != null)
         {
             if (_objectsToDeleteCount == (int)ObjectSlot.MaxObjects)
             {
                 ClearDeadObjectQueue();
             }
-            _objectsToDelete[_objectsToDeleteCount] = _objects[(int)slot];
+            _objectsToDelete[_objectsToDeleteCount] = objSlot;
             _objectsToDeleteCount++;
         }
-        _objects[(int)slot] = obj;
+        objSlot = obj;
     }
 
     private void SetBlockObj(Actor block)
@@ -136,10 +138,10 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            var obj = _objects[i];
+            ref var obj = ref _objects[i];
             if (obj != null && obj.IsDeleted)
             {
-                _objects[i] = null;
+                obj = null;
             }
         }
 

@@ -143,4 +143,10 @@ internal sealed class DebugLog
         if (_writedebug) Debug.WriteLine(log);
         if (_writefile) _writer.Write(log);
     }
+
+    public void Error(string s)
+    {
+        // JOE: TODO
+        Write($"ERROR: 🚨🚨 {s}");
+    }
 }

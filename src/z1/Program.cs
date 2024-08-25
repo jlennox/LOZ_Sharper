@@ -25,6 +25,7 @@ namespace z1;
 //   - And stopwatch doesn't stop them from appearing.
 // * Do second quest skeletons fire swords?
 // * Add reduced flashing.
+// * Fix how things with TargetX/TargetY can overshoot their destinations and non-terminate. Seems to happen in dungeons when you Continue.
 
 // Minor:
 // * Vire keese seem to spawn too close together.

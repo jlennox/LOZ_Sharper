@@ -176,7 +176,7 @@ internal abstract class BlockObjBase : Actor, IBlocksPlayer
             Game.World.OnPushedBlock();
             Game.World.SetMobXY(X, Y, BlockMob);
             Game.World.SetMobXY(OrigX, OrigY, FloorMob2);
-            IsDeleted = true;
+            Delete();
         }
     }
 }
@@ -275,7 +275,7 @@ internal sealed class FireActor : Actor
         {
             if (ObjTimer == 0)
             {
-                IsDeleted = true;
+                Delete();
                 return;
             }
         }
@@ -337,7 +337,7 @@ internal sealed class TreeActor : Actor
             Game.World.SetMobXY(X, Y, BlockObjType.MobStairs);
             Game.World.TakeSecret();
             Game.Sound.PlayEffect(SoundEffect.Secret);
-            IsDeleted = true;
+            Delete();
             return;
         }
     }
@@ -396,7 +396,7 @@ internal sealed class BombActor : Actor
                     break;
 
                 case > BombState.Fading:
-                    IsDeleted = true;
+                    Delete();
                     ObjTimer = 0;
                     return;
             }
@@ -457,7 +457,7 @@ internal sealed class RockWallActor : Actor
             Game.World.SetMobXY(X, Y, BlockObjType.MobCave);
             Game.World.TakeSecret();
             Game.Sound.PlayEffect(SoundEffect.Secret);
-            IsDeleted = true;
+            Delete();
             return;
         }
     }
@@ -589,7 +589,7 @@ internal sealed class PlayerSwordActor : Actor
         {
             if (State == LastSwordState)
             {
-                IsDeleted = true;
+                Delete();
                 return;
             }
             State++;
@@ -709,7 +709,7 @@ internal sealed class ItemObjActor : Actor
             _timer--;
             if (_timer == 0)
             {
-                IsDeleted = true;
+                Delete();
                 return;
             }
 
@@ -745,7 +745,7 @@ internal sealed class ItemObjActor : Actor
                 Game.World.MarkItem();
             }
 
-            IsDeleted = true;
+            Delete();
 
             if (_itemId == ItemId.PowerTriforce)
             {
@@ -833,13 +833,13 @@ internal sealed class WhirlwindActor : Actor
                 player.SetState(PlayerState.Idle);
                 player.Y = Y;
                 Game.World.WhirlwindTeleporting = 0;
-                IsDeleted = true;
+                Delete();
             }
         }
 
         if (X >= 0xF0)
         {
-            IsDeleted = true;
+            Delete();
             if (Game.World.WhirlwindTeleporting != 0)
             {
                 Game.World.LeaveRoom(Direction.Right, _prevRoomId);

@@ -946,7 +946,7 @@ internal sealed unsafe partial class World
             if (roomItem != null && x == roomItem.Value.x && y == roomItem.Value.y)
             {
                 var itemObj = new ItemObjActor(Game, roomItem.Value.AsItemId, true, roomItem.Value.x, roomItem.Value.y);
-                _objects[(int)ObjectSlot.Item] = itemObj;
+                SetOnlyObject(ObjectSlot.Item, itemObj);
             }
         }
     }
@@ -1610,7 +1610,7 @@ internal sealed unsafe partial class World
                 if (roomItem != null)
                 {
                     var itemObj = new ItemObjActor(Game, roomItem.Value.AsItemId, true, roomItem.Value.x, roomItem.Value.y);
-                    _objects[(int)ObjectSlot.Item] = itemObj;
+                    SetOnlyObject(ObjectSlot.Item, itemObj);
                 }
             }
         }
@@ -1648,7 +1648,7 @@ internal sealed unsafe partial class World
             }
 
             var itemObj = new ItemObjActor(Game, itemId, true, pos.X, pos.Y);
-            _objects[(int)ObjectSlot.Item] = itemObj;
+            SetOnlyObject(ObjectSlot.Item, itemObj);
 
             if (uwRoomAttrs.GetSecret() is Secret.FoesItem or Secret.LastBoss)
             {
@@ -1923,6 +1923,7 @@ internal sealed unsafe partial class World
         EnablePersonFireballs = false;
         _ghostCount = 0;
         _armosCount = 0;
+        ActiveShots = 0;
 
         _state.Play.Substate = PlayState.Substates.Active;
         _state.Play.AnimatingRoomColors = false;
@@ -2472,6 +2473,7 @@ internal sealed unsafe partial class World
         _tempShutterRoomId = 0;
         _tempShutters = false;
         WhirlwindTeleporting = 0;
+        ActiveShots = 0;
 
         _roomKillCount = 0;
         _roomAllDead = false;
@@ -2849,7 +2851,7 @@ internal sealed unsafe partial class World
                 else if (FindSpawnPos(type, dirSpots, spotsLen, ref x, ref y))
                 {
                     var obj = Actor.FromType(type, Game, x, y);
-                    _objects[(int)slot] = obj;
+                    SetOnlyObject(slot, obj);
                 }
             }
         }
@@ -3067,9 +3069,9 @@ internal sealed unsafe partial class World
         if (Math.Abs(Game.Link.X - x) >= 0x22
             || Math.Abs(Game.Link.Y - y) >= 0x22)
         {
-            // What?
+            // JOE: TODO: What?
             var obj = Actor.FromType((ObjType)_placeholderTypes[CurObjSlot], Game, x, y - 3);
-            _objects[CurObjSlot] = obj;
+            SetOnlyObject(CurObjectSlot, obj);
             _placeholderTypes[CurObjSlot] = 0;
             obj.Decoration = 0;
         }
@@ -3620,7 +3622,8 @@ internal sealed unsafe partial class World
 
     private void UpdateEnter_Walk()
     {
-        if (Game.Link.X == _state.Enter.TargetX && Game.Link.Y == _state.Enter.TargetY)
+        if (Game.Link.X == _state.Enter.TargetX
+            && Game.Link.Y == _state.Enter.TargetY)
         {
             _state.Enter.GotoPlay = true;
         }
@@ -3632,7 +3635,8 @@ internal sealed unsafe partial class World
 
     private void UpdateEnter_WalkCave()
     {
-        if (Game.Link.X == _state.Enter.TargetX && Game.Link.Y == _state.Enter.TargetY)
+        if (Game.Link.X == _state.Enter.TargetX
+            && Game.Link.Y == _state.Enter.TargetY)
         {
             _state.Enter.GotoPlay = true;
         }
@@ -4118,7 +4122,8 @@ internal sealed unsafe partial class World
     {
         _state.PlayCellar.PlayerPriority = SpritePriority.AboveBg;
 
-        if (Game.Link.Y == _state.PlayCellar.TargetY)
+        _traceLog.Write($"UpdatePlayCellar_Walk: Game.Link.Y >= _state.PlayCellar.TargetY {Game.Link.Y} >= {_state.PlayCellar.TargetY}");
+        if (Game.Link.Y >= _state.PlayCellar.TargetY)
         {
             FromUnderground = 1;
             GotoPlay(RoomType.Cellar);
@@ -4336,7 +4341,8 @@ internal sealed unsafe partial class World
 
     private void UpdatePlayCave_Walk()
     {
-        if (Game.Link.Y == _state.PlayCave.TargetY)
+        _traceLog.Write($"UpdatePlayCave_Walk: Game.Link.Y <= _state.PlayCave.TargetY {Game.Link.Y} <= {_state.PlayCave.TargetY}");
+        if (Game.Link.Y <= _state.PlayCave.TargetY)
         {
             FromUnderground = 1;
             GotoPlay(RoomType.Cave);

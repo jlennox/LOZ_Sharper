@@ -71,6 +71,7 @@ internal sealed class DebugInfoConfiguration
 {
     public bool Enabled { get; set; } = true;
     public bool RoomId { get; set; } = true;
+    public bool ActiveShots { get; set; } = true;
 
     public static DebugInfoConfiguration MakeDefaults() => new();
 

@@ -17,7 +17,7 @@ internal sealed class FoodActor : Actor
             _periods--;
             if (_periods == 0)
             {
-                IsDeleted = true;
+                Delete();
                 return;
             }
             ObjTimer = 0xFF;

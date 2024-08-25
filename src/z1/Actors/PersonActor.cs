@@ -82,18 +82,18 @@ internal sealed class PersonActor : Actor
             switch (_personType)
             {
                 case PersonType.DoorRepair:
-                    IsDeleted = true;
+                    Delete();
                     return;
 
                 case PersonType.MoneyOrLife:
                     Game.World.OpenShutters();
                     Game.World.SetPersonWallY(0);
-                    IsDeleted = true;
+                    Delete();
                     return;
 
                 case PersonType.Grumble:
                     Game.World.SetPersonWallY(0);
-                    IsDeleted = true;
+                    Delete();
                     return;
             }
         }
@@ -104,7 +104,7 @@ internal sealed class PersonActor : Actor
             {
                 Game.World.OpenShutters();
                 Game.World.SetPersonWallY(0);
-                IsDeleted = true;
+                Delete();
                 return;
             }
         }
@@ -113,7 +113,7 @@ internal sealed class PersonActor : Actor
         {
             if (Game.World.GotItem())
             {
-                IsDeleted = true;
+                Delete();
                 return;
             }
         }
@@ -453,7 +453,7 @@ internal sealed class PersonActor : Actor
     {
         if (ObjTimer != 0) return;
 
-        IsDeleted = true;
+        Delete();
 
         if (ObjType == ObjType.Grumble)
         {
@@ -464,7 +464,7 @@ internal sealed class PersonActor : Actor
             var food = Game.World.GetObject(ObjectSlot.Food);
             if (food is FoodActor)
             {
-                food.IsDeleted = true;
+                food.Delete();
             }
         }
     }

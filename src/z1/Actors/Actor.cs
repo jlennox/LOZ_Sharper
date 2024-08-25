@@ -18,11 +18,6 @@ internal enum DamageType
     Fire = 0x20,
 }
 
-internal interface IDeleteEvent
-{
-    void OnDelete();
-}
-
 internal abstract class Actor
 {
     private static readonly DebugLog _log = new(nameof(Actor));
@@ -45,28 +40,7 @@ internal abstract class Actor
     public int X { get; set; }
     public int Y { get; set; }
 
-    public bool IsDeleted
-    {
-        get => _isDeleted;
-        set
-        {
-            _isDeleted = value;
-
-            if (value)
-            {
-                _traceLog.Write($"Deleted {GetType().Name} at {X:X2},{Y:X2} ({CurObjectSlot})");
-            }
-
-            // JOE: TODO: Arg. Don't do this.
-            // I don't like properties that have side effects but here we are :)
-            if (value && this is IDeleteEvent deleteEvent && !_ranDeletedEvent)
-            {
-                deleteEvent.OnDelete();
-                // JOE: _Presumably_ we only want these to run once.
-                _ranDeletedEvent = true;
-            }
-        }
-    }
+    public bool IsDeleted => _isDeleted;
 
     private bool _isDeleted;
     private bool _ranDeletedEvent;
@@ -123,6 +97,11 @@ internal abstract class Actor
         HP = (byte)game.World.GetObjectMaxHP(ObjType);
     }
 
+    ~Actor()
+    {
+        _log.Error($"Finalizer for {GetType().Name}/{ObjType} called.");
+    }
+
     public abstract void Update();
     public abstract void Draw();
 
@@ -136,6 +115,20 @@ internal abstract class Actor
     public virtual bool IsReoccuring => true;
     public virtual bool IsUnderworldPerson => true;
     public virtual bool IsAttrackedToMeat => false;
+
+    // Returns true if the child's delete method should run.
+    public virtual bool Delete()
+    {
+        if (!_ranDeletedEvent)
+        {
+            GC.SuppressFinalize(this);
+            _ranDeletedEvent = true;
+            _isDeleted = true;
+            return true;
+        }
+
+        return false;
+    }
 
     public static Actor FromType(ObjType type, Game game, int x, int y)
     {
@@ -373,7 +366,7 @@ internal abstract class Actor
             }
             else if (Decoration == 0x14)
             {
-                IsDeleted = true;
+                Delete();
                 return true;
             }
         }
@@ -484,7 +477,7 @@ internal abstract class Actor
 
                 case MagicWaveProjectile magicWave:
                     magicWave.AddFire();
-                    magicWave.IsDeleted = true;
+                    magicWave.Delete();
                     break;
             }
         }
@@ -1379,6 +1372,7 @@ internal abstract class Actor
         var newActiveShots = Game.World.ActiveShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)
         {
+            shot.Delete();
             return ObjectSlot.NoneFound;
         }
 
