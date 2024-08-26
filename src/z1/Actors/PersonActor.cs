@@ -523,7 +523,7 @@ internal sealed class PersonActor : Actor
                 }
 
                 Game.World.LeaveCellarByShortcut(rooms[index]);
-                break;
+                return;
             }
         }
 
