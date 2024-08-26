@@ -1358,8 +1358,7 @@ internal abstract class Actor
 
     protected ObjectSlot Shoot(ObjType shotType, int x, int y, Direction facing)
     {
-        var slot = Game.World.FindEmptyMonsterSlot();
-        if (slot < 0) return ObjectSlot.NoneFound;
+        if (!Game.World.TryFindEmptyMonsterSlot(out var slot)) return ObjectSlot.NoneFound;
 
         var thisSlot = Game.World.CurObjectSlot;
         var oldActiveShots = Game.World.ActiveShots;

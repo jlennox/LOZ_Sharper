@@ -25,10 +25,10 @@ namespace z1;
 //   - And stopwatch doesn't stop them from appearing.
 // * Do second quest skeletons fire swords?
 // * Add reduced flashing.
-// * Fix how things with TargetX/TargetY can overshoot their destinations and non-terminate. Seems to happen in dungeons when you Continue.
+// * The 6 spike trap room in dungeon 6 is missing the top left one.
 
 // Minor:
-// * Vire keese seem to spawn too close together.
+// * Vire keese seem to spawn too close together. -- but the assembly seems to check out.
 // * Dungeon shutters draw closed when moving between rooms.
 // * Dungeon walls without doors draw over swords/bombs.
 // * Holding the button spams the sword.
@@ -66,6 +66,7 @@ namespace z1;
 // * Reimplement mic kill of pols voice
 // * Make an abstracted selectable menu. It takes in X/Y's, figures out what left/right/up/down does, perhaps has an onselect callback.
 //   Perhaps make it use imgui so we get free mouse support?
+// * Make magic sword clink if wall is bombable?
 
 // Monsters:
 // * Manhandla:              W8, u1

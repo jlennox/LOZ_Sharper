@@ -3622,8 +3622,7 @@ internal sealed unsafe partial class World
 
     private void UpdateEnter_Walk()
     {
-        if (Game.Link.X == _state.Enter.TargetX
-            && Game.Link.Y == _state.Enter.TargetY)
+        if (_state.Enter.HasReachedTarget(Game.Link))
         {
             _state.Enter.GotoPlay = true;
         }
@@ -3635,8 +3634,7 @@ internal sealed unsafe partial class World
 
     private void UpdateEnter_WalkCave()
     {
-        if (Game.Link.X == _state.Enter.TargetX
-            && Game.Link.Y == _state.Enter.TargetY)
+        if (_state.Enter.HasReachedTarget(Game.Link))
         {
             _state.Enter.GotoPlay = true;
         }
@@ -3990,8 +3988,7 @@ internal sealed unsafe partial class World
                 break;
 
             case StairsState.Substates.Walk when IsOverworld():
-            case StairsState.Substates.WalkCave when Game.Link.X == _state.Stairs.TargetX
-                && Game.Link.Y == _state.Stairs.TargetY:
+            case StairsState.Substates.WalkCave when _state.Stairs.HasReachedTarget(Game.Link):
                 var owRoomAttrs = CurrentOWRoomAttrs;
                 var cave = owRoomAttrs.GetCaveId();
                 _log.Write($"Cave: {cave}");

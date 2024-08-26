@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using z1.Actors;
 
 namespace z1;
 
@@ -151,6 +152,8 @@ internal struct EnterState
     public int PlayerFraction;
     public SpritePriority PlayerPriority;
     public bool GotoPlay;
+
+    public bool HasReachedTarget(Link link) => link.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
 }
 
 [DebuggerDisplay("{Substate}")]
@@ -273,6 +276,8 @@ internal struct StairsState
     public int PlayerFraction;
     public TileBehavior TileBehavior;
     public SpritePriority PlayerPriority;
+
+    public bool HasReachedTarget(Link link) => link.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
 }
 
 [DebuggerDisplay("{Substate}")]

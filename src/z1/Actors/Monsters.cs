@@ -1618,8 +1618,7 @@ internal sealed class VireActor : WandererWalkerActor
 
         for (var i = 0; i < 2; i++)
         {
-            var slot = Game.World.FindEmptyMonsterSlot();
-            if (slot < 0) break;
+            if (!Game.World.TryFindEmptyMonsterSlot(out var slot)) break;
 
             var keese = KeeseActor.Make(Game, ActorColor.Red, X, Y);
             Game.World.SetObject(slot, keese);
