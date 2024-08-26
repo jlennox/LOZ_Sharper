@@ -261,8 +261,7 @@ internal sealed unsafe partial class World
     private Point _fakePlayerPos;
 
     private readonly Actor?[] _objects = new Actor[(int)ObjectSlot.MaxObjects];
-    private readonly Actor?[] _objectsToDelete = new Actor[(int)ObjectSlot.MaxObjects];
-    private int _objectsToDeleteCount;
+    private readonly Queue<Actor> _objectsToDelete = new();
     private readonly int[] _objectTimers = new int[(int)ObjectSlot.MaxObjects];
     private int _longTimer;
     private readonly int[] _stunTimers = new int[(int)ObjectSlot.MaxObjects];

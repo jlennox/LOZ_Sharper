@@ -25,7 +25,6 @@ namespace z1;
 //   - And stopwatch doesn't stop them from appearing.
 // * Do second quest skeletons fire swords?
 // * Add reduced flashing.
-// * The 6 spike trap room in dungeon 6 is missing the top left one.
 
 // Minor:
 // * Vire keese seem to spawn too close together. -- but the assembly seems to check out.

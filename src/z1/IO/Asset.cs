@@ -60,6 +60,13 @@ internal readonly struct Asset
         return bitmap;
     }
 
+    public SKImage DecodeSKImageTileData()
+    {
+        var bitmap = DecodeSKBitmap(SKAlphaType.Unpremul);
+        Graphics.PreprocessPalette(bitmap);
+        return SKImage.FromBitmap(bitmap);
+    }
+
     public SKBitmap DecodeSKBitmap(SKAlphaType alphaType)
     {
         using var original = SKBitmap.Decode(_assetData);

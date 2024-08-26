@@ -82,35 +82,33 @@ internal partial class World
 
     private void ClearDeadObjectQueue()
     {
-        for (var i = 0; i < _objectsToDeleteCount; i++)
+        while (_objectsToDelete.Count > 0)
         {
-            ref var obj = ref _objectsToDelete[i];
-            if (obj != null)
-            {
-                _traceLog.Write($"ClearDeadObjectQueue() {obj.GetType().Name} at {_objectsToDeleteCount}");
-                obj.Delete();
-            }
-            obj = null;
+            var obj = _objectsToDelete.Dequeue();
+            _traceLog.Write($"ClearDeadObjectQueue() {obj.GetType().Name} at {_objectsToDelete.Count}");
+            obj.Delete();
         }
-
-        _objectsToDeleteCount = 0;
     }
 
     private void SetOnlyObject(ObjectSlot slot, Actor? obj)
     {
         Debug.Assert(slot >= 0 && slot < ObjectSlot.MaxObjects);
 
-        ref var objSlot = ref _objects[(int)slot];
-        if (objSlot != null)
+        var oldObject = _objects[(int)slot];
+
+        // It's the same object when the object creation also stores it in the objects list.
+        // eg, traps place themselves into the object list, then this sets the first one into the object list.
+        if (oldObject == obj) return;
+
+        if (oldObject != null)
         {
-            if (_objectsToDeleteCount == (int)ObjectSlot.MaxObjects)
+            if (_objectsToDelete.Count >= (int)ObjectSlot.MaxObjects)
             {
                 ClearDeadObjectQueue();
             }
-            _objectsToDelete[_objectsToDeleteCount] = objSlot;
-            _objectsToDeleteCount++;
+            _objectsToDelete.Enqueue(oldObject);
         }
-        objSlot = obj;
+        _objects[(int)slot] = obj;
     }
 
     private void SetBlockObj(Actor block)
@@ -122,6 +120,7 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
+            _objects[i]?.Delete();
             _objects[i] = null;
         }
 
@@ -160,11 +159,7 @@ internal partial class World
     {
         for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
         {
-            if (_objectTimers[i] != 0)
-            {
-                _objectTimers[i]--;
-            }
-
+            if (_objectTimers[i] != 0) _objectTimers[i]--;
             _objects[i]?.DecrementObjectTimer();
         }
 
