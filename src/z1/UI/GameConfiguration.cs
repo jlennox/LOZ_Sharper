@@ -36,6 +36,7 @@ internal sealed class GameEnhancements
     public bool RedCandleLightsDarkRooms { get; set; }
     public bool ImprovedMenus { get; set; }
     public bool EasySaveMenu { get; set; }
+    public bool ReduceFlashing { get; set; }
     public int TextSpeed { get; set; } = 1; // 1 is normal, 5 is max speed.
 
     public static GameEnhancements MakeDefaults() => new()

@@ -149,10 +149,7 @@ internal partial class World
 
     private void InitObjectTimers()
     {
-        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
-        {
-            _objectTimers[i] = 0;
-        }
+        Array.Clear(_objectTimers);
     }
 
     private void DecrementObjectTimers()
@@ -239,6 +236,8 @@ internal partial class World
 
     private void SetFlashPalette()
     {
+        if (Game.Enhancements.ReduceFlashing) return;
+
         ReadOnlySpan<byte> palette = [0x0F, 0x30, 0x30, 0x30];
 
         for (var i = 2; i < Global.BackgroundPalCount; i++)

@@ -3882,11 +3882,14 @@ internal sealed unsafe partial class World
 
         ArgumentOutOfRangeException.ThrowIfNegative(_state.EndLevel.Timer);
 
-        var step = _state.EndLevel.Timer & 0x7;
-        switch (step)
+        if (!Game.Enhancements.ReduceFlashing)
         {
-            case 0: SetFlashPalette(); break;
-            case 3: SetLevelPalette(); break;
+            var step = _state.EndLevel.Timer & 0x7;
+            switch (step)
+            {
+                case 0: SetFlashPalette(); break;
+                case 3: SetLevelPalette(); break;
+            }
         }
         _state.EndLevel.Timer--;
     }
