@@ -13,6 +13,46 @@ internal static class LinkStateExtensions
     public static bool IsAttacking(this LinkState state) => (int)(state & LinkState.AttackMask) is 0x10 or 0x20;
 }
 
+internal sealed class LinkParalyzedTokenSource
+{
+    private long _idCounter = 0;
+    private readonly HashSet<long> _activeIds = new();
+
+    public bool IsParalyzed => _activeIds.Count > 0;
+
+    public sealed class Token : IDisposable
+    {
+        private readonly long _id;
+        private readonly LinkParalyzedTokenSource _source;
+        private bool _isDisposed;
+
+        public Token(long id, LinkParalyzedTokenSource source)
+        {
+            _id = id;
+            _source = source;
+            _source._activeIds.Add(_id);
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed) return;
+            _source._activeIds.Remove(_id);
+            _isDisposed = true;
+        }
+    }
+
+    public Token Create()
+    {
+        return new Token(_idCounter++, this);
+    }
+
+    public void Clear()
+    {
+        _activeIds.Clear();
+        _idCounter = 0;
+    }
+}
+
 internal sealed class Link : Actor, IThrower
 {
     public const int WalkSpeed = 0x60;
@@ -35,7 +75,8 @@ internal sealed class Link : Actor, IThrower
 
     public override bool IsPlayer => true;
 
-    public bool IsParalyzed;
+    private readonly LinkParalyzedTokenSource _paralyzedTokenSource = new();
+    public bool IsParalyzed => _paralyzedTokenSource.IsParalyzed;
 
     private int _state; // JOE: TODO: Enumify this as using LinkState.
     private byte _speed;
@@ -68,6 +109,9 @@ internal sealed class Link : Actor, IThrower
         Animator.Time = 0;
         Animator.DurationFrames = WalkDurationFrames;
     }
+
+    public void ClearParalized() => _paralyzedTokenSource.Clear();
+    public LinkParalyzedTokenSource.Token Paralyze() => _paralyzedTokenSource.Create();
 
     public void DecInvincibleTimer()
     {

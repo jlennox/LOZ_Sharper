@@ -533,8 +533,7 @@ internal abstract class Actor
                 context.Damage = power;
                 break;
 
-            case ObjType.Rod:
-                if (!allowRodDamage) return;
+            case ObjType.Rod when allowRodDamage:
                 context.Damage = 0x20;
                 break;
         }
@@ -544,7 +543,6 @@ internal abstract class Actor
             ShoveCommon(context);
         }
     }
-
 
     protected bool CheckArrow(ObjectSlot slot)
     {

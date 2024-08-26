@@ -2353,7 +2353,7 @@ internal sealed unsafe partial class World
         {
             if (!CalcHasLivingObjects())
             {
-                Game.Link.IsParalyzed = false;
+                Game.Link.ClearParalized();
                 _roomAllDead = true;
             }
         }

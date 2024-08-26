@@ -6,11 +6,8 @@ namespace z1;
 
 // Milestone 1:
 // * Textbox and rupee sounds are wrong.
-// * Some how between saves my max hearts got reset?
 // * Darknuts should make parry sound when shot with wave.
-// * Coming out of stairs into spiral room spawns you in a bad spot.
-//   Example in 9, up 2, left 2.
-// * I was still stuck after killing a likelike who wrapped me.
+// * Coming out of stairs into spiral room spawns you in a bad spot: Example in 9, up 2, left 2.
 //   I might have been stuck in the wall?
 // * Red Ring Room Problems:
 //   - w9; w7x1;
@@ -19,7 +16,6 @@ namespace z1;
 //   - Blue wizzrobes still faze through the floor/ceiling.
 //   - Baubles are acting awful? They're moving through the pushblock and
 //     they're able to shove link hard enough to go through it.
-// * Implement autosave.
 // * Name entry can go on forever, and can't be backed over. Add backspace support. It skips initial spaces?
 // * Too many wallmasters can make it out. I think?
 //   - And stopwatch doesn't stop them from appearing.

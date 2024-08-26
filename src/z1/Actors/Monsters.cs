@@ -1644,6 +1644,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
     public override bool CanHoldRoomItem => true;
 
     private int _framesHeld;
+    private IDisposable? _paralyzedToken;
 
     public LikeLikeActor(Game game, int x, int y)
         : base(game, ObjType.LikeLike, _likeLikeSpec, 0x80, x, y)
@@ -1671,16 +1672,11 @@ internal sealed class LikeLikeActor : WandererWalkerActor
                 player.ObjTimer = 0;
                 // ORIGINAL: PlayerState.[$405] := 0  (But, what's the point?)
                 player.ResetShove();
-                player.IsParalyzed = true;
+                _paralyzedToken?.Dispose();
+                _paralyzedToken = player.Paralyze();
                 Animator.DurationFrames = Animator.Animation.Length * 4;
                 Animator.Time = 0;
                 Flags |= ActorFlags.DrawAbovePlayer;
-            }
-
-            if (Decoration != 0)
-            {
-                _log.Write("🚨🚨 LikeLike killed same frame as being held.");
-                // player.IsParalyzed = false;
             }
             return;
         }
@@ -1703,10 +1699,19 @@ internal sealed class LikeLikeActor : WandererWalkerActor
 
         if (Decoration != 0)
         {
-            _log.Write("🚨🚨 LikeLike released.");
-
-            player.IsParalyzed = false;
+            _paralyzedToken?.Dispose();
         }
+    }
+
+    public override bool Delete()
+    {
+        if (base.Delete())
+        {
+            _paralyzedToken?.Dispose();
+            return true;
+        }
+
+        return false;
     }
 }
 
