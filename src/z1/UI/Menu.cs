@@ -49,11 +49,14 @@ internal sealed class ProfileSelectMenu : Menu
     private int _page = 0;
     private int _pageCount = 0;
     private string _pageString = "";
+    private readonly string _menuStr = "press alt for menu";
 
     public ProfileSelectMenu(Game game, List<PlayerProfile> profiles, int page = 0)
     {
         _game = game;
         _profiles = profiles;
+
+        _menuStr = GetCentered(_menuStr);
 
         for (var i = 0; i < _palettes.Length; i++)
         {
@@ -67,14 +70,18 @@ internal sealed class ProfileSelectMenu : Menu
         SetPage(page);
     }
 
+    private static string GetCentered(string s)
+    {
+        var padding = (int)((_mainBox.Width / 8f) / 2f - s.Length / 2f);
+        return new string(' ', padding) + s;
+    }
+
     private void SetPage(int direction)
     {
         var page = _page + direction;
         _pageCount = _profiles.Count / SaveFolder.MaxProfiles + 1;
         _page = (int)((uint)page % _pageCount);
-        _pageString = $"< Page {_page + 1}/{_pageCount} >";
-        var padding = (_mainBox.Width / 8f) / 2f - _pageString.Length / 2f;
-        _pageString = new string(' ', (int)padding) + _pageString;
+        _pageString = GetCentered($"< Page {_page + 1}/{_pageCount} >");
 
         if (!_profiles.GetProfile(_page, _selectedIndex).IsActive())
         {
@@ -130,7 +137,8 @@ internal sealed class ProfileSelectMenu : Menu
 
         // JOE: TODO: Use normal strings.
         GlobalFunctions.DrawString("- s e l e c t -", 0x40, 0x28, 0);
-        GlobalFunctions.DrawString(_pageString, _mainBox.X, _mainBox.Bottom + 8, 0);
+        GlobalFunctions.DrawString(_pageString, _mainBox.X, _mainBox.Bottom + 4, 0);
+        GlobalFunctions.DrawString(_menuStr, _mainBox.X, _mainBox.Bottom + 16, 0);
         GlobalFunctions.DrawString(" name ", 0x50, 0x40, 0);
         GlobalFunctions.DrawString(" life ", 0x98, 0x40, 0);
         GlobalFunctions.DrawString("register your name", 0x30, 0xA8, 0);

@@ -29,12 +29,9 @@ namespace z1;
 // * Swords and items picked up out of order should not downgrade.
 
 // To check:
-// * Re-check Lamnola.
 // * Check `IsReoccuring` is proper.
 // * Do bubbles work properly? (normal kind: yes)
-// * Ensure magic shield works.
 // * Boss noises when next to boss room.
-// * Grumble grumble.
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.

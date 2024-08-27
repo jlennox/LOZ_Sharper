@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Windows.Forms;
-using ImGuiNET;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
@@ -10,7 +9,6 @@ using SkiaSharp;
 using z1.IO;
 using z1.UI;
 using Button = Silk.NET.Input.Button;
-using Silk.NET.GLFW;
 using GamepadButton = z1.UI.GamepadButton;
 
 namespace z1.GUI;
@@ -19,7 +17,10 @@ internal sealed class GLWindow : IDisposable
 {
     private static readonly DebugLog _log = new(nameof(GLWindow));
 
-    private readonly Game _game;
+    public readonly Game Game;
+
+    public bool IsFullScreen => _window?.WindowBorder == WindowBorder.Hidden;
+
     private readonly IWindow? _window;
     private readonly FpsCalculator _framesPerSecond = new();
     private readonly FpsCalculator _updatesPerSecond = new();
@@ -34,6 +35,8 @@ internal sealed class GLWindow : IDisposable
     private GRBackendRenderTarget? _rendertarget;
     private ImGuiController _controller;
     private System.Drawing.Rectangle _windowedRect;
+    private bool _showMenu = false;
+    private bool _lastKeyWasAlt = false;
 
     public GLWindow()
     {
@@ -43,12 +46,12 @@ internal sealed class GLWindow : IDisposable
         }
         catch (Exception e)
         {
-            _log.Write("Error initializing assets: " + e);
+            _log.Error("Error initializing assets: " + e);
             MessageBox.Show(e.ToString());
             Environment.Exit(1);
         }
 
-        _game = new Game();
+        Game = new Game();
 
         var options = WindowOptions.Default with
         {
@@ -76,7 +79,6 @@ internal sealed class GLWindow : IDisposable
         _gl = window.CreateOpenGL();
         _inputContext = window.CreateInput();
 
-
         _glinterface = GRGlInterface.Create() ?? throw new Exception("GRGlInterface.Create() failed.");
         _grcontext = GRContext.CreateGl(_glinterface) ?? throw new Exception("GRContext.CreateGl() failed.");
 
@@ -93,13 +95,11 @@ internal sealed class GLWindow : IDisposable
         }
 
         var surface = CreateSkSurface();
-        _game.UpdateScreenSize(surface);
+        Game.UpdateScreenSize(surface);
 
-        _controller = new ImGuiController(_gl, window, _inputContext);
-
-        // ImGui.CreateContext();
-        // ImGui.GetIO().ConfigFlags |= ImGuiConfigFlags.DockingEnable;
-        // ImGui.StyleColorsDark();
+        var fontPath = IncludedResources.GetFont();
+        var font = fontPath == null ? null : (ImGuiFontConfig?)new ImGuiFontConfig(fontPath, 30);
+        _controller = new ImGuiController(_gl, window, _inputContext, font);
     }
 
     private void OnFramebufferResize(Vector2D<int> s)
@@ -109,7 +109,7 @@ internal sealed class GLWindow : IDisposable
         gl.Viewport(s);
 
         var surface = CreateSkSurface();
-        _game.UpdateScreenSize(surface);
+        Game.UpdateScreenSize(surface);
     }
 
     private SKSurface CreateSkSurface()
@@ -127,13 +127,11 @@ internal sealed class GLWindow : IDisposable
         return _surface = SKSurface.Create(_grcontext, _rendertarget, GRSurfaceOrigin.BottomLeft, SKColorType.Rgba8888);
     }
 
-    private void ToggleFullscreen()
+    public void ToggleFullscreen()
     {
         var window = _window ?? throw new Exception();
 
-        var isFullscreen = window.WindowBorder == WindowBorder.Hidden;
-
-        if (isFullscreen)
+        if (IsFullScreen)
         {
             var width = _windowedRect.Width;
             var height = _windowedRect.Height;
@@ -190,12 +188,12 @@ internal sealed class GLWindow : IDisposable
 
     private void OnGamepadButtonDown(IGamepad gamepad, Button button)
     {
-        _game.Input.SetGamepadButton(button.Name);
+        Game.Input.SetGamepadButton(button.Name);
     }
 
     private void OnGamepadButtonUp(IGamepad gamepad, Button button)
     {
-        _game.Input.UnsetGamepadButton(button.Name);
+        Game.Input.UnsetGamepadButton(button.Name);
     }
 
     private void OnGamePadTriggerMoved(IGamepad gamepad, Trigger trigger)
@@ -206,15 +204,15 @@ internal sealed class GLWindow : IDisposable
         var set = trigger.Position >= .8f;
         switch (trigger.Index)
         {
-            case 0: _game.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;
-            case 1: _game.Input.ToggleGamepadButton(GamepadButton.TriggerRight, set); break;
+            case 0: Game.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;
+            case 1: Game.Input.ToggleGamepadButton(GamepadButton.TriggerRight, set); break;
         }
     }
 
     private void OnFocusChanged(bool focused)
     {
         // This is to prevent keys from getting stuck due to the lack of focus causing an OnKeyUp event to be missed.
-        if (!focused) _game.Input.UnsetAllInput();
+        if (!focused) Game.Input.UnsetAllInput();
     }
 
     private static KeyboardMapping GetKeyMapping(IKeyboard kb, Key key)
@@ -238,22 +236,25 @@ internal sealed class GLWindow : IDisposable
     {
         var mapping = GetKeyMapping(kb, key);
 
-        _game.Input.SetKey(mapping);
-        _game.GameCheats.OnKeyPressed(key);
+        Game.Input.SetKey(mapping);
+        Game.GameCheats.OnKeyPressed(key);
 
-        if (_game.Input.IsButtonPressing(GameButton.FullScreenToggle)) ToggleFullscreen();
+        _lastKeyWasAlt = key is Key.AltLeft or Key.AltRight;
+
+        if (Game.Input.IsButtonPressing(GameButton.FullScreenToggle)) ToggleFullscreen();
     }
 
     private void OnKeyUp(IKeyboard kb, Key key, int whoknows)
     {
-        _game.Input.UnsetKey(GetKeyMapping(kb, key));
+        _showMenu = _lastKeyWasAlt && key is Key.AltLeft or Key.AltRight && !_showMenu;
+
+        Game.Input.UnsetKey(GetKeyMapping(kb, key));
     }
     #endregion
 
     private readonly Stopwatch _starttime = Stopwatch.StartNew();
     private readonly Stopwatch _updateTimer = new Stopwatch();
     private TimeSpan _renderedTime = TimeSpan.Zero;
-    private readonly bool _showMenu = false;
 
     private void Render(double deltaSeconds)
     {
@@ -282,7 +283,7 @@ internal sealed class GLWindow : IDisposable
         // while (_starttime.Elapsed - _renderedTime >= frameTime)
         {
             _updateTimer.Restart();
-            _game.Update();
+            Game.Update();
             _updateTimer.Stop();
             ups = _updatesPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
 
@@ -294,7 +295,7 @@ internal sealed class GLWindow : IDisposable
         {
             // JOE: TODO: Fix that clearing the surface causes flicker.
             _updateTimer.Restart();
-            _game.Draw();
+            Game.Draw();
             surface.Canvas.Flush();
             _updateTimer.Stop();
             rps = _rendersPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
@@ -302,29 +303,14 @@ internal sealed class GLWindow : IDisposable
 
         // window.SwapBuffers();
 
-        if (_game.FrameCounter % 20 == 0)
+        if (Game.FrameCounter % 20 == 0)
         {
             window.Title = $"The Legend of Form1 - FPS:{_framesPerSecond.Add(deltaSeconds):0.0}/UPS:{ups:0.0}/RPS:{rps:0.0}";
         }
 
         if (_showMenu)
         {
-            // https://github.com/ocornut/imgui/blob/master/imgui_demo.cpp#L644
-            // https://github.com/dotnet/Silk.NET/blob/main/examples/CSharp/OpenGL%20Demos/ImGui/Program.cs
-            ImGui.ShowDemoWindow();
-            ImGui.NewFrame();
-            if (ImGui.BeginMainMenuBar())
-            {
-                if (ImGui.BeginMenu("File"))
-                {
-                    if (ImGui.MenuItem("Open", "Ctrl+O")) { _log.Write("OPEN"); }
-                    if (ImGui.MenuItem("Save", "Ctrl+S")) { /* Handle save */ }
-                    ImGui.EndMenu();
-                }
-
-                ImGui.EndMainMenuBar();
-            }
-
+            GLWindowGui.DrawMenu(this);
             _controller.Render();
         }
     }

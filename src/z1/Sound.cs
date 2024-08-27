@@ -460,6 +460,17 @@ internal sealed class Sound
         return _isMuted = !_isMuted;
     }
 
+    public void SetMute(bool mute)
+    {
+        _isMuted = mute;
+        _waveOutDevice.Volume = _isMuted ? _volume / 100f : 0;
+    }
+
+    public void SetMuteSongs(bool mute)
+    {
+        _isMuteSongs = mute;
+    }
+
     private void PlaySongInternal(SongId song, SongStream stream, bool loop, bool play)
     {
         _traceLog.Write($"PlaySongInternal({song}, {stream}, {loop}, {play})");

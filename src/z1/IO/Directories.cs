@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics;
+using System.Reflection;
 
 namespace z1.IO;
 
@@ -16,4 +17,16 @@ internal static class Directories
     public static string Executable { get; } = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
     public static string Assets { get; } = Path.Combine(Save, "assets");
     public static string Save => _save.Value;
+
+    public static void OpenSaveFolder() => Open(Save);
+
+    private static void Open(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Process.Start("explorer.exe", directory);
+        }
+
+        // TODO
+    }
 }

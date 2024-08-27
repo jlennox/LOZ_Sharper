@@ -5272,15 +5272,8 @@ internal sealed class GohmaActor : Actor
         };
     }
 
-    public int GetCurrentCheckPart()
-    {
-        return _curCheckPart;
-    }
-
-    public int GetEyeFrame()
-    {
-        return _frame;
-    }
+    public int GetCurrentCheckPart() => _curCheckPart;
+    public int GetEyeFrame() => _frame;
 
     public override void Update()
     {

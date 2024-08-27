@@ -5,11 +5,11 @@ using System.Reflection;
 using Silk.NET.Core;
 using SkiaSharp;
 
-namespace z1;
+namespace z1.IO;
 
 internal sealed class EmbeddedResource
 {
-    private static readonly ImmutableArray<string> _resourceNames = [..Assembly.GetExecutingAssembly().GetManifestResourceNames()];
+    private static readonly ImmutableArray<string> _resourceNames = [.. Assembly.GetExecutingAssembly().GetManifestResourceNames()];
 
     public static Stream GetEmbeddedResource(string name)
     {

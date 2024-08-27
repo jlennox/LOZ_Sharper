@@ -32,6 +32,9 @@ internal enum  GamepadButton
 
 internal sealed class GameEnhancements
 {
+    public const int TextSpeedMin = 1;
+    public const int TextSpeedMax = 5;
+
     public bool AutoSave { get; set; }
     public bool RedCandleLightsDarkRooms { get; set; }
     public bool ImprovedMenus { get; set; }
@@ -50,7 +53,7 @@ internal sealed class GameEnhancements
 
     public void Initialize()
     {
-        TextSpeed = Math.Clamp(TextSpeed, 1, 5);
+        TextSpeed = Math.Clamp(TextSpeed, TextSpeedMin, TextSpeedMax);
     }
 }
 
