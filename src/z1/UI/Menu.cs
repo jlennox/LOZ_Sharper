@@ -8,6 +8,19 @@ internal abstract class Menu
 {
     public abstract void Update();
     public abstract void Draw();
+
+    protected static void DrawFileIcon(PlayerProfile profile, int x, int y, int quest)
+    {
+        if (quest == 1)
+        {
+            var sword = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.SwordItem);
+            sword.Draw(TileSheet.PlayerAndItems, x + 12, y - 3, (Palette)7);
+        }
+
+        profile.SetPlayerColor();
+        var player = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.LinkWalk_NoShield_Down);
+        player.Draw(TileSheet.PlayerAndItems, x, y, Palette.Player);
+    }
 }
 
 internal sealed class ProfileSelectMenu : Menu
@@ -124,17 +137,15 @@ internal sealed class ProfileSelectMenu : Menu
         var y = 0x58;
         for (var i = 0; i < 3; i++)
         {
-            var summary = _profiles.GetProfile(_page, i);
-            if (summary != null && summary.IsActive())
+            var profile = _profiles.GetProfile(_page, i);
+            if (profile != null && profile.IsActive())
             {
-                Span<byte> numBuf = new byte[3];
-                GlobalFunctions.NumberToStringR(summary.Deaths, NumberSign.None, ref numBuf);
-                GlobalFunctions.DrawString(numBuf, 0x48, y + 8, 0);
-                GlobalFunctions.DrawString(summary.Name, 0x48, y, 0);
-                var totalHearts = summary.GetItem(ItemSlot.HeartContainers);
+                GlobalFunctions.DrawString($"{profile.Deaths,3}", 0x48, y + 8, 0);
+                GlobalFunctions.DrawString(profile.Name, 0x48, y, 0);
+                var totalHearts = profile.GetItem(ItemSlot.HeartContainers);
                 var heartsValue = PlayerProfile.GetMaxHeartsValue(totalHearts);
                 GlobalFunctions.DrawHearts(heartsValue, totalHearts, 0x90, y + 8);
-                GlobalFunctions.DrawFileIcon(0x30, y, summary.Quest);
+                DrawFileIcon(profile, 0x30, y, profile.Quest);
             }
             GlobalFunctions.DrawChar(Char.Minus, 0x88, y, 0);
             y += 24;
@@ -181,14 +192,14 @@ internal sealed class ProfileSelectMenu : Menu
 internal sealed class EliminateMenu : Menu
 {
     private readonly Game _game;
-    private readonly List<PlayerProfile> _summaries;
+    private readonly List<PlayerProfile> _profiles;
     private readonly int _page;
     private int _selectedIndex = -1; // Account for first SelectNext. JOE: TODO: Recode all menu's into generic selection API.
 
-    public EliminateMenu(Game game, List<PlayerProfile> summaries, int page)
+    public EliminateMenu(Game game, List<PlayerProfile> profiles, int page)
     {
         _game = game;
-        _summaries = summaries;
+        _profiles = profiles;
         _page = page;
 
         SelectNext();
@@ -200,13 +211,13 @@ internal sealed class EliminateMenu : Menu
         {
             _selectedIndex++;
             if (_selectedIndex >= 4) _selectedIndex = 0;
-        } while (_selectedIndex < SaveFolder.MaxProfiles && !_summaries[_selectedIndex].IsActive());
+        } while (_selectedIndex < SaveFolder.MaxProfiles && !_profiles[_selectedIndex].IsActive());
     }
 
     private void DeleteCurrentProfile()
     {
-        var index = _summaries.GetIndex(_page, _selectedIndex);
-        _summaries.RemoveAt(index);
+        var index = _profiles.GetIndex(_page, _selectedIndex);
+        _profiles.RemoveAt(index);
         SaveFolder.SaveProfiles();
         _game.Sound.PlayEffect(SoundEffect.PlayerHit);
     }
@@ -223,7 +234,7 @@ internal sealed class EliminateMenu : Menu
             switch (_selectedIndex)
             {
                 case < SaveFolder.MaxProfiles: DeleteCurrentProfile(); break;
-                case SaveFolder.MaxProfiles: _game.World.GotoFileMenu(_summaries, _page); break;
+                case SaveFolder.MaxProfiles: _game.World.GotoFileMenu(_profiles, _page); break;
             }
         }
     }
@@ -241,11 +252,11 @@ internal sealed class EliminateMenu : Menu
         var y = 0x30;
         for (var i = 0; i < 3; i++)
         {
-            var summary = _summaries.GetProfile(_page, i);
-            if (summary != null && summary.IsActive())
+            var profile = _profiles.GetProfile(_page, i);
+            if (profile != null && profile.IsActive())
             {
-                GlobalFunctions.DrawString(summary.Name, 0x70, y, 0);
-                GlobalFunctions.DrawFileIcon(0x50, y, summary.Quest);
+                GlobalFunctions.DrawString(profile.Name, 0x70, y, 0);
+                DrawFileIcon(profile, 0x50, y, profile.Quest);
             }
             y += 24;
         }
@@ -286,16 +297,16 @@ internal sealed class RegisterMenu : Menu
     ];
 
     private readonly Game _game;
-    private readonly List<PlayerProfile> _summaries;
+    private readonly List<PlayerProfile> _profiles;
     private readonly PlayerProfile _profile;
     private int _namePos;
     private int _charPosCol;
     private int _charPosRow;
 
-    public RegisterMenu(Game game, List<PlayerProfile> summaries)
+    public RegisterMenu(Game game, List<PlayerProfile> profiles)
     {
         _game = game;
-        _summaries = summaries;
+        _profiles = profiles;
 
         _profile = new PlayerProfile();
         _profile.Initialize();
@@ -370,7 +381,7 @@ internal sealed class RegisterMenu : Menu
 
     private void CommitFiles()
     {
-        _summaries.Add(_profile);
+        _profiles.Add(_profile);
         // JOE: TODO: Move to be profile method.
         if (_profile.Name.IEquals(Quest2Name))
         {
@@ -387,7 +398,7 @@ internal sealed class RegisterMenu : Menu
         if (_game.Input.IsButtonPressing(GameButton.Start))
         {
             CommitFiles();
-            _game.World.GotoFileMenu(_summaries);
+            _game.World.GotoFileMenu(_profiles);
         }
 
         if (_game.Input.IsButtonPressing(GameButton.A))

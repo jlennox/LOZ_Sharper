@@ -226,14 +226,6 @@ internal partial class World
         ActiveShots = 0;
     }
 
-    private void SetPlayerColor()
-    {
-        ReadOnlySpan<byte> palette = [0x29, 0x32, 0x16];
-
-        var value = Profile.Items[ItemSlot.Ring];
-        Graphics.SetColorIndexed(Palette.Player, 1, palette[value]);
-    }
-
     private void SetFlashPalette()
     {
         if (Game.Enhancements.ReduceFlashing) return;

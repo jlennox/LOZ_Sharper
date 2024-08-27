@@ -180,6 +180,14 @@ internal sealed class PlayerProfile
         return room;
     }
 
+    public void SetPlayerColor()
+    {
+        ReadOnlySpan<byte> palette = [0x29, 0x32, 0x16];
+
+        var value = Items[ItemSlot.Ring];
+        Graphics.SetColorIndexed(Palette.Player, 1, palette[value]);
+    }
+
     public static PlayerProfile MakeDefault() => new();
     public static List<PlayerProfile> MakeDefaults() => new();
 

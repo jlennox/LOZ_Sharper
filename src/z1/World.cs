@@ -1291,7 +1291,7 @@ internal sealed unsafe partial class World
 
         if (slot == ItemSlot.Ring)
         {
-            SetPlayerColor();
+            Profile.SetPlayerColor();
             Graphics.UpdatePalettes();
         }
 
@@ -3766,7 +3766,7 @@ internal sealed unsafe partial class World
                 Graphics.SetPaletteIndexed((Palette)i, _infoBlock.GetPalette(i));
             }
 
-            SetPlayerColor();
+            Profile.SetPlayerColor();
             Graphics.UpdatePalettes();
             return;
         }

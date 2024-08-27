@@ -398,18 +398,6 @@ internal static class GlobalFunctions
         }
     }
 
-    public static void DrawFileIcon(int x, int y, int quest)
-    {
-        if (quest == 1)
-        {
-            var sword = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.SwordItem);
-            sword.Draw(TileSheet.PlayerAndItems, x + 12, y - 3, (Palette)7);
-        }
-
-        var player = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.LinkWalk_NoShield_Down);
-        player.Draw(TileSheet.PlayerAndItems, x, y, Palette.Player);
-    }
-
     public static void SetPilePalette()
     {
         ReadOnlySpan<byte> palette = [0, 0x27, 0x06, 0x16];
