@@ -4574,6 +4574,7 @@ internal sealed unsafe partial class World
                     {
                         _state.Continue.SelectedIndex = 0;
                     }
+                    Game.Sound.PlayEffect(SoundEffect.Cursor);
                     break;
                 }
 
@@ -4584,6 +4585,7 @@ internal sealed unsafe partial class World
                     {
                         _state.Continue.SelectedIndex = ContinueState.Indexes.Retry;
                     }
+                    Game.Sound.PlayEffect(SoundEffect.Cursor);
                 }
 
                 if (IsButtonPressing(GameButton.Start))
