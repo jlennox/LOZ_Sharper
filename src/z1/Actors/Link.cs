@@ -195,7 +195,7 @@ internal sealed class Link : Actor, IThrower
                 case 0x10:
                 case 0x20:
                     Animator.Time = 0;
-                    _animTimer = (byte)(_state & 0xF);
+                    _animTimer = (byte)(_state & 0x0F);
                     _state |= 0x30;
                     break;
 

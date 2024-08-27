@@ -22,6 +22,7 @@ internal enum Direction
     Down = 4,
     Up = 8,
     DirectionMask = 0x0F,
+    ShoveMask = 0x80, // JOE: TODO: Not sure what this is.
     FullMask = 0xFF,
     VerticalMask = Down | Up,
     HorizontalMask = Left | Right,
@@ -3667,7 +3668,7 @@ internal sealed unsafe partial class World
         var owRoomAttrs = GetOWRoomAttrs(roomId);
         var exitRPos = owRoomAttrs.GetExitPosition();
 
-        var col = exitRPos & 0xF;
+        var col = exitRPos & 0x0F;
         var row = (exitRPos >> 4) + 4;
 
         Game.Link.X = col * MobTileWidth;

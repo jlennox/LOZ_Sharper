@@ -567,8 +567,8 @@ internal sealed class SubmenuType
         {
             var curRoomId = _game.World.CurRoomId;
             var playerRow = (curRoomId >> 4) & 0xF;
-            var playerCol = curRoomId & 0xF;
-            playerCol = (playerCol + levelInfo.DrawnMapOffset) & 0xF;
+            var playerCol = curRoomId & 0x0F;
+            playerCol = (playerCol + levelInfo.DrawnMapOffset) & 0x0F;
             playerCol -= 4;
 
             y = ActiveMapY + top + playerRow * 8 + 3;

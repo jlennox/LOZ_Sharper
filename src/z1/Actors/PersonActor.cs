@@ -4,6 +4,14 @@ namespace z1.Actors;
 
 internal sealed class PersonActor : Actor
 {
+    public const int PersonWallY = 0x8E;
+
+    private const int ItemY = 0x98;
+    private const int PriceY = 0xB0;
+
+    private const int MaxItemCount = 3;
+    private const int PriceLength = 4;
+
     private enum PersonState
     {
         Idle,
@@ -24,12 +32,6 @@ internal sealed class PersonActor : Actor
         CaveShortcut,
         MoreBombs,
     }
-
-    private const int ItemY = 0x98;
-    private const int PriceY = 0xB0;
-
-    private const int MaxItemCount = 3;
-    private const int PriceLength = 4;
 
     private static readonly ImmutableArray<byte> _itemXs = [0x58, 0x78, 0x98];
     private static readonly ImmutableArray<byte> _priceXs = [0x48, 0x68, 0x88];

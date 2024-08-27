@@ -17,7 +17,7 @@ internal struct RoomAttrs
     public readonly int GetUniqueRoomId() => UniqueRoomId & 0x7F;
     public readonly Palette GetOuterPalette() => (Palette)(PalettesAndMonsterCount & 0x03);
     public readonly Palette GetInnerPalette() => (Palette)((PalettesAndMonsterCount >> 2) & 0x03);
-    public readonly int GetMonsterCount() => (PalettesAndMonsterCount >> 4) & 0xF;
+    public readonly int GetMonsterCount() => (PalettesAndMonsterCount >> 4) & 0x0F;
 
     public static implicit operator OWRoomAttrs(RoomAttrs b) => new(b);
     public static implicit operator UWRoomAttrs(RoomAttrs b) => new(b);

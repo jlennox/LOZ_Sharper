@@ -170,7 +170,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
         {
             if (_distance != 0)
             {
-                var xOffset = 4;
+                const int xOffset = 4;
                 var d = _distance - 1;
                 var left = X - 2 - d + xOffset;
                 var right = X + 2 + d + xOffset;
@@ -809,7 +809,9 @@ internal sealed class ArrowProjectile : Projectile
         var y = Y + yOffset;
 
         if (State == ProjectileState.Spark && Facing.IsHorizontal())
+        {
             x += 4;
+        }
 
         _image.Draw(TileSheet.PlayerAndItems, x, y, pal);
     }

@@ -964,7 +964,7 @@ internal abstract class Actor
 
         if (adjust)
         {
-            y += 0xF;
+            y += 0x0F;
         }
 
         if (y > Game.World.MarginTop)
@@ -1126,7 +1126,7 @@ internal abstract class Actor
 
     protected Direction StopAtPersonWall(Direction dir)
     {
-        if (Y < 0x8E && (dir & Direction.Up) != 0)
+        if (Y < PersonActor.PersonWallY && dir.HasFlag(Direction.Up))
         {
             return Direction.None;
         }
@@ -1211,7 +1211,7 @@ internal abstract class Actor
 
     protected void ObjShove()
     {
-        if ((ShoveDirection & (Direction)0x80) == 0)
+        if (!ShoveDirection.HasFlag(Direction.ShoveMask))
         {
             if (ShoveDistance != 0)
             {
@@ -1222,19 +1222,21 @@ internal abstract class Actor
                 ShoveDirection = 0;
                 ShoveDistance = 0;
             }
+
+            return;
         }
-        else
+
+        ShoveDirection ^= Direction.ShoveMask;
+
+        var shoveHoriz = ShoveDirection.IsHorizontal(Direction.DirectionMask);
+        var facingHoriz = Facing.IsHorizontal();
+
+        if (shoveHoriz != facingHoriz
+            && TileOffset != 0
+            && !IsPlayer)
         {
-            ShoveDirection ^= (Direction)0x80;
-
-            var shoveHoriz = ShoveDirection.IsHorizontal(Direction.DirectionMask);
-            var facingHoriz = Facing.IsHorizontal();
-
-            if (shoveHoriz != facingHoriz && TileOffset != 0 && !IsPlayer)
-            {
-                ShoveDirection = 0;
-                ShoveDistance = 0;
-            }
+            ShoveDirection = 0;
+            ShoveDistance = 0;
         }
     }
 
@@ -1269,9 +1271,9 @@ internal abstract class Actor
             ShoveDistance--;
             TileOffset += (sbyte)distance;
 
-            if ((TileOffset & 0xF) == 0)
+            if ((TileOffset & 0x0F) == 0)
             {
-                TileOffset &= 0xF;
+                TileOffset &= 0x0F;
             }
             else if (IsPlayer && (TileOffset & 7) == 0)
             {

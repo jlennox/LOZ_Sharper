@@ -139,9 +139,9 @@ internal abstract class WalkerActor : Actor
 
         MoveDirection(0xFF, Facing);
 
-        if ((TileOffset & 0xF) == 0)
+        if ((TileOffset & 0x0F) == 0)
         {
-            TileOffset &= 0xF;
+            TileOffset &= 0x0F;
         }
 
         return true;
@@ -172,13 +172,13 @@ internal abstract class ChaseWalkerActor : WalkerActor
     {
         if (ShoveDirection != 0) return;
 
-        if (CurrentSpeed == 0 || (TileOffset & 0xF) != 0)
+        if (CurrentSpeed == 0 || (TileOffset & 0x0F) != 0)
         {
             Moving = (byte)Facing;
             return;
         }
 
-        TileOffset &= 0xF;
+        TileOffset &= 0x0F;
 
         // ORIGINAL: If player.state = $FF, then skip all this, go to the end (moving := Facing).
         //           But, I don't see how the player can get in that state.
@@ -278,13 +278,13 @@ internal abstract class WandererWalkerActor : WalkerActor
 
         if (ShoveDirection != 0) return;
 
-        if (CurrentSpeed == 0 || (TileOffset & 0xF) != 0)
+        if (CurrentSpeed == 0 || (TileOffset & 0x0F) != 0)
         {
             Moving = (byte)Facing;
             return;
         }
 
-        TileOffset &= 0xF;
+        TileOffset &= 0x0F;
 
         var r = Random.Shared.GetByte();
 
@@ -1441,12 +1441,12 @@ internal sealed class ZolActor : WandererWalkerActor
             var player = Game.Link;
             uint dirMask = 0;
 
-            if ((Y & 0xF) == alignedY)
+            if ((Y & 0x0F) == alignedY)
             {
                 dirMask |= 3;
             }
 
-            if ((X & 0xF) == 0)
+            if ((X & 0x0F) == 0)
             {
                 dirMask |= 0xC;
             }
@@ -1957,9 +1957,9 @@ internal sealed class RedLeeverActor : Actor
                 else
                 {
                     MoveDirection(_spec.Speed, Facing);
-                    if ((TileOffset & 0xF) == 0)
+                    if ((TileOffset & 0x0F) == 0)
                     {
-                        TileOffset &= 0xF;
+                        TileOffset &= 0x0F;
                     }
                     ObjTimer = 0xFF;
                 }
@@ -2898,7 +2898,7 @@ internal sealed class PatraChildActor : Actor
 
         const int turnSpeed = 0x20;
 
-        index = PatraActor.PatraAngle[(int)slot] & 0xF;
+        index = PatraActor.PatraAngle[(int)slot] & 0x0F;
         var cos = _sinCos[index];
         var n = ShiftMult(cos, turnSpeed, xShiftCount);
 
@@ -2911,7 +2911,7 @@ internal sealed class PatraChildActor : Actor
             _x -= n;
         }
 
-        index = (PatraActor.PatraAngle[(int)slot] + 8) & 0xF;
+        index = (PatraActor.PatraAngle[(int)slot] + 8) & 0x0F;
         var sin = _sinCos[index];
         n = ShiftMult(sin, turnSpeed, yShiftCount);
 
@@ -3360,9 +3360,9 @@ internal sealed class TrapActor : Actor
     {
         MoveDirection(_speed, Facing);
 
-        if ((TileOffset & 0xF) == 0)
+        if ((TileOffset & 0x0F) == 0)
         {
-            TileOffset &= 0xF;
+            TileOffset &= 0x0F;
         }
 
         CheckPlayerCollision();
@@ -3447,9 +3447,9 @@ internal sealed class RopeActor : Actor
         {
             ObjMove(_speed);
 
-            if ((TileOffset & 0xF) == 0)
+            if ((TileOffset & 0x0F) == 0)
             {
-                TileOffset &= 0xF;
+                TileOffset &= 0x0F;
             }
 
             if (_speed != RopeFastSpeed && ObjTimer == 0)
@@ -3678,7 +3678,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
         -0x30, 0x30, 0x00, 0x00, -0x50, 0x50, 0x00, 0x00
     ];
 
-    private static readonly ImmutableArray<int> _allWizzrobeCollisionXOffsets = [0xF, 0, 0, 4, 8, 0, 0, 4, 8, 0];
+    private static readonly ImmutableArray<int> _allWizzrobeCollisionXOffsets = [0x0F, 0, 0, 4, 8, 0, 0, 4, 8, 0];
     private static readonly ImmutableArray<int> _allWizzrobeCollisionYOffsets = [4, 4, 0, 8, 8, 8, 0, -8, 0, 0];
 
     private byte _stateTimer;
@@ -4193,7 +4193,7 @@ internal sealed class WallmasterActor : Actor
         _state = 1;
         _tilesCrossed = 0;
         Game.World.SetObjectTimer(ObjectSlot.Monster1, 0x60);
-        Facing = (Direction)(_wallmasterDirs[_dirIndex] & 0xF);
+        Facing = (Direction)(_wallmasterDirs[_dirIndex] & 0x0F);
         TileOffset = 0;
     }
 
@@ -4214,7 +4214,7 @@ internal sealed class WallmasterActor : Actor
                 TileOffset = 0;
                 _dirIndex++;
                 _tilesCrossed++;
-                Facing = (Direction)(_wallmasterDirs[_dirIndex] & 0xF);
+                Facing = (Direction)(_wallmasterDirs[_dirIndex] & 0x0F);
 
                 if (_tilesCrossed >= 7)
                 {

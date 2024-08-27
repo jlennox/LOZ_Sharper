@@ -143,7 +143,7 @@ internal sealed class StatusBar
             GlobalFunctions.DrawString(_levelStr, LevelNameX, baseY + LevelNameY, 0);
             DrawUWMiniMap(baseY);
 
-            col = (col + levelInfo.DrawnMapOffset) & 0xF;
+            col = (col + levelInfo.DrawnMapOffset) & 0x0F;
             col -= MiniMapColumnOffset;
 
             cursorX += col * UWMapTileWidth + 2;
@@ -157,9 +157,9 @@ internal sealed class StatusBar
             if (_features.HasFlag(StatusBarFeatures.MapCursors) && _world.HasCurrentCompass())
             {
                 int triforceRoomId = levelInfo.TriforceRoomId;
-                var triforceRow = (triforceRoomId >> 4) & 0xF;
-                var triforceCol = triforceRoomId & 0xF;
-                col = (triforceCol + levelInfo.DrawnMapOffset) & 0xF;
+                var triforceRow = (triforceRoomId >> 4) & 0x0F;
+                var triforceCol = triforceRoomId & 0x0F;
+                col = (triforceCol + levelInfo.DrawnMapOffset) & 0x0F;
                 col -= MiniMapColumnOffset;
                 var triforceX = MiniMapX + col * UWMapTileWidth + 2;
                 var triforceY = MiniMapY + baseY + triforceRow * UWMapTileHeight;
