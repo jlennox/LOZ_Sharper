@@ -521,9 +521,6 @@ internal sealed unsafe partial class World
     }
 
     public void UnfurlLevel() => GotoUnfurl();
-    public void ChooseFile(PlayerProfile[] summaries) => GotoFileMenu(summaries);
-    public void RegisterFile(PlayerProfile[] summaries) => GotoRegisterMenu(summaries);
-    public void EliminateFile(PlayerProfile[] summaries) => GotoEliminateMenu(summaries);
     private bool IsPlaying() => IsPlaying(_curMode);
     private static bool IsPlaying(GameMode mode) => mode is GameMode.Play or GameMode.PlayCave or GameMode.PlayCellar or GameMode.PlayShortcuts;
     private bool IsPlayingCave() => GetMode() == GameMode.PlayCave;
@@ -4656,21 +4653,21 @@ internal sealed unsafe partial class World
         GotoFileMenu(SaveFolder.Profiles.Profiles);
     }
 
-    private void GotoFileMenu(PlayerProfile[] summaries)
+    public void GotoFileMenu(List<PlayerProfile> summaries, int page = 0)
     {
-        _nextGameMenu = new ProfileSelectMenu(Game, summaries);
+        _nextGameMenu = new ProfileSelectMenu(Game, summaries, page);
         _curMode = GameMode.GameMenu;
     }
 
-    private void GotoRegisterMenu(PlayerProfile[] summaries)
+    public void GotoRegisterMenu(List<PlayerProfile> summaries)
     {
         _nextGameMenu = new RegisterMenu(Game, summaries);
         _curMode = GameMode.Register;
     }
 
-    private void GotoEliminateMenu(PlayerProfile[] summaries)
+    public void GotoEliminateMenu(List<PlayerProfile> summaries, int page)
     {
-        _nextGameMenu = new EliminateMenu(Game, summaries);
+        _nextGameMenu = new EliminateMenu(Game, summaries, page);
         _curMode = GameMode.Elimination;
     }
 

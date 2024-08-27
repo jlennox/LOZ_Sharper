@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using z1.Actors;
 using z1.IO;
@@ -68,11 +69,16 @@ internal sealed class RoomFlags
 internal sealed class PlayerProfiles : IInitializable
 {
     public int Version { get; set; }
-    public PlayerProfile[] Profiles { get; set; }
+    public List<PlayerProfile> Profiles { get; set; }
 
     public void Initialize()
     {
         if (Profiles == null!) Profiles = PlayerProfile.MakeDefaults();
+
+        foreach (var profile in Profiles)
+        {
+            profile.Initialize();
+        }
     }
 
     public static PlayerProfiles MakeDefault()
@@ -109,6 +115,7 @@ internal sealed class PlayerProfile
     public const int DefaultBombs = 8;
 
     public int Version { get; set; }
+    public Guid Id { get; set; }
     public string? Name { get; set; }
     public int Index { get; set; }
     public int Quest { get; set; }
@@ -124,10 +131,16 @@ internal sealed class PlayerProfile
     [JsonConstructor]
     internal PlayerProfile()
     {
+        Initialize();
+    }
+
+    public void Initialize()
+    {
         if (Hearts < DefaultHearts) Hearts = DefaultHearts;
         Items ??= new Dictionary<ItemSlot, int>();
         RoomFlags ??= [];
         Statistics ??= new PlayerStatistics();
+        if (Id == default) Id = Guid.NewGuid();
 
         foreach (var slot in Enum.GetValues<ItemSlot>())
         {
@@ -168,7 +181,7 @@ internal sealed class PlayerProfile
     }
 
     public static PlayerProfile MakeDefault() => new();
-    public static PlayerProfile[] MakeDefaults() => Enumerable.Range(0, SaveFolder.MaxProfiles).Select(_ => MakeDefault()).ToArray();
+    public static List<PlayerProfile> MakeDefaults() => new();
 
     public int GetItem(ItemSlot slot) => Items[slot];
     public bool HasItem(ItemSlot slot) => GetItem(slot) != 0;
@@ -179,5 +192,18 @@ internal sealed class PlayerProfile
 
 internal static class PlayerProfileExtensions
 {
-    public static bool IsActive(this PlayerProfile? profile) => profile != null && !string.IsNullOrEmpty(profile.Name);
+    public static bool IsActive([MaybeNullWhen(false)] this PlayerProfile? profile) => profile != null && !string.IsNullOrEmpty(profile.Name);
+
+    public static int GetIndex(this List<PlayerProfile> profiles, int page, int index)
+    {
+        return page * SaveFolder.MaxProfiles + index;
+    }
+
+    public static PlayerProfile? GetProfile(this List<PlayerProfile> profiles, int page, int index)
+    {
+        var profileIndex = GetIndex(profiles, page, index);
+        return profileIndex >= profiles.Count
+            ? null
+            : profiles[profileIndex];
+    }
 }
