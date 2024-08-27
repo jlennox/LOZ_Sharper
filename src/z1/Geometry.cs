@@ -43,6 +43,9 @@ internal struct Rectangle
     public int Width;
     public int Height;
 
+    public int Right => X + Width;
+    public int Bottom => Y + Height;
+
     public Rectangle(int x, int y, int width, int height)
     {
         X = x;

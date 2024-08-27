@@ -333,6 +333,11 @@ internal static class GlobalFunctions
         animator.DrawFrame(TileSheet.PlayerAndItems, x, y, palette, frame);
     }
 
+    public static void DrawBox(Rectangle rect)
+    {
+        DrawBox(rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
     public static void DrawBox(int x, int y, int width, int height)
     {
         var x2 = x + width - 8;

@@ -30,6 +30,8 @@ internal sealed class ProfileSelectMenu : Menu
     private const int EliminateIndex = RegisterIndex + 1;
     private const int FinalIndex = EliminateIndex + 1;
 
+    private static readonly Rectangle _mainBox = new(0x18, 0x40, 0xD0, 0x90);
+
     private static readonly ImmutableArray<ImmutableArray<byte>> _palettes = [
         [0x0F, 0x30, 0x00, 0x12],
         [0x0F, 0x16, 0x27, 0x36],
@@ -65,13 +67,13 @@ internal sealed class ProfileSelectMenu : Menu
         SetPage(page);
     }
 
-    private void SetPage(int page)
+    private void SetPage(int direction)
     {
+        var page = _page + direction;
         _pageCount = _profiles.Count / SaveFolder.MaxProfiles + 1;
         _page = (int)((uint)page % _pageCount);
-        _pageString = $"Page {_page + 1}/{_pageCount}";
-        const int targetLength = 15;
-        var padding = targetLength / 2f - _pageString.Length / 2f;
+        _pageString = $"< Page {_page + 1}/{_pageCount} >";
+        var padding = (_mainBox.Width / 8f) / 2f - _pageString.Length / 2f;
         _pageString = new string(' ', (int)padding) + _pageString;
 
         if (!_profiles.GetProfile(_page, _selectedIndex).IsActive())
@@ -90,7 +92,7 @@ internal sealed class ProfileSelectMenu : Menu
     {
         if (_game.Input.IsAnyButtonPressing(GameButton.Select, GameButton.Down))
         {
-            SelectNext();
+            SelectNext(1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
         else if (_game.Input.IsButtonPressing(GameButton.Up))
@@ -100,12 +102,12 @@ internal sealed class ProfileSelectMenu : Menu
         }
         if (_game.Input.IsButtonPressing(GameButton.Left))
         {
-            SetPage(_page - 1);
+            SetPage(-1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
         else if (_game.Input.IsButtonPressing(GameButton.Right))
         {
-            SetPage(_page + 1);
+            SetPage(1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
         else if (_game.Input.IsButtonPressing(GameButton.Start))
@@ -124,11 +126,11 @@ internal sealed class ProfileSelectMenu : Menu
         Graphics.Begin();
 
         Graphics.Clear(SKColors.Black);
-        GlobalFunctions.DrawBox(0x18, 0x40, 0xD0, 0x90);
+        GlobalFunctions.DrawBox(_mainBox);
 
         // JOE: TODO: Use normal strings.
         GlobalFunctions.DrawString("- s e l e c t -", 0x40, 0x28, 0);
-        GlobalFunctions.DrawString(_pageString, 0x40, 0x40 + 0x90 + 8, 0);
+        GlobalFunctions.DrawString(_pageString, _mainBox.X, _mainBox.Bottom + 8, 0);
         GlobalFunctions.DrawString(" name ", 0x50, 0x40, 0);
         GlobalFunctions.DrawString(" life ", 0x98, 0x40, 0);
         GlobalFunctions.DrawString("register your name", 0x30, 0xA8, 0);
@@ -164,7 +166,7 @@ internal sealed class ProfileSelectMenu : Menu
         Graphics.End();
     }
 
-    private void SelectNext(int direction = 1)
+    private void SelectNext(int direction)
     {
         do
         {
@@ -435,8 +437,11 @@ internal sealed class RegisterMenu : Menu
         {
             foreach (var c in _game.Input.GetCharactersPressing())
             {
-                AddCharToName(c);
-                _game.Sound.PlayEffect(SoundEffect.PutBomb);
+                if (c != '\0')
+                {
+                    AddCharToName(c);
+                    _game.Sound.PlayEffect(SoundEffect.PutBomb);
+                }
             }
         }
     }
@@ -447,7 +452,7 @@ internal sealed class RegisterMenu : Menu
         Graphics.Clear(SKColors.Black);
 
         int y;
-        var nameX = 0x28 + 8 + 16;
+        const int nameX = 0x28 + 8 + 16;
 
         var showCursor = ((_game.FrameCounter >> 3) & 1) != 0;
         if (showCursor)
