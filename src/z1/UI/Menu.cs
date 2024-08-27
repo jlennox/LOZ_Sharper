@@ -121,7 +121,7 @@ internal sealed class ProfileSelectMenu : Menu
         {
             switch (_selectedIndex)
             {
-                case < MaxProfiles: StartWorld(_profiles[_selectedIndex]); break;
+                case < MaxProfiles: StartWorld(_profiles.GetProfile(_page, _selectedIndex)); break;
                 case RegisterIndex: _game.World.GotoRegisterMenu(_profiles); break;
                 case EliminateIndex: _game.World.GotoEliminateMenu(_profiles, _page); break;
             }
