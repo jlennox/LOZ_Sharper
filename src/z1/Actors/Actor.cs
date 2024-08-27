@@ -720,6 +720,8 @@ internal abstract class Actor
         ShoveDirection = 0;
         ShoveDistance = 0;
         InvincibilityTimer = 0;
+
+        Game.World.GetProfile().Statistics.AddKill(ObjType);
     }
 
     protected void PlayParrySoundIfSupported(DamageType damageType)

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text.Json.Serialization;
+using z1.Actors;
 using z1.IO;
 
 namespace z1;
@@ -83,6 +84,23 @@ internal sealed class PlayerProfiles : IInitializable
     }
 }
 
+internal sealed class PlayerStatistics
+{
+    public int Version { get; set; }
+    public Dictionary<ObjType, int> Kills { get; set; }
+
+    public void Initialize()
+    {
+        Kills ??= new();
+    }
+
+    public void AddKill(ObjType type)
+    {
+        var count = Kills.GetValueOrDefault(type) + 1;
+        Kills[type] = count;
+    }
+}
+
 [DebuggerDisplay("{Name} ({Hearts})")]
 internal sealed class PlayerProfile
 {
@@ -99,6 +117,7 @@ internal sealed class PlayerProfile
     [JsonIgnore] // This is current HP which is runtime only, not saved. Max heart count is ItemSlot.HeartContainers
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
+    public PlayerStatistics Statistics { get; set; }
     public int UsedCheats { get; set; }
     public List<RoomFlags> RoomFlags { get; set; }
 
@@ -108,6 +127,7 @@ internal sealed class PlayerProfile
         if (Hearts < DefaultHearts) Hearts = DefaultHearts;
         Items ??= new Dictionary<ItemSlot, int>();
         RoomFlags ??= [];
+        Statistics ??= new PlayerStatistics();
 
         foreach (var slot in Enum.GetValues<ItemSlot>())
         {
@@ -121,6 +141,8 @@ internal sealed class PlayerProfile
                 };
             }
         }
+
+        Statistics.Initialize();
     }
 
     public RoomFlags GetRoomFlags(RoomMap map, int roomId)
