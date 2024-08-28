@@ -33,8 +33,8 @@
   </ItemGroup>
   
   <ItemGroup>
-    <None Update="Roboto-Regular.ttf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    <None Update="UbuntuMono-Regular.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 

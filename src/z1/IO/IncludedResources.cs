@@ -4,7 +4,7 @@ internal class IncludedResources
 {
     public static string? GetFont()
     {
-        var path = Path.Combine(Directories.Executable, "Roboto-Regular.ttf");
+        var path = Path.Combine(Directories.Executable, "UbuntuMono-Regular.ttf");
         return File.Exists(path) ? path : null;
     }
 }
