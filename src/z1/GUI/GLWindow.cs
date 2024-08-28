@@ -99,9 +99,8 @@ internal sealed class GLWindow : IDisposable
         var surface = CreateSkSurface();
         Game.UpdateScreenSize(surface);
 
-        var fontPath = IncludedResources.GetFont();
-        var font = fontPath == null ? null : (ImGuiFontConfig?)new ImGuiFontConfig(fontPath, 30);
-        _controller = new ImGuiController(_gl, window, _inputContext, font);
+        var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
+        _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);
     }
 
     private void OnFramebufferResize(Vector2D<int> s)

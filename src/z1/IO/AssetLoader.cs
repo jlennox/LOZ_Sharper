@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using ExtractLoz;
+using z1.Common.IO;
 
 namespace z1.IO;
 
@@ -43,6 +44,9 @@ internal readonly struct AssetLoader
 
     public static Dictionary<string, byte[]> Initialize()
     {
+        // Always initialize static assets. They self-manage versioning.
+        InitializeStaticAssets();
+
         // If the assets are already present, no need to scan for a new romfile.
         if (TryLoadAssetsDirectory(out var assets)) return assets;
 
@@ -116,6 +120,16 @@ internal readonly struct AssetLoader
         File.Copy(romfile, Path.Combine(Directories.Assets, "rom.nes"), true);
         _log.Write($"Initialized using \"{romfile}\" to \"{Directories.Assets}\"");
         return assets;
+    }
+
+    private static void InitializeStaticAssets()
+    {
+        if (!File.Exists(StaticAssets.GuiFont))
+        {
+            var fontBytes = EmbeddedResource.GetFont();
+            using var fs = File.Create(StaticAssets.GuiFont);
+            fontBytes.CopyTo(fs);
+        }
     }
 
     private static bool TryLoadAssetsDirectory([MaybeNullWhen(false)] out Dictionary<string, byte[]> assets)

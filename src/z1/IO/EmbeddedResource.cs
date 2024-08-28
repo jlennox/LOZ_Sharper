@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using System.Reflection;
 using Silk.NET.Core;
 using SkiaSharp;
+using z1.Common.IO;
 
 namespace z1.IO;
 
@@ -11,7 +12,7 @@ internal sealed class EmbeddedResource
 {
     private static readonly ImmutableArray<string> _resourceNames = [.. Assembly.GetExecutingAssembly().GetManifestResourceNames()];
 
-    public static Stream GetEmbeddedResource(string name)
+    private static Stream GetEmbeddedResource(string name)
     {
         var resourceName = _resourceNames.FirstOrDefault(t => t.EndsWith(name))
             ?? throw new FileNotFoundException($"Resource not found: {name}");
@@ -43,4 +44,6 @@ internal sealed class EmbeddedResource
         using var stream = GetEmbeddedResource(name);
         return SKBitmap.Decode(stream);
     }
+
+    public static Stream GetFont() => GetEmbeddedResource(Filenames.GuiFont);
 }

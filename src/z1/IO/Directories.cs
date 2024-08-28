@@ -16,11 +16,12 @@ internal static class Directories
 
     public static string Executable { get; } = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
     public static string Assets { get; } = Path.Combine(Save, "assets");
+    public static string StaticAssets { get; } = Path.Combine(Save, "static-assets");
     public static string Save => _save.Value;
 
-    public static void OpenSaveFolder() => Open(Save);
+    public static void OpenSaveFolder() => OpenFolder(Save);
 
-    private static void Open(string directory)
+    private static void OpenFolder(string directory)
     {
         if (OperatingSystem.IsWindows())
         {

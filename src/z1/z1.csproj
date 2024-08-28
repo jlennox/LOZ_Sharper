@@ -23,17 +23,15 @@
   <ItemGroup>
     <None Remove="font-addendum.png" />
     <None Remove="icon.ico" />
+    <None Remove="UbuntuMono-Regular.ttf" />
     <EmbeddedResource Include="font-addendum.png" />
     <EmbeddedResource Include="icon.ico" />
+    <EmbeddedResource Include="UbuntuMono-Regular.ttf">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
     <ProjectReference Include="..\ExtractLoz\ExtractLoz.csproj" />
     <ProjectReference Include="..\z1.Common\z1.Common.csproj" />
     <None Update="assets\**">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-  
-  <ItemGroup>
-    <None Update="UbuntuMono-Regular.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

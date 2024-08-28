@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using SkiaSharp;
-using z1.Common;
+using z1.Common.IO;
 
 namespace z1.IO;
 
@@ -10,7 +10,7 @@ internal readonly struct Asset
     // The assets are so small that we can buffer them all into memory without an issue.
     private static readonly Dictionary<string, byte[]> _assets = new(128);
 
-    public string Filename { get; } // Good for debug purposes only.
+    public string Filename { get; } // For debug purposes only.
 
     private readonly byte[] _assetData;
 

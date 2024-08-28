@@ -3,9 +3,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using z1.Actors;
-using z1.IO;
 
-namespace z1;
+namespace z1.IO;
 
 internal readonly struct TableResource<T>
     where T : struct
@@ -351,7 +350,7 @@ internal struct ObjectAttr
     public readonly bool GetHalfWidth() => Typed.HasFlag(Type.HalfWidth);
     public readonly bool GetUnknown80__() => Typed.HasFlag(Type.Unknown80__);
     public readonly bool GetWorldCollision() => Typed.HasFlag(Type.WorldCollision);
-    public readonly int GetItemDropClass() => (Data >> 9) & 7;
+    public readonly int GetItemDropClass() => Data >> 9 & 7;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
