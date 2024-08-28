@@ -9,6 +9,7 @@ namespace z1.UI;
 
 // This is a pretty close clone of Silk.NET.Input.ButtonName. This is because the trigger's were not
 // in the original enum. I left space after the last enum in-case they expand theirs in the future.
+[JsonConverter(typeof(JsonStringEnumConverter))]
 internal enum  GamepadButton
 {
     A = 0,
@@ -20,15 +21,24 @@ internal enum  GamepadButton
     Back = 6,
     Start = 7,
     Home = 8,
-    StickLeft = 9,
-    StickRight = 10,
+    StickLeftButton = 9,
+    StickRightButton = 10,
     DPadUp = 11,
     DPadRight = 12,
     DPadDown = 13,
     DPadLeft = 14,
 
+    // The numeric values of the earlier entries must remain the same to map with Silk.NET.Input.ButtonName.
     TriggerLeft = 100,
-    TriggerRight = 101,
+    TriggerRight,
+    StickLeftUp,
+    StickLeftRight,
+    StickLeftDown,
+    StickLeftLeft,
+    StickRightUp,
+    StickRightRight,
+    StickRightDown,
+    StickRightLeft,
 }
 
 internal sealed class GameEnhancements
@@ -41,11 +51,11 @@ internal sealed class GameEnhancements
     public bool ImprovedMenus { get; set; }
     public bool EasySaveMenu { get; set; }
     public bool ReduceFlashing { get; set; }
-    public int TextSpeed { get; set; } = 1; // 1 is normal, 5 is max speed.
+    public int TextSpeed { get; set; } // 1 is normal, 5 is max speed.
 
     public static GameEnhancements MakeDefaults() => new()
     {
-        AutoSave = false,
+        AutoSave = true,
         RedCandleLightsDarkRooms = false,
         ImprovedMenus = true,
         EasySaveMenu = true,
@@ -240,14 +250,29 @@ internal sealed class InputConfiguration
         { GamepadButton.Home, GameButton.None },
         { GamepadButton.BumperLeft, GameButton.ItemPrevious },
         { GamepadButton.BumperRight, GameButton.ItemNext },
-        { GamepadButton.StickLeft, GameButton.None },
-        { GamepadButton.StickRight, GameButton.None },
+        { GamepadButton.StickLeftUp, GameButton.None },
+        { GamepadButton.StickLeftRight, GameButton.None },
+        { GamepadButton.StickLeftDown, GameButton.None },
+        { GamepadButton.StickLeftLeft, GameButton.None },
+        { GamepadButton.StickRightUp, GameButton.None },
+        { GamepadButton.StickRightRight, GameButton.None },
+        { GamepadButton.StickRightDown, GameButton.None },
+        { GamepadButton.StickRightLeft, GameButton.None },
 
 #if DEBUG
+        { GamepadButton.StickLeftButton, GameButton.CheatBeHoldClock },
+        { GamepadButton.StickRightButton, GameButton.None },
         { GamepadButton.X, GameButton.CheatFullHealth },
         { GamepadButton.Y, GameButton.CheatClip },
         { GamepadButton.TriggerLeft, GameButton.CheatKillAll },
         { GamepadButton.TriggerRight, GameButton.CheatSpeedUp },
+#else
+        { GamepadButton.StickLeftButton, GameButton.None },
+        { GamepadButton.StickRightButton, GameButton.None },
+        { GamepadButton.X, GameButton.None },
+        { GamepadButton.Y, GameButton.None },
+        { GamepadButton.TriggerLeft, GameButton.None },
+        { GamepadButton.TriggerRight, GameButton.None },
 #endif
     };
 

@@ -15,6 +15,8 @@ namespace z1.GUI;
 
 internal sealed class GLWindow : IDisposable
 {
+    private const float AnalogThreshold = .8f;
+
     private static readonly DebugLog _log = new(nameof(GLWindow));
 
     public readonly Game Game;
@@ -184,6 +186,7 @@ internal sealed class GLWindow : IDisposable
         gamepad.ButtonDown += OnGamepadButtonDown;
         gamepad.ButtonUp += OnGamepadButtonUp;
         gamepad.TriggerMoved += OnGamePadTriggerMoved;
+        gamepad.ThumbstickMoved += OnGamePadThumbstickMoved;
     }
 
     private void OnGamepadButtonDown(IGamepad gamepad, Button button)
@@ -201,11 +204,59 @@ internal sealed class GLWindow : IDisposable
         // They trigger when the program starts up at -1. They range from -1 to 1, passing 0 I presume in the middle.
         // At least, this is true on my xbox controller.
 
-        var set = trigger.Position >= .8f;
+        var set = trigger.Position >= AnalogThreshold;
         switch (trigger.Index)
         {
             case 0: Game.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;
             case 1: Game.Input.ToggleGamepadButton(GamepadButton.TriggerRight, set); break;
+        }
+    }
+
+    private void OnGamePadThumbstickMoved(IGamepad gamepad, Thumbstick thumbstick)
+    {
+        if (thumbstick.Index is < 0 or > 1)
+        {
+            _log.Error($"Unknown stick index {thumbstick.Index}");
+            return;
+        }
+
+        var (up, right, down, left) = thumbstick.Index switch
+        {
+            0 => (GamepadButton.StickLeftUp, GamepadButton.StickLeftRight, GamepadButton.StickLeftDown, GamepadButton.StickLeftLeft),
+            1 => (GamepadButton.StickRightUp, GamepadButton.StickRightRight, GamepadButton.StickRightDown, GamepadButton.StickRightLeft),
+            _ => throw new ArgumentOutOfRangeException()
+        };
+
+        switch (thumbstick.X)
+        {
+            case < -AnalogThreshold:
+                Game.Input.ToggleGamepadButton(left, true);
+                Game.Input.ToggleGamepadButton(right, false);
+                break;
+            case > AnalogThreshold:
+                Game.Input.ToggleGamepadButton(left, false);
+                Game.Input.ToggleGamepadButton(right, true);
+                break;
+            default:
+                Game.Input.ToggleGamepadButton(left, false);
+                Game.Input.ToggleGamepadButton(right, false);
+                break;
+        }
+
+        switch (thumbstick.Y)
+        {
+            case < -AnalogThreshold:
+                Game.Input.ToggleGamepadButton(up, true);
+                Game.Input.ToggleGamepadButton(down, false);
+                break;
+            case > AnalogThreshold:
+                Game.Input.ToggleGamepadButton(up, false);
+                Game.Input.ToggleGamepadButton(down, true);
+                break;
+            default:
+                Game.Input.ToggleGamepadButton(up, false);
+                Game.Input.ToggleGamepadButton(down, false);
+                break;
         }
     }
 
