@@ -726,6 +726,7 @@ internal sealed class Link : Actor, IThrower
         damage >>= ringValue;
 
         Game.World.ResetKilledObjectCount();
+        Game.World.GetProfile().Statistics.TakeDamage(collider, damage);
 
         if (Game.World.Profile.Hearts <= damage)
         {
@@ -900,7 +901,7 @@ internal sealed class Link : Actor, IThrower
     // JOE: NOTE: Return value is properly unused?
     private int UseItem()
     {
-        var profile = Game.World.Profile;
+        var profile = Game.World.GetProfile();
         if (profile.SelectedItem == 0) return 0;
 
         var itemValue = profile.Items[profile.SelectedItem];
@@ -928,6 +929,7 @@ internal sealed class Link : Actor, IThrower
         Animator.Time = 0;
         _animTimer = 6;
         _state = 0x16;
+        profile.Statistics.AddItemUse(profile.SelectedItem);
         return waitFrames + 6;
     }
 
@@ -943,8 +945,10 @@ internal sealed class Link : Actor, IThrower
 
     private int UseWeapon(ObjType type, ItemSlot itemSlot)
     {
-        if (Game.World.GetItem(itemSlot) == 0) return 0;
+        if (!Game.World.HasItem(itemSlot)) return 0;
         if (Game.World.GetObject(ObjectSlot.PlayerSword) != null) return 0;
+
+        Game.World.GetProfile().Statistics.AddItemUse(itemSlot);
 
         // The original game did this:
         //   player.animTimer := 1
