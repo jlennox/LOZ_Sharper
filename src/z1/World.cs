@@ -1201,17 +1201,19 @@ internal sealed unsafe partial class World
 
     public bool HasItem(ItemSlot itemSlot) => GetItem(itemSlot) > 0;
     public int GetItem(ItemSlot itemSlot) => GetProfile().Items[itemSlot];
-
-    public void SetItem(ItemSlot itemSlot, int value)
-    {
-        GetProfile().Items[itemSlot] = value;
-    }
+    public void SetItem(ItemSlot itemSlot, int value) => GetProfile().Items[itemSlot] = value;
 
     private void PostRupeeChange(byte value, ItemSlot itemSlot)
     {
         var profile = GetProfile();
         var curValue = profile.Items[itemSlot];
         var newValue = Math.Clamp(curValue + value, 0, 255);
+
+        switch (itemSlot)
+        {
+            case ItemSlot.RupeesToAdd: profile.Statistics.RupeesCollected += value; break;
+            case ItemSlot.RupeesToSubtract: profile.Statistics.RupeesSpent += value; break;
+        }
 
         profile.Items[itemSlot] = newValue;
     }
@@ -2317,11 +2319,13 @@ internal sealed unsafe partial class World
                 var doorState = GetDoorState(CurRoomId, doorDir);
                 if (doorState) continue;
 
-                if (Math.Abs(bombX - _doorMiddles[iDoor].X) < UWBombRadius
-                    && Math.Abs(bombY - _doorMiddles[iDoor].Y) < UWBombRadius)
+                var doorMiddle = _doorMiddles[iDoor];
+                if (Math.Abs(bombX - doorMiddle.X) < UWBombRadius
+                    && Math.Abs(bombY - doorMiddle.Y) < UWBombRadius)
                 {
                     _triggeredDoorCmd = 6;
                     _triggeredDoorDir = doorDir;
+                    GetProfile().Statistics.UWWallsBombed++;
                     break;
                 }
             }

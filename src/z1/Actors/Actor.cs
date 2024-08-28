@@ -693,6 +693,7 @@ internal abstract class Actor
     protected void DealDamage(CollisionContext context)
     {
         Game.Sound.PlayEffect(SoundEffect.MonsterHit);
+        Game.World.GetProfile().Statistics.AddDamage(context);
 
         if (HP < context.Damage)
         {

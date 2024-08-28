@@ -94,16 +94,38 @@ internal sealed class PlayerStatistics
 {
     public int Version { get; set; }
     public Dictionary<ObjType, int> Kills { get; set; }
+    public Dictionary<ItemSlot, int> ItemUses { get; set; }
+    public Dictionary<DamageType, long> DamageDone { get; set; }
+    public int SaveCount { get; set; } // TODO
+    public int UWWallsBombed { get; set; }
+    public int TreesBurned { get; set; }
+    public int OWBlocksBombed { get; set; }
+    public long RupeesCollected { get; set; }
+    public long RupeesSpent { get; set; }
 
     public void Initialize()
     {
         Kills ??= new();
+        DamageDone ??= new();
+        ItemUses ??= new();
     }
 
     public void AddKill(ObjType type)
     {
         var count = Kills.GetValueOrDefault(type) + 1;
         Kills[type] = count;
+    }
+
+    public void AddItemUse(ItemSlot slot)
+    {
+        var count = ItemUses.GetValueOrDefault(slot) + 1;
+        ItemUses[slot] = count;
+    }
+
+    public void AddDamage(CollisionContext context)
+    {
+        var count = DamageDone.GetValueOrDefault(context.DamageType) + context.Damage;
+        DamageDone[context.DamageType] = count;
     }
 }
 
@@ -128,7 +150,6 @@ internal sealed class PlayerProfile
     public int UsedCheats { get; set; }
     public List<RoomFlags> RoomFlags { get; set; }
 
-    [JsonConstructor]
     public PlayerProfile()
     {
     }
