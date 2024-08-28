@@ -418,7 +418,8 @@ internal sealed class RegisterMenu : Menu
         }
         else if (_game.Input.IsButtonPressing(GameButton.B))
         {
-            MoveNextNamePosition();
+            // JOE: I hate this :)
+            // MoveNextNamePosition();
         }
         else if (_game.Input.IsButtonPressing(GameButton.Right))
         {

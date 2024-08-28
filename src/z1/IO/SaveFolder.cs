@@ -8,9 +8,7 @@ namespace z1.IO;
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(GameConfiguration))]
 [JsonSerializable(typeof(PlayerProfiles))]
-internal partial class JsonTypeInfos : JsonSerializerContext
-{
-}
+internal partial class JsonTypeInfos : JsonSerializerContext;
 
 internal interface IInitializable
 {

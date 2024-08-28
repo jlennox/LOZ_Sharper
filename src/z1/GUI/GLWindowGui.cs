@@ -83,7 +83,7 @@ internal static class GLWindowGui
     {
         var game = window.Game;
 
-        void DrawMenuItem(string name, PropertyInfo property, object target)
+        static void DrawMenuItem(string name, PropertyInfo property, object target)
         {
             // Not the most efficient way to do it, but this is rarely rendered.
             if (ImGui.MenuItem(name, null, (bool)property.GetValue(target)))

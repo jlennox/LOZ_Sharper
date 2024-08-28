@@ -1,8 +1,9 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 using Silk.NET.Input;
 using z1.IO;
-using KeyboardMap = System.Collections.Generic.IReadOnlyDictionary<z1.UI.KeyboardMapping, z1.GameButton>;
-using GamepadMap = System.Collections.Generic.IReadOnlyDictionary<z1.UI.GamepadButton, z1.GameButton>;
+using KeyboardMap = System.Collections.Generic.Dictionary<z1.UI.KeyboardMapping, z1.GameButton>;
+using GamepadMap = System.Collections.Generic.Dictionary<z1.UI.GamepadButton, z1.GameButton>;
 
 namespace z1.UI;
 
@@ -59,8 +60,8 @@ internal sealed class GameEnhancements
 
 internal sealed class AudioConfiguration
 {
-    public bool Mute { get; set; } = false;
-    public bool MuteMusic { get; set; } = true;
+    public bool Mute { get; set; }
+    public bool MuteMusic { get; set; }
     public int Volume { get; set; } = 80; // 0 to 100. Default to 80 because it sounds really loud at 100.
 
     public static AudioConfiguration MakeDefaults() => new();
@@ -73,9 +74,9 @@ internal sealed class AudioConfiguration
 
 internal sealed class DebugInfoConfiguration
 {
-    public bool Enabled { get; set; } = true;
-    public bool RoomId { get; set; } = true;
-    public bool ActiveShots { get; set; } = true;
+    public bool Enabled { get; set; }
+    public bool RoomId { get; set; }
+    public bool ActiveShots { get; set; }
 
     public static DebugInfoConfiguration MakeDefaults() => new();
 
@@ -125,6 +126,7 @@ internal sealed class GameConfiguration : IInitializable
         Video ??= VideoConfiguration.MakeDefaults();
         DebugInfo ??= DebugInfoConfiguration.MakeDefaults();
 
+        Input.Initialize();
         Enhancements.Initialize();
         Audio.Initialize();
         Video.Initialize();
@@ -141,16 +143,58 @@ internal enum KeyboardModifiers
     Alt = 4,
 }
 
+[JsonConverter(typeof(Converter))]
 internal readonly record struct KeyboardMapping(Key Key, KeyboardModifiers Modifiers = KeyboardModifiers.None)
 {
     public bool HasModifiers => Modifiers != KeyboardModifiers.None;
+
+    public class Converter : JsonConverter<KeyboardMapping>
+    {
+        private static string GetJsonString(KeyboardMapping map)
+        {
+            return map.Modifiers == KeyboardModifiers.None
+                ? map.Key.ToString()
+                : $"{map.Key}+{map.Modifiers}";
+        }
+
+        private static KeyboardMapping ParseJsonString(string json)
+        {
+            var parts = json.IndexOf('+', 1);
+            var key = Enum.Parse<Key>(parts == -1 ? json : json[..parts]);
+            var modifiers = parts == -1
+                ? KeyboardModifiers.None
+                : Enum.Parse<KeyboardModifiers>(json[(parts + 1)..]);
+
+            return new KeyboardMapping(key, modifiers);
+        }
+
+        public override KeyboardMapping Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            return ParseJsonString(reader.GetString());
+        }
+
+        public override void Write(Utf8JsonWriter writer, KeyboardMapping value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(GetJsonString(value));
+        }
+
+        public override KeyboardMapping ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            return ParseJsonString(reader.GetString());
+        }
+
+        public override void WriteAsPropertyName(Utf8JsonWriter writer, KeyboardMapping value, JsonSerializerOptions options)
+        {
+            writer.WritePropertyName(GetJsonString(value));
+        }
+    }
 }
 
 internal sealed class InputConfiguration
 {
-    public static InputConfiguration MakeDefaults() => new(_defaultKeyboardMap, _defaultGamepadMap);
+    public static InputConfiguration MakeDefaults() => new();
 
-    private static readonly KeyboardMap _defaultKeyboardMap = new Dictionary<KeyboardMapping, GameButton>
+    private static readonly KeyboardMap _defaultKeyboardMap = new()
     {
         { new KeyboardMapping(Key.Z), GameButton.B },
         { new KeyboardMapping(Key.X), GameButton.A },
@@ -183,7 +227,7 @@ internal sealed class InputConfiguration
 #endif
     };
 
-    private static readonly GamepadMap _defaultGamepadMap = new Dictionary<GamepadButton, GameButton>
+    private static readonly GamepadMap _defaultGamepadMap = new()
     {
         { GamepadButton.Start, GameButton.Start },
         { GamepadButton.Back, GameButton.Select },
@@ -207,21 +251,16 @@ internal sealed class InputConfiguration
 #endif
     };
 
-    [JsonIgnore]
-    public KeyboardMap Keyboard => _keyboard ?? _defaultKeyboardMap;
+    public KeyboardMap Keyboard { get; set; }
+    public GamepadMap Gamepad { get; set; }
 
-    [JsonIgnore]
-    public GamepadMap Gamepad => _gamepad ?? _defaultGamepadMap;
-
-    [JsonPropertyName("Keyboard")]
-    private readonly KeyboardMap? _keyboard;
-
-    [JsonPropertyName("Gamepad")]
-    private readonly GamepadMap? _gamepad;
-
-    public InputConfiguration(KeyboardMap keyboard, GamepadMap gamepad)
+    public InputConfiguration()
     {
-        _keyboard = keyboard;
-        _gamepad = gamepad;
+    }
+
+    public void Initialize()
+    {
+        Keyboard ??= new KeyboardMap(_defaultKeyboardMap);
+        Gamepad ??= new GamepadMap(_defaultGamepadMap);
     }
 }

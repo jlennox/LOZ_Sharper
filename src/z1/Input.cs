@@ -1,4 +1,5 @@
-﻿using Silk.NET.Input;
+﻿using System.Text.Json.Serialization;
+using Silk.NET.Input;
 using z1.IO;
 using z1.UI;
 
@@ -12,6 +13,7 @@ internal enum ButtonState
     Held = 3,
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 internal enum GameButton
 {
     None,

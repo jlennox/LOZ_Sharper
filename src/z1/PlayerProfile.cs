@@ -129,9 +129,8 @@ internal sealed class PlayerProfile
     public List<RoomFlags> RoomFlags { get; set; }
 
     [JsonConstructor]
-    internal PlayerProfile()
+    public PlayerProfile()
     {
-        Initialize();
     }
 
     public void Initialize()

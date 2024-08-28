@@ -259,11 +259,7 @@ internal sealed class GLWindow : IDisposable
     private void Render(double deltaSeconds)
     {
         var surface = _surface ?? throw new Exception();
-        var gl = _gl ?? throw new Exception();
         var window = _window ?? throw new Exception();
-
-        // gl.ClearColor(0f, 0f, 0f, 1f);
-        // gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
 
         surface.Canvas.Clear(SKColors.Black);
 
@@ -293,7 +289,6 @@ internal sealed class GLWindow : IDisposable
 
         if (updated)
         {
-            // JOE: TODO: Fix that clearing the surface causes flicker.
             _updateTimer.Restart();
             Game.Draw();
             surface.Canvas.Flush();
@@ -301,11 +296,10 @@ internal sealed class GLWindow : IDisposable
             rps = _rendersPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
         }
 
-        // window.SwapBuffers();
-
         if (Game.FrameCounter % 20 == 0)
         {
-            window.Title = $"The Legend of Form1 - FPS:{_framesPerSecond.Add(deltaSeconds):0.0}/UPS:{ups:0.0}/RPS:{rps:0.0}";
+            var fps = _framesPerSecond.Add(deltaSeconds);
+            window.Title = $"The Legend of Form1 - FPS:{fps:0.0}/UPS:{ups:0.0}/RPS:{rps:0.0}";
         }
 
         if (_showMenu)
