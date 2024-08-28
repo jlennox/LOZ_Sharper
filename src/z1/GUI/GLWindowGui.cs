@@ -7,10 +7,19 @@ namespace z1.GUI;
 
 internal static class GLWindowGui
 {
-    private static PropertyInfo GetProperty<T>(string name)
+    private static PropertyInfo GetProperty<T>(string name) => GetProperty<T, bool>(name);
+
+    private static PropertyInfo GetProperty<T, TPropType>(string name)
     {
-        return typeof(T).GetProperty(name, BindingFlags.Public | BindingFlags.Instance)
+        var property = typeof(T).GetProperty(name, BindingFlags.Public | BindingFlags.Instance)
             ?? throw new Exception($"Property {name} not found on {typeof(T).Name}");
+
+        if (property.PropertyType != typeof(TPropType))
+        {
+            throw new Exception($"Property {name} on {typeof(T).Name} is not a {typeof(TPropType).Name}");
+        }
+
+        return property;
     }
 
     private static class GameEnhancementsProperties
