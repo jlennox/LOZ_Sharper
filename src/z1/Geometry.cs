@@ -46,12 +46,22 @@ internal struct Rectangle
     public int Right => X + Width;
     public int Bottom => Y + Height;
 
+    public Size Size => new(Width, Height);
+
     public Rectangle(int x, int y, int width, int height)
     {
         X = x;
         Y = y;
         Width = width;
         Height = height;
+    }
+
+    public Rectangle(Point point, Size size)
+    {
+        X = point.X;
+        Y = point.Y;
+        Width = size.Width;
+        Height = size.Height;
     }
 }
 

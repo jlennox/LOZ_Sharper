@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using SkiaSharp;
 using z1.Actors;
+using z1.Render;
 
 namespace z1;
 

@@ -7,6 +7,7 @@ using Silk.NET.Windowing;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using SkiaSharp;
 using z1.IO;
+using z1.Render;
 using z1.UI;
 using Button = Silk.NET.Input.Button;
 using GamepadButton = z1.UI.GamepadButton;
@@ -19,7 +20,7 @@ internal sealed class GLWindow : IDisposable
 
     private static readonly DebugLog _log = new(nameof(GLWindow));
 
-    public readonly Game Game;
+    public Game Game = null!;
 
     public bool IsFullScreen => _window?.WindowBorder == WindowBorder.Hidden;
 
@@ -53,7 +54,6 @@ internal sealed class GLWindow : IDisposable
             Environment.Exit(1);
         }
 
-        Game = new Game();
 
         var options = WindowOptions.Default with
         {
@@ -83,6 +83,11 @@ internal sealed class GLWindow : IDisposable
         _gl = window.CreateOpenGL();
         _inputContext = window.CreateInput();
 
+
+
+        new GUIRectShader(_gl);
+        RectMesh.Instance = new RectMesh(_gl);
+
         _glinterface = GRGlInterface.Create() ?? throw new Exception("GRGlInterface.Create() failed.");
         _grcontext = GRContext.CreateGl(_glinterface) ?? throw new Exception("GRContext.CreateGl() failed.");
 
@@ -99,6 +104,8 @@ internal sealed class GLWindow : IDisposable
         }
 
         var surface = CreateSkSurface();
+        Graphics.SetSurface(_gl, surface, window.Size.X, window.Size.Y);
+        Game = new Game();
         Game.UpdateScreenSize(surface);
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
@@ -113,6 +120,7 @@ internal sealed class GLWindow : IDisposable
 
         var surface = CreateSkSurface();
         Game.UpdateScreenSize(surface);
+        Graphics.SetViewportSize(s.X, s.Y);
     }
 
     private SKSurface CreateSkSurface()
@@ -311,9 +319,22 @@ internal sealed class GLWindow : IDisposable
     private void Render(double deltaSeconds)
     {
         var surface = _surface ?? throw new Exception();
+        var gl = _gl ?? throw new Exception();
         var window = _window ?? throw new Exception();
 
-        surface.Canvas.Clear(SKColors.Black);
+        gl.ClearColor(0f, 0f, 0f, 1f);
+        gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
+
+        const float nesWidth = 256f;
+        const float nesHeight = 240f;
+
+        var windowSize = window.Size;
+
+        var scale = Math.Min(windowSize.X / nesWidth, windowSize.Y / nesHeight);
+        var offsetX = (windowSize.X - scale * nesWidth) / 2;
+        var offsetY = (windowSize.Y - scale * nesHeight) / 2;
+
+        gl.Viewport((int)offsetX, (int)offsetY, (uint)(nesWidth * scale), (uint)(nesHeight * scale));
 
         _controller.Update((float)deltaSeconds);
 
@@ -322,7 +343,7 @@ internal sealed class GLWindow : IDisposable
 
         var delta = TimeSpan.FromSeconds(deltaSeconds);
 
-        Graphics.SetSurface(surface);
+        Graphics.SetSurface(gl, surface, window.Size.X, window.Size.Y);
 
         double ups = 0;
         double rps = 0;
@@ -343,7 +364,7 @@ internal sealed class GLWindow : IDisposable
         {
             _updateTimer.Restart();
             Game.Draw();
-            surface.Canvas.Flush();
+            // surface.Canvas.Flush();
             _updateTimer.Stop();
             rps = _rendersPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
         }
@@ -356,6 +377,7 @@ internal sealed class GLWindow : IDisposable
 
         if (_showMenu)
         {
+            gl.Viewport(0, 0, (uint)windowSize.X, (uint)windowSize.Y);
             GLWindowGui.DrawMenu(this);
             _controller.Render();
         }
