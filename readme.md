@@ -41,6 +41,7 @@ Note that some cheats have `;` as a required terminator. Many can do what's not 
 - `idbeholdNNNN;`: replace NNNN with an item's name. eg, `idbeholdclock`
 - `idmypos`: Show Link's map and room positions.
 - `idpos`: Show the room position of all objects.
+- `clearhis`: Clear room history.
 
 Status:
 ===

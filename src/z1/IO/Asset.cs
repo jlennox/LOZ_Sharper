@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using SkiaSharp;
 using z1.Common.IO;
+using z1.Render;
 
 namespace z1.IO;
 
@@ -35,13 +36,13 @@ internal readonly struct Asset
 
     private static void AddFontAddendum()
     {
-        var fontAddendum = EmbeddedResource.SKBitmapFromResource(Filenames.FontAddendum);
-        var font = SKBitmap.Decode(_assets[Filenames.Font]);
+        using var fontAddendum = EmbeddedResource.GetFontAddendum();
+        using var font = SKBitmap.Decode(_assets[Filenames.Font]);
 
         if (font.Width != fontAddendum.Width) throw new Exception("Font and font addendum must have the same width.");
 
         var newHeight = font.Height + fontAddendum.Height;
-        var combinedFont = new SKBitmap(font.Width, newHeight, font.ColorType, SKAlphaType.Unpremul);
+        using var combinedFont = new SKBitmap(font.Width, newHeight, font.ColorType, SKAlphaType.Unpremul);
         using var canvas = new SKCanvas(combinedFont);
         canvas.DrawBitmap(font, 0, 0);
         canvas.DrawBitmap(fontAddendum, 0, font.Height);

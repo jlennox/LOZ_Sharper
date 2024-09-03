@@ -24,9 +24,9 @@
     <None Remove="font-addendum.png" />
     <None Remove="icon.ico" />
     <None Remove="UbuntuMono-Regular.ttf" />
-    <EmbeddedResource Include="font-addendum.png" />
-    <EmbeddedResource Include="icon.ico" />
-    <EmbeddedResource Include="UbuntuMono-Regular.ttf">
+    <EmbeddedResource Include="StaticAssets\font-addendum.png" />
+    <EmbeddedResource Include="StaticAssets\icon.ico" />
+    <EmbeddedResource Include="StaticAssets\UbuntuMono-Regular.ttf">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
     <ProjectReference Include="..\ExtractLoz\ExtractLoz.csproj" />

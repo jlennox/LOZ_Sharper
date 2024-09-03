@@ -142,8 +142,8 @@ internal sealed class GameCheats
 
     public sealed class DungeonWarpCheat : RegexCheat
     {
-        private static readonly Regex _full = new(@"^w(w|rr|\d{1,2});$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^w(w|rr?|\d{0,2})?;?$", DefaultRegexOptions);
+        private static readonly Regex _full = new(@"^w(w|\d{1,2});$", DefaultRegexOptions);
+        private static readonly Regex _partial = new(@"^w(w?|\d{0,2})?;?$", DefaultRegexOptions);
 
         protected override Regex FullMatch => _full;
         protected override Regex PartialMatch => _partial;
