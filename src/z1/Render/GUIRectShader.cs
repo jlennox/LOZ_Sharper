@@ -1,7 +1,9 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
+using SkiaSharp;
 
 namespace z1.Render;
 
@@ -20,6 +22,8 @@ internal sealed class GUIRectShader : Shader2D
     private readonly int _lLineColor;
     private readonly int _lUVStart;
     private readonly int _lUVEnd;
+    private readonly int _lLayer;
+    private readonly int _lPalette;
 
     public GUIRectShader(GL gl)
         : base(gl, Shaders.GuiRectVertex, Shaders.GuiRectFragment)
@@ -37,6 +41,8 @@ internal sealed class GUIRectShader : Shader2D
         _lLineColor = GetUniformLocation(gl, "u_lineColor");
         _lUVStart = GetUniformLocation(gl, "u_uvStart");
         _lUVEnd = GetUniformLocation(gl, "u_uvEnd");
+        _lLayer = GetUniformLocation(gl, "u_layerIndex");
+        _lPalette = GetUniformLocation(gl, "u_palette");
 
         // Set texture unit now
         Use(gl);
@@ -50,11 +56,11 @@ internal sealed class GUIRectShader : Shader2D
     }
     public void SetCornerRadii(GL gl, in Vector4D<int> v)
     {
-        gl.Uniform4(_lCornerRadii, v.X, v.Y, v.Z, v.W);
+        // gl.Uniform4(_lCornerRadii, v.X, v.Y, v.Z, v.W);
     }
     public void SetLineThickness(GL gl, int i)
     {
-        gl.Uniform1(_lLineThickness, i);
+        // gl.Uniform1(_lLineThickness, i);
     }
     public void SetOpacity(GL gl, float f)
     {
@@ -77,6 +83,16 @@ internal sealed class GUIRectShader : Shader2D
     {
         gl.Uniform2(_lUVStart, uv.Start);
         gl.Uniform2(_lUVEnd, uv.End);
+    }
+    public void SetTextureLayer(GL gl, int layer)
+    {
+        gl.Uniform1(_lLayer, layer);
+    }
+    public void SetPalette(GL gl, ReadOnlySpan<SKColor> colors, bool noTransparency)
+    {
+        var asd = colors.ToArray().Select(Extensions.ToVector4).ToArray();
+        if (!noTransparency) asd[0].W = 0;
+        gl.Uniform4(_lPalette, MemoryMarshal.Cast<Vector4, float>(asd));
     }
 }
 
@@ -139,7 +155,7 @@ internal abstract class GLShader
         var location = gl.GetUniformLocation(Program, name);
         if (throwIfNotExists && location == -1)
         {
-            throw new Exception($"\"{name}\" uniform was not found on the shader");
+            // throw new Exception($"\"{name}\" uniform was not found on the shader");
         }
         return location;
     }

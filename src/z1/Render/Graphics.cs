@@ -1,10 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics;
-using System.Runtime.Intrinsics.X86;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 using z1.IO;
@@ -181,7 +178,8 @@ internal static class Graphics
         }
 
         var bitmap = file.DecodeSKBitmapTileData();
-        foundRef = new GLImage(_gl!, bitmap);
+        var size = sheet is TileSheet.Font or TileSheet.Background ? new Size(8, 8) : new Size(16, 16);
+        foundRef = new GLImage(_gl!, bitmap, size);
     }
 
     public static void LoadTileSheet(TileSheet sheet, Asset path, Asset animationFile)
@@ -399,7 +397,10 @@ internal static class Graphics
         var destRect = new SKRect(destX, destY, destX + width, destY + height);
         // _surface.Canvas.DrawImage(tile, destRect);
         var tiles = _tileSheets[(int)slot];
-        tiles.Render(_gl!, srcX, srcY, width, height, _viewportSize.Value, new Point(destX, destY));
+        var paletteY = (int)palette * _paletteBmpWidth;
+        var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..(paletteY + 4)];
+        ReadOnlySpan<SKColor> fakepalette = [SKColors.Red, SKColors.Green, SKColors.Blue, SKColors.Yellow];
+        tiles.Render(_gl!, srcX, srcY, width, height, paletteSpan, _viewportSize.Value, new Point(destX, destY), flags);
     }
 
     public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)

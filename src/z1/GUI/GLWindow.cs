@@ -72,8 +72,6 @@ internal sealed class GLWindow : IDisposable
         _window.SetWindowIcon([EmbeddedResource.GetWindowIcon()]);
         _window.Run();
         _windowedRect = _window.GetRect();
-
-
     }
 
     private void OnLoad()
@@ -82,8 +80,6 @@ internal sealed class GLWindow : IDisposable
 
         _gl = window.CreateOpenGL();
         _inputContext = window.CreateInput();
-
-
 
         new GUIRectShader(_gl);
         RectMesh.Instance = new RectMesh(_gl);

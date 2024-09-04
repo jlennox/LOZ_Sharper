@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.CompilerServices;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 
@@ -6,39 +7,79 @@ namespace z1.Render;
 
 internal sealed unsafe class GLImage
 {
+    private readonly Size _tileSize;
     public uint Texture { get; }
     public Size Size { get; }
 
-    public GLImage(GL gl, SKBitmap bitmap)
+    public GLImage(GL gl, SKBitmap bitmap, Size tileSize)
     {
+        _tileSize = tileSize;
         Texture = gl.GenTexture();
         gl.BindTexture(TextureTarget.Texture2DArray, Texture);
-        LoadTextureData(gl, bitmap.GetPixelSpan(), bitmap.Width, bitmap.Height);
+        LoadTextureData(gl, bitmap, bitmap.Width, bitmap.Height);
         Size = new Size(bitmap.Width, bitmap.Height);
     }
 
-    public static void LoadTextureData(GL gl, ReadOnlySpan<byte> data, int width, int height)
+    private void LoadTextureData(GL gl, SKBitmap bitmap, int width, int height)
     {
-        fixed (byte* dataPtr = data)
-        {
-            gl.TexImage2D(TextureTarget.Texture2D, 0, (int)InternalFormat.Rgba8, (uint)width, (uint)height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, dataPtr);
+        if (bitmap.BytesPerPixel != 4) throw new ArgumentException("Bitmap must be 4 bytes per pixel.", nameof(bitmap));
 
-            gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-            gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-            gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-            gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+        var bitmapLock = bitmap.Lock();
+
+        const int bytesPerPixel = 4;
+        var tileWidth = _tileSize.Width;
+        var tileHeight = _tileSize.Height;
+        var tilesX = width / _tileSize.Width;
+        var tilesY = height / _tileSize.Height;
+        var tileCount = tilesX * tilesY;
+        var tileWidthByteCount = tileWidth * bytesPerPixel;
+        var bytesPerStride = bitmapLock.Stride;
+        var tileByteCount = tileWidthByteCount * tileHeight;
+
+        gl.TexImage3D(TextureTarget.Texture2DArray, 0, InternalFormat.Rgba8,
+            (uint)tileWidth, (uint)tileHeight, (uint)tileCount, 0,
+            PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
+
+        var singleTilePtrBase = stackalloc byte[tileByteCount];
+        var dataPtrBase = (byte*)bitmapLock.Data;
+
+        var tileIndex = 0;
+        for (var y = 0; y < tilesY; y++)
+        {
+            var dataPtrRow = dataPtrBase + y * bytesPerStride * tileHeight;
+            for (var x = 0; x < tilesX; x++)
+            {
+                var singleTilePtr = singleTilePtrBase;
+                var dataPtr = dataPtrRow;
+                for (var yx = 0; yx < tileHeight; yx++, singleTilePtr += tileWidthByteCount, dataPtr += bytesPerStride)
+                {
+                    Unsafe.CopyBlock(singleTilePtr, dataPtr, (uint)tileWidthByteCount);
+                }
+
+                gl.TexSubImage3D(TextureTarget.Texture2DArray, 0, 0, 0,
+                    tileIndex, (uint)tileWidth, (uint)tileHeight, 1,
+                    PixelFormat.Bgra, PixelType.UnsignedByte, singleTilePtrBase);
+
+                dataPtrRow += tileWidthByteCount;
+                tileIndex++;
+            }
         }
+
+        gl.TexParameterI(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToBorderNV);
+        gl.TexParameterI(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToBorderNV);
+        gl.TexParameterI(TextureTarget.Texture2DArray, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+        gl.TexParameterI(TextureTarget.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
     }
 
-    public void Render(GL gl, int srcx, int srcy, int width, int height, Size viewportSize, Point destination, bool xFlip = false, bool yFlip = false)
+    public void Render(GL gl, int srcx, int srcy, int width, int height, ReadOnlySpan<SKColor> palette, Size viewportSize, Point destination, DrawingFlags flags)
     {
         gl.ActiveTexture(TextureUnit.Texture0);
-        gl.BindTexture(TextureTarget.Texture2D, Texture);
+        gl.BindTexture(TextureTarget.Texture2DArray, Texture);
 
-        // gl.CopyTexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, srcx, srcy, (uint)width, (uint)height);
-        // gl.CopyTexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 2, 2, (uint)Size.Width, (uint)Size.Height);
+        var x = srcx / width;
+        var y = srcy / height;
+        var tileindex = y * (Size.Width / width) + x;
 
-        // var destRect = new Rectangle(destination, Size);
         var destRect = new Rectangle(destination.X, destination.Y, width, height);
 
         var shader = GUIRectShader.Instance;
@@ -49,7 +90,9 @@ internal sealed unsafe class GLImage
         shader.SetLineThickness(gl, 0);
         shader.SetOpacity(gl, 1f);
         shader.SetUseTexture(gl, true);
-        shader.SetUV(gl, new UV(xFlip, yFlip));
+        shader.SetUV(gl, new UV(flags.HasFlag(DrawingFlags.FlipHorizontal), flags.HasFlag(DrawingFlags.FlipVertical)));
+        shader.SetTextureLayer(gl, tileindex);
+        shader.SetPalette(gl, palette, flags.HasFlag(DrawingFlags.NoTransparency));
         RectMesh.Instance.Render(gl);
     }
 
