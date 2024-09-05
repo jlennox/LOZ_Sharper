@@ -79,41 +79,22 @@ internal sealed class GLSpriteShader : IDisposable
         return location;
     }
 
-    public void Use(GL gl)
-    {
-        _gl.UseProgram(_program);
-    }
+    public void Use(GL gl) => _gl.UseProgram(_program);
+    public void SetViewport(int width, int height) => _gl.Uniform2(_lViewportSize, width, height);
+    public void SetPalette(ReadOnlySpan<SKColor> colors) => _gl.Uniform4(_lPalette, MemoryMarshal.Cast<SKColor, uint>(colors));
+    public void SetSourcePosition(float x, float y) => _gl.Uniform2(_lSourcePos, x, y);
+    public void SetOpacity(float f) => _gl.Uniform1(_lOpacity, f);
 
-    public void SetViewport(int width, int height)
-    {
-        _gl.Uniform2(_lViewportSize, width, height);
-    }
-
-    public void SetDestinationRect(int x, int y, int width, int height)
+    public void SetDestination(int x, int y, int width, int height)
     {
         _gl.Uniform2(_lPos, x, y);
         _gl.Uniform2(_lSize, width, height);
-    }
-
-    public void SetSourcePosition(float x, float y)
-    {
-        _gl.Uniform2(_lSourcePos, x, y);
-    }
-
-    public void SetOpacity(float f)
-    {
-        _gl.Uniform1(_lOpacity, f);
     }
 
     public void SetUV(in UV uv)
     {
         _gl.Uniform2(_lUVStart, uv.Start);
         _gl.Uniform2(_lUVEnd, uv.End);
-    }
-
-    public void SetPalette(ReadOnlySpan<SKColor> colors)
-    {
-        _gl.Uniform4(_lPalette, MemoryMarshal.Cast<SKColor, uint>(colors));
     }
 
     public void Dispose()

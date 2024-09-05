@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using SkiaSharp;
 using z1.Actors;
 using z1.IO;
 using z1.UI;
@@ -85,22 +84,6 @@ internal sealed class Game
         World.Draw();
         OnScreenDisplay.Draw();
         DebugInfo.Draw();
-    }
-
-    // JOE: TODO: This function is a bit weird now.
-    public void UpdateScreenSize(SKSurface surface)
-    {
-        const int nesWidth = 256;
-        const int nesHeight = 240;
-
-        surface.Canvas.GetLocalClipBounds(out var bounds);
-
-        var scale = Math.Min(bounds.Width / nesWidth, bounds.Height / nesHeight);
-        var offsetX = (bounds.Width - scale * nesWidth) / 2;
-        var offsetY = (bounds.Height - scale * nesHeight) / 2;
-
-        surface.Canvas.Translate(offsetX, offsetY);
-        surface.Canvas.Scale(scale, scale);
     }
 
     // JOE: TODO: Move to TryShoot pattern?

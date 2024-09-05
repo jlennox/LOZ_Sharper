@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using SkiaSharp;
 using z1.Common.IO;
-using z1.Render;
 
 namespace z1.IO;
 
@@ -56,17 +55,13 @@ internal readonly struct Asset
 
     public SKBitmap DecodeSKBitmapTileData()
     {
-        var bitmap = DecodeSKBitmap(SKAlphaType.Unpremul);
-        Graphics.PreprocessPalette(bitmap);
-        return bitmap;
+        return DecodeSKBitmap(SKAlphaType.Unpremul);
     }
 
-    public SKImage DecodeSKImageTileData()
-    {
-        var bitmap = DecodeSKBitmap(SKAlphaType.Unpremul);
-        Graphics.PreprocessPalette(bitmap);
-        return SKImage.FromBitmap(bitmap);
-    }
+    // public SKImage DecodeSKImageTileData()
+    // {
+    //     return DecodeSKBitmap(SKAlphaType.Unpremul);
+    // }
 
     public SKBitmap DecodeSKBitmap(SKAlphaType alphaType)
     {

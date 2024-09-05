@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
 using SkiaSharp;
+using SkiaSharp.Views.Desktop;
 using z1.IO;
 
 namespace z1.Render;
@@ -21,9 +22,9 @@ internal enum TileSheet { Background, PlayerAndItems, Npcs, Boss, Font, Max }
 
 internal static class Graphics
 {
-    private static SKSurface? _surface;
     private static GL? _gl;
-    private static Size? _viewportSize;
+    private static Size? _windowSize;
+    private static readonly Size _viewportSize = new(256, 240);
 
     private static readonly int _paletteBmpWidth = Math.Max(Global.PaletteLength, 16);
     private static readonly int _paletteBmpHeight = Math.Max(Global.PaletteCount, 16);
@@ -41,128 +42,21 @@ internal static class Graphics
 
     private static readonly TableResource<SpriteAnimationStruct>[] _animSpecs = new TableResource<SpriteAnimationStruct>[(int)TileSheet.Max];
 
-    // SystemPalette is intentionally a referenced based compare for speed.
-    // private readonly record struct TileCache(TileSheet? Slot, SKBitmap? Bitmap, int[] SystemPalette, int X, int Y, Palette Palette, DrawingFlags Flags)
-    // {
-    //     private static readonly Dictionary<TileCache, GLImage> _tileCache = new(200);
-    //     private static readonly Vector256<int> _zeroCheck = Vector256.Create(0);
-    //     private static readonly Vector256<int> _oneCheck = Vector256.Create(0x01010101);
-    //     private static readonly Vector256<int> _twoCheck = Vector256.Create(0x02020202);
-    //     private static readonly Vector256<int> _threeCheck = Vector256.Create(0x03030303);
-    //
-    //     // JOE: Arg. This makes me hate the tile cache even more.
-    //     public static void Clear()
-    //     {
-    //         foreach (var (_, bitmap) in _tileCache) bitmap.Delete(_gl!);
-    //         _tileCache.Clear();
-    //     }
-    //
-    //     public unsafe GLImage GetValue(int width, int height)
-    //     {
-    //         if (_tileCache.TryGetValue(this, out var image)) return image;
-    //
-    //         var sheet = Bitmap ?? _tileSheets[(int)Slot] ?? throw new Exception();
-    //
-    //         var makeTransparent = !Flags.HasFlag(DrawingFlags.NoTransparency);
-    //         var paletteY = (int)Palette * _paletteBmpWidth;
-    //         var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..];
-    //
-    //         var tile = sheet.Extract(X, Y, width, height, null, Flags);
-    //
-    //         var color0 = makeTransparent ? SKColors.Transparent : paletteSpan[0];
-    //         var color1 = paletteSpan[1];
-    //         var color2 = paletteSpan[2];
-    //         var color3 = paletteSpan[3];
-    //
-    //         var locked = tile.Lock();
-    //         var px = locked.Pixels;
-    //         var nextLineDistance = locked.Stride / sizeof(SKColor) - width;
-    //         var eightMultiple = width % 8 == 0;
-    //
-    //         // Benchmarks of various methods: https://gist.github.com/jlennox/41b2992a78a3d9a6c39fe3f8eadaab8e
-    //
-    //         if (nextLineDistance == 0 && eightMultiple)
-    //         {
-    //             var end = locked.End;
-    //
-    //             if (Avx2.IsSupported)
-    //             {
-    //                 var zeroCheck = _zeroCheck;
-    //                 var oneCheck = _oneCheck;
-    //                 var twoCheck = _twoCheck;
-    //                 var threeCheck = _threeCheck;
-    //
-    //                 var zeroColor = Vector256.Create(*(int*)&color0);
-    //                 var oneColor = Vector256.Create(*(int*)&color1);
-    //                 var twoColor = Vector256.Create(*(int*)&color2);
-    //                 var threeColor = Vector256.Create(*(int*)&color3);
-    //
-    //                 for (; px < end; px += 8)
-    //                 {
-    //                     var pixelVector = Vector256.Load((int*)px);
-    //
-    //                     var compareZero = Avx2.CompareEqual(pixelVector, zeroCheck);
-    //                     var compareOne = Avx2.CompareEqual(pixelVector, oneCheck);
-    //                     var compareTwo = Avx2.CompareEqual(pixelVector, twoCheck);
-    //                     var compareThree = Avx2.CompareEqual(pixelVector, threeCheck);
-    //
-    //                     var blended = Avx2.BlendVariable(pixelVector, zeroColor, compareZero);
-    //                     blended = Avx2.BlendVariable(blended, oneColor, compareOne);
-    //                     blended = Avx2.BlendVariable(blended, twoColor, compareTwo);
-    //                     blended = Avx2.BlendVariable(blended, threeColor, compareThree);
-    //                     Avx.Store((int*)px, blended);
-    //                 }
-    //
-    //                 return _tileCache[this] = new GLImage(_gl!, tile);
-    //             }
-    //
-    //             var paletteUnrolled = stackalloc SKColor[] { color0, color1, color2, color3 };
-    //             for (; px < end; px += 8)
-    //             {
-    //                 // Blue is the fastest to access because it does not use shifts.
-    //                 px[0] = paletteUnrolled[px[0].Blue];
-    //                 px[1] = paletteUnrolled[px[1].Blue];
-    //                 px[2] = paletteUnrolled[px[2].Blue];
-    //                 px[3] = paletteUnrolled[px[3].Blue];
-    //                 px[4] = paletteUnrolled[px[4].Blue];
-    //                 px[5] = paletteUnrolled[px[5].Blue];
-    //                 px[6] = paletteUnrolled[px[6].Blue];
-    //                 px[7] = paletteUnrolled[px[7].Blue];
-    //             }
-    //
-    //             return _tileCache[this] = new GLImage(_gl!, tile);
-    //         }
-    //
-    //         var palette = stackalloc SKColor[] { color0, color1, color2, color3 };
-    //         for (var y = 0; y < locked.Height; ++y, px += nextLineDistance)
-    //         {
-    //             for (var x = 0; x < locked.Width; ++x, ++px)
-    //             {
-    //                 // Blue is the fastest to access because it does not use shifts.
-    //                 *px = palette[px->Blue];
-    //             }
-    //         }
-    //
-    //         return _tileCache[this] = new GLImage(_gl!, tile);
-    //     }
-    // }
-
     static Graphics()
     {
         var size = _paletteBmpWidth * _paletteStride * _paletteBmpHeight;
         _paletteBuf = new byte[size];
     }
 
-    public static void SetSurface(GL gl, SKSurface surface, int width, int height)
+    public static void SetSurface(GL gl, int width, int height)
     {
         _gl = gl;
-        _surface = surface;
-        _viewportSize = new Size(width, height);
+        _windowSize = new Size(width, height);
     }
 
     public static void SetViewportSize(int width, int height)
     {
-        _viewportSize = new Size(width, height);
+        _windowSize = new Size(width, height);
     }
 
     public static void Begin() { }
@@ -170,6 +64,8 @@ internal static class Graphics
 
     public static void LoadTileSheet(TileSheet sheet, Asset file)
     {
+        ArgumentNullException.ThrowIfNull(_gl);
+
         ref var foundRef = ref _tileSheets[(int)sheet];
         if (foundRef != null)
         {
@@ -178,42 +74,13 @@ internal static class Graphics
         }
 
         var bitmap = file.DecodeSKBitmapTileData();
-        var size = sheet is TileSheet.Font or TileSheet.Background ? new Size(8, 8) : new Size(16, 16);
-        foundRef = new GLImage(_gl!, bitmap);
+        foundRef = new GLImage(_gl, bitmap);
     }
 
     public static void LoadTileSheet(TileSheet sheet, Asset path, Asset animationFile)
     {
         LoadTileSheet(sheet, path);
         _animSpecs[(int)sheet] = TableResource<SpriteAnimationStruct>.Load(animationFile);
-    }
-
-    // public static SKImage PaletteTileSheet(TileSheet sheet, Palette palette)
-    // {
-    //     var image = _tileSheets[(int)sheet];
-    //     var cacheKey = new TileCache(null, image, _activeSystemPalette, 0, 0, palette, DrawingFlags.None);
-    //     return cacheKey.GetValue(image.Width, image.Height);
-    // }
-
-    // Preprocesses an image to set all color channels to their appropriate color palette index, allowing
-    // palette transformations to be done faster at runtime.
-    public static unsafe void PreprocessPalette(SKBitmap bitmap)
-    {
-        return;
-        // Unpremul is important here otherwise setting the alpha channel to non-255 causes the colors to transform
-        if (bitmap.AlphaType != SKAlphaType.Unpremul) throw new ArgumentOutOfRangeException();
-
-        var locked = bitmap.Lock();
-        for (var y = 0; y < locked.Height; ++y)
-        {
-            var px = locked.PtrFromPoint(0, y);
-            for (var x = 0; x < locked.Width; ++x, ++px)
-            {
-                var val = (byte)(px->Red / 16);
-                var color = new SKColor(val, val, val, val);
-                *px = color;
-            }
-        }
     }
 
     public static SpriteAnimation GetAnimation(TileSheet sheet, AnimationId id)
@@ -349,15 +216,15 @@ internal static class Graphics
         DrawingFlags flags
     )
     {
+        ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(bitmap);
-        ArgumentNullException.ThrowIfNull(_surface);
 
         var destRect = new SKRect(destX, destY, destX + width, destY + height);
 
         // var cacheKey = new TileCache(null, bitmap, _activeSystemPalette, srcX, srcY, palette, flags);
         // var tile = cacheKey.GetValue(width, height);
 
-        // tile.Render(_gl!, srcX, srcY, width, height, _viewportSize.Value, new Point(destX, destY));
+        // tile.Render(_gl, srcX, srcY, width, height, _windowSize.Value, new Point(destX, destY));
         // _surface.Canvas.DrawImage(tile, destRect);
     }
 
@@ -388,13 +255,13 @@ internal static class Graphics
         DrawingFlags flags
     )
     {
-        ArgumentNullException.ThrowIfNull(_surface);
         Debug.Assert(slot < TileSheet.Max);
 
-        var tiles = _tileSheets[(int)slot];
+        var tiles = _tileSheets[(int)slot]
+            ?? throw new ArgumentOutOfRangeException(nameof(slot), slot, "Unknown or unloaded tile.");
         var paletteY = (int)palette * _paletteBmpWidth;
         var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..(paletteY + 4)];
-        tiles.Render(srcX, srcY, width, height, destX, destY, paletteSpan, _viewportSize.Value, flags);
+        tiles.Render(srcX, srcY, width, height, destX, destY, paletteSpan, _viewportSize, flags);
     }
 
     public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)
@@ -420,14 +287,9 @@ internal static class Graphics
 
     public static void Clear(SKColor color)
     {
-        ArgumentNullException.ThrowIfNull(_surface);
-        _surface.Canvas.Clear(color);
-    }
-
-    public static void Clear(SKColor color, int x, int y, int width, int height)
-    {
-        ArgumentNullException.ThrowIfNull(_surface);
-        _surface.Canvas.Clear(color);
+        ArgumentNullException.ThrowIfNull(_gl);
+        _gl.ClearColor(color.ToDrawingColor());
+        _gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
     }
 
     public readonly struct UnclipScope : IDisposable
@@ -437,7 +299,8 @@ internal static class Graphics
 
     public static UnclipScope SetClip(int x, int y, int width, int height)
     {
-        ArgumentNullException.ThrowIfNull(_surface);
+        ArgumentNullException.ThrowIfNull(_gl);
+
         var y2 = y + height;
 
         if (y2 < 0)
@@ -466,28 +329,17 @@ internal static class Graphics
 
         // _surface.Canvas.Save();
         // _surface.Canvas.ClipRect(new SKRect(x, y, x + width, y + height));
-        // var xratio = _viewportSize.Value.Width / Global.StdViewWidth;
-        // var yratio = _viewportSize.Value.Height / Global.StdViewHeight;
-        // _gl!.Enable(EnableCap.ScissorTest);
-        // _gl!.Scissor(x * xratio, y * yratio, (uint)width * (uint)xratio, (uint)height * (uint)yratio);
+        // var xratio = _windowSize.Value.Width / Global.StdViewWidth;
+        // var yratio = _windowSize.Value.Height / Global.StdViewHeight;
+        // _gl.Enable(EnableCap.ScissorTest);
+        // _gl.Scissor(x * xratio, y * yratio, (uint)width * (uint)xratio, (uint)height * (uint)yratio);
         return new UnclipScope();
     }
 
     public static void ResetClip()
     {
-        ArgumentNullException.ThrowIfNull(_surface);
-        _gl!.Disable(EnableCap.ScissorTest);
+        ArgumentNullException.ThrowIfNull(_gl);
+        _gl.Disable(EnableCap.ScissorTest);
         // _surface.Canvas.Restore();
-    }
-
-    public static void DebugDumpTiles()
-    {
-        Asset.Initialize();
-
-        // var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
-        // LoadSystemPalette(sysPal);
-        //
-        // LoadTileSheet(TileSheet.PlayerAndItems, new Asset("overworldTilesDebug.png"));
-        // PaletteTileSheet(TileSheet.PlayerAndItems, Palette.LevelFgPalette).SavePng(@"C:\users\joe\desktop\delete\_z1.png");
     }
 }

@@ -53,22 +53,12 @@ internal sealed unsafe class GLImage : IDisposable
         var right = (srcx + width) / sizeWidthf;
         var bottom = (srcy + height) / sizeHeightf;
 
-        Span<Vector2> verticies = stackalloc Vector2[4] {
+        ReadOnlySpan<Vector2> verticies = stackalloc Vector2[4] {
             new Vector2(left, top),
             new Vector2(left, bottom),
             new Vector2(right, top),
             new Vector2(right, bottom),
         };
-
-        // if (flags.HasFlag(DrawingFlags.FlipHorizontal))
-        {
-            verticies = stackalloc Vector2[4] {
-                new Vector2(right, top),
-                new Vector2(right, bottom),
-                new Vector2(left, top),
-                new Vector2(left, bottom),
-            };
-        }
 
         var finalPalette = palette;
 
@@ -82,17 +72,14 @@ internal sealed unsafe class GLImage : IDisposable
             };
         }
 
-        fixed (Vector2* verticiesPtr = verticies)
-        {
-            _gl.BufferData(
-                BufferTargetARB.ArrayBuffer, (nuint)verticies.Length * (nuint)sizeof(Vector2),
-                verticiesPtr, BufferUsageARB.StreamDraw);
-        }
+        _gl.BufferData(
+            BufferTargetARB.ArrayBuffer, (nuint)verticies.Length * (nuint)sizeof(Vector2),
+            verticies, BufferUsageARB.StreamDraw);
 
         var shader = GLSpriteShader.Instance;
         shader.Use(_gl);
-        shader.SetViewport(256, 240);
-        shader.SetDestinationRect(destinationx, destinationy, _size.Width, _size.Height);
+        shader.SetViewport(viewportSize.Width, viewportSize.Height);
+        shader.SetDestination(destinationx, destinationy, _size.Width, _size.Height);
         shader.SetSourcePosition(srcx, srcy);
         shader.SetOpacity(1f);
         shader.SetUV(new UV(false, false)); // flags.HasFlag(DrawingFlags.FlipHorizontal), flags.HasFlag(DrawingFlags.FlipVertical)));

@@ -5,7 +5,6 @@ using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
-using SkiaSharp;
 using z1.IO;
 using z1.Render;
 using z1.UI;
@@ -32,10 +31,6 @@ internal sealed class GLWindow : IDisposable
     private GL? _gl;
     private IInputContext? _inputContext;
 
-    private GRGlInterface? _glinterface;
-    private GRContext? _grcontext;
-    private SKSurface? _surface;
-    private GRBackendRenderTarget? _rendertarget;
     private ImGuiController _controller;
     private System.Drawing.Rectangle _windowedRect;
     private bool _showMenu = false;
@@ -84,9 +79,6 @@ internal sealed class GLWindow : IDisposable
         GLSpriteShader.Initialize(_gl);
         GLVertexArray.Initialize(_gl);
 
-        _glinterface = GRGlInterface.Create() ?? throw new Exception("GRGlInterface.Create() failed.");
-        _grcontext = GRContext.CreateGl(_glinterface) ?? throw new Exception("GRContext.CreateGl() failed.");
-
         _inputContext.ConnectionChanged += OnConnectionChanged;
         foreach (var targetkb in _inputContext.Keyboards)
         {
@@ -99,10 +91,8 @@ internal sealed class GLWindow : IDisposable
             BindGamepad(gamepad);
         }
 
-        var surface = CreateSkSurface();
-        Graphics.SetSurface(_gl, surface, window.Size.X, window.Size.Y);
+        Graphics.SetSurface(_gl, window.Size.X, window.Size.Y);
         Game = new Game();
-        Game.UpdateScreenSize(surface);
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
         _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);
@@ -114,24 +104,7 @@ internal sealed class GLWindow : IDisposable
 
         gl.Viewport(s);
 
-        var surface = CreateSkSurface();
-        Game.UpdateScreenSize(surface);
         Graphics.SetViewportSize(s.X, s.Y);
-    }
-
-    private SKSurface CreateSkSurface()
-    {
-        var gl = _gl ?? throw new Exception();
-        var window = _window ?? throw new Exception();
-
-        _surface?.Dispose();
-        _rendertarget?.Dispose();
-
-        var framebuffer = gl.GetInteger(GLEnum.FramebufferBinding);
-
-        var framebufferinfo = new GRGlFramebufferInfo((uint)framebuffer, SKColorType.Rgba8888.ToGlSizedFormat());
-        _rendertarget = new GRBackendRenderTarget(window.Size.X, window.Size.Y, 0, 8, framebufferinfo);
-        return _surface = SKSurface.Create(_grcontext, _rendertarget, GRSurfaceOrigin.BottomLeft, SKColorType.Rgba8888);
     }
 
     public void ToggleFullscreen()
@@ -314,7 +287,6 @@ internal sealed class GLWindow : IDisposable
 
     private void Render(double deltaSeconds)
     {
-        var surface = _surface ?? throw new Exception();
         var gl = _gl ?? throw new Exception();
         var window = _window ?? throw new Exception();
 
@@ -339,12 +311,13 @@ internal sealed class GLWindow : IDisposable
 
         var delta = TimeSpan.FromSeconds(deltaSeconds);
 
-        Graphics.SetSurface(gl, surface, window.Size.X, window.Size.Y);
+        Graphics.SetSurface(gl, window.Size.X, window.Size.Y);
 
         double ups = 0;
         double rps = 0;
 
         // JOE: TODO: Port this over to `delta`
+        // JOE: TODO: MAke sure this updates() at the fastest of 60fps.
         // while (_starttime.Elapsed - _renderedTime >= frameTime)
         {
             _updateTimer.Restart();
@@ -386,10 +359,6 @@ internal sealed class GLWindow : IDisposable
 
     public void Dispose()
     {
-        _glinterface?.Dispose();
-        _grcontext?.Dispose();
-        _surface?.Dispose();
-        _rendertarget?.Dispose();
         _window?.Dispose();
         _gl?.Dispose();
         _inputContext?.Dispose();
