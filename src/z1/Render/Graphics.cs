@@ -48,10 +48,13 @@ internal static class Graphics
         _paletteBuf = new byte[size];
     }
 
-    public static void SetSurface(GL gl, int width, int height)
+    public static void Initialize(GL gl, int width, int height)
     {
         _gl = gl;
         _windowSize = new Size(width, height);
+        // gl.Viewport(0, height - _viewportSize.Height, (uint)_viewportSize.Width, (uint)_viewportSize.Height);
+        GLSpriteShader.Initialize(gl);
+        GLVertexArray.Initialize(gl);
     }
 
     public static void SetViewportSize(int width, int height)
@@ -300,6 +303,7 @@ internal static class Graphics
     public static UnclipScope SetClip(int x, int y, int width, int height)
     {
         ArgumentNullException.ThrowIfNull(_gl);
+        ArgumentNullException.ThrowIfNull(_windowSize);
 
         var y2 = y + height;
 
@@ -329,17 +333,22 @@ internal static class Graphics
 
         // _surface.Canvas.Save();
         // _surface.Canvas.ClipRect(new SKRect(x, y, x + width, y + height));
-        // var xratio = _windowSize.Value.Width / Global.StdViewWidth;
-        // var yratio = _windowSize.Value.Height / Global.StdViewHeight;
-        // _gl.Enable(EnableCap.ScissorTest);
-        // _gl.Scissor(x * xratio, y * yratio, (uint)width * (uint)xratio, (uint)height * (uint)yratio);
+        var xratio = _windowSize.Value.Width / (float)_viewportSize.Width;
+        var yratio = _windowSize.Value.Height / (float)_viewportSize.Height;
+        _gl.Enable(EnableCap.ScissorTest);
+        var finalHeight = (uint)(height * yratio);
+        var finaly = y * yratio;
+        // _gl.Scissor((int)(x * xratio), (int)(finalHeight - y * yratio), (uint)(width * xratio), (uint)(finaly + finalHeight));
+        // _gl.Scissor((int)(x * xratio), (int)(y * yratio), (uint)(width * xratio), (uint)_windowSize.Value.Height);
         return new UnclipScope();
     }
 
     public static void ResetClip()
     {
         ArgumentNullException.ThrowIfNull(_gl);
+        ArgumentNullException.ThrowIfNull(_windowSize);
         _gl.Disable(EnableCap.ScissorTest);
+        // _gl.Scissor(0, 0, (uint)_windowSize.Value.Width, (uint)_windowSize.Value.Height);
         // _surface.Canvas.Restore();
     }
 }

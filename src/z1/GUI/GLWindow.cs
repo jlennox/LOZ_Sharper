@@ -76,9 +76,6 @@ internal sealed class GLWindow : IDisposable
         _gl = window.CreateOpenGL();
         _inputContext = window.CreateInput();
 
-        GLSpriteShader.Initialize(_gl);
-        GLVertexArray.Initialize(_gl);
-
         _inputContext.ConnectionChanged += OnConnectionChanged;
         foreach (var targetkb in _inputContext.Keyboards)
         {
@@ -91,7 +88,7 @@ internal sealed class GLWindow : IDisposable
             BindGamepad(gamepad);
         }
 
-        Graphics.SetSurface(_gl, window.Size.X, window.Size.Y);
+        Graphics.Initialize(_gl, window.Size.X, window.Size.Y);
         Game = new Game();
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
@@ -102,7 +99,8 @@ internal sealed class GLWindow : IDisposable
     {
         var gl = _gl ?? throw new Exception();
 
-        gl.Viewport(s);
+        var asd = new Vector2D<int>(s.X - (s.X % 16), s.Y);
+        gl.Viewport(asd);
 
         Graphics.SetViewportSize(s.X, s.Y);
     }
@@ -311,7 +309,7 @@ internal sealed class GLWindow : IDisposable
 
         var delta = TimeSpan.FromSeconds(deltaSeconds);
 
-        Graphics.SetSurface(gl, window.Size.X, window.Size.Y);
+        Graphics.Initialize(gl, window.Size.X, window.Size.Y);
 
         double ups = 0;
         double rps = 0;
@@ -333,7 +331,6 @@ internal sealed class GLWindow : IDisposable
         {
             _updateTimer.Restart();
             Game.Draw();
-            // surface.Canvas.Flush();
             _updateTimer.Stop();
             rps = _rendersPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
         }

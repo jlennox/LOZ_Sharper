@@ -75,14 +75,14 @@ internal sealed class GLSpriteShader : IDisposable
     private int GetUniformLocation(string name)
     {
         var location = _gl.GetUniformLocation(_program, name);
-        if (location == -1) throw new Exception($"\"{name}\" uniform was not found on the shader");
+        // if (location == -1) throw new Exception($"\"{name}\" uniform was not found on the shader");
         return location;
     }
 
     public void Use(GL gl) => _gl.UseProgram(_program);
     public void SetViewport(int width, int height) => _gl.Uniform2(_lViewportSize, width, height);
     public void SetPalette(ReadOnlySpan<SKColor> colors) => _gl.Uniform4(_lPalette, MemoryMarshal.Cast<SKColor, uint>(colors));
-    public void SetSourcePosition(float x, float y) => _gl.Uniform2(_lSourcePos, x, y);
+    public void SetSourcePosition(int x, int y) => _gl.Uniform2(_lSourcePos, x, y);
     public void SetOpacity(float f) => _gl.Uniform1(_lOpacity, f);
 
     public void SetDestination(int x, int y, int width, int height)

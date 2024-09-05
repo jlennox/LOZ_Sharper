@@ -14,8 +14,8 @@ internal sealed unsafe class GLImage : IDisposable
     {
         _gl = gl;
         _texture = gl.GenTexture();
-        LoadTextureData(bitmap);
         _size = new Size(bitmap.Width, bitmap.Height);
+        LoadTextureData(bitmap);
     }
 
     private void LoadTextureData(SKBitmap bitmap)
@@ -53,7 +53,7 @@ internal sealed unsafe class GLImage : IDisposable
         var right = (srcx + width) / sizeWidthf;
         var bottom = (srcy + height) / sizeHeightf;
 
-        ReadOnlySpan<Vector2> verticies = stackalloc Vector2[4] {
+        ReadOnlySpan <Vector2> verticies = stackalloc Vector2[4] {
             new Vector2(left, top),
             new Vector2(left, bottom),
             new Vector2(right, top),
@@ -84,7 +84,7 @@ internal sealed unsafe class GLImage : IDisposable
         shader.SetOpacity(1f);
         shader.SetUV(new UV(false, false)); // flags.HasFlag(DrawingFlags.FlipHorizontal), flags.HasFlag(DrawingFlags.FlipVertical)));
         shader.SetPalette(finalPalette);
-        GLVertexArray.Instance.Render(verticies.Length);
+        _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, (uint)verticies.Length);
     }
 
     public void Dispose()
@@ -121,11 +121,6 @@ internal sealed class GLVertexArray : IDisposable
     public static void Initialize(GL gl)
     {
         Instance = new GLVertexArray(gl);
-    }
-
-    public void Render(int verticeCount)
-    {
-        _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, (uint)verticeCount);
     }
 
     public void Dispose()

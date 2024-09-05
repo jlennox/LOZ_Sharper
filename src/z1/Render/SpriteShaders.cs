@@ -11,7 +11,7 @@ internal static class SpriteShaders
 
         uniform ivec2 u_pos;
         uniform ivec2 u_size;
-        uniform vec2 u_sourcePos;
+        uniform ivec2 u_sourcePos;
         uniform vec2 u_uvStart;
         uniform vec2 u_uvEnd;
         uniform ivec2 u_viewportSize;
@@ -20,7 +20,7 @@ internal static class SpriteShaders
         {
             vec2 absPos = in_position * u_size;
             vec2 offsetPos = in_position * u_size;
-            vec2 relPos = (u_pos + absPos - u_sourcePos) / u_viewportSize ; // * (u_sourcePos / u_size);
+            vec2 relPos = (u_pos + absPos - u_sourcePos) / u_viewportSize;
             float glX = relPos.x * 2 - 1; // (0 => 1) to (-1 => 1)
             float glY = relPos.y * -2 + 1; // (0 => 1) to (1 => -1)
             gl_Position = vec4(glX, glY, 0, 1);
@@ -38,7 +38,6 @@ internal static class SpriteShaders
 
         uniform float u_opacity;
         uniform sampler2D u_texture;
-        uniform int u_layerIndex;
         uniform uvec4 u_palette;
 
         void main()
