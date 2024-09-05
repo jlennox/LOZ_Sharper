@@ -1,168 +1,149 @@
 ﻿using System.Numerics;
-using System.Runtime.CompilerServices;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 
 namespace z1.Render;
 
-internal sealed unsafe class GLImage
+internal sealed unsafe class GLImage : IDisposable
 {
-    private readonly Size _tileSize;
-    public uint Texture { get; }
-    public Size Size { get; }
+    private readonly GL _gl;
+    private readonly uint _texture;
+    private readonly Size _size;
 
-    public GLImage(GL gl, SKBitmap bitmap, Size tileSize)
+    public GLImage(GL gl, SKBitmap bitmap)
     {
-        _tileSize = tileSize;
-        Texture = gl.GenTexture();
-        gl.BindTexture(TextureTarget.Texture2DArray, Texture);
-        LoadTextureData(gl, bitmap, bitmap.Width, bitmap.Height);
-        Size = new Size(bitmap.Width, bitmap.Height);
+        _gl = gl;
+        _texture = gl.GenTexture();
+        LoadTextureData(bitmap);
+        _size = new Size(bitmap.Width, bitmap.Height);
     }
 
-    private void LoadTextureData(GL gl, SKBitmap bitmap, int width, int height)
+    private void LoadTextureData(SKBitmap bitmap)
     {
         if (bitmap.BytesPerPixel != 4) throw new ArgumentException("Bitmap must be 4 bytes per pixel.", nameof(bitmap));
 
         var bitmapLock = bitmap.Lock();
 
-        const int bytesPerPixel = 4;
-        var tileWidth = _tileSize.Width;
-        var tileHeight = _tileSize.Height;
-        var tilesX = width / _tileSize.Width;
-        var tilesY = height / _tileSize.Height;
-        var tileCount = tilesX * tilesY;
-        var tileWidthByteCount = tileWidth * bytesPerPixel;
-        var bytesPerStride = bitmapLock.Stride;
-        var tileByteCount = tileWidthByteCount * tileHeight;
+        _gl.BindTexture(TextureTarget.Texture2D, _texture);
 
-        gl.TexImage3D(TextureTarget.Texture2DArray, 0, InternalFormat.Rgba8,
-            (uint)tileWidth, (uint)tileHeight, (uint)tileCount, 0,
-            PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
+        _gl.TexImage2D(TextureTarget.Texture2D, 0, InternalFormat.Rgba8,
+            (uint)bitmap.Width, (uint)bitmap.Height, 0,
+            PixelFormat.Bgra, PixelType.UnsignedByte, (void*)bitmapLock.Data);
 
-        var singleTilePtrBase = stackalloc byte[tileByteCount];
-        var dataPtrBase = (byte*)bitmapLock.Data;
+        _gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+        _gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+        _gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+        _gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+    }
 
-        var tileIndex = 0;
-        for (var y = 0; y < tilesY; y++)
+    public void Render(
+        int srcx, int srcy, int width, int height,
+        int destinationx, int destinationy,
+        ReadOnlySpan<SKColor> palette, Size viewportSize,
+        DrawingFlags flags)
+    {
+        _gl.ActiveTexture(TextureUnit.Texture0);
+        _gl.BindTexture(TextureTarget.Texture2D, _texture);
+
+        var sizeWidthf = (float)_size.Width;
+        var sizeHeightf = (float)_size.Height;
+
+        var left = srcx / sizeWidthf;
+        var top = srcy / sizeHeightf;
+        var right = (srcx + width) / sizeWidthf;
+        var bottom = (srcy + height) / sizeHeightf;
+
+        Span<Vector2> verticies = stackalloc Vector2[4] {
+            new Vector2(left, top),
+            new Vector2(left, bottom),
+            new Vector2(right, top),
+            new Vector2(right, bottom),
+        };
+
+        // if (flags.HasFlag(DrawingFlags.FlipHorizontal))
         {
-            var dataPtrRow = dataPtrBase + y * bytesPerStride * tileHeight;
-            for (var x = 0; x < tilesX; x++)
-            {
-                var singleTilePtr = singleTilePtrBase;
-                var dataPtr = dataPtrRow;
-                for (var yx = 0; yx < tileHeight; yx++, singleTilePtr += tileWidthByteCount, dataPtr += bytesPerStride)
-                {
-                    Unsafe.CopyBlock(singleTilePtr, dataPtr, (uint)tileWidthByteCount);
-                }
-
-                gl.TexSubImage3D(TextureTarget.Texture2DArray, 0, 0, 0,
-                    tileIndex, (uint)tileWidth, (uint)tileHeight, 1,
-                    PixelFormat.Bgra, PixelType.UnsignedByte, singleTilePtrBase);
-
-                dataPtrRow += tileWidthByteCount;
-                tileIndex++;
-            }
+            verticies = stackalloc Vector2[4] {
+                new Vector2(right, top),
+                new Vector2(right, bottom),
+                new Vector2(left, top),
+                new Vector2(left, bottom),
+            };
         }
 
-        gl.TexParameterI(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToBorderNV);
-        gl.TexParameterI(TextureTarget.Texture2DArray, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToBorderNV);
-        gl.TexParameterI(TextureTarget.Texture2DArray, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-        gl.TexParameterI(TextureTarget.Texture2DArray, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+        var finalPalette = palette;
+
+        if (!flags.HasFlag(DrawingFlags.NoTransparency))
+        {
+            finalPalette = stackalloc SKColor[4] {
+                new SKColor(0),
+                palette[1],
+                palette[2],
+                palette[3],
+            };
+        }
+
+        fixed (Vector2* verticiesPtr = verticies)
+        {
+            _gl.BufferData(
+                BufferTargetARB.ArrayBuffer, (nuint)verticies.Length * (nuint)sizeof(Vector2),
+                verticiesPtr, BufferUsageARB.StreamDraw);
+        }
+
+        var shader = GLSpriteShader.Instance;
+        shader.Use(_gl);
+        shader.SetViewport(256, 240);
+        shader.SetDestinationRect(destinationx, destinationy, _size.Width, _size.Height);
+        shader.SetSourcePosition(srcx, srcy);
+        shader.SetOpacity(1f);
+        shader.SetUV(new UV(false, false)); // flags.HasFlag(DrawingFlags.FlipHorizontal), flags.HasFlag(DrawingFlags.FlipVertical)));
+        shader.SetPalette(finalPalette);
+        GLVertexArray.Instance.Render(verticies.Length);
     }
 
-    public void Render(GL gl, int srcx, int srcy, int width, int height, ReadOnlySpan<SKColor> palette, Size viewportSize, Point destination, DrawingFlags flags)
+    public void Dispose()
     {
-        gl.ActiveTexture(TextureUnit.Texture0);
-        gl.BindTexture(TextureTarget.Texture2DArray, Texture);
-
-        var x = srcx / width;
-        var y = srcy / height;
-        var tileindex = y * (Size.Width / width) + x;
-
-        var destRect = new Rectangle(destination.X, destination.Y, width, height);
-
-        var shader = GUIRectShader.Instance;
-        shader.Use(gl);
-        shader.UpdateViewport(gl, new Size(256, 240));
-        shader.SetRect(gl, destRect);
-        shader.SetCornerRadii(gl, default);
-        shader.SetLineThickness(gl, 0);
-        shader.SetOpacity(gl, 1f);
-        shader.SetUseTexture(gl, true);
-        shader.SetUV(gl, new UV(flags.HasFlag(DrawingFlags.FlipHorizontal), flags.HasFlag(DrawingFlags.FlipVertical)));
-        shader.SetTextureLayer(gl, tileindex);
-        shader.SetPalette(gl, palette, flags.HasFlag(DrawingFlags.NoTransparency));
-        RectMesh.Instance.Render(gl);
-    }
-
-    public void Delete(GL gl)
-    {
-        gl.DeleteTexture(Texture);
+        _gl.DeleteTexture(_texture);
     }
 }
 
-internal sealed class RectMesh
+internal sealed class GLVertexArray : IDisposable
 {
-    private const int NUM_VERTICES = 4;
+    public static GLVertexArray Instance { get; private set; } = null!;
 
-    public static RectMesh Instance { get; set; } = null!; // Set in RenderManager
+    private readonly GL _gl;
+    private readonly uint _vertexArrayObject;
+    private readonly uint _vertextBufferObject;
 
-    private readonly uint _vao;
-    private readonly uint _vbo;
-
-    public unsafe RectMesh(GL gl)
+    private unsafe GLVertexArray(GL gl)
     {
-        // Create vao
-        _vao = gl.GenVertexArray();
-        gl.BindVertexArray(_vao);
+        _gl = gl;
+        _vertexArrayObject = gl.GenVertexArray();
+        gl.BindVertexArray(_vertexArrayObject);
 
-        // Create vbo
-        _vbo = gl.GenBuffer();
-        gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
-        fixed (void* vertices = CreateVertices())
-        {
-            gl.BufferData(BufferTargetARB.ArrayBuffer, 2 * sizeof(float) * NUM_VERTICES, vertices, BufferUsageARB.StaticDraw);
-        }
+        _vertextBufferObject = gl.GenBuffer();
+        gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vertextBufferObject);
 
         gl.EnableVertexAttribArray(0);
-        gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 2 * sizeof(float), null);
-    }
-    private static Vector2[] CreateVertices()
-    {
-        return [
-            new Vector2(0, 0), // Top Left
-            new Vector2(0, 1), // Bottom Left
-            new Vector2(1, 0), // Top Right
-            new Vector2(1, 1)  // Bottom Right
-        ];
+        gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, (uint)sizeof(Vector2), null);
+
+        gl.Disable(EnableCap.DepthTest);
+        gl.Enable(EnableCap.Blend);
+        gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
     }
 
-    public void Render(GL gl)
+    public static void Initialize(GL gl)
     {
-        gl.BindVertexArray(_vao);
-        gl.DrawArrays(PrimitiveType.TriangleStrip, 0, NUM_VERTICES);
-    }
-    public void Render(GL gl, int x, int y)
-    {
-        gl.BindVertexArray(_vao);
-        gl.DrawArrays(PrimitiveType.TriangleStrip, 0, NUM_VERTICES);
+        Instance = new GLVertexArray(gl);
     }
 
-    public void RenderInstanced(GL gl, uint instanceCount)
+    public void Render(int verticeCount)
     {
-        gl.BindVertexArray(_vao);
-        gl.DrawArraysInstanced(PrimitiveType.TriangleStrip, 0, NUM_VERTICES, instanceCount);
-    }
-    public void RenderInstancedBaseInstance(GL gl, uint first, uint instanceCount)
-    {
-        gl.BindVertexArray(_vao);
-        gl.DrawArraysInstancedBaseInstance(PrimitiveType.TriangleStrip, 0, NUM_VERTICES, instanceCount, first); // Requires OpenGL 4.2 or above. Not available in OpenGL ES
+        _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, (uint)verticeCount);
     }
 
-    public void Delete(GL gl)
+    public void Dispose()
     {
-        gl.DeleteVertexArray(_vao);
-        gl.DeleteBuffer(_vbo);
+        _gl.DeleteVertexArray(_vertexArrayObject);
+        _gl.DeleteBuffer(_vertextBufferObject);
     }
 }

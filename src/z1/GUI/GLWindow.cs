@@ -3,8 +3,8 @@ using System.Windows.Forms;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
-using Silk.NET.Windowing;
 using Silk.NET.OpenGL.Extensions.ImGui;
+using Silk.NET.Windowing;
 using SkiaSharp;
 using z1.IO;
 using z1.Render;
@@ -81,8 +81,8 @@ internal sealed class GLWindow : IDisposable
         _gl = window.CreateOpenGL();
         _inputContext = window.CreateInput();
 
-        new GUIRectShader(_gl);
-        RectMesh.Instance = new RectMesh(_gl);
+        GLSpriteShader.Initialize(_gl);
+        GLVertexArray.Initialize(_gl);
 
         _glinterface = GRGlInterface.Create() ?? throw new Exception("GRGlInterface.Create() failed.");
         _grcontext = GRContext.CreateGl(_glinterface) ?? throw new Exception("GRContext.CreateGl() failed.");

@@ -173,13 +173,13 @@ internal static class Graphics
         ref var foundRef = ref _tileSheets[(int)sheet];
         if (foundRef != null)
         {
-            foundRef.Delete(_gl!);
+            foundRef.Dispose();
             foundRef = null;
         }
 
         var bitmap = file.DecodeSKBitmapTileData();
         var size = sheet is TileSheet.Font or TileSheet.Background ? new Size(8, 8) : new Size(16, 16);
-        foundRef = new GLImage(_gl!, bitmap, size);
+        foundRef = new GLImage(_gl!, bitmap);
     }
 
     public static void LoadTileSheet(TileSheet sheet, Asset path, Asset animationFile)
@@ -391,16 +391,10 @@ internal static class Graphics
         ArgumentNullException.ThrowIfNull(_surface);
         Debug.Assert(slot < TileSheet.Max);
 
-        // var cacheKey = new TileCache(slot, null, _activeSystemPalette, srcX, srcY, palette, flags);
-        // var tile = cacheKey.GetValue(width, height);
-
-        var destRect = new SKRect(destX, destY, destX + width, destY + height);
-        // _surface.Canvas.DrawImage(tile, destRect);
         var tiles = _tileSheets[(int)slot];
         var paletteY = (int)palette * _paletteBmpWidth;
         var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..(paletteY + 4)];
-        ReadOnlySpan<SKColor> fakepalette = [SKColors.Red, SKColors.Green, SKColors.Blue, SKColors.Yellow];
-        tiles.Render(_gl!, srcX, srcY, width, height, paletteSpan, _viewportSize.Value, new Point(destX, destY), flags);
+        tiles.Render(srcX, srcY, width, height, destX, destY, paletteSpan, _viewportSize.Value, flags);
     }
 
     public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)
@@ -470,15 +464,20 @@ internal static class Graphics
             }
         }
 
-        _surface.Canvas.Save();
-        _surface.Canvas.ClipRect(new SKRect(x, y, x + width, y + height));
+        // _surface.Canvas.Save();
+        // _surface.Canvas.ClipRect(new SKRect(x, y, x + width, y + height));
+        // var xratio = _viewportSize.Value.Width / Global.StdViewWidth;
+        // var yratio = _viewportSize.Value.Height / Global.StdViewHeight;
+        // _gl!.Enable(EnableCap.ScissorTest);
+        // _gl!.Scissor(x * xratio, y * yratio, (uint)width * (uint)xratio, (uint)height * (uint)yratio);
         return new UnclipScope();
     }
 
     public static void ResetClip()
     {
         ArgumentNullException.ThrowIfNull(_surface);
-        _surface.Canvas.Restore();
+        _gl!.Disable(EnableCap.ScissorTest);
+        // _surface.Canvas.Restore();
     }
 
     public static void DebugDumpTiles()
