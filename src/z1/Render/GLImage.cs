@@ -67,6 +67,8 @@ internal sealed unsafe class GLImage : IDisposable
         srcy = tempSrcY;
         bottom = tempBottom;
 
+        // Really, all the rendering should be batched together. But Zelda is simple enough
+        // that it's not really a performance concern.
         ReadOnlySpan<Point> verticies = stackalloc Point[] {
             new Point(srcx, srcy), new Point(destinationx, destinationy),
             new Point(srcx, bottom), new Point(destinationx, destinationy + height),
