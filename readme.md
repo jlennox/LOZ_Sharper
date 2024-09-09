@@ -4,28 +4,46 @@ This is a C# port of Aldo Nunez's excellent Legend of Zelda port based on their 
 - [C++ port](https://github.com/aldonunez/Loz_enhanced/tree/master)
 - [Disassembly of NES code](https://github.com/aldonunez/zelda1-disassembly)
 
-How to use:
+How to use
 ===
 - Place the American PRG0 Legend of Zelda ROM (`Legend of Zelda, The (U) (PRG0) [!].nes`) in the same directory as the .exe
 - Run the .exe
 
-Project goals:
+Project goals
 ===
-- Implement a complete vanilla port in C#.
+- [x] Implement a complete vanilla port in C#.
 - Stay mostly bug compatible with the original version.
 - Fork into an enhanced game with expanded mapping, monster, etc, capabilities, and build a new "second quest" off of this.
 
-Current enhancements:
+Default key bindings
 ===
-These are enabled by default.
+These can be changed in `%appdata%\LOZ1\config.json` after first run.
 
-- Red candle will automatically light dark rooms.
-- "Select" switches secondary item, as does trigger L and trigger R when using a game controller.
+Keyboard:
+- Z -> B
+- X -> A
+- Q -> Select
+- Space -> Start
+- Arrow keys -> movement
+- \[ -> Previous inventory B item
+- \] -> Next inventory B item
+- alt+enter -> Toggle full screen
+
+Gamepad:
+Works as expected, but bumper left and right select inventory item B items.
+
+Enhancements
+===
+Some of these are toggles found in the menu. Press `alt` to view.
+
+- Unbounded number of saves. Press left/right on the select save screen to switch pages.
+- Toggle: Red candle will automatically light dark rooms.
+- Toggle: You can type your name in the name entry screen ("Enhanced menus").
+- Toggle: Reduce flashing.
 - You can press up or down in the item select screen, as with most menu screens.
-- You can type your name in the name entry screen.
 - "Select" + "Start" brings up the "Save, Continue, Retry" screen.
 
-Cheat codes:
+Cheat codes
 ===
 Note that some cheats have `;` as a required terminator. Many can do what's not usually possible, ie, go out of bounds or spawn a specific monster where they should never be, causing game crashes.
 
@@ -43,7 +61,6 @@ Note that some cheats have `;` as a required terminator. Many can do what's not 
 - `idpos`: Show the room position of all objects.
 - `clearhis`: Clear room history.
 
-Status:
+Status
 ===
 - `Program.cs` contains my todo list.
-- Still early, expect some wild refactorings/renamings/etc still to come.
