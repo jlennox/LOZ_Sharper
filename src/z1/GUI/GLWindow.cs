@@ -1,11 +1,11 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
-using SkiaSharp;
 using z1.IO;
 using z1.Render;
 using z1.UI;
@@ -50,14 +50,14 @@ internal sealed class GLWindow : IDisposable
             Environment.Exit(1);
         }
 
-
         var options = WindowOptions.Default with
         {
             FramesPerSecond = 60,
             UpdatesPerSecond = 60,
-            Size = new Vector2D<int>(1200, 1100),
+            Size = new Vector2D<int>(1150, 1050),
             Title = "The Legend of Form1"
         };
+
         _window = Window.Create(options);
         _window.Load += OnLoad;
         _window.FramebufferResize += OnFramebufferResize;
@@ -89,21 +89,18 @@ internal sealed class GLWindow : IDisposable
             BindGamepad(gamepad);
         }
 
-        Graphics.Initialize(_gl, window.Size.X, window.Size.Y);
+        Graphics.Initialize(_gl);
         Game = new Game();
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
         _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);
+
+        UpdateViewport();
     }
 
-    private void OnFramebufferResize(Vector2D<int> s)
+    private void OnFramebufferResize(Vector2D<int> size)
     {
-        var gl = _gl ?? throw new Exception();
-
-        var asd = new Vector2D<int>(s.X - (s.X % 16), s.Y);
-        gl.Viewport(asd);
-
-        Graphics.SetViewportSize(s.X, s.Y);
+        UpdateViewport();
     }
 
     public void ToggleFullscreen()
@@ -284,26 +281,53 @@ internal sealed class GLWindow : IDisposable
     private readonly Stopwatch _updateTimer = new Stopwatch();
     private TimeSpan _renderedTime = TimeSpan.Zero;
 
-    private GLImage _image;
+    private Rectangle _viewport = Rectangle.Empty;
+
+    private void UpdateViewport()
+    {
+        var window = _window ?? throw new Exception();
+
+        const float nesWidth = 256f;
+        const float nesHeight = 240f;
+
+        // Annoyingly, it's possible for sprite coordinates to land on pixel boundaries,
+        // which causes it to incorrectly round down for one, then round up on the next.
+        // Even though they'll sum to the correct width, individually one will be a pixel
+        // to short and the next will contain a pixel row/column from the adjacent sprite.
+        const int multiple = 32;
+        var windowSize = window.Size;
+        var windowWidth = windowSize.X;
+        var windowHeight = windowSize.Y;
+
+        if (windowWidth == 0 || windowHeight == 0) return;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static int Clamp(int i) => i - (i % multiple);
+
+        var scale = Math.Min(windowWidth / nesWidth, windowHeight / nesHeight);
+        // This math appears wrong? "- scale"
+
+        var newWidth = (int)(nesWidth * scale);
+        var newHeight = (int)(nesHeight * scale);
+
+        var offsetX = (windowWidth - newWidth) / 2;
+        var offsetY = (windowHeight - newHeight) / 2;
+
+        _viewport = new Rectangle(
+            Clamp(offsetX) + (offsetX % multiple) / 2,
+            Clamp(offsetY) + (offsetY % multiple) / 2,
+            Clamp(newWidth), Clamp(newHeight));
+
+        Graphics.SetWindowSize(windowSize.X, windowSize.Y);
+    }
 
     private void Render(double deltaSeconds)
     {
         var gl = _gl ?? throw new Exception();
         var window = _window ?? throw new Exception();
 
-        gl.ClearColor(0f, 0f, 0f, 1f);
-        gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
-
-        const float nesWidth = 256f;
-        const float nesHeight = 240f;
-
-        var windowSize = window.Size;
-
-        var scale = Math.Min(windowSize.X / nesWidth, windowSize.Y / nesHeight);
-        var offsetX = (windowSize.X - scale * nesWidth) / 2;
-        var offsetY = (windowSize.Y - scale * nesHeight) / 2;
-
-        gl.Viewport((int)offsetX, (int)offsetY, (uint)(nesWidth * scale), (uint)(nesHeight * scale));
+        Graphics.StartRender();
+        gl.Viewport(_viewport.X, _viewport.Y, (uint)_viewport.Width, (uint)_viewport.Height);
 
         _controller.Update((float)deltaSeconds);
 
@@ -311,17 +335,6 @@ internal sealed class GLWindow : IDisposable
         var frameTime = TimeSpan.FromSeconds(1 / 60d);
 
         var delta = TimeSpan.FromSeconds(deltaSeconds);
-
-        Graphics.Initialize(gl, window.Size.X, window.Size.Y);
-
-        if (_image == null)
-        {
-            var asset = new Asset("playerItem.png");
-            _image = new GLImage(_gl, asset);
-        }
-        var palette = new SKColor[] { 0, 0xFF00A800, 0xFFFCE0A8, 0xFF0058F8 };
-
-        _image.Draw(16 * 3, 16 * 1, 16, 16, 16, 16, palette, new Size(256, 240), DrawingFlags.None);
 
         double ups = 0;
         double rps = 0;
@@ -355,7 +368,7 @@ internal sealed class GLWindow : IDisposable
 
         if (_showMenu)
         {
-            gl.Viewport(0, 0, (uint)windowSize.X, (uint)windowSize.Y);
+            gl.Viewport(0, 0, (uint)window.Size.X, (uint)window.Size.Y);
             GLWindowGui.DrawMenu(this);
             _controller.Render();
         }

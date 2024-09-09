@@ -39,7 +39,7 @@ internal sealed class GLSpriteShader : IDisposable
         _lOpacity = GetUniformLocation("u_opacity");
         _lPalette = GetUniformLocation("u_palette");
 
-        Use(gl);
+        Use();
         gl.Uniform1(GetUniformLocation("u_texture"), 0);
     }
 
@@ -55,10 +55,7 @@ internal sealed class GLSpriteShader : IDisposable
         gl.CompileShader(handle);
 
         var error = gl.GetShaderInfoLog(handle);
-        if (!string.IsNullOrEmpty(error))
-        {
-            throw new Exception($"Error compiling \"{type}\" shader: {error}");
-        }
+        if (!string.IsNullOrEmpty(error)) throw new Exception($"Error compiling \"{type}\" shader: {error}");
 
         return handle;
     }
@@ -66,11 +63,11 @@ internal sealed class GLSpriteShader : IDisposable
     private int GetUniformLocation(string name)
     {
         var location = _gl.GetUniformLocation(_program, name);
-        // if (location == -1) throw new Exception($"\"{name}\" uniform was not found on the shader");
+        if (location == -1) throw new Exception($"\"{name}\" uniform was not found on the shader");
         return location;
     }
 
-    public void Use(GL gl)
+    public void Use()
     {
         _gl.UseProgram(_program);
     }

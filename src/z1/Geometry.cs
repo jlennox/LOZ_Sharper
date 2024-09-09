@@ -43,6 +43,8 @@ internal struct PointF
 [DebuggerDisplay("{X},{Y},{Width},{Height}")]
 internal struct Rectangle
 {
+    public static readonly Rectangle Empty = new(0, 0, 0, 0);
+
     public int X;
     public int Y;
     public int Width;

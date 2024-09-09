@@ -1,10 +1,9 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using SkiaSharp;
 using z1.Actors;
-using z1.Render;
 using z1.IO;
+using z1.Render;
 using z1.UI;
 
 namespace z1;
@@ -218,12 +217,12 @@ internal sealed unsafe partial class World
     public int MarginLeft;
     public int MarginBottom;
     public int MarginTop;
-    private SKBitmap? _wallsBmp;
-    private SKBitmap? _doorsBmp;
+    private GLImage? _wallsBmp;
+    private GLImage? _doorsBmp;
 
     private GameMode _lastMode;
     private GameMode _curMode;
-    private StatusBar _statusBar;
+    private readonly StatusBar _statusBar;
     private CreditsType? _credits;
     private TextBox? _textBox1;
     private TextBox? _textBox2;
@@ -404,8 +403,8 @@ internal sealed unsafe partial class World
         else
         {
             LoadUnderworldContext();
-            _wallsBmp = _directory.Extra2.ToAsset().DecodeSKBitmapTileData();
-            _doorsBmp = _directory.Extra3.ToAsset().DecodeSKBitmapTileData();
+            _wallsBmp = Graphics.CreateImage(_directory.Extra2.ToAsset());
+            _doorsBmp = Graphics.CreateImage(_directory.Extra3.ToAsset());
             _currentRoomMap = level < 7 ? RoomMap.UnderworldA : RoomMap.UnderworldB;
 
             foreach (var tileMap in _tileMaps)
@@ -1129,7 +1128,7 @@ internal sealed unsafe partial class World
 
         if (IsUWMain(roomId))
         {
-            Graphics.DrawBitmap(
+            Graphics.DrawImage(
                 _wallsBmp,
                 0, 0,
                 TileMapWidth, TileMapHeight,
@@ -1187,7 +1186,7 @@ internal sealed unsafe partial class World
                 doorState = true;
             }
             var doorFace = GetDoorStateFace(doorType, doorState);
-            Graphics.DrawBitmap(
+            Graphics.DrawImage(
                 _doorsBmp,
                 DoorWidth * doorFace,
                 _doorSrcYs[i] + baseY,

@@ -39,6 +39,11 @@ internal static class Graphics
 
     public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];
     public static Span<byte> GetPalette(Palette paletteIndex) => MemoryMarshal.CreateSpan(ref _palettes[(int)paletteIndex * Global.PaletteLength], Global.PaletteLength);
+    private static ReadOnlySpan<SKColor> GetPaletteColors(Palette palette)
+    {
+        var paletteY = (int)palette * _paletteBmpWidth;
+        return MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..(paletteY + 4)];
+    }
 
     private static readonly TableResource<SpriteAnimationStruct>[] _animSpecs = new TableResource<SpriteAnimationStruct>[(int)TileSheet.Max];
 
@@ -48,18 +53,32 @@ internal static class Graphics
         _paletteBuf = new byte[size];
     }
 
-    public static void Initialize(GL gl, int width, int height)
+    public static void Initialize(GL gl)
     {
         _gl = gl;
-        _windowSize = new Size(width, height);
-        // gl.Viewport(0, height - _viewportSize.Height, (uint)_viewportSize.Width, (uint)_viewportSize.Height);
         GLSpriteShader.Initialize(gl);
         GLVertexArray.Initialize(gl);
     }
 
-    public static void SetViewportSize(int width, int height)
+    public static void StartRender()
+    {
+        ArgumentNullException.ThrowIfNull(_gl);
+
+        _gl.ClearColor(0f, 0f, 0f, 1f);
+        _gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
+
+        GLSpriteShader.Instance.SetViewport(_viewportSize.Width, _viewportSize.Height);
+    }
+
+    public static void SetWindowSize(int width, int height)
     {
         _windowSize = new Size(width, height);
+    }
+
+    public static GLImage CreateImage(Asset asset)
+    {
+        ArgumentNullException.ThrowIfNull(_gl);
+        return new GLImage(_gl, asset.DecodeSKBitmap());
     }
 
     public static void Begin() { }
@@ -144,7 +163,6 @@ internal static class Graphics
         }
         SetColor(paletteIndex, colorIndex, colorArgb8);
         GetPalette(paletteIndex, colorIndex) = (byte)sysColor;
-        // TileCache.Clear();
     }
 
     public static void SetPaletteIndexed(Palette paletteIndex, ImmutableArray<byte> sysColors)
@@ -165,12 +183,10 @@ internal static class Graphics
         SetPalette(paletteIndex, colorsArgb8);
         var dest = GetPalette(paletteIndex);
         sysColors[..Global.PaletteLength].CopyTo(dest);
-        // TileCache.Clear();
     }
 
     public static void UpdatePalettes()
     {
-        // TileCache.Clear();
     }
 
     public static void SwitchSystemPalette(int[] newSystemPalette)
@@ -207,8 +223,8 @@ internal static class Graphics
     public static SpriteAnimator GetSpriteAnimator(TileSheet sheet, AnimationId id) => new(sheet, id);
     public static SpriteImage GetSpriteImage(TileSheet sheet, AnimationId id) => new(GetAnimation(sheet, id));
 
-    public static void DrawBitmap(
-        SKBitmap? bitmap,
+    public static void DrawImage(
+        GLImage? bitmap,
         int srcX,
         int srcY,
         int width,
@@ -222,13 +238,7 @@ internal static class Graphics
         ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(bitmap);
 
-        var destRect = new SKRect(destX, destY, destX + width, destY + height);
-
-        // var cacheKey = new TileCache(null, bitmap, _activeSystemPalette, srcX, srcY, palette, flags);
-        // var tile = cacheKey.GetValue(width, height);
-
-        // tile.Draw(_gl, srcX, srcY, width, height, _windowSize.Value, new Point(destX, destY));
-        // _surface.Canvas.DrawImage(tile, destRect);
+        bitmap.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags);
     }
 
     public static void DrawSpriteTile(
@@ -262,9 +272,7 @@ internal static class Graphics
 
         var tiles = _tileSheets[(int)slot]
             ?? throw new ArgumentOutOfRangeException(nameof(slot), slot, "Unknown or unloaded tile.");
-        var paletteY = (int)palette * _paletteBmpWidth;
-        var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..(paletteY + 4)];
-        tiles.Draw(srcX, srcY, width, height, destX, destY, paletteSpan, _viewportSize, flags);
+        tiles.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags);
     }
 
     public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)
@@ -300,10 +308,15 @@ internal static class Graphics
         public void Dispose() => ResetClip();
     }
 
+    private static bool _clipped = false;
+
     public static UnclipScope SetClip(int x, int y, int width, int height)
     {
         ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(_windowSize);
+
+        if (_clipped) throw new Exception();
+        _clipped = true;
 
         var y2 = y + height;
 
@@ -331,15 +344,14 @@ internal static class Graphics
             }
         }
 
-        // _surface.Canvas.Save();
-        // _surface.Canvas.ClipRect(new SKRect(x, y, x + width, y + height));
         var xratio = _windowSize.Value.Width / (float)_viewportSize.Width;
         var yratio = _windowSize.Value.Height / (float)_viewportSize.Height;
+        var finalWidth = width * xratio;
+        var finalHeight = height * yratio;
+        var finalX = x * xratio;
+        var finalY = _windowSize.Value.Height - finalHeight - y * yratio;
         _gl.Enable(EnableCap.ScissorTest);
-        var finalHeight = (uint)(height * yratio);
-        var finaly = y * yratio;
-        // _gl.Scissor((int)(x * xratio), (int)(finalHeight - y * yratio), (uint)(width * xratio), (uint)(finaly + finalHeight));
-        // _gl.Scissor((int)(x * xratio), (int)(y * yratio), (uint)(width * xratio), (uint)_windowSize.Value.Height);
+        _gl.Scissor((int)finalX, (int)finalY, (uint)finalWidth, (uint)finalHeight);
         return new UnclipScope();
     }
 
@@ -347,8 +359,8 @@ internal static class Graphics
     {
         ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(_windowSize);
+
         _gl.Disable(EnableCap.ScissorTest);
-        // _gl.Scissor(0, 0, (uint)_windowSize.Value.Width, (uint)_windowSize.Value.Height);
-        // _surface.Canvas.Restore();
+        _clipped = false;
     }
 }

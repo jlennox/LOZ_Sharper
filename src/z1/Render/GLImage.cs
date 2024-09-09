@@ -44,8 +44,7 @@ internal sealed unsafe class GLImage : IDisposable
     public void Draw(
         int srcx, int srcy, int width, int height,
         int destinationx, int destinationy,
-        Span<SKColor> palette, Size viewportSize,
-        DrawingFlags flags)
+        ReadOnlySpan<SKColor> palette, DrawingFlags flags)
     {
         _gl.ActiveTexture(TextureUnit.Texture0);
         _gl.BindTexture(TextureTarget.Texture2D, _texture);
@@ -92,8 +91,7 @@ internal sealed unsafe class GLImage : IDisposable
             verticies, BufferUsageARB.StreamDraw);
 
         var shader = GLSpriteShader.Instance;
-        shader.Use(_gl);
-        shader.SetViewport(viewportSize.Width, viewportSize.Height);
+        shader.Use();
         shader.SetTextureSize(_size.Width, _size.Height);
         shader.SetOpacity(1f);
         shader.SetPalette(finalPalette);
