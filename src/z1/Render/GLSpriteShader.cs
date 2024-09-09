@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 
@@ -13,12 +12,8 @@ internal sealed class GLSpriteShader : IDisposable
     private readonly uint _program;
 
     private readonly int _lViewportSize;
-    private readonly int _lPos;
-    private readonly int _lSize;
-    private readonly int _lSourcePos;
+    private readonly int _lTextureSize;
     private readonly int _lOpacity;
-    private readonly int _lUVStart;
-    private readonly int _lUVEnd;
     private readonly int _lPalette;
 
     private GLSpriteShader(GL gl)
@@ -40,12 +35,8 @@ internal sealed class GLSpriteShader : IDisposable
         gl.DeleteShader(fragment);
 
         _lViewportSize = GetUniformLocation("u_viewportSize");
-        _lPos = GetUniformLocation("u_pos");
-        _lSize = GetUniformLocation("u_size");
-        _lSourcePos = GetUniformLocation("u_sourcePos");
+        _lTextureSize = GetUniformLocation("u_size");
         _lOpacity = GetUniformLocation("u_opacity");
-        _lUVStart = GetUniformLocation("u_uvStart");
-        _lUVEnd = GetUniformLocation("u_uvEnd");
         _lPalette = GetUniformLocation("u_palette");
 
         Use(gl);
@@ -79,48 +70,33 @@ internal sealed class GLSpriteShader : IDisposable
         return location;
     }
 
-    public void Use(GL gl) => _gl.UseProgram(_program);
-    public void SetViewport(int width, int height) => _gl.Uniform2(_lViewportSize, width, height);
-    public void SetPalette(ReadOnlySpan<SKColor> colors) => _gl.Uniform4(_lPalette, MemoryMarshal.Cast<SKColor, uint>(colors));
-    public void SetSourcePosition(int x, int y) => _gl.Uniform2(_lSourcePos, x, y);
-    public void SetOpacity(float f) => _gl.Uniform1(_lOpacity, f);
-
-    public void SetDestination(int x, int y, int width, int height)
+    public void Use(GL gl)
     {
-        _gl.Uniform2(_lPos, x, y);
-        _gl.Uniform2(_lSize, width, height);
+        _gl.UseProgram(_program);
     }
 
-    public void SetUV(in UV uv)
+    public void SetViewport(int width, int height)
     {
-        _gl.Uniform2(_lUVStart, uv.Start);
-        _gl.Uniform2(_lUVEnd, uv.End);
+        _gl.Uniform2(_lViewportSize, width, height);
+    }
+
+    public void SetPalette(ReadOnlySpan<SKColor> colors)
+    {
+        _gl.Uniform4(_lPalette, MemoryMarshal.Cast<SKColor, uint>(colors));
+    }
+
+    public void SetOpacity(float f)
+    {
+        _gl.Uniform1(_lOpacity, f);
+    }
+
+    public void SetTextureSize(int width, int height)
+    {
+        _gl.Uniform2(_lTextureSize, width, height);
     }
 
     public void Dispose()
     {
         _gl.DeleteProgram(_program);
-    }
-}
-
-internal readonly struct UV
-{
-    public readonly Vector2 Start;
-    public readonly Vector2 End;
-
-    public UV(bool xFlip, bool yFlip)
-    {
-        Start.X = xFlip ? 1f : 0f;
-        Start.Y = yFlip ? 1f : 0f;
-        End.X = xFlip ? 0f : 1f;
-        End.Y = yFlip ? 0f : 1f;
-    }
-
-    public UV(in Rectangle rect, Point atlasSize, bool xFlip = false, bool yFlip = false)
-    {
-        Start.X = (float)(xFlip ? rect.Right + 1 : rect.X) / atlasSize.X;
-        Start.Y = (float)(yFlip ? rect.Bottom + 1 : rect.Y) / atlasSize.Y;
-        End.X = (float)(xFlip ? rect.X : rect.Right + 1) / atlasSize.X;
-        End.Y = (float)(yFlip ? rect.Y : rect.Bottom + 1) / atlasSize.Y;
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Silk.NET.OpenGL;
 using SkiaSharp;
+using z1.IO;
 
 namespace z1.Render;
 
@@ -9,6 +10,10 @@ internal sealed unsafe class GLImage : IDisposable
     private readonly GL _gl;
     private readonly uint _texture;
     private readonly Size _size;
+
+    public GLImage(GL gl, Asset bitmap) : this(gl, bitmap.DecodeSKBitmapTileData())
+    {
+    }
 
     public GLImage(GL gl, SKBitmap bitmap)
     {
@@ -36,35 +41,45 @@ internal sealed unsafe class GLImage : IDisposable
         _gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
     }
 
-    public void Render(
+    public void Draw(
         int srcx, int srcy, int width, int height,
         int destinationx, int destinationy,
-        ReadOnlySpan<SKColor> palette, Size viewportSize,
+        Span<SKColor> palette, Size viewportSize,
         DrawingFlags flags)
     {
         _gl.ActiveTexture(TextureUnit.Texture0);
         _gl.BindTexture(TextureTarget.Texture2D, _texture);
 
-        var sizeWidthf = (float)_size.Width;
-        var sizeHeightf = (float)_size.Height;
+        var right = srcx + width;
+        var bottom = srcy + height;
 
-        var left = srcx / sizeWidthf;
-        var top = srcy / sizeHeightf;
-        var right = (srcx + width) / sizeWidthf;
-        var bottom = (srcy + height) / sizeHeightf;
+        // Branchless conditional swaps:
+        // https://github.com/jlennox/Benchmarks/blob/main/BranchlessSwap.cs
+        var flipHor = -BitOperations.PopCount((uint)(flags & DrawingFlags.FlipHorizontal));
+        var flipVert = -BitOperations.PopCount((uint)(flags & DrawingFlags.FlipVertical));
 
-        ReadOnlySpan <Vector2> verticies = stackalloc Vector2[4] {
-            new Vector2(left, top),
-            new Vector2(left, bottom),
-            new Vector2(right, top),
-            new Vector2(right, bottom),
+        var tempSrcX = (flipHor & right) | (~flipHor & srcx);
+        var tempRight = (flipHor & srcx) | (~flipHor & right);
+        srcx = tempSrcX;
+        right = tempRight;
+
+        var tempSrcY = (flipVert & bottom) | (~flipVert & srcy);
+        var tempBottom = (flipVert & srcy) | (~flipVert & bottom);
+        srcy = tempSrcY;
+        bottom = tempBottom;
+
+        ReadOnlySpan<Point> verticies = stackalloc Point[] {
+            new Point(srcx, srcy), new Point(destinationx, destinationy),
+            new Point(srcx, bottom), new Point(destinationx, destinationy + height),
+            new Point(right, srcy), new Point(destinationx + width, destinationy),
+            new Point(right, bottom), new Point(destinationx + width, destinationy + height),
         };
 
         var finalPalette = palette;
 
         if (!flags.HasFlag(DrawingFlags.NoTransparency))
         {
-            finalPalette = stackalloc SKColor[4] {
+            finalPalette = stackalloc SKColor[] {
                 new SKColor(0),
                 palette[1],
                 palette[2],
@@ -73,18 +88,16 @@ internal sealed unsafe class GLImage : IDisposable
         }
 
         _gl.BufferData(
-            BufferTargetARB.ArrayBuffer, (nuint)verticies.Length * (nuint)sizeof(Vector2),
+            BufferTargetARB.ArrayBuffer, (nuint)verticies.Length * (nuint)sizeof(Point),
             verticies, BufferUsageARB.StreamDraw);
 
         var shader = GLSpriteShader.Instance;
         shader.Use(_gl);
         shader.SetViewport(viewportSize.Width, viewportSize.Height);
-        shader.SetDestination(destinationx, destinationy, _size.Width, _size.Height);
-        shader.SetSourcePosition(srcx, srcy);
+        shader.SetTextureSize(_size.Width, _size.Height);
         shader.SetOpacity(1f);
-        shader.SetUV(new UV(false, false)); // flags.HasFlag(DrawingFlags.FlipHorizontal), flags.HasFlag(DrawingFlags.FlipVertical)));
         shader.SetPalette(finalPalette);
-        _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, (uint)verticies.Length);
+        _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, (uint)verticies.Length / 2);
     }
 
     public void Dispose()
@@ -111,7 +124,9 @@ internal sealed class GLVertexArray : IDisposable
         gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vertextBufferObject);
 
         gl.EnableVertexAttribArray(0);
-        gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, (uint)sizeof(Vector2), null);
+        gl.EnableVertexAttribArray(1);
+        gl.VertexAttribIPointer(0, 2, VertexAttribIType.Int, (uint)sizeof(Point) * 2, null);
+        gl.VertexAttribIPointer(1, 2, VertexAttribIType.Int, (uint)sizeof(Point) * 2, sizeof(Point));
 
         gl.Disable(EnableCap.DepthTest);
         gl.Enable(EnableCap.Blend);

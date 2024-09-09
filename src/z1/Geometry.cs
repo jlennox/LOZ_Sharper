@@ -1,8 +1,11 @@
-﻿namespace z1;
+﻿using System.Diagnostics;
+
+namespace z1;
 
 // This is so we don't need to reference winforms.
 // JOE: TODO: Errrr. We're still referencing it for the mean time because otherwise a console window pops up.
 
+[DebuggerDisplay("{X},{Y}")]
 internal struct Point
 {
     public static readonly Point Empty = new(0, 0);
@@ -22,6 +25,7 @@ internal struct Point
     public static bool operator !=(Point left, Point right) => !(left == right);
 }
 
+[DebuggerDisplay("{X},{Y}")]
 internal struct PointF
 {
     public static readonly PointF Empty = new(0, 0);
@@ -36,6 +40,7 @@ internal struct PointF
     }
 }
 
+[DebuggerDisplay("{X},{Y},{Width},{Height}")]
 internal struct Rectangle
 {
     public int X;
@@ -65,6 +70,7 @@ internal struct Rectangle
     }
 }
 
+[DebuggerDisplay("{Width},{Height}")]
 internal struct SizeF
 {
     public float Width;
@@ -77,6 +83,7 @@ internal struct SizeF
     }
 }
 
+[DebuggerDisplay("{Width},{Height}")]
 internal struct Size
 {
     public int Width;

@@ -5,6 +5,7 @@ using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using Silk.NET.Windowing;
+using SkiaSharp;
 using z1.IO;
 using z1.Render;
 using z1.UI;
@@ -283,6 +284,8 @@ internal sealed class GLWindow : IDisposable
     private readonly Stopwatch _updateTimer = new Stopwatch();
     private TimeSpan _renderedTime = TimeSpan.Zero;
 
+    private GLImage _image;
+
     private void Render(double deltaSeconds)
     {
         var gl = _gl ?? throw new Exception();
@@ -310,6 +313,15 @@ internal sealed class GLWindow : IDisposable
         var delta = TimeSpan.FromSeconds(deltaSeconds);
 
         Graphics.Initialize(gl, window.Size.X, window.Size.Y);
+
+        if (_image == null)
+        {
+            var asset = new Asset("playerItem.png");
+            _image = new GLImage(_gl, asset);
+        }
+        var palette = new SKColor[] { 0, 0xFF00A800, 0xFFFCE0A8, 0xFF0058F8 };
+
+        _image.Draw(16 * 3, 16 * 1, 16, 16, 16, 16, palette, new Size(256, 240), DrawingFlags.None);
 
         double ups = 0;
         double rps = 0;

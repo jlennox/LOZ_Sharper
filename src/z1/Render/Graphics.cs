@@ -227,7 +227,7 @@ internal static class Graphics
         // var cacheKey = new TileCache(null, bitmap, _activeSystemPalette, srcX, srcY, palette, flags);
         // var tile = cacheKey.GetValue(width, height);
 
-        // tile.Render(_gl, srcX, srcY, width, height, _windowSize.Value, new Point(destX, destY));
+        // tile.Draw(_gl, srcX, srcY, width, height, _windowSize.Value, new Point(destX, destY));
         // _surface.Canvas.DrawImage(tile, destRect);
     }
 
@@ -264,7 +264,7 @@ internal static class Graphics
             ?? throw new ArgumentOutOfRangeException(nameof(slot), slot, "Unknown or unloaded tile.");
         var paletteY = (int)palette * _paletteBmpWidth;
         var paletteSpan = MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..(paletteY + 4)];
-        tiles.Render(srcX, srcY, width, height, destX, destY, paletteSpan, _viewportSize, flags);
+        tiles.Draw(srcX, srcY, width, height, destX, destY, paletteSpan, _viewportSize, flags);
     }
 
     public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)

@@ -5,27 +5,25 @@ internal static class SpriteShaders
     public const string Vertex = """
         #version 330 core
 
-        layout(location = 0) in vec2 in_position;
+        layout(location = 0) in ivec2 in_tile_position; // tile location inside of texture
+        layout(location = 1) in ivec2 in_screen_position; // the destination in u_viewportSize coordinates.
 
         out vec2 pass_uv;
 
-        uniform ivec2 u_pos;
-        uniform ivec2 u_size;
-        uniform ivec2 u_sourcePos;
-        uniform vec2 u_uvStart;
-        uniform vec2 u_uvEnd;
-        uniform ivec2 u_viewportSize;
+        uniform ivec2 u_viewportSize; // 256x240
+        uniform ivec2 u_size; // full texture size, 128x128
 
         void main()
         {
-            vec2 absPos = in_position * u_size;
-            vec2 offsetPos = in_position * u_size;
-            vec2 relPos = (u_pos + absPos - u_sourcePos) / u_viewportSize;
-            float glX = relPos.x * 2 - 1; // (0 => 1) to (-1 => 1)
-            float glY = relPos.y * -2 + 1; // (0 => 1) to (1 => -1)
-            gl_Position = vec4(glX, glY, 0, 1);
+            vec2 viewportSize = vec2(u_viewportSize); // Don't want to coerce results to ints.
+            // View port space to screen space.
+            vec2 viewportRelativePos = (in_screen_position * vec2(2, -2) / viewportSize);
+            // Translate from 0 => 1 coordinate space, to (-1 => 1) and (1 => -1)
+            // y is 0 at the bottom, so it's flipped.
+            vec2 pos = viewportRelativePos + vec2(-1, 1);
+            gl_Position = vec4(pos, 0, 1);
 
-            pass_uv = mix(u_uvStart, u_uvEnd, in_position);
+            pass_uv = vec2(in_tile_position) / vec2(u_size);
         }
         """;
 
