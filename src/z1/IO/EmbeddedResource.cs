@@ -21,7 +21,7 @@ internal sealed class EmbeddedResource
             ?? throw new FileNotFoundException($"Resource not found: {name}"); ;
     }
 
-    public static unsafe RawImage RawImageIconFromResource(string name)
+    private static unsafe RawImage RawImageIconFromResource(string name)
     {
         using var stream = GetEmbeddedResource(name);
         using var icon = new Icon(stream);
@@ -39,11 +39,13 @@ internal sealed class EmbeddedResource
         return rawImage;
     }
 
-    public static SKBitmap SKBitmapFromResource(string name)
+    private static SKBitmap SKBitmapFromResource(string name)
     {
         using var stream = GetEmbeddedResource(name);
         return SKBitmap.Decode(stream);
     }
 
     public static Stream GetFont() => GetEmbeddedResource(Filenames.GuiFont);
+    public static RawImage GetWindowIcon() => RawImageIconFromResource(Filenames.WindowIcon);
+    public static SKBitmap GetFontAddendum() => SKBitmapFromResource(Filenames.FontAddendum);
 }

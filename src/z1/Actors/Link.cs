@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using z1.IO;
+using z1.Render;
 using LinkState = z1.Actors.Link.LinkState;
 
 namespace z1.Actors;
@@ -726,6 +727,7 @@ internal sealed class Link : Actor, IThrower
         damage >>= ringValue;
 
         Game.World.ResetKilledObjectCount();
+        Game.World.GetProfile().Statistics.TakeDamage(collider, damage);
 
         if (Game.World.Profile.Hearts <= damage)
         {

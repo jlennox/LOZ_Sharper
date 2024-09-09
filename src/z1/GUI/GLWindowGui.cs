@@ -29,6 +29,7 @@ internal static class GLWindowGui
         public static readonly PropertyInfo AutoSave = GetProperty(nameof(GameEnhancements.AutoSave));
         public static readonly PropertyInfo ImprovedMenus = GetProperty(nameof(GameEnhancements.ImprovedMenus));
         public static readonly PropertyInfo ReduceFlashing = GetProperty(nameof(GameEnhancements.ReduceFlashing));
+        public static readonly PropertyInfo RedCandleLightsDarkRooms = GetProperty(nameof(GameEnhancements.RedCandleLightsDarkRooms));
     }
 
     private static class AudioProperties
@@ -143,6 +144,7 @@ internal static class GLWindowGui
             if (ImGui.BeginMenu("Enhancements"))
             {
                 DrawMenuItem("AutoSave", GameEnhancementsProperties.AutoSave, game.Enhancements);
+                DrawMenuItem("Red Candle Auto-Lights Darkrooms", GameEnhancementsProperties.RedCandleLightsDarkRooms, game.Enhancements);
                 DrawMenuItem("Improved Menus", GameEnhancementsProperties.ImprovedMenus, game.Enhancements);
                 DrawMenuItem("Reduce Flashing", GameEnhancementsProperties.ReduceFlashing, game.Enhancements);
 

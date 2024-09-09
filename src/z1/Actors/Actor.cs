@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using z1.IO;
+using z1.Render;
 
 namespace z1.Actors;
 
@@ -693,7 +694,7 @@ internal abstract class Actor
     protected void DealDamage(CollisionContext context)
     {
         Game.Sound.PlayEffect(SoundEffect.MonsterHit);
-        Game.World.GetProfile().Statistics.AddDamage(context);
+        Game.World.GetProfile().Statistics.DealDamage(context);
 
         if (HP < context.Damage)
         {

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using SkiaSharp;
+using z1.Render;
 
 namespace z1.UI;
 
@@ -106,7 +107,7 @@ internal sealed class StatusBar
     public void Draw(int baseY, SKColor backColor)
     {
         using var _ = Graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
-        Graphics.Clear(backColor, 0, baseY, StatusBarWidth, StatusBarHeight);
+        Graphics.Clear(backColor);
 
         foreach (var tileInst in _uiTiles)
         {

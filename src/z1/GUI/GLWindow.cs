@@ -1,12 +1,13 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
-using Silk.NET.Windowing;
 using Silk.NET.OpenGL.Extensions.ImGui;
-using SkiaSharp;
+using Silk.NET.Windowing;
 using z1.IO;
+using z1.Render;
 using z1.UI;
 using Button = Silk.NET.Input.Button;
 using GamepadButton = z1.UI.GamepadButton;
@@ -19,7 +20,7 @@ internal sealed class GLWindow : IDisposable
 
     private static readonly DebugLog _log = new(nameof(GLWindow));
 
-    public readonly Game Game;
+    public Game Game = null!;
 
     public bool IsFullScreen => _window?.WindowBorder == WindowBorder.Hidden;
 
@@ -31,10 +32,6 @@ internal sealed class GLWindow : IDisposable
     private GL? _gl;
     private IInputContext? _inputContext;
 
-    private GRGlInterface? _glinterface;
-    private GRContext? _grcontext;
-    private SKSurface? _surface;
-    private GRBackendRenderTarget? _rendertarget;
     private ImGuiController _controller;
     private System.Drawing.Rectangle _windowedRect;
     private bool _showMenu = false;
@@ -53,15 +50,14 @@ internal sealed class GLWindow : IDisposable
             Environment.Exit(1);
         }
 
-        Game = new Game();
-
         var options = WindowOptions.Default with
         {
             FramesPerSecond = 60,
             UpdatesPerSecond = 60,
-            Size = new Vector2D<int>(1200, 1100),
+            Size = new Vector2D<int>(1150, 1050),
             Title = "The Legend of Form1"
         };
+
         _window = Window.Create(options);
         _window.Load += OnLoad;
         _window.FramebufferResize += OnFramebufferResize;
@@ -69,7 +65,7 @@ internal sealed class GLWindow : IDisposable
         _window.Closing += OnClosing;
         _window.FocusChanged += OnFocusChanged;
         _window.Initialize();
-        _window.SetWindowIcon([EmbeddedResource.RawImageIconFromResource("icon.ico")]);
+        _window.SetWindowIcon([EmbeddedResource.GetWindowIcon()]);
         _window.Run();
         _windowedRect = _window.GetRect();
     }
@@ -80,9 +76,6 @@ internal sealed class GLWindow : IDisposable
 
         _gl = window.CreateOpenGL();
         _inputContext = window.CreateInput();
-
-        _glinterface = GRGlInterface.Create() ?? throw new Exception("GRGlInterface.Create() failed.");
-        _grcontext = GRContext.CreateGl(_glinterface) ?? throw new Exception("GRContext.CreateGl() failed.");
 
         _inputContext.ConnectionChanged += OnConnectionChanged;
         foreach (var targetkb in _inputContext.Keyboards)
@@ -96,36 +89,18 @@ internal sealed class GLWindow : IDisposable
             BindGamepad(gamepad);
         }
 
-        var surface = CreateSkSurface();
-        Game.UpdateScreenSize(surface);
+        Graphics.Initialize(_gl);
+        Game = new Game();
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
         _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);
+
+        UpdateViewport();
     }
 
-    private void OnFramebufferResize(Vector2D<int> s)
+    private void OnFramebufferResize(Vector2D<int> size)
     {
-        var gl = _gl ?? throw new Exception();
-
-        gl.Viewport(s);
-
-        var surface = CreateSkSurface();
-        Game.UpdateScreenSize(surface);
-    }
-
-    private SKSurface CreateSkSurface()
-    {
-        var gl = _gl ?? throw new Exception();
-        var window = _window ?? throw new Exception();
-
-        _surface?.Dispose();
-        _rendertarget?.Dispose();
-
-        var framebuffer = gl.GetInteger(GLEnum.FramebufferBinding);
-
-        var framebufferinfo = new GRGlFramebufferInfo((uint)framebuffer, SKColorType.Rgba8888.ToGlSizedFormat());
-        _rendertarget = new GRBackendRenderTarget(window.Size.X, window.Size.Y, 0, 8, framebufferinfo);
-        return _surface = SKSurface.Create(_grcontext, _rendertarget, GRSurfaceOrigin.BottomLeft, SKColorType.Rgba8888);
+        UpdateViewport();
     }
 
     public void ToggleFullscreen()
@@ -306,12 +281,53 @@ internal sealed class GLWindow : IDisposable
     private readonly Stopwatch _updateTimer = new Stopwatch();
     private TimeSpan _renderedTime = TimeSpan.Zero;
 
-    private void Render(double deltaSeconds)
+    private Rectangle _viewport = Rectangle.Empty;
+
+    private void UpdateViewport()
     {
-        var surface = _surface ?? throw new Exception();
         var window = _window ?? throw new Exception();
 
-        surface.Canvas.Clear(SKColors.Black);
+        const float nesWidth = 256f;
+        const float nesHeight = 240f;
+
+        // Annoyingly, it's possible for sprite coordinates to land on pixel boundaries,
+        // which causes it to incorrectly round down for one, then round up on the next.
+        // Even though they'll sum to the correct width, individually one will be a pixel
+        // to short and the next will contain a pixel row/column from the adjacent sprite.
+        const int multiple = 32;
+        var windowSize = window.Size;
+        var windowWidth = windowSize.X;
+        var windowHeight = windowSize.Y;
+
+        if (windowWidth == 0 || windowHeight == 0) return;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static int Clamp(int i) => i - (i % multiple);
+
+        var scale = Math.Min(windowWidth / nesWidth, windowHeight / nesHeight);
+        // This math appears wrong? "- scale"
+
+        var newWidth = (int)(nesWidth * scale);
+        var newHeight = (int)(nesHeight * scale);
+
+        var offsetX = (windowWidth - newWidth) / 2;
+        var offsetY = (windowHeight - newHeight) / 2;
+
+        _viewport = new Rectangle(
+            Clamp(offsetX) + (offsetX % multiple) / 2,
+            Clamp(offsetY) + (offsetY % multiple) / 2,
+            Clamp(newWidth), Clamp(newHeight));
+
+        Graphics.SetWindowSize(windowSize.X, windowSize.Y);
+    }
+
+    private void Render(double deltaSeconds)
+    {
+        var gl = _gl ?? throw new Exception();
+        var window = _window ?? throw new Exception();
+
+        Graphics.StartRender();
+        gl.Viewport(_viewport.X, _viewport.Y, (uint)_viewport.Width, (uint)_viewport.Height);
 
         _controller.Update((float)deltaSeconds);
 
@@ -320,12 +336,11 @@ internal sealed class GLWindow : IDisposable
 
         var delta = TimeSpan.FromSeconds(deltaSeconds);
 
-        Graphics.SetSurface(surface);
-
         double ups = 0;
         double rps = 0;
 
         // JOE: TODO: Port this over to `delta`
+        // JOE: TODO: MAke sure this updates() at the fastest of 60fps.
         // while (_starttime.Elapsed - _renderedTime >= frameTime)
         {
             _updateTimer.Restart();
@@ -341,7 +356,6 @@ internal sealed class GLWindow : IDisposable
         {
             _updateTimer.Restart();
             Game.Draw();
-            surface.Canvas.Flush();
             _updateTimer.Stop();
             rps = _rendersPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
         }
@@ -354,6 +368,7 @@ internal sealed class GLWindow : IDisposable
 
         if (_showMenu)
         {
+            gl.Viewport(0, 0, (uint)window.Size.X, (uint)window.Size.Y);
             GLWindowGui.DrawMenu(this);
             _controller.Render();
         }
@@ -366,10 +381,6 @@ internal sealed class GLWindow : IDisposable
 
     public void Dispose()
     {
-        _glinterface?.Dispose();
-        _grcontext?.Dispose();
-        _surface?.Dispose();
-        _rendertarget?.Dispose();
         _window?.Dispose();
         _gl?.Dispose();
         _inputContext?.Dispose();

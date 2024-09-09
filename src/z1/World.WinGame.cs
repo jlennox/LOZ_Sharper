@@ -1,6 +1,7 @@
 ﻿using SkiaSharp;
 using z1.Actors;
 using z1.IO;
+using z1.Render;
 using z1.UI;
 
 namespace z1;
@@ -232,21 +233,22 @@ internal partial class World
     {
         SKColor backColor;
 
-        Graphics.SetClip(0, 0, Global.StdViewWidth, Global.StdViewHeight);
-        if (_state.WinGame.Substate == WinGameState.Substates.Colors)
+        using (var _ = Graphics.SetClip(0, 0, Global.StdViewWidth, Global.StdViewHeight))
         {
-            ReadOnlySpan<int> sysColors = [0x0F, 0x2A, 0x16, 0x12];
-            var frame = _state.WinGame.Timer & 3;
-            var sysColor = sysColors[frame];
-            ClearScreen(sysColor);
-            backColor = Graphics.GetSystemColor(sysColor);
+            if (_state.WinGame.Substate == WinGameState.Substates.Colors)
+            {
+                ReadOnlySpan<int> sysColors = [0x0F, 0x2A, 0x16, 0x12];
+                var frame = _state.WinGame.Timer & 3;
+                var sysColor = sysColors[frame];
+                ClearScreen(sysColor);
+                backColor = Graphics.GetSystemColor(sysColor);
+            }
+            else
+            {
+                ClearScreen();
+                backColor = SKColors.Black;
+            }
         }
-        else
-        {
-            ClearScreen();
-            backColor = SKColors.Black;
-        }
-        Graphics.ResetClip();
 
         _statusBar.Draw(_submenuOffsetY, backColor);
 
@@ -255,9 +257,10 @@ internal partial class World
             var left = _state.WinGame.Left;
             var width = _state.WinGame.Right - _state.WinGame.Left;
 
-            Graphics.SetClip(left, TileMapBaseY, width, TileMapHeight);
-            DrawRoomNoObjects(SpritePriority.None);
-            Graphics.ResetClip();
+            using (var _ = Graphics.SetClip(left, TileMapBaseY, width, TileMapHeight))
+            {
+                DrawRoomNoObjects(SpritePriority.None);
+            }
 
             Game.Link.Draw();
             DrawObjects(out _);

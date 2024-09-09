@@ -1,7 +1,9 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Numerics;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
+using SkiaSharp;
 using z1.Actors;
 
 namespace z1;
@@ -203,4 +205,6 @@ internal static class Extensions
             Debug.WriteLine(ex);
         }
     }
+
+    public static Vector4 ToVector4(this SKColor color) => new Vector4(color.Red / 255f, color.Green / 255f, color.Blue / 255f, color.Alpha / 255f);
 }

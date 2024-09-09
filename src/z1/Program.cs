@@ -20,6 +20,8 @@ namespace z1;
 // * Too many wallmasters can make it out. I think?
 //   - And stopwatch doesn't stop them from appearing.
 // * Do second quest skeletons fire swords?
+// * Add cheat to unparalyze link incase someone gets stuck.
+// * Make it not run too fast on higher refresh rates.
 
 // Minor:
 // * Vire keese seem to spawn too close together. -- but the assembly seems to check out.

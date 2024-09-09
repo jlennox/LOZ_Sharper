@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using z1.Actors;
 using z1.IO;
+using z1.Render;
 
 namespace z1;
 
@@ -96,6 +97,7 @@ internal sealed class PlayerStatistics
     public Dictionary<ObjType, int> Kills { get; set; }
     public Dictionary<ItemSlot, int> ItemUses { get; set; }
     public Dictionary<DamageType, long> DamageDone { get; set; }
+    public Dictionary<ObjType, long> DamageTaken { get; set; }
     public int SaveCount { get; set; } // TODO
     public int UWWallsBombed { get; set; }
     public int TreesBurned { get; set; }
@@ -108,6 +110,7 @@ internal sealed class PlayerStatistics
         Kills ??= new();
         DamageDone ??= new();
         ItemUses ??= new();
+        DamageTaken ??= new();
     }
 
     public void AddKill(ObjType type)
@@ -122,10 +125,17 @@ internal sealed class PlayerStatistics
         ItemUses[slot] = count;
     }
 
-    public void AddDamage(CollisionContext context)
+    public void DealDamage(CollisionContext context)
     {
         var count = DamageDone.GetValueOrDefault(context.DamageType) + context.Damage;
         DamageDone[context.DamageType] = count;
+    }
+
+    public void TakeDamage(Actor actor, int amount)
+    {
+        // PersonEnd = FlyingRock
+        var count = DamageTaken.GetValueOrDefault(actor.ObjType) + amount;
+        DamageTaken[actor.ObjType] = count;
     }
 }
 
