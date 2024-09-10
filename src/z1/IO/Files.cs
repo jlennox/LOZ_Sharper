@@ -149,57 +149,6 @@ internal readonly struct ListResource<T>
     public static T LoadSingle(Asset file) => LoadList(file, 1)[0];
 }
 
-[StructLayout(LayoutKind.Sequential, Pack = 1, Size = Length)]
-[DebuggerDisplay("{ToString()}")]
-internal unsafe struct FixedString
-{
-    private const int Length = 32;
-
-    public fixed byte Str[Length];
-
-    public bool IsNull => Str[0] == 0;
-
-    // public static implicit operator string(FixedString b) => b.ToString();
-
-    public override string ToString()
-    {
-        fixed (byte* p = Str)
-        {
-            var span = new Span<byte>(p, Length);
-            var end = span.IndexOf((byte)0);
-            return Encoding.ASCII.GetString(p, end == -1 ? Length : end);
-        }
-    }
-
-    public Asset ToAsset()
-    {
-        return new Asset(ToString());
-    }
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct LevelDirectory
-{
-    public FixedString LevelInfoBlock;
-    public FixedString RoomCols;
-    public FixedString ColTables;
-    public FixedString TileAttrs;
-    public FixedString TilesImage;
-    public FixedString PlayerImage;
-    public FixedString PlayerSheet;
-    public FixedString NpcImage;
-    public FixedString NpcSheet;
-    public FixedString BossImage;
-    public FixedString BossSheet;
-    public FixedString RoomAttrs;
-    public FixedString LevelInfoEx;
-    public FixedString ObjLists;
-    public FixedString Extra1;
-    public FixedString Extra2;
-    public FixedString Extra3;
-    public FixedString Extra4;
-}
-
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal unsafe struct RoomCols
 {

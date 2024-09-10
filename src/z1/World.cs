@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using z1.Actors;
+using z1.Common.IO;
 using z1.IO;
 using z1.Render;
 using z1.UI;
@@ -332,11 +333,11 @@ internal sealed unsafe partial class World
 
     private void LoadMapResourcesFromDirectory(int uniqueRoomCount)
     {
-        _roomCols = ListResource<RoomCols>.LoadList(_directory.RoomCols.ToAsset(), uniqueRoomCount).ToArray();
-        _colTables = TableResource<byte>.Load(_directory.ColTables.ToAsset());
-        _tileAttrs = ListResource<byte>.LoadList(_directory.TileAttrs.ToAsset(), _tileTypeCount).ToArray();
+        _roomCols = ListResource<RoomCols>.LoadList(new Asset(_directory.RoomCols), uniqueRoomCount).ToArray();
+        _colTables = TableResource<byte>.Load(new Asset(_directory.ColTables));
+        _tileAttrs = ListResource<byte>.LoadList(new Asset(_directory.TileAttrs), _tileTypeCount).ToArray();
 
-        Graphics.LoadTileSheet(TileSheet.Background, _directory.TilesImage.ToAsset());
+        Graphics.LoadTileSheet(TileSheet.Background, new Asset(_directory.TilesImage));
     }
 
     private void LoadOverworldContext()
@@ -378,10 +379,10 @@ internal sealed unsafe partial class World
     private void LoadLevel(int level)
     {
         var profile = GetProfile();
-        var levelDirName = $"levelDir_{profile.Quest}_{level}.dat";
+        var levelDirName = $"levelDir_{profile.Quest}_{level}.json";
 
-        _directory = ListResource<LevelDirectory>.LoadSingle(levelDirName);
-        _infoBlock = ListResource<LevelInfoBlock>.LoadSingle(_directory.LevelInfoBlock.ToString());
+        _directory = new Asset(levelDirName).ReadJson<LevelDirectory>();
+        _infoBlock = ListResource<LevelInfoBlock>.LoadSingle(_directory.LevelInfoBlock);
 
         _wallsBmp?.Dispose();
         _wallsBmp = null;
@@ -404,8 +405,8 @@ internal sealed unsafe partial class World
         else
         {
             LoadUnderworldContext();
-            _wallsBmp = Graphics.CreateImage(_directory.Extra2.ToAsset());
-            _doorsBmp = Graphics.CreateImage(_directory.Extra3.ToAsset());
+            _wallsBmp = Graphics.CreateImage(new Asset(_directory.Extra2));
+            _doorsBmp = Graphics.CreateImage(new Asset(_directory.Extra3));
             _currentRoomMap = level < 7 ? RoomMap.UnderworldA : RoomMap.UnderworldB;
 
             foreach (var tileMap in _tileMaps)
@@ -417,18 +418,18 @@ internal sealed unsafe partial class World
             }
         }
 
-        Graphics.LoadTileSheet(TileSheet.PlayerAndItems, _directory.PlayerImage.ToAsset(), _directory.PlayerSheet.ToAsset());
-        Graphics.LoadTileSheet(TileSheet.Npcs, _directory.NpcImage.ToAsset(), _directory.NpcSheet.ToAsset());
+        Graphics.LoadTileSheet(TileSheet.PlayerAndItems, new Asset(_directory.PlayerImage), new Asset(_directory.PlayerSheet));
+        Graphics.LoadTileSheet(TileSheet.Npcs, new Asset(_directory.NpcImage), new Asset(_directory.NpcSheet));
 
-        if (!_directory.BossImage.IsNull)
+        if (!string.IsNullOrEmpty(_directory.BossImage))
         {
-            Graphics.LoadTileSheet(TileSheet.Boss, _directory.BossImage.ToAsset(), _directory.BossSheet.ToAsset());
+            Graphics.LoadTileSheet(TileSheet.Boss, new Asset(_directory.BossImage), new Asset(_directory.BossSheet));
         }
 
-        _roomAttrs = ListResource<RoomAttrs>.LoadList(_directory.RoomAttrs.ToAsset(), Rooms).ToArray();
-        _extraData = TableResource<byte>.Load(_directory.LevelInfoEx.ToAsset());
-        _objLists = TableResource<byte>.Load(_directory.ObjLists.ToAsset());
-        _sparseRoomAttrs = TableResource<byte>.Load(_directory.Extra1.ToAsset());
+        _roomAttrs = ListResource<RoomAttrs>.LoadList(new Asset(_directory.RoomAttrs), Rooms).ToArray();
+        _extraData = TableResource<byte>.Load(new Asset(_directory.LevelInfoEx));
+        _objLists = TableResource<byte>.Load(new Asset(_directory.ObjLists));
+        _sparseRoomAttrs = TableResource<byte>.Load(new Asset(_directory.Extra1));
 
         var facing = Game.Link?.Facing ?? Direction.Up;
 

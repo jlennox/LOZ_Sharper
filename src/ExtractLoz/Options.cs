@@ -7,12 +7,10 @@
 
 // This file has been modified by Joseph Lennox 2014
 
-using System;
-using System.Collections.Generic;
 using System.Text;
-using System.IO;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Text.Json;
 
 namespace ExtractLoz
 {
@@ -41,7 +39,7 @@ namespace ExtractLoz
 
         public BinaryReader GetBinaryReader()
         {
-            return new BinaryReader(File.OpenRead(RomPath));
+            return new BinaryReader(File.OpenRead(RomPath), Encoding.UTF8, false);
         }
 
         public void AddFile(string relativePath, byte[] data)
@@ -66,6 +64,17 @@ namespace ExtractLoz
             using var ms = new MemoryStream();
             bitmap.Save(ms, imageformat);
             Files.Add(relativePath, ms.ToArray());
+        }
+
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            WriteIndented = true
+        };
+
+        public void AddJson<T>(string path, T obj)
+        {
+            var json = JsonSerializer.Serialize(obj, _jsonOptions);
+            Files.Add(path, Encoding.UTF8.GetBytes(json));
         }
 
         public OptionsStream AddStream(string relativePath)

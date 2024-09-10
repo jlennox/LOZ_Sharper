@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text.Json;
 using SkiaSharp;
 using z1.Common.IO;
 
@@ -52,16 +53,12 @@ internal readonly struct Asset
     public byte[] ReadAllBytes() => _assetData;
     public MemoryStream GetStream() => new(_assetData);
     public SKBitmap DecodeSKBitmap() => SKBitmap.Decode(_assetData);
+    public T ReadJson<T>() => JsonSerializer.Deserialize<T>(_assetData);
 
     public SKBitmap DecodeSKBitmapTileData()
     {
         return DecodeSKBitmap(SKAlphaType.Unpremul);
     }
-
-    // public SKImage DecodeSKImageTileData()
-    // {
-    //     return DecodeSKBitmap(SKAlphaType.Unpremul);
-    // }
 
     public SKBitmap DecodeSKBitmap(SKAlphaType alphaType)
     {

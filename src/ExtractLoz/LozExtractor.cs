@@ -13,6 +13,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Security.Cryptography;
+using z1.Common.IO;
 
 namespace ExtractLoz
 {
@@ -341,7 +342,7 @@ namespace ExtractLoz
 
         private static void ExtractFont( Options options )
         {
-            using ( BinaryReader reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 Bitmap bmp = new Bitmap( 16 * 8, 16 * 8 );
                 Color[] colors = GetPaletteStandInColors();
@@ -400,7 +401,7 @@ namespace ExtractLoz
         {
             const int TextPtrs = 0x4000 + 16;
 
-            using ( BinaryReader reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = TextPtrs;
                 ushort[] listPtrs = new ushort[38];
@@ -441,7 +442,7 @@ namespace ExtractLoz
         {
             const int TextPtrs = 0xAC2E + 16;
 
-            using ( BinaryReader reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = TextPtrs;
                 byte[] listPtrsLo = reader.ReadBytes( 0x17 );
@@ -478,7 +479,7 @@ namespace ExtractLoz
 
             const int LineBitmap = 0xAC22 + 16;
 
-            using ( BinaryReader reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = LineBitmap;
                 byte[] bytes = reader.ReadBytes( 12 );
@@ -488,7 +489,7 @@ namespace ExtractLoz
 
         private static void ExtractUnderworldCellarTiles( Options options )
         {
-            using ( BinaryReader reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 Bitmap bmp = new Bitmap( 16 * 16, 4 * 16 );
 
@@ -575,7 +576,7 @@ namespace ExtractLoz
 
         private static void ExtractUnderworldTiles( Options options )
         {
-            using ( BinaryReader reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 Bitmap bmp = new Bitmap( 16 * 16, 4 * 16 );
 
@@ -890,7 +891,7 @@ namespace ExtractLoz
 
         private static void ExtractOverworldTiles( Options options )
         {
-            using ( BinaryReader reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 Bitmap bmp = new Bitmap( 16 * 16, 4 * 16 );
 
@@ -1272,7 +1273,7 @@ namespace ExtractLoz
             int[] tileAttrs = new int[9];
             var tileActions = new TileAction[9];
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = UnderworldSquareTable;
                 var primaries = reader.ReadBytes( 8 );
@@ -1329,7 +1330,7 @@ namespace ExtractLoz
             int[] tileAttrs = new int[56];
             var tileActions = new TileAction[56];
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = UWCellarPrimarySquareTable;
                 var primaries = reader.ReadBytes( 56 );
@@ -1462,7 +1463,7 @@ namespace ExtractLoz
             ushort[] colTablePtrs = null;
             byte[] colTables = null;
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = OWRoomCols;
                 roomCols = reader.ReadBytes( 124 * 16 );
@@ -1521,7 +1522,7 @@ namespace ExtractLoz
             ushort[] colTablePtrs = null;
             byte[] colTables = null;
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = UWRoomCols;
                 roomCols = reader.ReadBytes( 64 * 12 );
@@ -1587,7 +1588,7 @@ namespace ExtractLoz
             ushort[] colTablePtrs = null;
             byte[] colTables = null;
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = UWCellarRoomCols;
                 roomCols = reader.ReadBytes( 2 * 16 );
@@ -1783,7 +1784,7 @@ namespace ExtractLoz
         {
             OWRoomAttrs roomAttrs = null;
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 roomAttrs = ReadOverworldRoomAttrs( reader );
             }
@@ -1998,7 +1999,7 @@ namespace ExtractLoz
         {
             UWRoomAttrs roomAttrs = null;
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 roomAttrs = ReadUnderworldRoomAttrs( reader, uwLevelGroup );
             }
@@ -2095,7 +2096,7 @@ namespace ExtractLoz
             byte[] attrReplacementRoomIds = new byte[] { 0x0B, 0x0E, 0x0F, 0x22, 0x34, 0x3C, 0x74 };
             OWRoomAttrs roomAttrs = null;
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 // Armos Stairs
 
@@ -2364,7 +2365,7 @@ namespace ExtractLoz
         {
             var filePath = ( "overworldInfo.dat" );
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 const int PaletteByteCount = 8 * 4;
@@ -2528,7 +2529,7 @@ namespace ExtractLoz
             var filePath = ( filename );
             int effectiveLevel = level;
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 int quest2DiffAddr = 0;
@@ -2691,55 +2692,10 @@ namespace ExtractLoz
             WriteLevelDir( options, quest, level, dir );
         }
 
-        class LevelDirectory
-        {
-            public string LevelInfoBlock;
-            public string RoomCols;
-            public string ColTables;
-            public string TileAttrs;
-            public string TilesImage;
-            public string PlayerImage;
-            public string PlayerSheet;
-            public string NpcImage;
-            public string NpcSheet;
-            public string BossImage;
-            public string BossSheet;
-            public string RoomAttrs;
-            public string LevelInfoEx;
-            public string ObjLists;
-            public string Extra1;
-            public string Extra2;
-            public string Extra3;
-            public string Extra4;
-        }
-
         private static void WriteLevelDir( Options options, int quest, int level, LevelDirectory dir )
         {
-            const int EntryLength = 32;
-
-            var filePath = ( string.Format( "levelDir_{0}_{1}.dat", quest, level ) );
-
-            using ( var stream = options.AddStream(filePath) )
-            {
-                WriteFixedString( stream, dir.LevelInfoBlock, EntryLength );
-                WriteFixedString( stream, dir.RoomCols, EntryLength );
-                WriteFixedString( stream, dir.ColTables, EntryLength );
-                WriteFixedString( stream, dir.TileAttrs, EntryLength );
-                WriteFixedString( stream, dir.TilesImage, EntryLength );
-                WriteFixedString( stream, dir.PlayerImage, EntryLength );
-                WriteFixedString( stream, dir.PlayerSheet, EntryLength );
-                WriteFixedString( stream, dir.NpcImage, EntryLength );
-                WriteFixedString( stream, dir.NpcSheet, EntryLength );
-                WriteFixedString( stream, dir.BossImage, EntryLength );
-                WriteFixedString( stream, dir.BossSheet, EntryLength );
-                WriteFixedString( stream, dir.RoomAttrs, EntryLength );
-                WriteFixedString( stream, dir.LevelInfoEx, EntryLength );
-                WriteFixedString( stream, dir.ObjLists, EntryLength );
-                WriteFixedString( stream, dir.Extra1, EntryLength );
-                WriteFixedString( stream, dir.Extra2, EntryLength );
-                WriteFixedString( stream, dir.Extra3, EntryLength );
-                WriteFixedString( stream, dir.Extra4, EntryLength );
-            }
+            var filePath = (string.Format("levelDir_{0}_{1}.json", quest, level));
+            options.AddJson(filePath, dir);
         }
 
         private static void WriteFixedString( Stream stream, string s, int length )
@@ -2766,7 +2722,7 @@ namespace ExtractLoz
         {
             var filePath = ( "overworldInfoEx.tab" );
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             using ( var writer = new BinaryWriter( options.AddStream(filePath) ) )
             {
                 const int Alignment = 4;
@@ -2992,7 +2948,7 @@ namespace ExtractLoz
             byte[] lists = null;
             ushort[] listPtrs = null;
 
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 reader.BaseStream.Position = ObjLists;
                 lists = reader.ReadBytes( ObjListDir - ObjLists );
@@ -3056,7 +3012,7 @@ namespace ExtractLoz
 
         private static void ExtractSprites( Options options )
         {
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 Bitmap bmp = new Bitmap( 8 * 16, 8 * 16 );
                 ExtractPlayerItemSprites( reader, bmp );
@@ -3280,7 +3236,7 @@ namespace ExtractLoz
 
         private static void ExtractOWSpriteVRAM( Options options )
         {
-            using ( var reader = new BinaryReader( File.OpenRead( options.RomPath ) ) )
+            using (var reader = options.GetBinaryReader())
             {
                 Bitmap bmp = new Bitmap( 8 * 16, 8 * 16 );
                 Color[] colors = GetPaletteContrastColors();

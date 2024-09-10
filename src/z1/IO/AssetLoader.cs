@@ -2,7 +2,6 @@
 using System.Text;
 using System.Text.Json;
 using ExtractLoz;
-using z1.Common.IO;
 
 namespace z1.IO;
 
@@ -12,7 +11,7 @@ internal readonly struct AssetLoader
 
     private class AssetMetadata
     {
-        public const int AssetVersion = 2;
+        public const int AssetVersion = 3;
         public int Version { get; set; }
 
         public static bool IsValid(string basepath)
@@ -117,7 +116,14 @@ internal readonly struct AssetLoader
         // Write last because it doubles as a "finished" marker.
         AssetMetadata.Write(Directories.Assets);
         // Copy the ROM incase the asset version changes.
-        File.Copy(romfile, Path.Combine(Directories.Assets, "rom.nes"), true);
+        try
+        {
+            File.Copy(romfile, Path.Combine(Directories.Assets, "rom.nes"), true);
+        }
+        catch
+        {
+            // On asset version updates the file is still seen as being open, and I have not debugged this yet.
+        }
         _log.Write($"Initialized using \"{romfile}\" to \"{Directories.Assets}\"");
         return assets;
     }
