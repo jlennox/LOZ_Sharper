@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Linq;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
@@ -18,7 +19,78 @@ internal enum DrawingFlags
     NoTransparency = 1 << 2,
 }
 
-internal enum TileSheet { Background, PlayerAndItems, Npcs, Boss, Font, Max }
+internal enum TileSheet
+{
+    BackgroundOverworld,
+    BackgroundUnderworld,
+    PlayerAndItems,
+    NpcsOverworld,
+    NpcsUnderworld,
+    Boss1257,
+    Boss3468,
+    Boss9,
+    Font,
+    Max,
+}
+
+internal sealed class ImageSheet
+{
+    public TileSheet Sheet { get; }
+    public GLImage Image { get; }
+    public TableResource<SpriteAnimationStruct>? Animation { get; }
+
+    public ImageSheet(TileSheet sheet, Asset imageFile, Asset animationFile)
+        : this(sheet, imageFile)
+    {
+        Animation = animationFile.IsEmpty ? null : TableResource<SpriteAnimationStruct>.Load(animationFile);
+    }
+
+    public ImageSheet(TileSheet sheet, Asset imageFile)
+    {
+        Sheet = sheet;
+        Image = Graphics.CreateImage(imageFile);
+    }
+}
+
+internal sealed class GraphicSheets
+{
+    // TODO: Make this immutable.
+    public List<ImageSheet> Sheets { get; } = new();
+
+    public void AddSheets(ReadOnlySpan<ImageSheet> sheets)
+    {
+        foreach (var sheet in sheets)
+        {
+            Sheets.RemoveAll(t => t.Sheet == sheet.Sheet);
+        }
+
+        Sheets.AddRange(sheets);
+    }
+
+    public void AddSheet(TileSheet sheet, Asset imageFile, Asset animationFile)
+    {
+        Sheets.RemoveAll(t => t.Sheet == sheet);
+        Sheets.Add(new ImageSheet(sheet, imageFile, animationFile));
+    }
+
+    public void AddSheet(TileSheet sheet, Asset imageFile)
+    {
+        Sheets.RemoveAll(t => t.Sheet == sheet);
+        Sheets.Add(new ImageSheet(sheet, imageFile, default));
+    }
+
+    public GLImage GetImage(TileSheet sheet)
+    {
+        var imagesheet = Sheets.First(t => t.Sheet == sheet);
+        return imagesheet.Image;
+    }
+
+    public TableResource<SpriteAnimationStruct> GetAnimation(TileSheet sheet)
+    {
+        var imagesheet = Sheets.First(t => t.Sheet == sheet);
+        return imagesheet.Animation ?? throw new Exception();
+    }
+}
 
 internal static class Graphics
 {
@@ -29,7 +101,6 @@ internal static class Graphics
     private static readonly int _paletteBmpWidth = Math.Max(Global.PaletteLength, 16);
     private static readonly int _paletteBmpHeight = Math.Max(Global.PaletteCount, 16);
 
-    private static readonly GLImage?[] _tileSheets = new GLImage[(int)TileSheet.Max];
     private static readonly byte[] _paletteBuf;
     private static readonly int _paletteStride = _paletteBmpWidth * Unsafe.SizeOf<SKColor>();
     private static readonly int[] _systemPalette = new int[Global.SysPaletteLength];
@@ -45,7 +116,7 @@ internal static class Graphics
         return MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..(paletteY + 4)];
     }
 
-    private static readonly TableResource<SpriteAnimationStruct>[] _animSpecs = new TableResource<SpriteAnimationStruct>[(int)TileSheet.Max];
+    public static GraphicSheets GraphicSheets { get; } = new();
 
     static Graphics()
     {
@@ -78,36 +149,16 @@ internal static class Graphics
     public static GLImage CreateImage(Asset asset)
     {
         ArgumentNullException.ThrowIfNull(_gl);
-        return new GLImage(_gl, asset.DecodeSKBitmap());
+        return new GLImage(_gl, asset.DecodeSKBitmapTileData());
     }
 
     public static void Begin() { }
     public static void End() { }
 
-    public static void LoadTileSheet(TileSheet sheet, Asset file)
-    {
-        ArgumentNullException.ThrowIfNull(_gl);
-
-        ref var foundRef = ref _tileSheets[(int)sheet];
-        if (foundRef != null)
-        {
-            foundRef.Dispose();
-            foundRef = null;
-        }
-
-        var bitmap = file.DecodeSKBitmapTileData();
-        foundRef = new GLImage(_gl, bitmap);
-    }
-
-    public static void LoadTileSheet(TileSheet sheet, Asset path, Asset animationFile)
-    {
-        LoadTileSheet(sheet, path);
-        _animSpecs[(int)sheet] = TableResource<SpriteAnimationStruct>.Load(animationFile);
-    }
-
     public static SpriteAnimation GetAnimation(TileSheet sheet, AnimationId id)
     {
-        return _animSpecs[(int)sheet].LoadVariableLengthData<SpriteAnimation>((int)id);
+        var animation = GraphicSheets.GetAnimation(sheet);
+        return animation.LoadVariableLengthData<SpriteAnimation>((int)id);
     }
 
     public static void LoadSystemPalette(int[] colorsArgb8)
@@ -242,7 +293,7 @@ internal static class Graphics
     }
 
     public static void DrawSpriteTile(
-        TileSheet slot,
+        TileSheet sheet,
         int srcX,
         int srcY,
         int width,
@@ -253,11 +304,11 @@ internal static class Graphics
         DrawingFlags flags
     )
     {
-        DrawTile(slot, srcX, srcY, width, height, destX, destY + 1, palette, flags);
+        DrawTile(sheet, srcX, srcY, width, height, destX, destY + 1, palette, flags);
     }
 
     public static void DrawTile(
-        TileSheet slot,
+        TileSheet sheet,
         int srcX,
         int srcY,
         int width,
@@ -268,14 +319,13 @@ internal static class Graphics
         DrawingFlags flags
     )
     {
-        Debug.Assert(slot < TileSheet.Max);
+        Debug.Assert(sheet < TileSheet.Max);
 
-        var tiles = _tileSheets[(int)slot]
-            ?? throw new ArgumentOutOfRangeException(nameof(slot), slot, "Unknown or unloaded tile.");
+        var tiles = GraphicSheets.GetImage(sheet);
         tiles.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags);
     }
 
-    public static void DrawStripSprite16X16(TileSheet slot, int firstTile, int destX, int destY, Palette palette)
+    public static void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette)
     {
         ReadOnlySpan<byte> offsetsX = [0, 0, 8, 8];
         ReadOnlySpan<byte> offsetsY = [0, 8, 0, 8];
@@ -289,7 +339,7 @@ internal static class Graphics
             tileRef++;
 
             DrawTile(
-                slot, srcX, srcY,
+                sheet, srcX, srcY,
                 World.TileWidth, World.TileHeight,
                 destX + offsetsX[i], destY + offsetsY[i],
                 palette, 0);

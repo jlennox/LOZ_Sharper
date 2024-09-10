@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using Microsoft.VisualBasic;
 using z1.IO;
 using z1.Render;
 
@@ -9,6 +8,34 @@ namespace z1.Actors;
 internal interface IThrower
 {
     void Catch();
+}
+
+internal enum WorldLevel
+{
+    Overworld, Underworld
+}
+
+internal static class WorldLevelExtensions
+{
+    public static TileSheet GetNpcTileSheet(this WorldLevel level)
+    {
+        return level switch
+        {
+            WorldLevel.Overworld => TileSheet.NpcsOverworld,
+            WorldLevel.Underworld => TileSheet.NpcsUnderworld,
+            _ => throw new ArgumentOutOfRangeException(nameof(level), level, $"Invalid {nameof(WorldLevel)} for {nameof(WalkerActor)}."),
+        };
+    }
+
+    public static TileSheet GetBackgroundTileSheet(this WorldLevel level)
+    {
+        return level switch
+        {
+            WorldLevel.Overworld => TileSheet.BackgroundOverworld,
+            WorldLevel.Underworld => TileSheet.BackgroundUnderworld,
+            _ => throw new ArgumentOutOfRangeException(nameof(level), level, $"Invalid {nameof(WorldLevel)} for {nameof(WalkerActor)}."),
+        };
+    }
 }
 
 internal readonly record struct WalkerSpec(
@@ -35,9 +62,12 @@ internal abstract class WalkerActor : MonsterActor
 
     protected bool HasProjectile => Spec.ShotType != ObjType.None;
 
-    protected WalkerActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
+    private readonly TileSheet _tileSheet;
+
+    protected WalkerActor(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
         : base(game, type, x, y)
     {
+        _tileSheet = level.GetNpcTileSheet();
         Spec = spec;
         Animator = new SpriteAnimator
         {
@@ -56,7 +86,7 @@ internal abstract class WalkerActor : MonsterActor
         SetFacingAnimation();
         var offsetX = (16 - Animator.Animation.Width) / 2;
         var pal = CalcPalette(Spec.Palette);
-        Animator.Draw(TileSheet.Npcs, X + offsetX, Y, pal);
+        Animator.Draw(_tileSheet, X + offsetX, Y, pal);
     }
 
     protected void SetSpec(WalkerSpec spec)
@@ -71,7 +101,7 @@ internal abstract class WalkerActor : MonsterActor
     {
         var dirOrd = Facing.GetOrdinal();
         Animator.Animation = AnimationMap != null
-            ? Graphics.GetAnimation(TileSheet.Npcs, AnimationMap.Value[dirOrd])
+            ? Graphics.GetAnimation(_tileSheet, AnimationMap.Value[dirOrd])
             : null;
     }
 
@@ -152,8 +182,8 @@ internal abstract class WalkerActor : MonsterActor
 
 internal abstract class ChaseWalkerActor : WalkerActor
 {
-    protected ChaseWalkerActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, spec, x, y)
+    protected ChaseWalkerActor(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
+        : base(game, type, level, spec, x, y)
     {
     }
 
@@ -218,8 +248,8 @@ internal abstract class ChaseWalkerActor : WalkerActor
 
 internal abstract class DelayedWanderer : WandererWalkerActor
 {
-    protected DelayedWanderer(Game game, ObjType type, WalkerSpec spec, int turnRate, int x, int y)
-        : base(game, type, spec, turnRate, x, y)
+    protected DelayedWanderer(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
+        : base(game, type, level, spec, turnRate, x, y)
     {
         InitCommonFacing();
         InitCommonStateTimer();
@@ -237,8 +267,8 @@ internal abstract class WandererWalkerActor : WalkerActor
     private byte _turnTimer;
     private readonly byte _turnRate;
 
-    protected WandererWalkerActor(Game game, ObjType type, WalkerSpec spec, int turnRate, int x, int y)
-        : base(game, type, spec, x, y)
+    protected WandererWalkerActor(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
+        : base(game, type, level, spec, x, y)
     {
         _turnRate = (byte)turnRate;
     }
@@ -366,7 +396,7 @@ internal sealed class OctorokActor : DelayedWanderer
     private static readonly WalkerSpec _redFastOctorockSpec = new(_octorockAnimMap, 12, Palette.Red, FastSpeed, ShotFromOctorock);
 
     private OctorokActor(Game game, ObjType type, WalkerSpec spec, int turnRate, int x, int y)
-        : base(game, type, spec, turnRate, x, y)
+        : base(game, type, WorldLevel.Overworld, spec, turnRate, x, y)
     {
     }
 
@@ -410,13 +440,13 @@ internal sealed class GanonActor : BlueWizzrobeBase
     private static readonly ImmutableArray<byte> _ganonRedPalette = [0x07, 0x17, 0x30];
 
     private readonly ImmutableArray<SlashSpec> _slashSpecs = [
-        new(TileSheet.Boss,           AnimationId.B3_Slash_U, 0),
+        new(TileSheet.Boss9,          AnimationId.B3_Slash_U, 0),
         new(TileSheet.PlayerAndItems, AnimationId.Slash,      1),
-        new(TileSheet.Boss,           AnimationId.B3_Slash_L, 1),
+        new(TileSheet.Boss9,          AnimationId.B3_Slash_L, 1),
         new(TileSheet.PlayerAndItems, AnimationId.Slash,      3),
-        new(TileSheet.Boss,           AnimationId.B3_Slash_U, 2),
+        new(TileSheet.Boss9,          AnimationId.B3_Slash_U, 2),
         new(TileSheet.PlayerAndItems, AnimationId.Slash,      2),
-        new(TileSheet.Boss,           AnimationId.B3_Slash_L, 0),
+        new(TileSheet.Boss9,          AnimationId.B3_Slash_L, 0),
         new(TileSheet.PlayerAndItems, AnimationId.Slash,      0)
     ];
 
@@ -442,13 +472,13 @@ internal sealed class GanonActor : BlueWizzrobeBase
     {
         InvincibilityMask = 0xFA;
 
-        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B3_Ganon)
+        _animator = new SpriteAnimator(TileSheet.Boss9, AnimationId.B3_Ganon)
         {
             DurationFrames = 1,
             Time = 0,
         };
 
-        _pileImage = new SpriteImage(TileSheet.Boss, AnimationId.B3_Pile);
+        _pileImage = new SpriteImage(TileSheet.Boss9, AnimationId.B3_Pile);
 
         _cloudAnimator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Cloud)
         {
@@ -481,12 +511,12 @@ internal sealed class GanonActor : BlueWizzrobeBase
         if (_visual.HasFlag(Visual.Ganon))
         {
             var pal = CalcPalette(Palette.SeaPal);
-            _animator.DrawFrame(TileSheet.Boss, X, Y, pal, _frame);
+            _animator.DrawFrame(TileSheet.Boss9, X, Y, pal, _frame);
         }
 
         if (_visual.HasFlag(Visual.Pile))
         {
-            _pileImage.Draw(TileSheet.Boss, X, Y, Palette.SeaPal);
+            _pileImage.Draw(TileSheet.Boss9, X, Y, Palette.SeaPal);
         }
 
         if (_visual.HasFlag(Visual.Pieces))
@@ -788,7 +818,7 @@ internal sealed class ZeldaActor : MonsterActor
     private ZeldaActor(Game game, int x = ZeldaX, int y = ZeldaY)
         : base(game, ObjType.Zelda, x, y)
     {
-        _image = new SpriteImage(TileSheet.Boss, AnimationId.B3_Zelda_Stand);
+        _image = new SpriteImage(TileSheet.Boss9, AnimationId.B3_Zelda_Stand);
     }
 
     public static ZeldaActor Make(Game game)
@@ -840,7 +870,7 @@ internal sealed class ZeldaActor : MonsterActor
 
     public override void Draw()
     {
-        _image.Draw(TileSheet.Boss, X, Y, Palette.Player);
+        _image.Draw(TileSheet.Boss9, X, Y, Palette.Player);
     }
 }
 
@@ -1165,8 +1195,8 @@ internal sealed class DeadDummyActor : MonsterActor
 
 internal abstract class StdWanderer : WandererWalkerActor
 {
-    protected StdWanderer(Game game, ObjType type, WalkerSpec spec, int turnRate, int x, int y)
-        : base(game, type, spec, turnRate, x, y)
+    protected StdWanderer(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
+        : base(game, type, level, spec, turnRate, x, y)
     {
     }
 }
@@ -1183,7 +1213,7 @@ internal sealed class GhiniActor : WandererWalkerActor
     private static readonly WalkerSpec _ghiniSpec = new(_ghiniAnimMap, 12, Palette.Blue, StandardSpeed);
 
     public GhiniActor(Game game, int x, int y)
-        : base(game, ObjType.Ghini, _ghiniSpec, 0xFF, x, y)
+        : base(game, ObjType.Ghini, WorldLevel.Overworld, _ghiniSpec, 0xFF, x, y)
     {
         InitCommonFacing();
         InitCommonStateTimer();
@@ -1221,7 +1251,7 @@ internal sealed class GibdoActor : StdWanderer
     public override bool CanHoldRoomItem => true;
 
     public GibdoActor(Game game, int x, int y)
-        : base(game, ObjType.Gibdo, _gibdoSpec, 0x80, x, y)
+        : base(game, ObjType.Gibdo, WorldLevel.Underworld, _gibdoSpec, 0x80, x, y)
     {
     }
 }
@@ -1239,7 +1269,7 @@ internal sealed class DarknutActor : StdWanderer
     private static readonly WalkerSpec _blueDarknutSpec = new(_darknutAnimMap, 16, Palette.Blue, 0x28);
 
     private DarknutActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, spec, 0x80, x, y)
+        : base(game, type, WorldLevel.Underworld, spec, 0x80, x, y)
     {
         if (type is not (ObjType.RedDarknut or ObjType.BlueDarknut))
         {
@@ -1282,7 +1312,7 @@ internal sealed class StalfosActor : StdWanderer
     public override bool CanHoldRoomItem => true;
 
     public StalfosActor(Game game, int x, int y)
-        : base(game, ObjType.Stalfos, _stalfosSpec, 0x80, x, y)
+        : base(game, ObjType.Stalfos, WorldLevel.Underworld, _stalfosSpec, 0x80, x, y)
     {
     }
 
@@ -1315,7 +1345,7 @@ internal sealed class GelActor : WandererWalkerActor
     private int _state; // JOE: TODO: Enumify this.
 
     public GelActor(Game game, ObjType type, int x, int y, Direction dir, byte fraction)
-        : base(game, type, _gelSpec, 0x20, x, y)
+        : base(game, type, WorldLevel.Underworld, _gelSpec, 0x20, x, y)
     {
         if (type is not (ObjType.Gel or ObjType.ChildGel))
         {
@@ -1401,7 +1431,7 @@ internal sealed class ZolActor : WandererWalkerActor
     private int _state;
 
     public ZolActor(Game game, int x, int y)
-        : base(game, ObjType.Zol, _zolSpec, 0x20, x, y)
+        : base(game, ObjType.Zol, WorldLevel.Underworld, _zolSpec, 0x20, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -1500,7 +1530,7 @@ internal sealed class BubbleActor : WandererWalkerActor
     public override bool CountsAsLiving => false;
 
     public BubbleActor(Game game, ObjType type, int x, int y)
-        : base(game, type, _bubbleSpec, 0x40, x, y)
+        : base(game, type, WorldLevel.Underworld, _bubbleSpec, 0x40, x, y)
     {
         if (type is not (ObjType.Bubble1 or ObjType.Bubble2 or ObjType.Bubble3))
         {
@@ -1544,7 +1574,7 @@ internal sealed class BubbleActor : WandererWalkerActor
             pal += ObjType - ObjType.Bubble1;
         }
 
-        Animator.Draw(TileSheet.Npcs, X, Y, (Palette)pal);
+        Animator.Draw(TileSheet.NpcsUnderworld, X, Y, (Palette)pal);
     }
 
 }
@@ -1563,7 +1593,7 @@ internal sealed class VireActor : WandererWalkerActor
     private int _state;
 
     public VireActor(Game game, int x, int y)
-        : base(game, ObjType.Vire, _vireSpec, 0x80, x, y)
+        : base(game, ObjType.Vire, WorldLevel.Underworld, _vireSpec, 0x80, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -1646,7 +1676,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
     private IDisposable? _paralyzedToken;
 
     public LikeLikeActor(Game game, int x, int y)
-        : base(game, ObjType.LikeLike, _likeLikeSpec, 0x80, x, y)
+        : base(game, ObjType.LikeLike, WorldLevel.Underworld, _likeLikeSpec, 0x80, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -1727,8 +1757,8 @@ internal abstract class DigWanderer : WandererWalkerActor
         AnimationId.OW_Mound
     ];
 
-    protected DigWanderer(Game game, ObjType type, ImmutableArray<WalkerSpec> specs, ImmutableArray<int> stateTimes, int x, int y)
-        : base(game, type, specs[0], 0xA0, x, y)
+    protected DigWanderer(Game game, ObjType type, WorldLevel level, ImmutableArray<WalkerSpec> specs, ImmutableArray<int> stateTimes, int x, int y)
+        : base(game, type, level, specs[0], 0xA0, x, y)
     {
         ObjTimer = 0;
         _stateSpecs = specs;
@@ -1794,7 +1824,7 @@ internal sealed class ZoraActor : DigWanderer
     private static readonly ImmutableArray<int> _zoraStateTimes = [2, 0x20, 0x0F, 0x22, 0x10, 0x60];
 
     public ZoraActor(Game game, int x, int y)
-        : base(game, ObjType.Zora, _zoraSpecs, _zoraStateTimes, x, y)
+        : base(game, ObjType.Zora, WorldLevel.Overworld, _zoraSpecs, _zoraStateTimes, x, y)
     {
         ObjTimer = (byte)StateTimes[0];
         Decoration = 0;
@@ -1862,7 +1892,7 @@ internal sealed class BlueLeeverActor : DigWanderer
     private static readonly ImmutableArray<int> _blueLeeverStateTimes = [0x80, 0x20, 0x0F, 0xFF, 0x10, 0x60];
 
     public BlueLeeverActor(Game game, int x, int y)
-        : base(game, ObjType.BlueLeever, _blueLeeverSpecs, _blueLeeverStateTimes, x, y)
+        : base(game, ObjType.BlueLeever, WorldLevel.Overworld, _blueLeeverSpecs, _blueLeeverStateTimes, x, y)
     {
         Decoration = 0;
         InitCommonStateTimer();
@@ -1997,7 +2027,7 @@ internal sealed class RedLeeverActor : Actor
         if (_state != 0)
         {
             var pal = CalcPalette(Palette.Red);
-            _animator.Draw(TileSheet.Npcs, X, Y, pal);
+            _animator.Draw(TileSheet.NpcsOverworld, X, Y, pal);
         }
     }
 
@@ -2012,7 +2042,7 @@ internal sealed class RedLeeverActor : Actor
     {
         var dirOrd = Facing.GetOrdinal();
         _animator.Animation = _spec.AnimationMap != null
-            ? Graphics.GetAnimation(TileSheet.Npcs, _spec.AnimationMap.Value[dirOrd])
+            ? Graphics.GetAnimation(TileSheet.NpcsOverworld, _spec.AnimationMap.Value[dirOrd])
             : null;
     }
 
@@ -2287,7 +2317,7 @@ internal sealed class PeahatActor : StdFlyerActor
         AnimationId.OW_Peahat
     ];
 
-    private static readonly FlyerSpec _peahatSpec = new(_peahatAnimMap, TileSheet.Npcs, Palette.Red, 0xA0);
+    private static readonly FlyerSpec _peahatSpec = new(_peahatAnimMap, TileSheet.NpcsOverworld, Palette.Red, 0xA0);
 
     public PeahatActor(Game game, int x, int y)
         : base(game, ObjType.Peahat, _peahatSpec, x, y, Direction.Up)
@@ -2333,7 +2363,7 @@ internal sealed class FlyingGhiniActor : FlyingActor
         AnimationId.OW_Ghini_UpLeft
     ];
 
-    private static readonly FlyerSpec _flyingGhiniSpec = new(_flyingGhiniAnimMap, TileSheet.Npcs, Palette.Blue, 0xA0);
+    private static readonly FlyerSpec _flyingGhiniSpec = new(_flyingGhiniAnimMap, TileSheet.NpcsOverworld, Palette.Blue, 0xA0);
 
     private FlyingGhiniState _ghiniState;
 
@@ -2404,9 +2434,9 @@ internal sealed class KeeseActor : FlyingActor
         AnimationId.UW_Keese
     ];
 
-    private static readonly FlyerSpec _blueKeeseSpec = new(_keeseAnimMap, TileSheet.Npcs, Palette.Blue, 0xC0);
-    private static readonly FlyerSpec _redKeeseSpec = new(_keeseAnimMap, TileSheet.Npcs, Palette.Red, 0xC0);
-    private static readonly FlyerSpec _blackKeeseSpec = new(_keeseAnimMap, TileSheet.Npcs, Palette.LevelFgPalette, 0xC0);
+    private static readonly FlyerSpec _blueKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.Blue, 0xC0);
+    private static readonly FlyerSpec _redKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.Red, 0xC0);
+    private static readonly FlyerSpec _blackKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.LevelFgPalette, 0xC0);
 
     private KeeseActor(Game game, ObjType type, FlyerSpec spec, int startSpeed, int x, int y)
         : base(game, type, spec, x, y)
@@ -2466,7 +2496,7 @@ internal sealed class MoldormActor : FlyingActor
         AnimationId.UW_Moldorm
     ];
 
-    private static readonly FlyerSpec _moldormSpec = new(_moldormAnimMap, TileSheet.Npcs, Palette.Red, 0x80);
+    private static readonly FlyerSpec _moldormSpec = new(_moldormAnimMap, TileSheet.NpcsUnderworld, Palette.Red, 0x80);
 
     public bool IsHead => _bodyPart == 0;
 
@@ -2658,7 +2688,7 @@ internal sealed class PatraActor : FlyingActor
         AnimationId.B3_Patra
     ];
 
-    private static readonly FlyerSpec _patraSpec = new(_patraAnimMap, TileSheet.Boss, Palette.Blue, 0x40);
+    private static readonly FlyerSpec _patraSpec = new(_patraAnimMap, TileSheet.Boss9, Palette.Blue, 0x40);
 
     private int _xMove;
     private int _yMove;
@@ -2782,7 +2812,7 @@ internal sealed class PatraChildActor : MonsterActor
 
         _owner = owner;
         _index = index;
-        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B3_PatraChild)
+        _animator = new SpriteAnimator(TileSheet.Boss9, AnimationId.B3_PatraChild)
         {
             DurationFrames = 4,
             Time = 0,
@@ -2845,7 +2875,7 @@ internal sealed class PatraChildActor : MonsterActor
         if (_owner.PatraState[_index] != 0)
         {
             var pal = CalcPalette(Palette.Red);
-            _animator.Draw(TileSheet.Boss, X, Y, pal);
+            _animator.Draw(TileSheet.Boss9, X, Y, pal);
         }
     }
 
@@ -2954,13 +2984,15 @@ internal abstract class JumperActor : MonsterActor
 
     private readonly SpriteAnimator _animator;
     private readonly JumperSpec _spec;
+    private readonly TileSheet _tilesheet;
 
-    protected JumperActor(Game game, ObjType type, JumperSpec spec, int x, int y)
+    protected JumperActor(Game game, ObjType type, WorldLevel level, JumperSpec spec, int x, int y)
         : base(game, type, x, y)
     {
         _spec = spec;
+        _tilesheet = level.GetNpcTileSheet();
 
-        _animator = new SpriteAnimator(TileSheet.Npcs, spec.AnimationMap[0])
+        _animator = new SpriteAnimator(_tilesheet, spec.AnimationMap[0])
         {
             Time = 0,
             DurationFrames = spec.AnimationTimer
@@ -3028,11 +3060,11 @@ internal abstract class JumperActor : MonsterActor
 
         if (_state == 1 && _spec.JumpFrame >= 0)
         {
-            _animator.DrawFrame(TileSheet.Npcs, X, Y, pal, _spec.JumpFrame);
+            _animator.DrawFrame(_tilesheet, X, Y, pal, _spec.JumpFrame);
         }
         else
         {
-            _animator.Draw(TileSheet.Npcs, X, Y, pal);
+            _animator.Draw(_tilesheet, X, Y, pal);
         }
     }
 
@@ -3167,7 +3199,7 @@ internal sealed class BoulderActor : JumperActor
     private static readonly JumperSpec _boulderSpec = new(_boulderAnimMap, 12, -1, Palette.Red, -2, _boulderSpeeds);
 
     public BoulderActor(Game game, int x, int y)
-        : base(game, ObjType.Boulder, _boulderSpec, x, y)
+        : base(game, ObjType.Boulder, WorldLevel.Overworld, _boulderSpec, x, y)
     {
     }
 }
@@ -3188,7 +3220,7 @@ internal sealed class TektiteActor : JumperActor
     private static readonly JumperSpec _redTektiteSpec = new(_tektiteAnimMap, 32, 1, Palette.Red, -4, _redTektiteSpeeds);
 
     private TektiteActor(Game game, ObjType type, JumperSpec spec, int x, int y)
-        : base(game, type, spec, x, y)
+        : base(game, type, WorldLevel.Overworld, spec, x, y)
     {
         if (type is not (ObjType.BlueTektite or ObjType.RedTektite))
         {
@@ -3286,7 +3318,7 @@ internal sealed class TrapActor : MonsterActor
         : base(game, ObjType.Trap, x, y)
     {
         _trapIndex = trapIndex;
-        _image = new SpriteImage(TileSheet.Npcs, AnimationId.UW_Trap);
+        _image = new SpriteImage(TileSheet.NpcsUnderworld, AnimationId.UW_Trap);
     }
 
     public static TrapActor MakeSet(Game game, int count)
@@ -3401,7 +3433,7 @@ internal sealed class TrapActor : MonsterActor
 
     public override void Draw()
     {
-        _image.Draw(TileSheet.Npcs, X, Y, Palette.Blue);
+        _image.Draw(TileSheet.NpcsUnderworld, X, Y, Palette.Blue);
     }
 }
 
@@ -3502,13 +3534,13 @@ internal sealed class RopeActor : MonsterActor
             ? CalcPalette(Palette.Red)
             : Palette.Player + (Game.FrameCounter & 3);
 
-        _animator.Draw(TileSheet.Npcs, X, Y, pal);
+        _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal);
     }
 
     private void SetFacingAnimation()
     {
         var dirOrd = Facing.GetOrdinal();
-        _animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, _ropeAnimMap[dirOrd]);
+        _animator.Animation = Graphics.GetAnimation(TileSheet.NpcsUnderworld, _ropeAnimMap[dirOrd]);
     }
 }
 
@@ -3531,7 +3563,7 @@ internal sealed class PolsVoiceActor : MonsterActor
     {
         InitCommonFacing();
 
-        _animator = new SpriteAnimator(TileSheet.Npcs, AnimationId.UW_PolsVoice)
+        _animator = new SpriteAnimator(TileSheet.NpcsUnderworld, AnimationId.UW_PolsVoice)
         {
             DurationFrames = 16,
             Time = 0
@@ -3553,7 +3585,7 @@ internal sealed class PolsVoiceActor : MonsterActor
     public override void Draw()
     {
         var pal = CalcPalette(Palette.Player);
-        _animator.Draw(TileSheet.Npcs, X, Y, pal);
+        _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal);
     }
 
     private void Move()
@@ -3735,7 +3767,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
             || (state > 0 && (_flashTimer & 1) == 0))
         {
             var pal = CalcPalette(Palette.Red);
-            _animator.Draw(TileSheet.Npcs, X, Y, pal);
+            _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal);
         }
     }
 
@@ -3747,7 +3779,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
     private void SetFacingAnimation()
     {
         var dirOrd = Facing.GetOrdinal();
-        _animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, BlueWizzrobeBase.WizzrobeAnimMap[dirOrd]);
+        _animator.Animation = Graphics.GetAnimation(TileSheet.NpcsUnderworld, BlueWizzrobeBase.WizzrobeAnimMap[dirOrd]);
     }
 
     private void UpdateHidden()
@@ -3865,7 +3897,7 @@ internal sealed class LamnolaActor : MonsterActor
         Decoration = 0;
 
         var animationId = isHead ? AnimationId.UW_LanmolaHead : AnimationId.UW_LanmolaBody;
-        _image = new SpriteImage(TileSheet.Npcs, animationId);
+        _image = new SpriteImage(TileSheet.NpcsUnderworld, animationId);
         _isHead = isHead;
         _head = head;
     }
@@ -3929,7 +3961,7 @@ internal sealed class LamnolaActor : MonsterActor
         var pal = ObjType == ObjType.RedLamnola ? Palette.Red : Palette.Blue;
         pal = CalcPalette(pal);
         var xOffset = (16 - _image.Animation.Width) / 2;
-        _image.Draw(TileSheet.Npcs, X + xOffset, Y, pal);
+        _image.Draw(TileSheet.NpcsUnderworld, X + xOffset, Y, pal);
     }
 
     private void UpdateHead()
@@ -3997,11 +4029,11 @@ internal sealed class LamnolaActor : MonsterActor
             }
         }
 
-        while (true)
+        for (var i = 0; i < 4; ++i)
         {
             Facing = dir;
 
-            if (Direction.None != CheckWorldMargin(Facing)
+            if (CheckWorldMargin(Facing) != Direction.None
                 && !Game.World.CollidesWithTileMoving(X, Y, Facing, false))
             {
                 break;
@@ -4011,6 +4043,7 @@ internal sealed class LamnolaActor : MonsterActor
             // then this would get stuck in an infinite loop. But, the only room with that configuration
             // has those blocks blocked off with a push block, which can only be pushed after all foes
             // are killed.
+            // JOE: Because the game is more flexible now, I turned this into a max of 4 iterations.
 
             do
             {
@@ -4101,7 +4134,7 @@ internal sealed class WallmasterActor : MonsterActor
         Decoration = 0;
         ObjTimer = 0;
 
-        _animator = new SpriteAnimator(TileSheet.Npcs, AnimationId.UW_Wallmaster)
+        _animator = new SpriteAnimator(TileSheet.NpcsUnderworld, AnimationId.UW_Wallmaster)
         {
             DurationFrames = 16,
             Time = 0,
@@ -4155,11 +4188,11 @@ internal sealed class WallmasterActor : MonsterActor
 
             if (_holdingPlayer)
             {
-                _animator.DrawFrame(TileSheet.Npcs, X, Y, pal, 1, (DrawingFlags)flags);
+                _animator.DrawFrame(TileSheet.NpcsUnderworld, X, Y, pal, 1, (DrawingFlags)flags);
             }
             else
             {
-                _animator.Draw(TileSheet.Npcs, X, Y, pal, (DrawingFlags)flags);
+                _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal, (DrawingFlags)flags);
             }
         }
     }
@@ -4288,13 +4321,13 @@ internal sealed class AquamentusActor : MonsterActor
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance);
 
-        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B1_Aquamentus)
+        _animator = new SpriteAnimator(TileSheet.Boss1257, AnimationId.B1_Aquamentus)
         {
             DurationFrames = 32,
             Time = 0
         };
 
-        _mouthImage = new SpriteImage(TileSheet.Boss, AnimationId.B1_Aquamentus_Mouth_Closed);
+        _mouthImage = new SpriteImage(TileSheet.Boss1257, AnimationId.B1_Aquamentus_Mouth_Closed);
 
         Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _palette);
         Graphics.UpdatePalettes();
@@ -4318,8 +4351,8 @@ internal sealed class AquamentusActor : MonsterActor
     public override void Draw()
     {
         var pal = CalcPalette(Palette.SeaPal);
-        _animator.Draw(TileSheet.Boss, X, Y, pal);
-        _mouthImage.Draw(TileSheet.Boss, X, Y, pal);
+        _animator.Draw(TileSheet.Boss1257, X, Y, pal);
+        _mouthImage.Draw(TileSheet.Boss1257, X, Y, pal);
     }
 
     private void Move()
@@ -4395,7 +4428,7 @@ internal sealed class AquamentusActor : MonsterActor
             ? AnimationId.B1_Aquamentus_Mouth_Open
             : AnimationId.B1_Aquamentus_Mouth_Closed;
 
-        _mouthImage.Animation = Graphics.GetAnimation(TileSheet.Boss, mouthAnimIndex);
+        _mouthImage.Animation = Graphics.GetAnimation(TileSheet.Boss1257, mouthAnimIndex);
         _animator.Advance();
     }
 }
@@ -4442,7 +4475,7 @@ internal sealed class DodongoActor : WandererWalkerActor
     public override bool IsReoccuring => false;
 
     private DodongoActor(Game game, ObjType type, int x, int y)
-        : base(game, type, _dodongoWalkSpec, 0x20, x, y)
+        : base(game, type, WorldLevel.Underworld, _dodongoWalkSpec, 0x20, x, y)
     {
         _stateFuncs = [
             UpdateMoveState,
@@ -4495,19 +4528,19 @@ internal sealed class DodongoActor : WandererWalkerActor
             if ((Game.FrameCounter & 2) == 0) return;
         }
 
-        Animator.Draw(TileSheet.Boss, X, Y, Palette.LevelFgPalette);
+        Animator.Draw(TileSheet.Boss1257, X, Y, Palette.LevelFgPalette);
     }
 
     private void SetWalkAnimation()
     {
         var dirOrd = Facing.GetOrdinal();
-        Animator.Animation = Graphics.GetAnimation(TileSheet.Boss, _dodongoWalkAnimMap[dirOrd]);
+        Animator.Animation = Graphics.GetAnimation(TileSheet.Boss1257, _dodongoWalkAnimMap[dirOrd]);
     }
 
     private void SetBloatAnimation()
     {
         var dirOrd = Facing.GetOrdinal();
-        Animator.Animation = Graphics.GetAnimation(TileSheet.Boss, _dodongoBloatAnimMap[dirOrd]);
+        Animator.Animation = Graphics.GetAnimation(TileSheet.Boss1257, _dodongoBloatAnimMap[dirOrd]);
     }
 
     private void UpdateState()
@@ -4780,7 +4813,7 @@ internal sealed class ManhandlaActor : MonsterActor
         Decoration = 0;
         Facing = facing;
 
-        _animator = new SpriteAnimator(TileSheet.Boss, _manhandlaAnimMap[index])
+        _animator = new SpriteAnimator(TileSheet.Boss3468, _manhandlaAnimMap[index])
         {
             DurationFrames = 1,
             Time = 0,
@@ -4862,11 +4895,11 @@ internal sealed class ManhandlaActor : MonsterActor
 
         if (IsBodyCenter)
         {
-            _animator.Draw(TileSheet.Boss, X, Y, pal);
+            _animator.Draw(TileSheet.Boss3468, X, Y, pal);
         }
         else
         {
-            _animator.DrawFrame(TileSheet.Boss, X, Y, pal, _frame);
+            _animator.DrawFrame(TileSheet.Boss3468, X, Y, pal, _frame);
         }
     }
 
@@ -5085,13 +5118,13 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
         _childCount = childCount;
         _updateBig = true;
 
-        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B1_Digdogger_Big)
+        _animator = new SpriteAnimator(TileSheet.Boss1257, AnimationId.B1_Digdogger_Big)
         {
             DurationFrames = 12,
             Time = 0,
         };
 
-        _littleAnimator = new SpriteAnimator(TileSheet.Boss, AnimationId.B1_Digdogger_Little)
+        _littleAnimator = new SpriteAnimator(TileSheet.Boss1257, AnimationId.B1_Digdogger_Little)
         {
             DurationFrames = 12,
             Time = 0,
@@ -5153,9 +5186,9 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
 
         if (_updateBig)
         {
-            _animator.Draw(TileSheet.Boss, X, Y, pal);
+            _animator.Draw(TileSheet.Boss1257, X, Y, pal);
         }
-        _littleAnimator.Draw(TileSheet.Boss, X + 8, Y + 8, pal);
+        _littleAnimator.Draw(TileSheet.Boss1257, X + 8, Y + 8, pal);
     }
 
     private void UpdateSplit()
@@ -5205,7 +5238,7 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
     {
         TargetSpeedFix = 0x0180;
 
-        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B1_Digdogger_Little)
+        _animator = new SpriteAnimator(TileSheet.Boss1257, AnimationId.B1_Digdogger_Little)
         {
             DurationFrames = 12,
             Time = 0,
@@ -5236,7 +5269,7 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
     public override void Draw()
     {
         var pal = CalcPalette(Palette.LevelFgPalette);
-        _animator.Draw(TileSheet.Boss, X, Y, pal);
+        _animator.Draw(TileSheet.Boss1257, X, Y, pal);
     }
 }
 
@@ -5268,19 +5301,19 @@ internal sealed class GohmaActor : MonsterActor
         Decoration = 0;
         InvincibilityMask = 0xFB;
 
-        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B2_Gohma_Eye_All)
+        _animator = new SpriteAnimator(TileSheet.Boss3468, AnimationId.B2_Gohma_Eye_All)
         {
             DurationFrames = 1,
             Time = 0,
         };
 
-        _leftAnimator = new SpriteAnimator(TileSheet.Boss, AnimationId.B2_Gohma_Legs_L)
+        _leftAnimator = new SpriteAnimator(TileSheet.Boss3468, AnimationId.B2_Gohma_Legs_L)
         {
             DurationFrames = 32,
             Time = 0,
         };
 
-        _rightAnimator = new SpriteAnimator(TileSheet.Boss, AnimationId.B2_Gohma_Legs_R)
+        _rightAnimator = new SpriteAnimator(TileSheet.Boss3468, AnimationId.B2_Gohma_Legs_R)
         {
             DurationFrames = 32,
             Time = 0,
@@ -5324,9 +5357,9 @@ internal sealed class GohmaActor : MonsterActor
         var pal = ObjType == ObjType.BlueGohma ? Palette.Blue : Palette.Red;
         pal = CalcPalette(pal);
 
-        _animator.DrawFrame(TileSheet.Boss, X, Y, pal, _frame);
-        _leftAnimator.Draw(TileSheet.Boss, X - 0x10, Y, pal);
-        _rightAnimator.Draw(TileSheet.Boss, X + 0x10, Y, pal);
+        _animator.DrawFrame(TileSheet.Boss3468, X, Y, pal, _frame);
+        _leftAnimator.Draw(TileSheet.Boss3468, X - 0x10, Y, pal);
+        _rightAnimator.Draw(TileSheet.Boss3468, X + 0x10, Y, pal);
     }
 
     private void ChangeFacing()
@@ -5447,7 +5480,7 @@ internal sealed class ArmosActor : ChaseWalkerActor
     private int _state;
 
     public ArmosActor(Game game, int x, int y)
-        : base(game, ObjType.Armos, _armosSpec, x, y)
+        : base(game, ObjType.Armos, WorldLevel.Overworld, _armosSpec, x, y)
     {
         Decoration = 0;
         Facing = Direction.Down;
@@ -5523,7 +5556,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
     private Actor? _shotRef;
 
     private GoriyaActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, spec, x, y)
+        : base(game, type, WorldLevel.Underworld, spec, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -5649,8 +5682,8 @@ internal static class Statues
 
 internal abstract class StdChaseWalker : ChaseWalkerActor
 {
-    protected StdChaseWalker(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, spec, x, y)
+    protected StdChaseWalker(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
+        : base(game, type, level, spec, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -5670,7 +5703,7 @@ internal sealed class LynelActor : StdChaseWalker
     private static readonly WalkerSpec _redLynelSpec = new(_lynelAnimMap, 12, Palette.Red, StandardSpeed, ObjType.PlayerSwordShot);
 
     private LynelActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, spec, x, y)
+        : base(game, type, WorldLevel.Overworld, spec, x, y)
     {
         if (type is not (ObjType.BlueLynel or ObjType.RedLynel))
         {
@@ -5702,7 +5735,7 @@ internal sealed class MoblinActor : StdWanderer
     private static readonly WalkerSpec _redMoblinSpec = new(_moblinAnimMap, 12, Palette.Red, StandardSpeed, ObjType.Arrow);
 
     private MoblinActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, spec, 0xA0, x, y)
+        : base(game, type, WorldLevel.Overworld, spec, 0xA0, x, y)
     {
         if (type is not (ObjType.BlueMoblin or ObjType.RedMoblin))
         {

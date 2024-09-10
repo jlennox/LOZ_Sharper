@@ -60,12 +60,14 @@ internal abstract class BlockObjBase : Actor
     public int OrigY;
 
     private Action? _curUpdate;
+    private readonly TileSheet _tileSheet;
 
-    protected BlockObjBase(Game game, ObjType type, int x, int y)
+    protected BlockObjBase(Game game, ObjType type, WorldLevel level, int x, int y)
         : base(game, type, x, y)
     {
         Decoration = 0;
         _curUpdate = UpdateIdle;
+        _tileSheet = level.GetBackgroundTileSheet();
     }
 
     protected abstract byte BlockTile { get; }
@@ -79,7 +81,7 @@ internal abstract class BlockObjBase : Actor
     {
         if (_curUpdate == UpdateMoving)
         {
-            Graphics.DrawStripSprite16X16(TileSheet.Background, BlockTile, X, Y, Game.World.GetInnerPalette());
+            Graphics.DrawStripSprite16X16(_tileSheet, BlockTile, X, Y, Game.World.GetInnerPalette());
         }
     }
 
@@ -184,7 +186,7 @@ internal abstract class BlockObjBase : Actor
 
 internal sealed class RockObj : BlockObjBase
 {
-    public RockObj(Game game, int x, int y) : base(game, ObjType.Rock, x, y) { }
+    public RockObj(Game game, int x, int y) : base(game, ObjType.Rock, WorldLevel.Overworld, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.TileRock;
     protected override BlockObjType BlockMob => BlockObjType.MobRock;
@@ -196,7 +198,7 @@ internal sealed class RockObj : BlockObjBase
 
 internal sealed class HeadstoneObj : BlockObjBase
 {
-    public HeadstoneObj(Game game, int x, int y) : base(game, ObjType.Headstone, x, y) { }
+    public HeadstoneObj(Game game, int x, int y) : base(game, ObjType.Headstone, WorldLevel.Overworld, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.TileHeadstone;
     protected override BlockObjType BlockMob => BlockObjType.MobHeadstone;
@@ -208,7 +210,7 @@ internal sealed class HeadstoneObj : BlockObjBase
 
 internal sealed class BlockObj : BlockObjBase
 {
-    public BlockObj(Game game, int x, int y) : base(game, ObjType.Block, x, y) { }
+    public BlockObj(Game game, int x, int y) : base(game, ObjType.Block, WorldLevel.Underworld, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.TileBlock;
     protected override BlockObjType BlockMob => (byte)BlockObjType.MobBlock;
@@ -795,7 +797,7 @@ internal sealed class WhirlwindActor : Actor
     {
         Facing = Direction.Right;
 
-        _animator = new SpriteAnimator(TileSheet.Npcs, AnimationId.OW_Whirlwind)
+        _animator = new SpriteAnimator(TileSheet.NpcsOverworld, AnimationId.OW_Whirlwind)
         {
             DurationFrames = 2,
             Time = 0
@@ -857,7 +859,7 @@ internal sealed class WhirlwindActor : Actor
     public override void Draw()
     {
         var pal = Palette.Player + (Game.FrameCounter & 3);
-        _animator.Draw(TileSheet.Npcs, X, Y, pal);
+        _animator.Draw(TileSheet.NpcsOverworld, X, Y, pal);
     }
 }
 

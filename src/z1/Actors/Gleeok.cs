@@ -12,7 +12,7 @@ internal sealed class GleeokHeadActor : FlyingActor
         AnimationId.B2_Gleeok_Head2,
     ];
 
-    private static readonly FlyerSpec _gleeokHeadSpec = new(_gleeokHeadAnimMap, TileSheet.Boss, Palette.Red, 0xE0);
+    private static readonly FlyerSpec _gleeokHeadSpec = new(_gleeokHeadAnimMap, TileSheet.Boss3468, Palette.Red, 0xE0);
 
     private readonly GleeokActor _parent;
 
@@ -132,8 +132,8 @@ internal sealed class GleeokNeck
             _ => _startHeadTimer
         };
 
-        _neckImage = new SpriteImage(TileSheet.Boss, AnimationId.B2_Gleeok_Neck);
-        _headImage = new SpriteImage(TileSheet.Boss, AnimationId.B2_Gleeok_Head);
+        _neckImage = new SpriteImage(TileSheet.Boss3468, AnimationId.B2_Gleeok_Neck);
+        _headImage = new SpriteImage(TileSheet.Boss3468, AnimationId.B2_Gleeok_Head);
     }
 
     public bool IsAlive() => _isAlive;
@@ -152,10 +152,10 @@ internal sealed class GleeokNeck
     {
         for (var i = 0; i < HeadIndex; i++)
         {
-            _neckImage.Draw(TileSheet.Boss, _parts[i].X, _parts[i].Y, Palette.SeaPal);
+            _neckImage.Draw(TileSheet.Boss3468, _parts[i].X, _parts[i].Y, Palette.SeaPal);
         }
 
-        _headImage.Draw(TileSheet.Boss, _parts[HeadIndex].X, _parts[HeadIndex].Y, Palette.SeaPal);
+        _headImage.Draw(TileSheet.Boss3468, _parts[HeadIndex].X, _parts[HeadIndex].Y, Palette.SeaPal);
     }
 
     private void MoveHead()
@@ -429,7 +429,7 @@ internal sealed class GleeokActor : MonsterActor
         Decoration = 0;
         InvincibilityMask = 0xFE;
 
-        _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B2_Gleeok_Body)
+        _animator = new SpriteAnimator(TileSheet.Boss3468, AnimationId.B2_Gleeok_Body)
         {
             DurationFrames = NormalAnimFrames,
             Time = 0,
@@ -480,7 +480,7 @@ internal sealed class GleeokActor : MonsterActor
     public override void Draw()
     {
         var pal = CalcPalette(Palette.SeaPal);
-        _animator.Draw(TileSheet.Boss, X, Y, pal);
+        _animator.Draw(TileSheet.Boss3468, X, Y, pal);
 
         for (var i = 0; i < _neckCount; i++)
         {

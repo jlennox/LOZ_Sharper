@@ -213,7 +213,7 @@ internal sealed class FlyingRockProjectile : Projectile
         Facing = moving;
         Decoration = 0;
 
-        _image = new SpriteImage(TileSheet.Npcs, AnimationId.OW_FlyingRock);
+        _image = new SpriteImage(TileSheet.NpcsOverworld, AnimationId.OW_FlyingRock);
     }
 
     public override void Update()
@@ -249,7 +249,7 @@ internal sealed class FlyingRockProjectile : Projectile
     public override void Draw()
     {
         var xOffset = (16 - _image.Animation.Width) / 2;
-        _image.Draw(TileSheet.Npcs, X + xOffset, Y, Palette.Player);
+        _image.Draw(TileSheet.NpcsOverworld, X + xOffset, Y, Palette.Player);
     }
 }
 

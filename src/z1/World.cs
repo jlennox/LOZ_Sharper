@@ -336,8 +336,6 @@ internal sealed unsafe partial class World
         _roomCols = ListResource<RoomCols>.LoadList(new Asset(_directory.RoomCols), uniqueRoomCount).ToArray();
         _colTables = TableResource<byte>.Load(new Asset(_directory.ColTables));
         _tileAttrs = ListResource<byte>.LoadList(new Asset(_directory.TileAttrs), _tileTypeCount).ToArray();
-
-        Graphics.LoadTileSheet(TileSheet.Background, new Asset(_directory.TilesImage));
     }
 
     private void LoadOverworldContext()
@@ -368,8 +366,6 @@ internal sealed unsafe partial class World
         _colTables = TableResource<byte>.Load("underworldCellarCols.tab");
 
         _tileAttrs = ListResource<byte>.LoadList("underworldCellarTileAttrs.dat", _tileTypeCount).ToArray();
-
-        Graphics.LoadTileSheet(TileSheet.Background, new Asset("underworldTiles.png"));
 
         _primaryMobs = ListResource<byte>.Load("uwCellarPrimaryMobs.list");
         _secondaryMobs = ListResource<byte>.Load("uwCellarSecondaryMobs.list");
@@ -418,14 +414,6 @@ internal sealed unsafe partial class World
             }
         }
 
-        Graphics.LoadTileSheet(TileSheet.PlayerAndItems, new Asset(_directory.PlayerImage), new Asset(_directory.PlayerSheet));
-        Graphics.LoadTileSheet(TileSheet.Npcs, new Asset(_directory.NpcImage), new Asset(_directory.NpcSheet));
-
-        if (!string.IsNullOrEmpty(_directory.BossImage))
-        {
-            Graphics.LoadTileSheet(TileSheet.Boss, new Asset(_directory.BossImage), new Asset(_directory.BossSheet));
-        }
-
         _roomAttrs = ListResource<RoomAttrs>.LoadList(new Asset(_directory.RoomAttrs), Rooms).ToArray();
         _extraData = TableResource<byte>.Load(new Asset(_directory.LevelInfoEx));
         _objLists = TableResource<byte>.Load(new Asset(_directory.ObjLists));
@@ -456,8 +444,17 @@ internal sealed unsafe partial class World
         var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
         Graphics.LoadSystemPalette(sysPal);
 
-        Graphics.LoadTileSheet(TileSheet.Font, new Asset("font.png"));
-        Graphics.LoadTileSheet(TileSheet.PlayerAndItems, new Asset("playerItem.png"), new Asset("playerItemsSheet.tab"));
+        Graphics.GraphicSheets.AddSheets([
+            new ImageSheet(TileSheet.Font, new Asset("font.png")),
+            new ImageSheet(TileSheet.BackgroundUnderworld, new Asset("underworldTiles.png")),
+            new ImageSheet(TileSheet.BackgroundOverworld, new Asset("overworldTiles.png")),
+            new ImageSheet(TileSheet.PlayerAndItems, new Asset("playerItem.png"), new Asset("playerItemsSheet.tab")),
+            new ImageSheet(TileSheet.Boss1257, new Asset("uwBoss1257.png"), new Asset("uwBossSheet1257.tab")),
+            new ImageSheet(TileSheet.Boss3468, new Asset("uwBoss3468.png"), new Asset("uwBossSheet3468.tab")),
+            new ImageSheet(TileSheet.Boss9, new Asset("uwBoss9.png"), new Asset("uwBossSheet9.tab")),
+            new ImageSheet(TileSheet.NpcsOverworld, new Asset("owNpcs.png"), new Asset("owNpcsSheet.tab")),
+            new ImageSheet(TileSheet.NpcsUnderworld, new Asset("uwNpcs.png"), new Asset("uwNpcsSheet.tab")),
+        ]);
 
         _textTable = TableResource<byte>.Load(new Asset("text.tab"));
 
@@ -1121,6 +1118,8 @@ internal sealed unsafe partial class World
                 outerPalette, 0);
         }
 
+        var backgroundSheet = IsOverworld() ? TileSheet.BackgroundOverworld : TileSheet.BackgroundUnderworld;
+
         for (var r = firstRow; r < lastRow; r++, y += TileHeight)
         {
             if (r < _startRow || r >= endRow) continue;
@@ -1136,7 +1135,7 @@ internal sealed unsafe partial class World
 
                 var palette = (r is < 4 or >= 18 || c is < 4 or >= 28) ? outerPalette : innerPalette;
 
-                Graphics.DrawTile(TileSheet.Background, srcX, srcY, TileWidth, TileHeight, x, y, palette, 0);
+                Graphics.DrawTile(backgroundSheet, srcX, srcY, TileWidth, TileHeight, x, y, palette, 0);
             }
         }
 
@@ -2719,8 +2718,8 @@ internal sealed unsafe partial class World
 
     private void DrawZeldaLiftingTriforce(int x, int y)
     {
-        var image = Graphics.GetSpriteImage(TileSheet.Boss, AnimationId.B3_Zelda_Lift);
-        image.Draw(TileSheet.Boss, x, y, Palette.Player);
+        var image = Graphics.GetSpriteImage(TileSheet.Boss9, AnimationId.B3_Zelda_Lift);
+        image.Draw(TileSheet.Boss9, x, y, Palette.Player);
 
         GlobalFunctions.DrawItem(Game, ItemId.TriforcePiece, x, y - 0x10, 0);
     }

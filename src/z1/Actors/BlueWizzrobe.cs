@@ -300,14 +300,14 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
         if ((FlashTimer & 1) == 0 && Facing != Direction.None)
         {
             var pal = CalcPalette(Palette.Blue);
-            _animator.Draw(TileSheet.Npcs, X, Y, pal);
+            _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal);
         }
     }
 
     private void SetFacingAnimation()
     {
         var dirOrd = Facing.GetOrdinal();
-        _animator.Animation = Graphics.GetAnimation(TileSheet.Npcs, WizzrobeAnimMap[dirOrd]);
+        _animator.Animation = Graphics.GetAnimation(TileSheet.NpcsUnderworld, WizzrobeAnimMap[dirOrd]);
     }
 
     private void AnimateAndCheckCollisions()

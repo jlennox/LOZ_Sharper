@@ -12,6 +12,7 @@ internal readonly struct Asset
     private static readonly Dictionary<string, byte[]> _assets = new(128);
 
     public string Filename { get; } // For debug purposes only.
+    public bool IsEmpty => _assetData == null || _assetData.Length == 0;
 
     private readonly byte[] _assetData;
 

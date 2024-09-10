@@ -174,8 +174,8 @@ internal sealed class CreditsType
             y = 0x80;
             GlobalFunctions.DrawItem(_game, ItemId.PowerTriforce, 0x78, y, 0);
 
-            var pile = new SpriteImage(TileSheet.Boss, AnimationId.B3_Pile);
-            pile.Draw(TileSheet.Boss, 0x78, y + 0, (Palette)7);
+            var pile = new SpriteImage(TileSheet.Boss9, AnimationId.B3_Pile);
+            pile.Draw(TileSheet.Boss9, 0x78, y + 0, (Palette)7);
         }
     }
 }
