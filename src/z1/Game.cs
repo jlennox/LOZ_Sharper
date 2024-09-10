@@ -87,20 +87,18 @@ internal sealed class Game
     }
 
     // JOE: TODO: Move to TryShoot pattern?
-    public ObjectSlot ShootFireball(ObjType type, int x, int y)
+    public FireballProjectile? ShootFireball(ObjType type, int x, int y, int? offset = null)
     {
-        if (World.TryFindEmptyMonsterSlot(out var slot))
-        {
-            var fireball = new FireballProjectile(this, type, x + 4, y, 1.75f);
-            World.SetObject(slot, fireball);
-            return slot;
-        }
-
-        return ObjectSlot.NoneFound;
+        // JOE: TODO: Need to limit amount of projectiles.
+        var fireball = new FireballProjectile(this, type, x + 4, y, 1.75f, offset);
+        World.AddObject(fireball);
+        return fireball;
     }
 
-    public void AutoSave(bool announce = true, [CallerMemberName] string functionName = "")
+    public void AutoSave(bool check = true, bool announce = true, [CallerMemberName] string functionName = "")
     {
+        if (check && !Configuration.Enhancements.AutoSave) return;
+
         _log.Write("AutoSave", $"Saving from {functionName}");
 
         if (announce) Toast("Auto-saving...");

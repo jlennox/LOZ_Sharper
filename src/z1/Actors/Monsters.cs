@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using Microsoft.VisualBasic;
 using z1.IO;
 using z1.Render;
 
@@ -17,7 +18,7 @@ internal readonly record struct WalkerSpec(
     int Speed = 0,
     ObjType ShotType = ObjType.None);
 
-internal abstract class WalkerActor : Actor
+internal abstract class WalkerActor : MonsterActor
 {
     protected const int StandardSpeed = 0x20;
     protected const int FastSpeed = 0x40;
@@ -110,7 +111,7 @@ internal abstract class WalkerActor : Actor
         }
 
         var shot = Shoot(Spec.ShotType);
-        if (shot != ObjectSlot.NoneFound)
+        if (shot != null)
         {
             ObjTimer = 0x80;
             CurrentSpeed = 0;
@@ -122,11 +123,11 @@ internal abstract class WalkerActor : Actor
         }
     }
 
-    protected ObjectSlot Shoot(ObjType shotType)
+    protected Actor? Shoot(ObjType shotType)
     {
         return WantToShoot
             ? Shoot(shotType, X, Y, Facing)
-            : ObjectSlot.NoneFound;
+            : null;
     }
 
     public bool TryBigShove()
@@ -622,7 +623,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
         else if (_dyingTimer == 0xA0)
         {
             Game.World.AddUWRoomItem();
-            var triforce = Game.World.GetObject(ObjectSlot.Item) ?? throw new Exception();
+            var triforce = Game.World.GetObject<ItemObjActor>() ?? throw new Exception();
             triforce.X = X;
             triforce.Y = Y;
             Game.World.IncrementRoomKillCount();
@@ -646,7 +647,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
             {
                 // The original checks the state of the arrow here and leaves if <> $10.
                 // But, CheckArrow does a similar check (>= $20). As far as I can tell, both are equivalent.
-                if (CheckArrow(ObjectSlot.Arrow))
+                if (CheckArrow())
                 {
                     _dyingTimer = 1;
                     InvincibilityTimer = 0x28;
@@ -658,7 +659,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         if (ObjTimer != 0) return;
 
-        CheckSword(ObjectSlot.PlayerSword);
+        CheckSword();
 
         if (Decoration != 0)
         {
@@ -768,7 +769,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
     }
 }
 
-internal sealed class ZeldaActor : Actor
+internal sealed class ZeldaActor : MonsterActor
 {
     private const int ZeldaX = 0x78;
     private const int ZeldaLineX1 = 0x70;
@@ -798,7 +799,7 @@ internal sealed class ZeldaActor : Actor
         for (var i = 0; i < xs.Length; i++)
         {
             var fire = new GuardFireActor(game, xs[i], ys[i]);
-            game.World.SetObject(ObjectSlot.Monster1 + 1 + i, fire);
+            game.World.AddObject(fire);
         }
 
         return new ZeldaActor(game);
@@ -843,7 +844,7 @@ internal sealed class ZeldaActor : Actor
     }
 }
 
-internal sealed class StandingFireActor : Actor
+internal sealed class StandingFireActor : MonsterActor
 {
     public override bool IsReoccuring => false;
     private readonly SpriteAnimator _animator;
@@ -870,7 +871,7 @@ internal sealed class StandingFireActor : Actor
     }
 }
 
-internal sealed class GuardFireActor : Actor
+internal sealed class GuardFireActor : MonsterActor
 {
     public override bool IsReoccuring => false;
     private readonly SpriteAnimator _animator;
@@ -891,9 +892,8 @@ internal sealed class GuardFireActor : Actor
         CheckCollisions();
         if (Decoration != 0)
         {
-            var dummy = new DeadDummyActor(Game, X, Y);
-            Game.World.SetObject(Game.World.CurObjectSlot, dummy);
-            dummy.Decoration = Decoration;
+            var dummy = new DeadDummyActor(Game, X, Y, Decoration);
+            Game.World.AddOnlyObject(this, dummy);
         }
     }
 
@@ -903,7 +903,7 @@ internal sealed class GuardFireActor : Actor
     }
 }
 
-internal sealed class RupeeStashActor : Actor
+internal sealed class RupeeStashActor : MonsterActor
 {
     private RupeeStashActor(Game game, int x, int y)
         : base(game, ObjType.RupieStash, x, y) { }
@@ -914,14 +914,15 @@ internal sealed class RupeeStashActor : Actor
             new(0x78, 0x70), new(0x70, 0x80), new(0x80, 0x80), new(0x60, 0x90), new(0x70, 0x90), new(0x80, 0x90),
             new(0x90, 0x90), new(0x70, 0xA0), new(0x80, 0xA0), new(0x78, 0xB0)];
 
-        for (var i = 0; i < points.Length; i++)
+        RupeeStashActor? first = null;
+        foreach (var point in points)
         {
-            var point = points[i];
             var rupee = new RupeeStashActor(game, point.X, point.Y);
-            game.World.SetObject((ObjectSlot)i, rupee);
+            first ??= rupee;
+            game.World.AddObject(rupee);
         }
 
-        return game.World.GetObject<RupeeStashActor>(ObjectSlot.Monster1) ?? throw new Exception();
+        return first ?? throw new Exception();
     }
 
     public override void Update()
@@ -985,12 +986,14 @@ internal sealed class FairyActor : FlyingActor
 
         UpdateStateAndMove();
 
-        ReadOnlySpan<ObjectSlot> canPickupFairy = [ObjectSlot.Player, ObjectSlot.Boomerang];
+        ReadOnlySpan<Actor> canPickupFairy = [
+            Game.Link,
+            .. Game.World.GetObjects<BoomerangProjectile>(static t => t.IsPlayerWeapon)
+        ];
 
-        foreach (var slot in canPickupFairy)
+        foreach (var obj in canPickupFairy)
         {
-            var obj = Game.World.GetObject(slot);
-            if (obj != null && !obj.IsDeleted && TouchesObject(obj))
+            if (!obj.IsDeleted && TouchesObject(obj))
             {
                 Game.World.AddItem(ItemId.Fairy);
                 Delete();
@@ -1018,7 +1021,7 @@ internal sealed class FairyActor : FlyingActor
     }
 }
 
-internal sealed class PondFairyActor : Actor
+internal sealed class PondFairyActor : MonsterActor
 {
     private const int PondFairyX = 0x78;
     private const int PondFairyY = 0x7D;
@@ -1143,12 +1146,12 @@ internal sealed class PondFairyActor : Actor
     }
 }
 
-internal sealed class DeadDummyActor : Actor
+internal sealed class DeadDummyActor : MonsterActor
 {
-    public DeadDummyActor(Game game, int x, int y)
+    public DeadDummyActor(Game game, int x, int y, byte decoration = 0)
         : base(game, ObjType.DeadDummy, x, y)
     {
-        Decoration = 0;
+        Decoration = decoration;
     }
 
     public override void Update()
@@ -1195,7 +1198,7 @@ internal sealed class GhiniActor : WandererWalkerActor
 
         if (Decoration != 0)
         {
-            foreach (var flying in Game.World.GetMonsters<FlyingGhiniActor>())
+            foreach (var flying in Game.World.GetObjects<FlyingGhiniActor>())
             {
                 // JOE: TODO: Is this a death state?
                 flying.Decoration = 0x11;
@@ -1476,11 +1479,8 @@ internal sealed class ZolActor : WandererWalkerActor
 
         for (var i = 0; i < 2; i++)
         {
-            var slot = Game.World.FindEmptyMonsterSlot();
-            if (slot < 0) break;
-
             var gel = new GelActor(Game, ObjType.ChildGel, X, Y, orthoDirs[i], Fraction);
-            Game.World.SetObject(slot, gel);
+            Game.World.AddObject(gel);
             gel.ObjTimer = 0;
         }
     }
@@ -1519,7 +1519,7 @@ internal sealed class BubbleActor : WandererWalkerActor
         {
             if (ObjType == ObjType.Bubble1)
             {
-                Game.World.SetStunTimer(ObjectSlot.NoSwordTimer, 0x10);
+                Game.World.SetStunTimer(StunTimerSlot.NoSword, 0x10);
             }
             else
             {
@@ -1619,10 +1619,8 @@ internal sealed class VireActor : WandererWalkerActor
 
         for (var i = 0; i < 2; i++)
         {
-            if (!Game.World.TryFindEmptyMonsterSlot(out var slot)) break;
-
             var keese = KeeseActor.Make(Game, ActorColor.Red, X, Y);
-            Game.World.SetObject(slot, keese);
+            Game.World.AddObject(keese);
             keese.Facing = Facing;
             keese.ObjTimer = 0;
         }
@@ -1928,7 +1926,7 @@ internal sealed class RedLeeverActor : Actor
         // No need to InitCommonFacing, because the Facing is changed with every update.
         SetFacingAnimation();
 
-        Game.World.SetStunTimer(ObjectSlot.RedLeeverClassTimer, 5);
+        Game.World.SetStunTimer(StunTimerSlot.RedLeever, 5);
     }
 
     public override void Update()
@@ -1937,9 +1935,9 @@ internal sealed class RedLeeverActor : Actor
 
         if (_state == 0)
         {
-            if (_count >= 2 || Game.World.GetStunTimer(ObjectSlot.RedLeeverClassTimer) != 0) return;
+            if (_count >= 2 || Game.World.GetStunTimer(StunTimerSlot.RedLeever) != 0) return;
             if (!TargetPlayer()) return;
-            Game.World.SetStunTimer(ObjectSlot.RedLeeverClassTimer, 2);
+            Game.World.SetStunTimer(StunTimerSlot.RedLeever, 2);
             advanceState = true;
         }
         else if (_state == 3)
@@ -2074,7 +2072,7 @@ internal enum FlyingActorState
     Still, // 5
 }
 
-internal abstract class FlyingActor : Actor
+internal abstract class FlyingActor : MonsterActor
 {
     protected SpriteAnimator Animator;
     protected FlyingActorState State;
@@ -2147,10 +2145,9 @@ internal abstract class FlyingActor : Actor
 
         if (Direction.None != CheckWorldMargin(Facing)) return;
 
-        if (this is MoldormActor)
+        if (this is MoldormActor moldorm)
         {
-            var slot = Game.World.CurObjectSlot;
-            if (slot is MoldormActor.HeadSlot1 or MoldormActor.HeadSlot2)
+            if (moldorm.IsHead)
             {
                 DeferredDir = Facing.GetOppositeDir8();
             }
@@ -2462,11 +2459,6 @@ internal sealed class KeeseActor : FlyingActor
 
 internal sealed class MoldormActor : FlyingActor
 {
-    public const ObjectSlot HeadSlot1 = ObjectSlot.Monster1 + 4;
-    public const ObjectSlot HeadSlot2 = HeadSlot1 + 5;
-    public const ObjectSlot TailSlot1 = ObjectSlot.Monster1;
-    public const ObjectSlot TailSlot2 = TailSlot1 + 5;
-
     private static readonly ImmutableArray<AnimationId> _moldormAnimMap = [
         AnimationId.UW_Moldorm,
         AnimationId.UW_Moldorm,
@@ -2476,12 +2468,20 @@ internal sealed class MoldormActor : FlyingActor
 
     private static readonly FlyerSpec _moldormSpec = new(_moldormAnimMap, TileSheet.Npcs, Palette.Red, 0x80);
 
+    public bool IsHead => _bodyPart == 0;
+
+    private readonly MoldormActor? _head;
+    private readonly int _bodyPart;
     private Direction _oldFacing;
+    private readonly List<MoldormActor> _bodyParts = new();
 
     public override bool IsReoccuring => false;
-    private MoldormActor(Game game, int x, int y)
+
+    private MoldormActor(Game game, MoldormActor? head, int bodyPart, int x, int y)
         : base(game, ObjType.Moldorm, _moldormSpec, x, y)
     {
+        _head = head;
+        _bodyPart = bodyPart;
         Decoration = 0;
         Facing = Direction.None;
         _oldFacing = Facing;
@@ -2493,24 +2493,27 @@ internal sealed class MoldormActor : FlyingActor
 
     public static MoldormActor MakeSet(Game game)
     {
-        for (var i = 0; i < 5 * 2; i++)
+        MoldormActor firstMoldorm = null!;
+
+        for (var moldormCount = 0; moldormCount < 2; moldormCount++)
         {
-            var moldorm = new MoldormActor(game, 0x80, 0x70);
-            game.World.SetObject((ObjectSlot)i, moldorm);
+            var head = new MoldormActor(game, null, 0, 0x80, 0x70);
+            game.World.AddObject(head);
+            firstMoldorm ??= head;
+            head.Facing = Random.Shared.GetDirection8();
+            head._oldFacing = head.Facing;
+
+            for (var i = 1; i < 5; i++)
+            {
+                var bodyPart = new MoldormActor(game, head, i, 0x80, 0x70);
+                head._bodyParts.Add(bodyPart);
+                game.World.AddObject(head);
+            }
         }
-
-        var head1 = game.World.GetObject<MoldormActor>((ObjectSlot)4) ?? throw new Exception();
-        var head2 = game.World.GetObject<MoldormActor>((ObjectSlot)9) ?? throw new Exception();
-
-        head1.Facing = Random.Shared.GetDirection8();
-        head1._oldFacing = head1.Facing;
-
-        head2.Facing = Random.Shared.GetDirection8();
-        head2._oldFacing = head2.Facing;
 
         game.World.RoomObjCount = 8;
 
-        return game.World.GetObject<MoldormActor>(0) ?? throw new Exception();
+        return firstMoldorm ?? throw new Exception();
     }
 
     public override void Update()
@@ -2542,17 +2545,20 @@ internal sealed class MoldormActor : FlyingActor
         Game.Sound.PlayEffect(SoundEffect.BossHit);
         Game.Sound.StopEffect(StopEffect.AmbientInstance);
 
-        var slot = Game.World.CurObjectSlot;
+        // var slot = Game.World.CurObjectSlot;
+        //
+        // slot = slot >= TailSlot2 ? TailSlot2 : TailSlot1;
+        //
+        // for (; ; slot++)
+        // {
+        //     var obj = Game.World.GetObject(slot);
+        //     if (obj != null && obj.ObjType == ObjType) break;
+        // }
+        //
+        // if (slot is HeadSlot1 or HeadSlot2) return;
 
-        slot = slot >= TailSlot2 ? TailSlot2 : TailSlot1;
-
-        for (; ; slot++)
-        {
-            var obj = Game.World.GetObject(slot);
-            if (obj != null && obj.ObjType == ObjType) break;
-        }
-
-        if (slot is HeadSlot1 or HeadSlot2) return;
+        // JOE: FIXME: I totally screwed this up.
+        if (IsHead) return;
 
         HP = 0x20;
         ShoveDirection = 0;
@@ -2560,25 +2566,27 @@ internal sealed class MoldormActor : FlyingActor
         Decoration = 0;
 
         var dummy = new DeadDummyActor(Game, X, Y);
-        Game.World.SetObject(slot, dummy);
+        Game.World.AddOnlyObject(this, dummy);
+        _head?._bodyParts.Remove(this);
     }
 
     protected override void UpdateTurnImpl()
     {
-        var slot = Game.World.CurObjectSlot;
-        if (slot is not (HeadSlot1 or HeadSlot2)) return;
+        if (IsHead)
+        {
 
-        base.UpdateTurnImpl();
-        UpdateSubstates();
+            base.UpdateTurnImpl();
+            UpdateSubstates();
+        }
     }
 
     protected override void UpdateChaseImpl()
     {
-        var slot = Game.World.CurObjectSlot;
-        if (slot != HeadSlot1 && slot != HeadSlot2) return;
-
-        base.UpdateChaseImpl();
-        UpdateSubstates();
+        if (IsHead)
+        {
+            base.UpdateChaseImpl();
+            UpdateSubstates();
+        }
     }
 
     private void UpdateSubstates()
@@ -2591,11 +2599,10 @@ internal sealed class MoldormActor : FlyingActor
             ObjTimer = 0x10;
 
             // This is the head, so all other parts are at lower indexes.
-            var slot = Game.World.CurObjectSlot;
-            var prevSlot = slot - 1;
-
-            var obj = Game.World.GetObject(prevSlot);
-            if (obj is MoldormActor && obj.Facing != Direction.None)
+            // var prevSlot = Game.World.CurObjectSlot - 1;
+            // var obj = Game.World.GetObject(prevSlot);
+            var obj = _bodyParts[0]; // JOE: I think this is wrong.
+            if (obj.Facing != Direction.None)
             {
                 ShiftFacings();
             }
@@ -2616,12 +2623,10 @@ internal sealed class MoldormActor : FlyingActor
             DeferredDir = Direction.None;
         }
 
-        var slot = Game.World.CurObjectSlot - 4;
-
-        for (var i = 0; i < 4; i++, slot++)
+        for (var i = 0; i < _bodyParts.Count - 1; i++)
         {
-            var curMoldorm = Game.World.GetObject<MoldormActor>(slot);
-            var nextMoldorm = Game.World.GetObject<MoldormActor>(slot + 1);
+            var curMoldorm = _bodyParts[i];
+            var nextMoldorm = _bodyParts[i + 1];
 
             if (curMoldorm == null || nextMoldorm == null) continue;
 
@@ -2646,9 +2651,6 @@ internal sealed class PatraActor : FlyingActor
     private const int PatraX = 0x80;
     private const int PatraY = 0x70;
 
-    private const ObjectSlot FirstChildSlot = ObjectSlot.Monster1;
-    private const ObjectSlot LastChildSlot = ObjectSlot.Monster9;
-
     private static readonly ImmutableArray<AnimationId> _patraAnimMap = [
         AnimationId.B3_Patra,
         AnimationId.B3_Patra,
@@ -2663,8 +2665,9 @@ internal sealed class PatraActor : FlyingActor
     private int _maneuverState;
     private int _childStateTimer;
 
-    public static int[] PatraAngle = new int[9];
-    public static int[] PatraState = new int[9];
+    // JOE: Oh man, this could use a reworking.
+    public int[] PatraAngle = new int[9];
+    public int[] PatraState = new int[9];
 
     public override bool IsReoccuring => false;
 
@@ -2691,12 +2694,12 @@ internal sealed class PatraActor : FlyingActor
         };
 
         var patra = new PatraActor(game, type);
-        game.World.SetObject(ObjectSlot.Monster1, patra);
+        game.World.AddObject(patra);
 
-        for (var i = FirstChildSlot; i <= LastChildSlot; i++)
+        for (var i = 0; i <= 8; i++)
         {
-            var child = PatraChildActor.Make(game, patraType);
-            game.World.SetObject(i, child);
+            var child = PatraChildActor.Make(game, patra, i, patraType);
+            game.World.AddObject(child);
         }
 
         return patra;
@@ -2721,7 +2724,7 @@ internal sealed class PatraActor : FlyingActor
         _xMove = X - origX;
         _yMove = Y - origY;
 
-        var foundChild = Game.World.GetMonsters<PatraChildActor>(true).Any();
+        var foundChild = Game.World.GetObjects<PatraChildActor>().Any();
 
         if (foundChild)
         {
@@ -2749,7 +2752,7 @@ internal sealed class PatraActor : FlyingActor
     }
 }
 
-internal sealed class PatraChildActor : Actor
+internal sealed class PatraChildActor : MonsterActor
 {
     private static readonly ImmutableArray<byte> _patraEntryAngles = [0x14, 0x10, 0xC, 0x8, 0x4, 0, 0x1C];
     private static readonly ImmutableArray<int> _shiftCounts = [6, 5, 6, 6];
@@ -2759,17 +2762,26 @@ internal sealed class PatraChildActor : Actor
     private int _y;
     private int _angleAccum;
     private readonly SpriteAnimator _animator;
+    private readonly PatraActor _owner;
+    private readonly int _index;
 
     public override bool IsReoccuring => false;
 
-    private PatraChildActor(Game game, ObjType type, int x, int y)
+    private PatraChildActor(Game game, PatraActor owner, int index, ObjType type, int x, int y)
         : base(game, type, x, y)
     {
+        if (type is not (ObjType.PatraChild1 or ObjType.PatraChild2))
+        {
+            throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid type for PatraChildActor.");
+        }
+
         InvincibilityMask = 0xFE;
         Decoration = 0;
 
         ObjTimer = 0;
 
+        _owner = owner;
+        _index = index;
         _animator = new SpriteAnimator(TileSheet.Boss, AnimationId.B3_PatraChild)
         {
             DurationFrames = 4,
@@ -2777,7 +2789,7 @@ internal sealed class PatraChildActor : Actor
         };
     }
 
-    public static PatraChildActor Make(Game game, PatraType patraType, int x = 0, int y = 0)
+    public static PatraChildActor Make(Game game, PatraActor owner, int index, PatraType patraType, int x = 0, int y = 0)
     {
         var objtype = patraType switch
         {
@@ -2786,7 +2798,7 @@ internal sealed class PatraChildActor : Actor
             _ => throw new ArgumentOutOfRangeException(nameof(patraType), patraType, "patraType unknown."),
         };
 
-        return new PatraChildActor(game, objtype, x, y);
+        return new PatraChildActor(game, owner, index, objtype, x, y);
     }
 
     private static short ShiftMult(int mask, int addend, int shiftCount)
@@ -2809,9 +2821,7 @@ internal sealed class PatraChildActor : Actor
 
     public override void Update()
     {
-        var slot = Game.World.CurObjectSlot;
-
-        if (PatraActor.PatraState[(int)slot] == 0)
+        if (_owner.PatraState[_index] == 0)
         {
             UpdateStart();
             return;
@@ -2820,21 +2830,19 @@ internal sealed class PatraChildActor : Actor
         UpdateTurn();
         _animator.Advance();
 
-        if (PatraActor.PatraState[0] == 0) return;
+        if (_owner.PatraState[0] == 0) return;
 
         CheckCollisions();
         if (Decoration != 0)
         {
             var dummy = new DeadDummyActor(Game, X, Y);
-            Game.World.SetObject(slot, dummy);
+            Game.World.AddOnlyObject(this, dummy);
         }
     }
 
     public override void Draw()
     {
-        var slot = Game.World.CurObjectSlot;
-
-        if (PatraActor.PatraState[(int)slot] != 0)
+        if (_owner.PatraState[_index] != 0)
         {
             var pal = CalcPalette(Palette.Red);
             _animator.Draw(TileSheet.Boss, X, Y, pal);
@@ -2843,26 +2851,24 @@ internal sealed class PatraChildActor : Actor
 
     private void UpdateStart()
     {
-        var slot = Game.World.CurObjectSlot;
-        if (slot != (ObjectSlot)1)
+        if (_index != 1)
         {
-            if (PatraActor.PatraState[1] == 0) return;
-            var index = slot - 2;
-            if (PatraActor.PatraAngle[1] != _patraEntryAngles[(int)index]) return;
+            if (_owner.PatraState[1] == 0) return;
+            var index = _index - 2;
+            if (_owner.PatraAngle[1] != _patraEntryAngles[(int)index]) return;
         }
 
-        var patra = Game.World.GetObject<PatraActor>(0) ?? throw new Exception();
         var distance = ObjType == ObjType.PatraChild1 ? 0x2C : 0x18;
 
-        if (slot == (ObjectSlot)8)
+        if (_index == 8)
         {
-            PatraActor.PatraState[0] = 1;
+            _owner.PatraState[0] = 1;
         }
-        PatraActor.PatraState[(int)slot] = 1;
-        PatraActor.PatraAngle[(int)slot] = 0x18;
+        _owner.PatraState[_index] = 1;
+        _owner.PatraAngle[_index] = 0x18;
 
-        _x = patra.X << 8;
-        _y = (patra.Y - distance) << 8;
+        _x = _owner.X << 8;
+        _y = (_owner.Y - distance) << 8;
 
         X = _x >> 8;
         Y = _y >> 8;
@@ -2870,21 +2876,18 @@ internal sealed class PatraChildActor : Actor
 
     private void UpdateTurn()
     {
-        var slot = Game.World.CurObjectSlot;
-        var patra = Game.World.GetObject<PatraActor>(0) ?? throw new Exception();
-
-        _x += patra.GetXMove() << 8;
-        _y += patra.GetYMove() << 8;
+        _x += _owner.GetXMove() << 8;
+        _y += _owner.GetYMove() << 8;
 
         var step = ObjType == ObjType.PatraChild1 ? 0x70 : 0x60;
-        var angleFix = (short)((PatraActor.PatraAngle[(int)slot] << 8) | _angleAccum);
+        var angleFix = (short)((_owner.PatraAngle[_index] << 8) | _angleAccum);
         angleFix -= (short)step;
         _angleAccum = angleFix & 0xFF;
-        PatraActor.PatraAngle[(int)slot] = (angleFix >> 8) & 0x1F;
+        _owner.PatraAngle[_index] = (angleFix >> 8) & 0x1F;
 
         int yShiftCount;
         int xShiftCount;
-        var index = patra.GetManeuverState();
+        var index = _owner.GetManeuverState();
 
         if (ObjType == ObjType.PatraChild1)
         {
@@ -2899,11 +2902,11 @@ internal sealed class PatraChildActor : Actor
 
         const int turnSpeed = 0x20;
 
-        index = PatraActor.PatraAngle[(int)slot] & 0x0F;
+        index = _owner.PatraAngle[_index] & 0x0F;
         var cos = _sinCos[index];
         var n = ShiftMult(cos, turnSpeed, xShiftCount);
 
-        if ((PatraActor.PatraAngle[(int)slot] & 0x18) < 0x10)
+        if ((_owner.PatraAngle[_index] & 0x18) < 0x10)
         {
             _x += n;
         }
@@ -2912,11 +2915,11 @@ internal sealed class PatraChildActor : Actor
             _x -= n;
         }
 
-        index = (PatraActor.PatraAngle[(int)slot] + 8) & 0x0F;
+        index = (_owner.PatraAngle[_index] + 8) & 0x0F;
         var sin = _sinCos[index];
         n = ShiftMult(sin, turnSpeed, yShiftCount);
 
-        if (((PatraActor.PatraAngle[(int)slot] - 8) & 0x18) < 0x10)
+        if (((_owner.PatraAngle[_index] - 8) & 0x18) < 0x10)
         {
             _y += n;
         }
@@ -2938,7 +2941,7 @@ internal readonly record struct JumperSpec(
     int Speed,
     ImmutableArray<byte> AccelMap);
 
-internal abstract class JumperActor : Actor
+internal abstract class JumperActor : MonsterActor
 {
     public static readonly ImmutableArray<int> JumperStartDirs = [1, 2, 5, 0xA];
     private static readonly ImmutableArray<int> _targetYOffset = [0, 0, 0, 0, 0, 0x20, 0x20, 0, 0, -0x20, -0x20];
@@ -3204,7 +3207,7 @@ internal sealed class TektiteActor : JumperActor
     }
 }
 
-internal sealed class BouldersActor : Actor
+internal sealed class BouldersActor : MonsterActor
 {
     private const int MaxBoulders = 3;
 
@@ -3238,14 +3241,10 @@ internal sealed class BouldersActor : Actor
                 x |= 0x80;
             }
 
-            var slot = Game.World.FindEmptyMonsterSlot();
-            if (slot >= 0)
-            {
-                var obj = FromType(ObjType.Boulder, Game, x, y);
-                Game.World.SetObject(slot, obj);
+            var obj = FromType(ObjType.Boulder, Game, x, y);
+            Game.World.AddUniqueObject(obj);
 
-                ObjTimer = (byte)Random.Shared.Next(32);
-            }
+            ObjTimer = (byte)Random.Shared.Next(32);
 
             return;
         }
@@ -3261,7 +3260,7 @@ internal sealed class BouldersActor : Actor
     public static void ClearRoomData() => Count = 0;
 }
 
-internal sealed class TrapActor : Actor
+internal sealed class TrapActor : MonsterActor
 {
     private static readonly ImmutableArray<Point> _trapPos = [
         new Point(0x20, 0x60),
@@ -3295,15 +3294,15 @@ internal sealed class TrapActor : Actor
         Debug.Assert(count is >= 1 and <= 6);
         count = Math.Clamp(count, 1, 6);
 
-        var slot = ObjectSlot.Monster1;
-
-        for (var i = 0; i < count; i++, slot++)
+        TrapActor? first = null;
+        for (var i = 0; i < count; i++)
         {
             var obj = new TrapActor(game, i, _trapPos[i].X, _trapPos[i].Y);
-            game.World.SetObject(slot, obj);
+            first ??= obj;
+            game.World.AddObject(obj);
         }
 
-        return game.World.GetObject<TrapActor>(ObjectSlot.Monster1) ?? throw new Exception(); ;
+        return first ?? throw new Exception(); ;
     }
 
     public override void Update()
@@ -3406,7 +3405,7 @@ internal sealed class TrapActor : Actor
     }
 }
 
-internal sealed class RopeActor : Actor
+internal sealed class RopeActor : MonsterActor
 {
     private static readonly ImmutableArray<AnimationId> _ropeAnimMap = [
         AnimationId.UW_Rope_Right,
@@ -3513,7 +3512,7 @@ internal sealed class RopeActor : Actor
     }
 }
 
-internal sealed class PolsVoiceActor : Actor
+internal sealed class PolsVoiceActor : MonsterActor
 {
     private static readonly ImmutableArray<int> _polsVoiceXSpeeds = [1, -1, 0, 0];
     private static readonly ImmutableArray<int> _polsVoiceYSpeeds = [0, 0, 1, -1];
@@ -3853,22 +3852,22 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
     }
 }
 
-internal sealed class LamnolaActor : Actor
+internal sealed class LamnolaActor : MonsterActor
 {
-    private const ObjectSlot TailSlot1 = ObjectSlot.Monster1;
-    private const ObjectSlot HeadSlot1 = TailSlot1 + 4;
-    private const ObjectSlot TailSlot2 = HeadSlot1 + 1;
-    private const ObjectSlot HeadSlot2 = TailSlot2 + 4;
-
     private readonly SpriteImage _image;
+    private readonly bool _isHead;
+    private readonly LamnolaActor? _head;
+    private readonly List<LamnolaActor> _bodyParts = new(); // Only available on heads.
 
-    private LamnolaActor(Game game, ObjType type, bool isHead, int x, int y)
+    private LamnolaActor(Game game, ObjType type, bool isHead, LamnolaActor? head, int x, int y)
         : base(game, type, x, y)
     {
         Decoration = 0;
 
         var animationId = isHead ? AnimationId.UW_LanmolaHead : AnimationId.UW_LanmolaBody;
         _image = new SpriteImage(TileSheet.Npcs, animationId);
+        _isHead = isHead;
+        _head = head;
     }
 
     public static LamnolaActor MakeSet(Game game, ActorColor color)
@@ -3882,22 +3881,28 @@ internal sealed class LamnolaActor : Actor
 
         const int y = 0x8D;
 
-        for (var i = TailSlot1; i <= HeadSlot2; i++)
+        LamnolaActor? first = null;
+
+        for (var lamnolaCount = 0; lamnolaCount < 2; lamnolaCount++)
         {
-            var isHead = i is HeadSlot1 or HeadSlot2;
-            var lamnola = new LamnolaActor(game, objtype, isHead, 0x40, y);
-            game.World.SetObject(i, lamnola);
+            var head = new LamnolaActor(game, objtype, true, null, 0x40, y)
+            {
+                Facing = Direction.Up
+            };
+            first ??= head;
+            game.World.AddObject(head);
+
+            for (var i = 0; i <= 4; i++)
+            {
+                var body = new LamnolaActor(game, objtype, false, head, 0x40, y);
+                head._bodyParts.Add(body);
+                game.World.AddObject(body);
+            }
         }
-
-        var head1 = game.World.GetObject<LamnolaActor>(HeadSlot1) ?? throw new Exception();
-        var head2 = game.World.GetObject<LamnolaActor>(HeadSlot2) ?? throw new Exception();
-
-        head1.Facing = Direction.Up;
-        head2.Facing = Direction.Up;
 
         game.World.RoomObjCount = 8;
 
-        return game.World.GetObject<LamnolaActor>(0) ?? throw new Exception();
+        return first ?? throw new Exception();
     }
 
     public override void Update()
@@ -3907,11 +3912,10 @@ internal sealed class LamnolaActor : Actor
         if (!Game.World.HasItem(ItemSlot.Clock))
         {
             var speed = ObjType - ObjType.RedLamnola + 1;
-            var slot = Game.World.CurObjectSlot;
 
             MoveSimple(Facing, speed);
 
-            if (slot is HeadSlot1 or HeadSlot2)
+            if (_isHead)
             {
                 UpdateHead();
             }
@@ -3937,17 +3941,11 @@ internal sealed class LamnolaActor : Actor
             return;
         }
 
-        var slot = Game.World.CurObjectSlot;
-
-        for (var i = slot - 4; i < slot; i++)
+        for (var i = 0; i < _bodyParts.Count - 2; i++)
         {
-            var lamnola1 = Game.World.GetObject<LamnolaActor>(i);
-            var lamnola2 = Game.World.GetObject<LamnolaActor>(i + 1);
-
-            if (lamnola1 != null && lamnola2 != null)
-            {
-                lamnola1.Facing = lamnola2.Facing;
-            }
+            var lamnola1 = _bodyParts[i];
+            var lamnola2 = _bodyParts[i + 1];
+            lamnola1.Facing = lamnola2.Facing;
         }
 
         if ((X & 0xF) != 0 || ((Y + adjustment) & 0xF) != 0)
@@ -4025,6 +4023,21 @@ internal sealed class LamnolaActor : Actor
         }
     }
 
+    private LamnolaActor GetLastTailSegment()
+    {
+        var head = _head ?? this;
+        for (var i = head._bodyParts.Count - 1; i >= 0; i--)
+        {
+            var body = head._bodyParts[i];
+            if (!body.IsDeleted)
+            {
+                return body;
+            }
+        }
+
+        return head;
+    }
+
     private void CheckLamnolaCollisions()
     {
         var origFacing = Facing;
@@ -4033,19 +4046,22 @@ internal sealed class LamnolaActor : Actor
 
         if (Decoration == 0) return;
 
-        var slot = Game.World.CurObjectSlot;
-        slot = slot >= TailSlot2 ? TailSlot2 : TailSlot1;
+        // var slot = Game.World.CurObjectSlot;
+        // slot = slot >= TailSlot2 ? TailSlot2 : TailSlot1;
+        //
+        // for (; ; slot++)
+        // {
+        //     var obj = Game.World.GetObject(slot);
+        //     if (obj != null && obj.ObjType == ObjType)
+        //     {
+        //         break;
+        //     }
+        // }
+        //
+        // if (slot is HeadSlot1 or HeadSlot2) return;
 
-        for (; ; slot++)
-        {
-            var obj = Game.World.GetObject(slot);
-            if (obj != null && obj.ObjType == ObjType)
-            {
-                break;
-            }
-        }
-
-        if (slot is HeadSlot1 or HeadSlot2) return;
+        var bodysegment = GetLastTailSegment();
+        if (bodysegment._isHead) return; // JOE: This seems wrong.
 
         HP = 0x20;
         ShoveDirection = 0;
@@ -4053,11 +4069,11 @@ internal sealed class LamnolaActor : Actor
         Decoration = 0;
 
         var dummy = new DeadDummyActor(Game, X, Y);
-        Game.World.SetObject(slot, dummy);
+        Game.World.AddOnlyObject(bodysegment, dummy);
     }
 }
 
-internal sealed class WallmasterActor : Actor
+internal sealed class WallmasterActor : MonsterActor
 {
     private static readonly ImmutableArray<byte> _startXs = [0x00, 0xF0];
     private static readonly ImmutableArray<byte> _startYs = [0x3D, 0xDD];
@@ -4150,7 +4166,7 @@ internal sealed class WallmasterActor : Actor
 
     private void UpdateIdle()
     {
-        if (Game.World.GetObjectTimer(ObjectSlot.Monster1) != 0) return;
+        if (Game.World.GetObjectTimer(World.ObjectTimer.Monster1) != 0) return;
 
         var player = Game.Link;
 
@@ -4193,7 +4209,7 @@ internal sealed class WallmasterActor : Actor
 
         _state = 1;
         _tilesCrossed = 0;
-        Game.World.SetObjectTimer(ObjectSlot.Monster1, 0x60);
+        Game.World.SetObjectTimer(World.ObjectTimer.Monster1, 0x60);
         Facing = (Direction)(_wallmasterDirs[_dirIndex] & 0x0F);
         TileOffset = 0;
     }
@@ -4250,7 +4266,7 @@ internal sealed class WallmasterActor : Actor
     }
 }
 
-internal sealed class AquamentusActor : Actor
+internal sealed class AquamentusActor : MonsterActor
 {
     private const int AquamentusX = 0xB0;
     private const int AquamentusY = 0x80;
@@ -4262,7 +4278,6 @@ internal sealed class AquamentusActor : Actor
     private int _distance;
     private readonly SpriteAnimator _animator;
     private readonly SpriteImage _mouthImage;
-    private readonly int[] _fireballOffsets = new int[(int)ObjectSlot.MaxMonsters];
 
     public override bool IsReoccuring => false;
 
@@ -4337,6 +4352,8 @@ internal sealed class AquamentusActor : Actor
         _distance--;
     }
 
+    private readonly List<FireballProjectile> _fireballs = new();
+
     private void TryShooting()
     {
         if (ObjTimer == 0)
@@ -4346,23 +4363,26 @@ internal sealed class AquamentusActor : Actor
 
             for (var i = 0; i < 3; i++)
             {
-                var slot = ShootFireball(ObjType.Fireball, X, Y);
-                if (slot < 0) break;
                 ReadOnlySpan<int> yOffsets = [1, 0, -1];
-                _fireballOffsets[(int)slot] = yOffsets[i];
+                var shot = ShootFireball(ObjType.Fireball, X, Y, yOffsets[i]);
+                if (shot != null) _fireballs.Add(shot);
             }
 
             return;
         }
 
-        for (var i = ObjectSlot.Monster1; i < ObjectSlot.MaxMonsters; i++)
+        for (var i = _fireballs.Count - 1; i >= 0; i--)
         {
-            var fireball = Game.World.GetObject<FireballProjectile>(i);
+            var fireball = _fireballs[i];
+            if (fireball.IsDeleted)
+            {
+                _fireballs.RemoveAt(i);
+                continue;
+            }
 
-            if (fireball == null) continue;
             if ((Game.FrameCounter & 1) == 1) continue;
 
-            var offset = _fireballOffsets[(int)i];
+            var offset = fireball.Offset ?? throw new Exception();
             _traceLog.Write($"Fireball {i} ({fireball.X:X2},{fireball.Y:X2}) += {offset}");
 
             fireball.Y += offset;
@@ -4378,6 +4398,13 @@ internal sealed class AquamentusActor : Actor
         _mouthImage.Animation = Graphics.GetAnimation(TileSheet.Boss, mouthAnimIndex);
         _animator.Advance();
     }
+}
+
+internal enum DodongoState
+{
+    Move,
+    Bloated,
+    Stunned,
 }
 
 internal sealed class DodongoActor : WandererWalkerActor
@@ -4404,7 +4431,7 @@ internal sealed class DodongoActor : WandererWalkerActor
     private static readonly ImmutableArray<int> _negBounds = [-0x10, 0, -8, 0, -8, -4, -4, -0x10, 0, 0];
     private static readonly ImmutableArray<int> _posBounds = [0, 0x10, 8, 0, 8, 4, 4, 0, 0, 0x10];
 
-    private int _state;
+    private DodongoState _state;
     private int _bloatedSubstate;
     private int _bloatedTimer;
     private int _bombHits;
@@ -4463,7 +4490,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     public override void Draw()
     {
-        if (_state == 1 && _bloatedSubstate is 2 or 3)
+        if (_state == DodongoState.Bloated && _bloatedSubstate is 2 or 3)
         {
             if ((Game.FrameCounter & 2) == 0) return;
         }
@@ -4485,7 +4512,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     private void UpdateState()
     {
-        _stateFuncs[_state]();
+        _stateFuncs[(int)_state]();
     }
 
     private void CheckPlayerHit()
@@ -4511,19 +4538,27 @@ internal sealed class DodongoActor : WandererWalkerActor
         InvincibilityMask = 0xFF;
         CheckCollisions();
 
-        if (_state == 2)
+        if (_state == DodongoState.Stunned)
         {
             InvincibilityMask = 0xFE;
-            CheckSword(ObjectSlot.PlayerSword);
+            CheckSword();
         }
     }
 
     private void CheckBombHit()
     {
+        foreach (var bomb in Game.World.GetObjects<BombActor>())
+        {
+            if (bomb.IsDeleted) continue;
+            CheckBombHit(bomb);
+        }
+    }
+
+    private void CheckBombHit(BombActor bomb)
+    {
         if (_state != 0) return;
 
-        var bomb = Game.World.GetObject<BombActor>(ObjectSlot.FirstBomb);
-        if (bomb == null || bomb.IsDeleted) return;
+        if (bomb.IsDeleted) return;
 
         var bombState = bomb.BombState;
         var bombX = bomb.X + 8;
@@ -4547,7 +4582,7 @@ internal sealed class DodongoActor : WandererWalkerActor
         {
             if (Overlaps(xDist, yDist, 0))
             {
-                _state = 2;
+                _state = DodongoState.Stunned;
             }
         }
     }
@@ -4572,7 +4607,6 @@ internal sealed class DodongoActor : WandererWalkerActor
         bomb.Delete();
     }
 
-
     private static bool Overlaps(int xDist, int yDist, int boundsIndex)
     {
         ReadOnlySpan<int> posBoundsOverlaps = [0xC, 0x11];
@@ -4595,7 +4629,7 @@ internal sealed class DodongoActor : WandererWalkerActor
     {
         Animator.SetDuration(_state == 0 ? 16 : 64);
 
-        if (_state == 0 || _state == 2 || _bloatedSubstate == 0)
+        if (_state == DodongoState.Move || _state == DodongoState.Stunned || _bloatedSubstate == 0)
         {
             SetWalkAnimation();
         }
@@ -4662,11 +4696,10 @@ internal sealed class DodongoActor : WandererWalkerActor
                 _bloatedTimer = waitTimes[_bloatedSubstate];
                 if (_bloatedSubstate == 0)
                 {
-                    var bomb = Game.World.GetObject<BombActor>(ObjectSlot.FirstBomb);
-                    if (bomb != null)
-                    {
-                        bomb.Delete();
-                    }
+                    // JOE: I do not get why this exists?
+                    // It feels wrong because CheckTickingBombHit already calls delete.
+                    // var bomb = Game.World.GetObject<BombActor>();
+                    // bomb?.Delete();
                     _bombHits++;
                 }
                 break;
@@ -4705,14 +4738,15 @@ internal sealed class ManhandlaParent
     public int PartsDied;
     public Direction FacingAtFrameBegin;
     public Direction BounceDir;
+    public ManhandlaActor BodyCenter;
+    public FireballProjectile? Fireball;
 
     public List<ManhandlaActor> Parts = new();
 }
 
-internal sealed class ManhandlaActor : Actor
+[DebuggerDisplay("Manhandla({IsBodyCenter})")]
+internal sealed class ManhandlaActor : MonsterActor
 {
-    private const ObjectSlot ManhandlaCenterBodySlot = (ObjectSlot)4;
-
     private static readonly ImmutableArray<AnimationId> _manhandlaAnimMap = [
         AnimationId.B2_Manhandla_Hand_U,
         AnimationId.B2_Manhandla_Hand_D,
@@ -4723,6 +4757,8 @@ internal sealed class ManhandlaActor : Actor
 
     private static readonly ImmutableArray<int> _xOffsets = [0, 0, -0x10, 0x10, 0];
     private static readonly ImmutableArray<int> _yOffsets = [-0x10, 0x10, 0, 0, 0];
+
+    private bool IsBodyCenter => this == _parent.BodyCenter;
 
     private readonly SpriteAnimator _animator;
     private readonly ManhandlaParent _parent;
@@ -4767,23 +4803,23 @@ internal sealed class ManhandlaActor : Actor
 
             var manhandla = new ManhandlaActor(game, parent, i, xPos, yPos, dir);
             parent.Parts.Add(manhandla);
-            game.World.SetObject((ObjectSlot)i, manhandla);
+            game.World.AddObject(manhandla);
         }
 
-        return game.World.GetObject<ManhandlaActor>(0) ?? throw new Exception();
+        parent.BodyCenter = parent.Parts[^1]; // The body center is the last one created.
+
+        return parent.BodyCenter ?? throw new Exception();
     }
 
     private IEnumerable<ManhandlaActor> GetManhandlas(bool excludeCenter = false)
     {
-        // JOE: TODO: Move this over to parent.Parts so that we can avoid filling the monster slots.
-        for (var i = ObjectSlot.Monster1; i <= ManhandlaCenterBodySlot; i++)
+        foreach (var part in _parent.Parts)
         {
-            if (excludeCenter && i == ManhandlaCenterBodySlot) continue;
+            if (excludeCenter && part.IsBodyCenter) continue;
 
-            var manhandla = Game.World.GetObject<ManhandlaActor>(i);
-            if (manhandla != null)
+            if (!part.IsDeleted)
             {
-                yield return manhandla;
+                yield return part;
             }
         }
     }
@@ -4792,14 +4828,13 @@ internal sealed class ManhandlaActor : Actor
     {
         foreach (var manhandla in GetManhandlas())
         {
-              manhandla.Facing = dir;
+            manhandla.Facing = dir;
         }
     }
 
     public override void Update()
     {
-        var slot = Game.World.CurObjectSlot;
-        if (slot == ManhandlaCenterBodySlot)
+        if (IsBodyCenter)
         {
             UpdateBody();
             _parent.FacingAtFrameBegin = Facing;
@@ -4815,7 +4850,7 @@ internal sealed class ManhandlaActor : Actor
 
         _frame = (_frameAccum & 0x10) >> 4;
 
-        if (slot != ManhandlaCenterBodySlot)
+        if (!IsBodyCenter)
         {
             TryShooting();
         }
@@ -4823,10 +4858,9 @@ internal sealed class ManhandlaActor : Actor
 
     public override void Draw()
     {
-        var slot = Game.World.CurObjectSlot;
         var pal = CalcPalette(Palette.Blue);
 
-        if (slot == ManhandlaCenterBodySlot)
+        if (IsBodyCenter)
         {
             _animator.Draw(TileSheet.Boss, X, Y, pal);
         }
@@ -4853,7 +4887,7 @@ internal sealed class ManhandlaActor : Actor
             _parent.BounceDir = Direction.None;
         }
 
-        Debug.Assert(Game.World.CurObjectSlot == ObjectSlot.Monster1 + 4);
+        Debug.Assert(IsBodyCenter);
 
         if (ObjTimer == 0)
         {
@@ -4877,7 +4911,7 @@ internal sealed class ManhandlaActor : Actor
 
         _frameAccum += (ushort)(Random.Shared.Next(4) + speed);
 
-        if (Direction.None == CheckWorldMargin(Facing))
+        if (CheckWorldMargin(Facing) == Direction.None)
         {
             Facing = Facing.GetOppositeDir8();
         }
@@ -4891,17 +4925,15 @@ internal sealed class ManhandlaActor : Actor
 
             if (_frame == 0
                 && Random.Shared.GetByte() >= 0xE0
-                && Game.World.GetObject((ObjectSlot)6) == null)
+                && (_parent.Fireball == null || _parent.Fireball.IsDeleted))
             {
-                ShootFireball(ObjType.Fireball2, X, Y);
+                _parent.Fireball = ShootFireball(ObjType.Fireball2, X, Y);
             }
         }
     }
 
     private void CheckManhandlaCollisions()
     {
-        var objSlot = Game.World.CurObjectSlot;
-
         var origFacing = Facing;
         var origStateTimer = ObjTimer;
 
@@ -4910,7 +4942,7 @@ internal sealed class ManhandlaActor : Actor
         ObjTimer = origStateTimer;
         Facing = origFacing;
 
-        if (objSlot == ManhandlaCenterBodySlot)
+        if (IsBodyCenter)
         {
             InvincibilityTimer = 0;
         }
@@ -4922,7 +4954,7 @@ internal sealed class ManhandlaActor : Actor
         ShoveDirection = 0;
         ShoveDistance = 0;
 
-        if (objSlot == ManhandlaCenterBodySlot)
+        if (IsBodyCenter)
         {
             Decoration = 0;
             return;
@@ -4937,28 +4969,20 @@ internal sealed class ManhandlaActor : Actor
 
         if (handCount > 1)
         {
-            Game.World.SetObject(objSlot, dummy);
+            Game.World.AddOnlyObject(this, dummy);
         }
         else
         {
             Game.Sound.PlayEffect(SoundEffect.BossHit);
             Game.Sound.StopEffect(StopEffect.AmbientInstance);
-            Game.World.SetObject((ObjectSlot)4, dummy);
+            Game.World.AddOnlyObject(_parent.BodyCenter, dummy);
         }
 
         _parent.PartsDied++;
     }
-
-    public static void ClearRoomData()
-    {
-        // JOE: TODO: Not needed anymore?
-        // _sPartsDied = 0;
-        // _sFacingAtFrameBegin = Direction.None;
-        // _sBounceDir = Direction.None;
-    }
 }
 
-internal abstract class DigdoggerActorBase : Actor
+internal abstract class DigdoggerActorBase : MonsterActor
 {
     protected short CurSpeedFix = 0x003F;
     protected short SpeedAccum;
@@ -5163,7 +5187,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
             for (var i = 1; i <= _childCount; i++)
             {
                 var child = DigdoggerChildActor.Make(Game, X, Y);
-                Game.World.SetObject((ObjectSlot)i, child);
+                Game.World.AddObject(child);
             }
             Game.Sound.PlayEffect(SoundEffect.BossHit);
             Game.Sound.StopEffect(StopEffect.AmbientInstance);
@@ -5216,7 +5240,7 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
     }
 }
 
-internal sealed class GohmaActor : Actor
+internal sealed class GohmaActor : MonsterActor
 {
     private const int GohmaX = 0x80;
     private const int GohmaY = 0x70;
@@ -5437,8 +5461,6 @@ internal sealed class ArmosActor : ChaseWalkerActor
 
     public override void Update()
     {
-        var slot = Game.World.CurObjectSlot;
-
         if (_state == 0)
         {
             // ORIGINAL: Can hit the player, but not get hit.
@@ -5463,7 +5485,7 @@ internal sealed class ArmosActor : ChaseWalkerActor
                 {
                     Decoration = Decoration
                 };
-                Game.World.SetObject(slot, dummy);
+                Game.World.AddOnlyObject(this, dummy);
             }
         }
     }
@@ -5559,10 +5581,10 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
         if (Game.World.HasItem(ItemSlot.Clock)) return;
 
         var shot = Shoot(ObjType.Boomerang);
-        if (shot != ObjectSlot.NoneFound)
+        if (shot != null)
         {
             WantToShoot = false;
-            _shotRef = Game.World.GetObject(shot);
+            _shotRef = shot;
             ObjTimer = (byte)Random.Shared.Next(0x40);
         }
     }
@@ -5593,11 +5615,12 @@ internal static class Statues
             throw new ArgumentOutOfRangeException(nameof(pattern), pattern, "Pattern is out of range.");
         }
 
-        var slot = game.World.FindEmptyMonsterSlot();
-        if (slot < ObjectSlot.Monster1 + 5) return;
+        // JOE: FIX URGENT: I'm not sure what this meant.
+        // var slot = game.World.FindEmptyMonsterSlot();
+        // if (slot < ObjectSlot.Monster1 + 5) return;
 
         var player = game.Link;
-        var statueCount = _statueCounts[(int)pattern];
+        var statueCount = _statueCounts[pattern];
 
         for (var i = 0; i < statueCount; i++)
         {

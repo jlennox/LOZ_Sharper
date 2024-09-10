@@ -2,9 +2,9 @@
 
 namespace z1;
 
-internal sealed class CollisionContext(ObjectSlot weaponSlot, DamageType damageType, int damage, Point distance)
+internal sealed class CollisionContext(Actor? weapon, DamageType damageType, int damage, Point distance)
 {
-    public ObjectSlot WeaponSlot { get; set; } = weaponSlot;
+    public Actor? Weapon { get; set; } = weapon;
     public DamageType DamageType { get; set; } = damageType;
     public int Damage { get; set; } = damage;
     public Point Distance = distance;
@@ -12,11 +12,6 @@ internal sealed class CollisionContext(ObjectSlot weaponSlot, DamageType damageT
 
 internal enum TileCollisionStep { CheckTile, NextDir }
 internal enum CollisionResponse { Unknown, Free, Blocked }
-
-internal interface IBlocksPlayer
-{
-    public CollisionResponse CheckCollision();
-}
 
 internal readonly record struct PlayerCollision(bool Collides, bool ShotCollides)
 {

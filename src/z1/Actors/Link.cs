@@ -75,6 +75,7 @@ internal sealed class Link : Actor, IThrower
     private static readonly DebugLog _movementTraceLog = new(nameof(Link), "MovementTrace", DebugLogDestination.None);
 
     public override bool IsPlayer => true;
+    public PlayerSwordActor? PlayerSwordShot { get; set; } // TODO: Allow multiple.
 
     private readonly LinkParalyzedTokenSource _paralyzedTokenSource = new();
     public bool IsParalyzed => _paralyzedTokenSource.IsParalyzed;
@@ -770,53 +771,31 @@ internal sealed class Link : Actor, IThrower
 
         Game.World.CandleUsed = true;
 
-        // Rewrite findfreeslot to allow this to work.
-        for (var i = ObjectSlot.FirstFire; i < ObjectSlot.LastFire; i++)
-        {
-            if (Game.World.HasObject(i)) continue;
+        var count = Game.World.CountObjects<FireActor>();
+        var allowed = Game.World.GetItem(ItemSlot.AllowedFireCount);
 
-            MoveSimple(ref x, ref y, facingDir, 0x10);
+        if (count >= allowed) return 0;
 
-            Game.Sound.PlayEffect(SoundEffect.Fire);
+        MoveSimple(ref x, ref y, facingDir, 0x10);
 
-            var fire = new FireActor(Game, x, y, facingDir);
-            Game.World.SetObject(i, fire);
-            return 12;
-        }
-
-        return 0;
+        var fire = new FireActor(Game, x, y, facingDir);
+        Game.World.AddObject(fire);
+        Game.Sound.PlayEffect(SoundEffect.Fire);
+        return 12;
     }
 
     private int UseBomb(int x, int y, Direction facingDir)
     {
-        ObjectSlot i;
+        var bombs = Game.World.GetObjects<BombActor>();
+        var allowed = Game.World.GetItem(ItemSlot.AllowedBombCount);
+        var stableCount = bombs.Count(b => b.BombState < BombState.Blasting);
 
-        for (i = ObjectSlot.FirstBomb; i < ObjectSlot.LastBomb; i++)
-        {
-            var obj = Game.World.GetObject(i);
-            if (obj is not BombActor) break;
-        }
-
-        if (i == ObjectSlot.LastBomb) return 0;
-
-        var freeSlot = i;
-        var otherSlot = ObjectSlot.FirstBomb;
-
-        if (freeSlot == ObjectSlot.FirstBomb)
-        {
-            otherSlot++;
-        }
-
-        var otherBomb = Game.World.GetObject<BombActor>(otherSlot);
-        if (otherBomb != null && otherBomb.BombState < BombState.Blasting)
-        {
-            return 0;
-        }
+        if (stableCount >= allowed) return 0;
 
         MoveSimple(ref x, ref y, facingDir, 0x10);
 
         var bomb = new BombActor(Game, x, y);
-        Game.World.SetObject(freeSlot, bomb);
+        Game.World.AddObject(bomb);
         Game.World.DecrementItem(ItemSlot.Bombs);
         Game.Sound.PlayEffect(SoundEffect.PutBomb);
         return 7;
@@ -826,7 +805,9 @@ internal sealed class Link : Actor, IThrower
     {
         // ORIGINAL: Trumps food. Look at $05:8E40. The behavior is tied to the statement below.
         //           Skip throw, if there's already a boomerang in the slot. But overwrite Food.
-        if (Game.World.HasObject(ObjectSlot.Boomerang)) return 0;
+        var count = BoomerangProjectile.PlayerCount(Game);
+        var allowed = Game.World.GetItem(ItemSlot.AllowedBoomerangCount);
+        if (count >= allowed) return 0;
 
         var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
 
@@ -838,15 +819,18 @@ internal sealed class Link : Actor, IThrower
         }
 
         var distance = itemValue == 2 ? BoomerangProjectile.RedsDistance : BoomerangProjectile.YellowsDistance;
-        var boomerang = GlobalFunctions.MakeBoomerang(Game, x, y, facingDir, distance, 3.0f, this, ObjectSlot.Boomerang);
-        Game.World.SetObject(ObjectSlot.Boomerang, boomerang);
+        var boomerang = GlobalFunctions.MakeBoomerang(Game, x, y, facingDir, distance, 3.0f, this);
+        Game.World.AddObject(boomerang);
         return 6;
     }
 
     private int UseArrow(int x, int y, Direction facingDir)
     {
-        if (Game.World.GetObject(ObjectSlot.Arrow) != null) return 0;
         if (Game.World.GetItem(ItemSlot.Rupees) == 0) return 0;
+
+        var count = ArrowProjectile.PlayerCount(Game);
+        var allowed = Game.World.GetItem(ItemSlot.AllowedArrowCount);
+        if (count >= allowed) return 0;
 
         Game.World.PostRupeeLoss(1);
 
@@ -857,20 +841,20 @@ internal sealed class Link : Actor, IThrower
             x += 3;
         }
 
-        var arrow = GlobalFunctions.MakeProjectile(Game.World, ObjType.Arrow, x, y, facingDir, ObjectSlot.Arrow);
-        Game.World.SetObject(ObjectSlot.Arrow, arrow);
+        var arrow = GlobalFunctions.MakeProjectile(Game.World, ObjType.Arrow, x, y, facingDir, this);
+        Game.World.AddObject(arrow);
         Game.Sound.PlayEffect(SoundEffect.Boomerang);
         return 6;
     }
 
     private int UseFood(int x, int y, Direction facingDir)
     {
-        if (Game.World.HasObject(ObjectSlot.Food)) return 0;
+        if (Game.World.HasObject<FoodActor>()) return 0;
 
         MoveSimple(ref x, ref y, facingDir, 0x10);
 
         var food = new FoodActor(Game, x, y);
-        Game.World.SetObject(ObjectSlot.Food, food);
+        Game.World.AddObject(food);
         return 6;
     }
 
@@ -892,8 +876,8 @@ internal sealed class Link : Actor, IThrower
         var itemValue = Game.World.GetItem(ItemSlot.Letter);
         if (itemValue != 1) return 0;
 
-        var obj = Game.World.GetObject(ObjectSlot.Monster1);
-        if (obj == null || obj.ObjType != ObjType.CaveMedicineShop) return 0;
+        var obj = Game.World.GetObject(static obj => obj.ObjType == ObjType.CaveMedicineShop);
+        if (obj == null) return 0;
 
         Game.World.SetItem(ItemSlot.Letter, 2);
         return 0;
@@ -936,7 +920,7 @@ internal sealed class Link : Actor, IThrower
 
     private int UseWeapon()
     {
-        if (Game.World.SwordBlocked || Game.World.GetStunTimer(ObjectSlot.NoSwordTimer) != 0)
+        if (Game.World.SwordBlocked || Game.World.GetStunTimer(StunTimerSlot.NoSword) != 0)
         {
             return 0;
         }
@@ -947,7 +931,7 @@ internal sealed class Link : Actor, IThrower
     private int UseWeapon(ObjType type, ItemSlot itemSlot)
     {
         if (!Game.World.HasItem(itemSlot)) return 0;
-        if (Game.World.GetObject(ObjectSlot.PlayerSword) != null) return 0;
+        if (Game.World.HasObject<PlayerSwordActor>()) return 0;
 
         Game.World.GetProfile().Statistics.AddItemUse(itemSlot);
 
@@ -958,8 +942,8 @@ internal sealed class Link : Actor, IThrower
         _animTimer = 12;
         _state = 0x11;
 
-        var sword = new PlayerSwordActor(Game, type);
-        Game.World.SetObject(ObjectSlot.PlayerSword, sword);
+        var sword = new PlayerSwordActor(Game, type, this);
+        Game.World.AddObject(sword);
         Game.Sound.PlayEffect(SoundEffect.Sword);
         return 13;
     }
@@ -1069,7 +1053,7 @@ internal sealed class Link : Actor, IThrower
         {
             if (X != ladder.X)
             {
-                Game.World.SetLadder(null);
+                Game.World.RemoveLadder();
                 return dir;
             }
             distance = (Y + 3) - ladder.Y;
@@ -1078,7 +1062,7 @@ internal sealed class Link : Actor, IThrower
         {
             if ((Y + 3) != ladder.Y)
             {
-                Game.World.SetLadder(null);
+                Game.World.RemoveLadder();
                 return dir;
             }
             distance = X - ladder.X;
@@ -1093,7 +1077,7 @@ internal sealed class Link : Actor, IThrower
         }
         else if (distance != 0x10 || Facing != ladder.Facing)
         {
-            Game.World.SetLadder(null);
+            Game.World.RemoveLadder();
         }
         else if (ladder.State == LadderStates.Unknown1)
         {
@@ -1101,7 +1085,7 @@ internal sealed class Link : Actor, IThrower
         }
         else
         {
-            Game.World.SetLadder(null);
+            Game.World.RemoveLadder();
         }
 
         return dir;
@@ -1141,12 +1125,11 @@ internal sealed class Link : Actor, IThrower
     {
         if (Game.Cheats.NoClip) return dir;
 
-        for (var i = ObjectSlot.Buffer; i >= ObjectSlot.Monster1; i--)
+        foreach (var block in Game.World.GetObjects<BlockObjBase>())
         {
-            var obj = Game.World.GetObject(i);
-            if (obj is IBlocksPlayer block && block.CheckCollision() == CollisionResponse.Blocked)
+            if (block.CheckCollision() == CollisionResponse.Blocked)
             {
-                _movementTraceLog.Write($"StopAtBlock: {i}");
+                _movementTraceLog.Write($"StopAtBlock: {block}");
                 return Direction.None;
             }
         }

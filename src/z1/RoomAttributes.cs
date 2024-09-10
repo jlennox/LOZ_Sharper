@@ -29,7 +29,7 @@ internal readonly record struct OWRoomAttrs(RoomAttrs Attrs)
     public int GetCaveId() => Attrs.B & 0x3F;
     public int GetShortcutStairsIndex() => (Attrs.C & 0x03);
     public bool HasZora() => (Attrs.C & 0x04) != 0;
-    public bool MonstersEnter() => (Attrs.C & 0x08) != 0;
+    public bool DoMonstersEnter() => (Attrs.C & 0x08) != 0;
     public bool HasAmbientSound() => (Attrs.C & 0x10) != 0;
     public bool IsInQuest(int quest)
     {

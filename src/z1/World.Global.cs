@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Diagnostics;
 using SkiaSharp;
 using z1.Actors;
 using z1.Render;
@@ -81,51 +80,41 @@ internal partial class World
         Graphics.Clear(Graphics.GetSystemColor(sysColor));
     }
 
-    private void ClearDeadObjectQueue()
+    private void AddOnlyObjectOfType<T>(T obj)
+        where T : Actor
     {
-        while (_objectsToDelete.Count > 0)
-        {
-            var obj = _objectsToDelete.Dequeue();
-            _traceLog.Write($"ClearDeadObjectQueue() {obj.GetType().Name} at {_objectsToDelete.Count}");
-            obj.Delete();
-        }
+        var oldObject = GetObject<T>();
+        if (oldObject != null) ClearObject(oldObject);
+        AddObject(obj);
     }
 
-    private void SetOnlyObject(ObjectSlot slot, Actor? obj)
+    public void ClearObject(Actor obj)
     {
-        Debug.Assert(slot >= 0 && slot < ObjectSlot.MaxObjects);
+        obj.Delete();
+        _objects.Remove(obj);
+    }
 
-        var oldObject = _objects[(int)slot];
-
-        // It's the same object when the object creation also stores it in the objects list.
-        // eg, traps place themselves into the object list, then this sets the first one into the object list.
-        if (oldObject == obj) return;
-
-        if (oldObject != null)
+    public void ClearObjects(Func<Actor, bool> pred)
+    {
+        for (var i = _objects.Count - 1; i >= 0; i--)
         {
-            if (_objectsToDelete.Count >= (int)ObjectSlot.MaxObjects)
+            var obj = _objects[i];
+            if (pred(obj))
             {
-                ClearDeadObjectQueue();
+                obj.Delete();
+                _objects.RemoveAt(i);
             }
-            _objectsToDelete.Enqueue(oldObject);
         }
-        _objects[(int)slot] = obj;
     }
 
     private void SetBlockObj(Actor block)
     {
-        SetOnlyObject(ObjectSlot.Block, block);
+        AddOnlyObjectOfType(block);
     }
 
     private void DeleteObjects()
     {
-        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
-        {
-            _objects[i]?.Delete();
-            _objects[i] = null;
-        }
-
-        ClearDeadObjectQueue();
+        foreach (var obj in _objects) obj.Delete();
     }
 
     private void CleanUpRoomItems()
@@ -136,29 +125,24 @@ internal partial class World
 
     private void DeleteDeadObjects()
     {
-        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
-        {
-            ref var obj = ref _objects[i];
-            if (obj != null && obj.IsDeleted)
-            {
-                obj = null;
-            }
-        }
-
-        ClearDeadObjectQueue();
+        _objects.RemoveAll(static t => t.IsDeleted);
     }
 
     private void InitObjectTimers()
     {
-        Array.Clear(_objectTimers);
+        _objectTimers.Clear();
     }
 
     private void DecrementObjectTimers()
     {
-        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
+        foreach (var (obj, timer) in _objectTimers)
         {
-            if (_objectTimers[i] != 0) _objectTimers[i]--;
-            _objects[i]?.DecrementObjectTimer();
+            if (timer != 0) _objectTimers[obj]--;
+        }
+
+        foreach (var obj in _objects)
+        {
+            obj.DecrementObjectTimer();
         }
 
         // ORIGINAL: Here the player isn't part of the array, but in the original it's the first element.
@@ -168,10 +152,7 @@ internal partial class World
     private void InitStunTimers()
     {
         _longTimer = 0;
-        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
-        {
-            _stunTimers[i] = 0;
-        }
+        _stunTimers.Clear();
     }
 
     private void DecrementStunTimers()
@@ -184,15 +165,12 @@ internal partial class World
 
         _longTimer = 9;
 
-        for (var i = 0; i < (int)ObjectSlot.MaxObjects; i++)
+        foreach (var (obj, timer) in _stunTimers)
         {
-            if (_stunTimers[i] != 0)
-            {
-                _stunTimers[i]--;
-            }
-
-            _objects[i]?.DecrementStunTimer();
+            if (timer != 0) _stunTimers[obj]--;
         }
+
+        foreach (var obj in _objects) obj.DecrementStunTimer();
 
         // ORIGINAL: Here the player isn't part of the array, but in the original it's the first element.
         Game.Link.DecrementStunTimer();
@@ -200,22 +178,7 @@ internal partial class World
 
     private void InitPlaceholderTypes()
     {
-        Array.Clear(_placeholderTypes);
-    }
-
-    public ObjectSlot FindEmptyMonsterSlot()
-    {
-        for (var i = ObjectSlot.LastMonster; i >= 0; i--)
-        {
-            if (_objects[(int)i] == null) return i;
-        }
-        return ObjectSlot.NoneFound;
-    }
-
-    public bool TryFindEmptyMonsterSlot(out ObjectSlot slot)
-    {
-        slot = FindEmptyMonsterSlot();
-        return slot != ObjectSlot.NoneFound;
+        _pendingEdgeSpawns.Clear();
     }
 
     private void ClearRoomItemData()

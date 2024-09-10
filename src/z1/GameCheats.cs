@@ -190,22 +190,11 @@ internal sealed class GameCheats
                 return;
             }
 
-            // if (!game.World.TryFindEmptyMonsterSlot(out var slot))
-            // {
-            //     game.Toast("No empty slots found.");
-            //     return;
-            // }
-
-            // Ultimately, we want to support TryFindEmptyMonsterSlot but some monsters demand to be spawned
-            // into the first slot, making it a problem.
-            const ObjectSlot slot = ObjectSlot.Monster1;
-            game.World.CurObjectSlot = slot;
-
             try
             {
                 var obj = Actor.FromType(objType, game, 80, 80);
-                game.World.SetObject(slot, obj);
-                game.Toast($"Spawned {objType} at slot {slot}");
+                game.World.AddUniqueObject(obj);
+                game.Toast($"Spawned {objType}");
             }
             catch (ArgumentOutOfRangeException e) when (e.ParamName == "type")
             {
@@ -325,13 +314,9 @@ internal sealed class GameCheats
     {
         public override void RunPayload(Game game, string[] args)
         {
-            for (var slot = ObjectSlot.Monster1; slot < ObjectSlot.MaxObjects; slot++)
+            foreach (var actor in game.World.GetObjects())
             {
-                var actor = game.World.GetObject(slot);
-                if (actor != null)
-                {
-                    game.Toast($"{actor.ObjType}: {slot} {actor.X},{actor.Y} ({actor.X:X2},{actor.Y:X2})");
-                }
+                game.Toast($"{actor.ObjType}: {actor.X},{actor.Y} ({actor.X:X2},{actor.Y:X2})");
             }
         }
     }

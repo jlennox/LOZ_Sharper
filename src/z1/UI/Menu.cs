@@ -337,7 +337,7 @@ internal sealed class RegisterMenu : Menu
         if (_profile.Name == null)
         {
             _profile.Name = "";
-            _profile.Hearts = PlayerProfile.DefaultHearts;
+            _profile.Hearts = PlayerProfile.DefaultHeartCount;
         }
         _profile.Name += ch;
         MoveNextNamePosition();

@@ -50,7 +50,7 @@ internal enum BlockObjType
     TileWallEdge = 0xF6,
 }
 
-internal abstract class BlockObjBase : Actor, IBlocksPlayer
+internal abstract class BlockObjBase : Actor
 {
     private static readonly DebugLog _log = new(nameof(BlockObjBase));
 
@@ -303,7 +303,7 @@ internal sealed class FireActor : Actor
             }
 
             // JOE: NOTE: This came out pretty different.
-            var context = new CollisionContext(ObjectSlot.NoneFound, DamageType.Fire, 0, distance);
+            var context = new CollisionContext(null, DamageType.Fire, 0, distance);
 
             Shove(context);
             player.BeHarmed(this, 0x0080);
@@ -326,10 +326,10 @@ internal sealed class TreeActor : Actor
 
     public override void Update()
     {
-        for (var i = (int)ObjectSlot.FirstFire; i < (int)ObjectSlot.LastFire; i++)
+        var fires = Game.World.GetObjects<FireActor>();
+        foreach (var fire in fires)
         {
-            var fire = Game.World.GetObject<FireActor>((ObjectSlot)i);
-            if (fire == null || fire.IsDeleted) continue;
+            if (fire.IsDeleted) continue;
             if (fire.State != FireState.Standing || fire.ObjTimer != 2) continue;
 
             // JOE: TODO: This is repeated a lot. Make generic.
@@ -447,10 +447,8 @@ internal sealed class RockWallActor : Actor
 
     public override void Update()
     {
-        for (var i = (int)ObjectSlot.FirstBomb; i < (int)ObjectSlot.LastBomb; i++)
+        foreach (var bomb in Game.World.GetObjects<BombActor>())
         {
-            var gameObj = Game.World.GetObject((ObjectSlot)i);
-            if (gameObj is not BombActor bomb) continue;
             if (bomb.IsDeleted || bomb.BombState != BombState.Blasting) continue;
 
             // TODO: This is repeated a lot. Make generic.
@@ -499,14 +497,24 @@ internal sealed class PlayerSwordActor : Actor
     public int State;
     private int _timer;
     private readonly SpriteImage _image = new();
+    private readonly Link _owner;
 
-    public PlayerSwordActor(Game game, ObjType type)
+    public PlayerSwordActor(Game game, ObjType type, Link owner)
         : base(game, type)
     {
+        if (type is not (ObjType.PlayerSword or ObjType.Rod))
+        {
+            throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(PlayerSwordActor)}.");
+        }
+
         Put();
         _timer = _swordStateDurations[State];
+        _owner = owner;
         Decoration = 0;
     }
+
+    public static PlayerSwordActor MakeSword(Game game, Link owner) => new(game, ObjType.PlayerSword, owner);
+    public static PlayerSwordActor MakeRod(Game game, Link owner) => new(game, ObjType.Rod, owner);
 
     private void Put()
     {
@@ -530,57 +538,52 @@ internal sealed class PlayerSwordActor : Actor
     {
         if (State != 2) return;
 
-        var makeWave = false;
-        var wave = Game.World.GetObject(ObjectSlot.PlayerSwordShot);
+        var makeWave = true;
 
-        if (ObjType == ObjType.Rod)
+        if (ObjType == ObjType.PlayerSword)
         {
-            if (wave == null || wave.ObjType != ObjType.MagicWave)
-            {
-                makeWave = true;
-                Game.Sound.PlayEffect(SoundEffect.MagicWave);
-            }
-        }
-        else
-        {
-            if (wave == null)
-            {
-                // The original game skips checking hearts, and shoots, if [$529] is set.
-                // But, I haven't found any code that sets it.
-
-                var profile = Game.World.Profile;
-                var neededHeartsValue = (profile.Items[ItemSlot.HeartContainers] << 8) - 0x80;
-
-                if (profile.Hearts >= neededHeartsValue)
-                {
-                    makeWave = true;
-                    Game.Sound.PlayEffect(SoundEffect.SwordWave);
-                }
-            }
+            var profile = Game.World.GetProfile();
+            makeWave = profile.IsFullHealth();
         }
 
         if (makeWave)
         {
-            MakeWave();
+            MakeProjectile();
         }
     }
 
-    private void MakeWave()
+    private void MakeProjectile()
     {
-        var player = Game.Link;
-        var x = player.X;
-        var y = player.Y;
-        var dir = player.Facing;
+        var x = _owner.X;
+        var y = _owner.Y;
+        var dir = _owner.Facing;
 
         MoveSimple(ref x, ref y, dir, 0x10);
 
+        // Second check is to disallow shooting from doors?
         if (dir.IsVertical() || (x >= 0x14 && x < 0xEC))
         {
             var type = ObjType == ObjType.Rod ? ObjType.MagicWave : ObjType.PlayerSwordShot;
-            var wave = GlobalFunctions.MakeProjectile(Game.World, type, x, y, dir, ObjectSlot.PlayerSwordShot);
+            var (count, allowed, effect) = type switch
+            {
+                ObjType.MagicWave => (
+                    MagicWaveProjectile.PlayerCount(Game),
+                    Game.World.GetItem(ItemSlot.AllowedMagicWaveCount),
+                    SoundEffect.MagicWave),
+                ObjType.PlayerSwordShot => (
+                    PlayerSwordProjectile.PlayerCount(Game),
+                    Game.World.GetItem(ItemSlot.AllowedSwordShotCount),
+                    SoundEffect.SwordWave),
+                _ => throw new Exception(type.ToString())
+            };
 
-            Game.World.SetObject(ObjectSlot.PlayerSwordShot, wave);
-            wave.TileOffset = player.TileOffset;
+            if (count >= allowed) return;
+
+            Game.Sound.PlayEffect(effect);
+
+            var shot = GlobalFunctions.MakeProjectile(Game.World, type, x, y, dir, _owner);
+            Game.World.AddObject(shot);
+            shot.TileOffset = _owner.TileOffset;
         }
     }
 
@@ -676,8 +679,6 @@ internal struct CaveSpec
 
 internal sealed class ItemObjActor : Actor
 {
-    private static readonly ImmutableArray<ObjectSlot> _weaponSlots = [ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow];
-
     private readonly ItemId _itemId;
     private readonly bool _isRoomItem;
     private int _timer;
@@ -730,10 +731,11 @@ internal sealed class ItemObjActor : Actor
         }
         else if (!_isRoomItem)
         {
-            foreach (var slot in _weaponSlots)
+            // ReadOnlySpan<ObjectSlot> weaponSlots = [ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow];
+            var weapons = Game.World.GetObjects(static t => t is PlayerSwordActor or BoomerangProjectile or ArrowProjectile);
+            foreach (var obj in weapons)
             {
-                var obj = Game.World.GetObject(slot);
-                if (obj != null && !obj.IsDeleted && TouchesObject(obj))
+                if (!obj.IsDeleted && TouchesObject(obj))
                 {
                     touchedItem = true;
                     break;

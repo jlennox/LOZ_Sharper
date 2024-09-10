@@ -395,7 +395,7 @@ internal sealed class PersonActor : Actor
                 if (price > Game.World.GetItem(ItemSlot.HeartContainers)) return;
 
                 var profile = Game.World.Profile;
-                if (profile.Items[ItemSlot.HeartContainers] <= PlayerProfile.DefaultHearts)
+                if (profile.Items[ItemSlot.HeartContainers] <= PlayerProfile.DefaultHeartCount)
                 {
                     // This is to emulate the zombie link game behavior.
                     profile.Hearts = 0;
@@ -464,11 +464,8 @@ internal sealed class PersonActor : Actor
             Game.World.SetItem(ItemSlot.Food, 0);
             Game.World.SetPersonWallY(0);
 
-            var food = Game.World.GetObject(ObjectSlot.Food);
-            if (food is FoodActor)
-            {
-                food.Delete();
-            }
+            var food = Game.World.GetObject<FoodActor>();
+            food?.Delete();
         }
     }
 
@@ -484,8 +481,8 @@ internal sealed class PersonActor : Actor
 
     private void UpdateWaitForFood()
     {
-        var food = Game.World.GetObject(ObjectSlot.Food);
-        if (food is FoodActor)
+        var food = Game.World.GetObject<FoodActor>();
+        if (food != null)
         {
             _state = PersonState.PickedUp;
             ObjTimer = 0x40;

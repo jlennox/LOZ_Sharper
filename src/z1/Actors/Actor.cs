@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Diagnostics;
 using z1.IO;
 using z1.Render;
 
@@ -19,15 +18,95 @@ internal enum DamageType
     Fire = 0x20,
 }
 
+// JOE: TODO:
+internal abstract class MonsterActor : Actor
+{
+    protected MonsterActor(Game game, ObjType type, int x = 0, int y = 0)
+        : base(game, type, x, y)
+    {
+    }
+
+    protected Direction GetXDirToPlayer(int x) => Game.World.GetObservedPlayerPos().X < x ? Direction.Left : Direction.Right;
+    protected Direction GetYDirToPlayer(int y) => Game.World.GetObservedPlayerPos().Y < y ? Direction.Up : Direction.Down;
+    protected Direction GetXDirToTruePlayer(int x) => Game.Link.X < x ? Direction.Left : Direction.Right;
+    protected Direction GetYDirToTruePlayer(int y) => Game.Link.Y < y ? Direction.Up : Direction.Down;
+
+    private Direction GetDir8ToPlayer(int x, int y)
+    {
+        var playerPos = Game.World.GetObservedPlayerPos();
+        var dir = Direction.None;
+
+        if (playerPos.Y < y)
+        {
+            dir |= Direction.Up;
+        }
+        else if (playerPos.Y > y)
+        {
+            dir |= Direction.Down;
+        }
+
+        if (playerPos.X < x)
+        {
+            dir |= Direction.Left;
+        }
+        else if (playerPos.X > x)
+        {
+            dir |= Direction.Right;
+        }
+
+        return dir;
+    }
+
+    protected Direction TurnTowardsPlayer8(int x, int y, Direction facing)
+    {
+        var dirToPlayer = GetDir8ToPlayer(x, y);
+        var dirIndex = (uint)facing.GetDirection8Ord(); // uint required.
+
+        dirIndex = (dirIndex + 1) % 8;
+
+        for (var i = 0; i < 3; i++)
+        {
+            if (dirIndex.GetDirection8() == dirToPlayer) return facing;
+            dirIndex = (dirIndex - 1) % 8;
+        }
+
+        dirIndex = (dirIndex + 1) % 8;
+
+        for (var i = 0; i < 3; i++)
+        {
+            var dir = dirIndex.GetDirection8();
+            if ((dir & dirToPlayer) != 0)
+            {
+                if ((dir | dirToPlayer) < (Direction)7) return dir;
+            }
+            dirIndex = (dirIndex + 1) % 8;
+        }
+
+        dirIndex = (dirIndex - 1) % 8;
+        return dirIndex.GetDirection8();
+    }
+
+    protected static Direction TurnRandomly8(Direction facing)
+    {
+        return Random.Shared.GetByte() switch
+        {
+            >= 0xA0 => facing, // keep going in the same direction
+            >= 0x50 => facing.GetNextDirection8(),
+            _ => facing.GetPrevDirection8()
+        };
+    }
+}
+
 internal abstract class Actor
 {
     private static readonly DebugLog _log = new(nameof(Actor));
     private static readonly DebugLog _traceLog = new(nameof(Actor), DebugLogDestination.DebugBuildsOnly);
     private static readonly ImmutableArray<byte> _swordPowers = [0, 0x10, 0x20, 0x40];
+    private static long _idCounter;
 
     public Game Game { get; }
+    public readonly long Id = _idCounter++;
 
-    // JOE: TODO: Get rid of this.
     public Point Position
     {
         get => new(X, Y);
@@ -71,10 +150,6 @@ internal abstract class Actor
     public ObjectAttr Attributes => Game.World.GetObjectAttrs(ObjType);
 
     protected bool IsStunned => _isStunned();
-    protected ObjectSlot CurObjectSlot => Game.World.CurObjectSlot;
-
-    // JOE: TODO: Consider bringing this back.
-    //public ActorColor Color;
 
     protected Actor(Game game, ObjType type, int x = 0, int y = 0)
     {
@@ -84,14 +159,15 @@ internal abstract class Actor
         ObjType = type;
         Position = new Point(x, y);
 
-        _traceLog.Write($"Created {GetType().Name} at {X:X2},{Y:X2} ({game.World.CurObjectSlot})");
+        _traceLog.Write($"Created {GetType().Name} at {X:X2},{Y:X2}");
 
         // JOE: "monsters and persons not armos or flying ghini"
         if (type < ObjType.PersonEnd
             && type != ObjType.Armos && type != ObjType.FlyingGhini)
         {
-            var slot = game.World.CurObjSlot;
-            var time = slot + 1;
+            // JOE: This might not be entirely correct...
+            // var time = game.World.CurObjSlot + 1;
+            var time = game.World.CountObjects() + 1;
             ObjTimer = (byte)time;
         }
 
@@ -116,6 +192,8 @@ internal abstract class Actor
     public virtual bool IsReoccuring => true;
     public virtual bool IsUnderworldPerson => true;
     public virtual bool IsAttrackedToMeat => false;
+
+    public ItemObjActor? HoldingItem { get; set; }
 
     // Returns true if the child's delete method should run.
     public virtual bool Delete()
@@ -197,7 +275,6 @@ internal abstract class Actor
             ObjType.Gleeok2 => GleeokActor.Make(game, 2),
             ObjType.Gleeok3 => GleeokActor.Make(game, 3),
             ObjType.Gleeok4 => GleeokActor.Make(game, 4),
-            ObjType.GleeokHead => new GleeokHeadActor(game, x, y),
             ObjType.Patra1 => PatraActor.MakePatra(game, PatraType.Circle),
             ObjType.Patra2 => PatraActor.MakePatra(game, PatraType.Spin),
             ObjType.Trap => TrapActor.MakeSet(game, 6),
@@ -309,7 +386,9 @@ internal abstract class Actor
 
     protected void InitCommonStateTimer()
     {
-        var t = Game.World.CurObjSlot;
+        // JOE: This might not be entirely correct...
+        // var t = Game.World.CurObjSlot;
+        var t = Game.World.CountObjects();
         t = (t + 2) * 16;
         ObjTimer = (byte)t;
     }
@@ -331,14 +410,20 @@ internal abstract class Actor
             InvincibilityTimer--;
         }
 
+        if (HoldingItem != null && !HoldingItem.IsDeleted)
+        {
+            HoldingItem.X = X;
+            HoldingItem.Y = Y;
+        }
+
         if (Decoration == 0)
         {
             Update();
 
             if (Decoration == 0)
             {
-                var slot = Game.World.CurObjectSlot;
-                if (slot < ObjectSlot.Buffer && !Attributes.GetCustomCollision())
+                // JOE: CHECK: Not sure this is right. It use to be: slot < ObjectSlot.Buffer
+                if (this is MonsterActor && !Attributes.GetCustomCollision())
                 {
                     // ORIGINAL: flag 4 if custom draw. If not set, then call $77D4.
                     // But, this stock drawing code is used for very few objects. This includes
@@ -414,14 +499,11 @@ internal abstract class Actor
         {
             if (InvincibilityTimer != 0) return false;
 
-            CheckBoomerang(ObjectSlot.Boomerang);
-            CheckWave(ObjectSlot.PlayerSwordShot);
-            CheckBombAndFire(ObjectSlot.Bomb);
-            CheckBombAndFire(ObjectSlot.Bomb2);
-            CheckBombAndFire(ObjectSlot.Fire);
-            CheckBombAndFire(ObjectSlot.Fire2);
-            CheckSword(ObjectSlot.PlayerSword);
-            CheckArrow(ObjectSlot.Arrow);
+            CheckBoomerang();
+            CheckWave();
+            CheckBombAndFire();
+            CheckSword();
+            CheckArrow();
         }
 
         return CheckPlayerCollision();
@@ -430,29 +512,43 @@ internal abstract class Actor
         // But, we check instead in each of those classes.
     }
 
-    protected void CheckBoomerang(ObjectSlot slot)
+    protected void CheckBoomerang()
+    {
+        foreach (var rang in Game.World.GetObjects<BoomerangProjectile>())
+        {
+            if (!rang.IsPlayerWeapon) continue;
+            CheckBoomerang(rang);
+        }
+    }
+
+    private void CheckBoomerang(BoomerangProjectile rang)
     {
         var box = new Point(0xA, 0xA);
         var weaponCenter = new Point(4, 8);
-        var context = new CollisionContext(slot, DamageType.Boomerang, 0, Point.Empty);
+        var context = new CollisionContext(rang, DamageType.Boomerang, 0, Point.Empty);
 
         CheckCollisionCustomNoShove(context, box, weaponCenter);
     }
 
-    protected void CheckWave(ObjectSlot slot)
+    protected void CheckWave()
     {
-        if (slot != ObjectSlot.PlayerSwordShot) throw new ArgumentOutOfRangeException(nameof(slot));
+        // ToArray() to allow enumeration changes.
+        foreach (var projectile in Game.World.GetObjects<Projectile>().ToArray())
+        {
+            if (!projectile.IsPlayerWeapon) continue;
+            CheckWave(projectile);
+        }
+    }
 
-        var weaponObj = Game.World.GetObject(slot);
-        if (weaponObj == null) return;
-
+    private void CheckWave(Projectile weaponObj)
+    {
         if (weaponObj is PlayerSwordProjectile wave)
         {
             if (wave.State != ProjectileState.Flying) return;
         }
 
         var box = new Point(0xC, 0xC);
-        var context = new CollisionContext(slot, default, default, default);
+        var context = new CollisionContext(weaponObj, default, default, default);
 
         if (weaponObj is MagicWaveProjectile)
         {
@@ -484,12 +580,15 @@ internal abstract class Actor
         }
     }
 
-    protected void CheckBombAndFire(ObjectSlot slot)
+    protected void CheckBombAndFire()
     {
-        var obj = Game.World.GetObject(slot);
-        if (obj == null) return;
+        foreach (var fire in Game.World.GetObjects<FireActor>()) CheckBombAndFire(fire);
+        foreach (var bomb in Game.World.GetObjects<BombActor>()) CheckBombAndFire(bomb);
+    }
 
-        var context = new CollisionContext(slot, DamageType.Fire, 0x10, Point.Empty);
+    private void CheckBombAndFire(Actor obj)
+    {
+        var context = new CollisionContext(obj, DamageType.Fire, 0x10, Point.Empty);
         short distance = 0xE;
 
         if (obj is BombActor bomb)
@@ -497,7 +596,6 @@ internal abstract class Actor
             if (bomb.BombState != BombState.Blasting) return;
 
             context.DamageType = DamageType.Bomb;
-            context.WeaponSlot = slot;
             context.Damage = 0x40;
             distance = 0x18;
         }
@@ -514,17 +612,15 @@ internal abstract class Actor
         }
     }
 
-    protected void CheckSword(ObjectSlot slot, bool allowRodDamage = true)
+    protected void CheckSword(bool allowRodDamage = true)
     {
-        if (slot != ObjectSlot.PlayerSword) throw new ArgumentOutOfRangeException(nameof(slot));
-
-        var sword = Game.World.GetObject<PlayerSwordActor>(slot);
+        var sword = Game.World.GetObject<PlayerSwordActor>();
         if (sword == null || sword.State != 1) return;
 
         var player = Game.Link;
 
         var box = player.Facing.IsVertical() ? new Point(0xC, 0x10) : new Point(0x10, 0xC);
-        var context = new CollisionContext(slot, DamageType.Sword, 0, Point.Empty);
+        var context = new CollisionContext(sword, DamageType.Sword, 0, Point.Empty);
 
         switch (sword.ObjType)
         {
@@ -545,17 +641,26 @@ internal abstract class Actor
         }
     }
 
-    protected bool CheckArrow(ObjectSlot slot)
+    protected bool CheckArrow()
     {
-        var arrow = Game.World.GetObject<ArrowProjectile>(slot);
-        if (arrow == null) return false;
+        foreach (var arrow in Game.World.GetObjects<ArrowProjectile>())
+        {
+            if (!arrow.IsPlayerWeapon) continue;
+            if (CheckArrow(arrow)) return true;
+        }
+
+        return false;
+    }
+
+    private bool CheckArrow(ArrowProjectile arrow)
+    {
         if (arrow.State != ProjectileState.Flying) return false;
 
         var itemValue = Game.World.GetItem(ItemSlot.Arrow);
         var box = new Point(0xB, 0xB);
 
         ReadOnlySpan<int> arrowPowers = [0, 0x20, 0x40];
-        var context = new CollisionContext(slot, DamageType.Arrow, arrowPowers[itemValue], Point.Empty);
+        var context = new CollisionContext(arrow, DamageType.Arrow, arrowPowers[itemValue], Point.Empty);
 
         if (CheckCollisionNoShove(context, box))
         {
@@ -596,7 +701,7 @@ internal abstract class Actor
 
     protected bool CheckCollisionCustomNoShove(CollisionContext context, Point box, Point weaponOffset)
     {
-        var weaponObj = Game.World.GetObject(context.WeaponSlot);
+        var weaponObj = context.Weapon;
         if (weaponObj == null) return false;
 
         var objCenter = CalcObjMiddle();
@@ -645,7 +750,7 @@ internal abstract class Actor
             return;
         }
 
-        var weaponObj = Game.World.GetObject(context.WeaponSlot) ?? throw new InvalidOperationException("Weapon was null.");
+        var weaponObj = context.Weapon ?? throw new InvalidOperationException("Weapon was null.");
 
         if (this is GohmaActor gohma)
         {
@@ -671,7 +776,7 @@ internal abstract class Actor
 
         if (this is ZolActor || this is VireActor)
         {
-            if (context.WeaponSlot != ObjectSlot.Boomerang)
+            if (context.Weapon is not BoomerangProjectile)
             {
                 Facing = weaponObj.Facing;
             }
@@ -759,7 +864,7 @@ internal abstract class Actor
     {
         if (this is DarknutActor)
         {
-            var weaponObj = Game.World.GetObject(context.WeaponSlot) ?? throw new InvalidOperationException("Weapon was null.");
+            var weaponObj = context.Weapon ?? throw new InvalidOperationException("Weapon was null.");
             var combinedDir = (int)Facing | (int)weaponObj.Facing;
 
             if (combinedDir is 3 or 0xC)
@@ -777,8 +882,7 @@ internal abstract class Actor
         if ((InvincibilityMask & (int)context.DamageType) != 0) return;
 
         // JOE: NOTE: This should irl be `> ObjectSlot.NoneFound` but verifying that becomes a bit difficult.
-        if (context.WeaponSlot == 0) Debugger.Break();
-        if (context.WeaponSlot > 0)
+        if (context.Weapon != null)
         {
             ShoveObject(context);
             return;
@@ -803,7 +907,8 @@ internal abstract class Actor
         player.InvincibilityTimer = 0x18;
         player.ShoveDistance = 0x20;
 
-        if (Game.World.CurObjectSlot >= ObjectSlot.Buffer) return;
+        // JOE: Old code was: if (Game.World.CurObjectSlot >= ObjectSlot.Buffer) return;
+        if (this is not MonsterActor) return;
         if (Attributes.GetUnknown80__() || this is VireActor) return;
 
         Facing = Facing.GetOppositeDirection();
@@ -813,7 +918,7 @@ internal abstract class Actor
     {
         if (InvincibilityTimer != 0) return;
 
-        var weaponObj = Game.World.GetObject(context.WeaponSlot) ?? throw new InvalidOperationException("Weapon was null.");
+        var weaponObj = context.Weapon ?? throw new InvalidOperationException("Weapon was null.");
         var dir = weaponObj.Facing;
 
         if (Attributes.GetUnknown80__())
@@ -876,7 +981,7 @@ internal abstract class Actor
             return new PlayerCollision(false, false);
         }
 
-        var context = new CollisionContext(ObjectSlot.NoneFound, 0, 0, distance);
+        var context = new CollisionContext(null, 0, 0, distance);
 
         if (ObjType < ObjType.PersonEnd)
         {
@@ -1003,11 +1108,12 @@ internal abstract class Actor
 
     protected Direction CheckWorldMargin(Direction dir, out CheckWorldReason reason)
     {
-        var slot = Game.World.CurObjectSlot;
-        var adjust = slot > ObjectSlot.Buffer || this is LadderActor;
+        // JOE: Original: var adjust = slot > ObjectSlot.Buffer || this is LadderActor;
+        var adjust = this is not MonsterActor || this is LadderActor;
 
         // ORIGINAL: This isn't needed, because the player is first (slot=0).
-        if (slot >= ObjectSlot.Player)
+        // JOE: Original: if (slot >= ObjectSlot.Player)
+        if (IsPlayer)
         {
             adjust = false;
         }
@@ -1143,10 +1249,12 @@ internal abstract class Actor
         if (Game.Cheats.NoClip) return dir;
         // ($6E46) if first object is grumble or person, block movement up above $8E.
 
-        var firstObj = Game.World.GetObject(ObjectSlot.Monster1);
-        if (firstObj != null && firstObj.ShouldStopAtPersonWall)
+        foreach (var obj in Game.World.GetObjects())
         {
-            return StopAtPersonWall(dir);
+            if (!obj.IsDeleted && obj.ShouldStopAtPersonWall)
+            {
+                return StopAtPersonWall(dir);
+            }
         }
 
         return dir;
@@ -1291,103 +1399,30 @@ internal abstract class Actor
     // Are these monster only?
     // -----------------------
 
-    protected Direction GetXDirToPlayer(int x) => Game.World.GetObservedPlayerPos().X < x ? Direction.Left : Direction.Right;
-    protected Direction GetYDirToPlayer(int y) => Game.World.GetObservedPlayerPos().Y < y ? Direction.Up : Direction.Down;
-    protected Direction GetXDirToTruePlayer(int x) => Game.Link.X < x ? Direction.Left : Direction.Right;
-    protected Direction GetYDirToTruePlayer(int y) => Game.Link.Y < y ? Direction.Up : Direction.Down;
-
-    private Direction GetDir8ToPlayer(int x, int y)
+    protected Actor? Shoot(ObjType shotType, int x, int y, Direction facing)
     {
-        var playerPos = Game.World.GetObservedPlayerPos();
-        var dir = Direction.None;
-
-        if (playerPos.Y < y)
-        {
-            dir |= Direction.Up;
-        }
-        else if (playerPos.Y > y)
-        {
-            dir |= Direction.Down;
-        }
-
-        if (playerPos.X < x)
-        {
-            dir |= Direction.Left;
-        }
-        else if (playerPos.X > x)
-        {
-            dir |= Direction.Right;
-        }
-
-        return dir;
-    }
-
-    protected Direction TurnTowardsPlayer8(int x, int y, Direction facing)
-    {
-        var dirToPlayer = GetDir8ToPlayer(x, y);
-        var dirIndex = (uint)facing.GetDirection8Ord(); // uint required.
-
-        dirIndex = (dirIndex + 1) % 8;
-
-        for (var i = 0; i < 3; i++)
-        {
-            if (dirIndex.GetDirection8() == dirToPlayer) return facing;
-            dirIndex = (dirIndex - 1) % 8;
-        }
-
-        dirIndex = (dirIndex + 1) % 8;
-
-        for (var i = 0; i < 3; i++)
-        {
-            var dir = dirIndex.GetDirection8();
-            if ((dir & dirToPlayer) != 0)
-            {
-                if ((dir | dirToPlayer) < (Direction)7) return dir;
-            }
-            dirIndex = (dirIndex + 1) % 8;
-        }
-
-        dirIndex = (dirIndex - 1) % 8;
-        return dirIndex.GetDirection8();
-    }
-
-    protected static Direction TurnRandomly8(Direction facing)
-    {
-        return Random.Shared.GetByte() switch {
-            >= 0xA0 => facing, // keep going in the same direction
-            >= 0x50 => facing.GetNextDirection8(),
-            _ => facing.GetPrevDirection8()
-        };
-    }
-
-    protected ObjectSlot Shoot(ObjType shotType, int x, int y, Direction facing)
-    {
-        if (!Game.World.TryFindEmptyMonsterSlot(out var slot)) return ObjectSlot.NoneFound;
-
-        var thisSlot = Game.World.CurObjectSlot;
         var oldActiveShots = Game.World.ActiveShots;
-        var thisPtr = Game.World.GetObject(thisSlot);
 
         var shot = shotType == ObjType.Boomerang
-            ? GlobalFunctions.MakeBoomerang(Game, x, y, facing, 0x51, 2.5f, thisPtr, slot)
-            : GlobalFunctions.MakeProjectile(Game.World, shotType, x, y, facing, slot);
+            ? GlobalFunctions.MakeBoomerang(Game, x, y, facing, 0x51, 2.5f, this)
+            : GlobalFunctions.MakeProjectile(Game.World, shotType, x, y, facing, this);
 
         var newActiveShots = Game.World.ActiveShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)
         {
             shot.Delete();
-            return ObjectSlot.NoneFound;
+            return null;
         }
 
-        Game.World.SetObject(slot, shot);
+        Game.World.AddObject(shot);
         // In the original, they start in state $10. But, that was only a way to say that the object exists.
         shot.ObjTimer = 0;
-        return slot;
+        return shot;
     }
 
-    protected ObjectSlot ShootFireball(ObjType type, int x, int y)
+    protected FireballProjectile? ShootFireball(ObjType type, int x, int y, int? offset = null)
     {
-        return Game.ShootFireball(type, x, y);
+        return Game.ShootFireball(type, x, y, offset);
     }
 }
 

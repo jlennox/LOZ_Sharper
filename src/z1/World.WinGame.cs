@@ -213,8 +213,8 @@ internal partial class World
 
                 // JOE: TODO: I think this conversion is ok...
                 Profile.Quest = 1;
-                Profile.Items[ItemSlot.HeartContainers] = PlayerProfile.DefaultHearts;
-                Profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultBombs;
+                Profile.Items[ItemSlot.HeartContainers] = PlayerProfile.DefaultHeartCount;
+                Profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultMaxBombCount;
                 SaveFolder.SaveProfiles();
 
                 Game.Sound.StopAll();
@@ -267,7 +267,7 @@ internal partial class World
         }
         else
         {
-            var zelda = GetObject<ZeldaActor>(ObjectSlot.Monster1) ?? throw new Exception();
+            var zelda = GetObject<ZeldaActor>() ?? throw new Exception();
 
             switch (_state.WinGame.NpcVisual)
             {

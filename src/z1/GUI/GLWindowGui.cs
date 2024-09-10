@@ -107,7 +107,7 @@ internal static class GLWindowGui
         {
             if (ImGui.BeginMenu("File"))
             {
-                if (ImGui.MenuItem("Save", game.World.Profile != null)) game.AutoSave();
+                if (ImGui.MenuItem("Save", game.World.Profile != null)) game.AutoSave(false);
                 if (ImGui.MenuItem("Open save folder")) Directories.OpenSaveFolder();
                 ImGui.Separator();
                 if (ImGui.MenuItem("Exit Game")) Environment.Exit(0);

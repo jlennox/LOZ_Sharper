@@ -23,13 +23,16 @@ internal abstract class Projectile : Actor, IProjectile
 
     public ProjectileState State = ProjectileState.Flying;
 
-    public bool IsPlayerWeapon => Game.World.CurObjectSlot > ObjectSlot.Buffer;
+    public bool IsPlayerWeapon => _owner.IsPlayer;
 
     private Direction _bounceDir = Direction.None;
+    protected readonly Actor _owner;
 
-    protected Projectile(Game game, ObjType type, int x, int y)
+    protected Projectile(Game game, ObjType type, int x, int y, Actor owner)
         : base(game, type, x, y)
     {
+        _owner = owner;
+
         if (!IsPlayerWeapon)
         {
             ++Game.World.ActiveShots;
@@ -104,8 +107,8 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
     private int _distance;
     private readonly SpriteImage _image;
 
-    public PlayerSwordProjectile(Game game, int x, int y, Direction direction)
-        : base(game, ObjType.PlayerSwordShot, x, y)
+    public PlayerSwordProjectile(Game game, int x, int y, Direction direction, Actor owner)
+        : base(game, ObjType.PlayerSwordShot, x, y, owner)
     {
         Facing = direction;
         Decoration = 0;
@@ -113,6 +116,11 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
         var dirOrd = Facing.GetOrdinal(); ;
         var animIndex = PlayerSwordActor.SwordAnimMap[dirOrd];
         _image = new SpriteImage(TileSheet.PlayerAndItems, animIndex);
+    }
+
+    public static int PlayerCount(Game game)
+    {
+        return game.World.GetObjects<PlayerSwordProjectile>().Count(t => t._owner.IsPlayer);
     }
 
     public override void Update()
@@ -199,8 +207,8 @@ internal sealed class FlyingRockProjectile : Projectile
 {
     private readonly SpriteImage _image;
 
-    public FlyingRockProjectile(Game game, int x, int y, Direction moving)
-        : base(game, ObjType.FlyingRock, x, y)
+    public FlyingRockProjectile(Game game, int x, int y, Direction moving, Actor owner)
+        : base(game, ObjType.FlyingRock, x, y, owner)
     {
         Facing = moving;
         Decoration = 0;
@@ -240,9 +248,8 @@ internal sealed class FlyingRockProjectile : Projectile
 
     public override void Draw()
     {
-        var palette = Palette.Player;
         var xOffset = (16 - _image.Animation.Width) / 2;
-        _image.Draw(TileSheet.Npcs, X + xOffset, Y, palette);
+        _image.Draw(TileSheet.Npcs, X + xOffset, Y, Palette.Player);
     }
 }
 
@@ -293,6 +300,9 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         }
     }
 
+    // Used only by Aquamentis
+    public int? Offset { get; }
+
     // JOE: NOTE: These mirror the original X/Y values but are floats to keep precision?
     private float _x;
     private float _y;
@@ -301,13 +311,15 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
     private readonly SpriteImage _image;
     private FireballState _state;
 
-    public FireballProjectile(Game game, ObjType type, int x, int y, float speed)
+    public FireballProjectile(Game game, ObjType type, int x, int y, float speed, int? offset)
         : base(game, type, x, y)
     {
         if (type is not (ObjType.Fireball or ObjType.Fireball2))
         {
             throw new ArgumentOutOfRangeException(nameof(type), ObjType.Fireball, "Invalid projectile type");
         }
+
+        Offset = offset;
 
         Decoration = 0;
         _image = new SpriteImage(TileSheet.PlayerAndItems, AnimationId.Fireball);
@@ -329,7 +341,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         _speedX = (float)Math.Cos(angle) * speed;
         _speedY = (float)Math.Sin(angle) * speed;
 
-        _traceLog.Write($"ctor({type}, {X:X2},{Y:X2}, {speed}) {CurObjectSlot}  pos:({_x},{_y}) speed:({_speedX},{_speedY})");
+        _traceLog.Write($"ctor({type}, {X:X2},{Y:X2}, {speed}) pos:({_x},{_y}) speed:({_speedX},{_speedY})");
     }
 
     public override void Update()
@@ -338,7 +350,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         {
             ObjTimer = 0x10;
             _state = FireballState.Firing;
-            _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) _state == 0");
+            _traceLog.Write($"Update() {X:X2},{Y:X2} pos:({_x},{_y}) _state == 0");
             return;
         }
 
@@ -346,7 +358,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         {
             if (CheckWorldMargin(Facing, out var reason) == Direction.None)
             {
-                _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) ObjTimer == 0, IsDeleted = true {reason}");
+                _traceLog.Write($"Update() {X:X2},{Y:X2} pos:({_x},{_y}) ObjTimer == 0, IsDeleted = true {reason}");
                 Delete();
                 return;
             }
@@ -356,13 +368,13 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
             base.X = (int)_x;
             base.Y = (int)_y;
 
-            _traceLog.Write($"Update() {CurObjectSlot} {X:X2},{Y:X2} pos:({_x},{_y}) speed:({_speedX},{_speedY})");
+            _traceLog.Write($"Update() {X:X2},{Y:X2} pos:({_x},{_y}) speed:({_speedX},{_speedY})");
         }
 
         var collision = CheckPlayerCollision();
         if (collision.Collides || collision.ShotCollides)
         {
-            _traceLog.Write($"Update() {CurObjectSlot} collision.Collides, IsDeleted = true");
+            _traceLog.Write($"Update() collision.Collides, IsDeleted = true");
             Delete();
         }
     }
@@ -385,10 +397,12 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     private static readonly DebugLog _log = new(nameof(BoomerangProjectile));
 
+    public bool IsPlayerWeapon => _owner.IsPlayer;
+
     private readonly int _startX;
     private readonly int _startY;
     private int _distanceTarget;
-    private readonly Actor? _owner; // JOE: TODO: Can this be null?
+    private readonly Actor _owner; // JOE: TODO: Can this be null?
     private float _x;
     private float _y;
     private readonly float _leaveSpeed;
@@ -396,7 +410,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
     private int _animTimer;
     private readonly SpriteAnimator _animator;
 
-    public BoomerangProjectile(Game game, int x, int y, Direction moving, int distance, float speed, Actor? owner)
+    public BoomerangProjectile(Game game, int x, int y, Direction moving, int distance, float speed, Actor owner)
         : base(game, ObjType.Boomerang, x, y)
     {
         _startX = x;
@@ -418,29 +432,28 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
         };
         _animator.DurationFrames = _animator.Animation!.Length * 2;
 
-        if (!IsPlayerWeapon())
+        if (!IsPlayerWeapon)
         {
             ++Game.World.ActiveShots;
         }
+    }
+
+    public static int PlayerCount(Game game)
+    {
+        return game.World.GetObjects<BoomerangProjectile>().Count(t => t._owner.IsPlayer);
     }
 
     public override bool Delete()
     {
         if (base.Delete())
         {
-            if (!IsPlayerWeapon())
+            if (!IsPlayerWeapon)
             {
                 --Game.World.ActiveShots;
             }
             return true;
         }
         return false;
-    }
-
-    // JOE: TODO: This is a global function in the original code and feels a bit off being repeated a few times.
-    public bool IsPlayerWeapon()
-    {
-        return Game.World.CurObjSlot > (int)ObjectSlot.Buffer;
     }
 
     public bool IsInShotStartState()
@@ -613,7 +626,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     private void CheckCollision()
     {
-        if (!IsPlayerWeapon())
+        if (!IsPlayerWeapon)
         {
             var collision = CheckPlayerCollision();
             if (collision.ShotCollides)
@@ -651,8 +664,8 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
     private readonly SpriteImage _image;
 
-    public MagicWaveProjectile(Game game, ObjType type, int x, int y, Direction direction)
-        : base(game, type, x, y)
+    public MagicWaveProjectile(Game game, ObjType type, int x, int y, Direction direction, Actor owner)
+        : base(game, type, x, y, owner)
     {
         if (type is not (ObjType.MagicWave or ObjType.MagicWave2))
         {
@@ -664,6 +677,11 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
         var dirOrd = direction.GetOrdinal();
         _image = new SpriteImage(TileSheet.PlayerAndItems, _waveAnimMap[dirOrd]);
+    }
+
+    public static int PlayerCount(Game game)
+    {
+        return game.World.GetObjects<MagicWaveProjectile>().Count(t => t._owner.IsPlayer);
     }
 
     public override void Update()
@@ -702,16 +720,12 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
     {
         if (Game.World.GetItem(ItemSlot.Book) == 0) return;
 
-        var fireSlot = Game.World.FindEmptyFireSlot();
-        if (fireSlot >= 0)
+        var fire = new FireActor(Game, X, Y, Facing)
         {
-            var fire = new FireActor(Game, X, Y, Facing)
-            {
-                ObjTimer = 0x4F,
-                State = FireState.Standing
-            };
-            Game.World.SetObject(fireSlot, fire);
-        }
+            ObjTimer = 0x4F,
+            State = FireState.Standing
+        };
+        Game.World.AddObject(fire);
     }
 }
 
@@ -727,14 +741,19 @@ internal sealed class ArrowProjectile : Projectile
     private int _timer;
     private readonly SpriteImage _image;
 
-    public ArrowProjectile(Game game, int x, int y, Direction direction)
-        : base(game, ObjType.Arrow, x, y)
+    public ArrowProjectile(Game game, int x, int y, Direction direction, Actor owner)
+        : base(game, ObjType.Arrow, x, y, owner)
     {
         Facing = direction;
         Decoration = 0;
 
         var dirOrd = direction.GetOrdinal();
         _image = new SpriteImage(TileSheet.PlayerAndItems, _arrowAnimMap[dirOrd]);
+    }
+
+    public static int PlayerCount(Game game)
+    {
+        return game.World.GetObjects<ArrowProjectile>().Count(t => t._owner.IsPlayer);
     }
 
     public void SetSpark(int frames = 3)

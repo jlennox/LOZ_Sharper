@@ -59,6 +59,14 @@ internal enum GameMode
     Max,
 }
 
+internal enum StunTimerSlot
+{
+    NoSword,
+    RedLeever,
+    ObservedPlayer,
+    EdgeObject
+}
+
 internal record Cell(byte Row, byte Col)
 {
     public const int MobPatchCellCount = 16;
@@ -176,12 +184,6 @@ internal sealed unsafe partial class World
     public bool EnablePersonFireballs;
     public bool SwordBlocked;           // 52E
     public byte WhirlwindTeleporting;   // 522
-    public int CurObjSlot;
-    public ObjectSlot CurObjectSlot // JOE: TODO: I hate this :)
-    {
-        get => (ObjectSlot)CurObjSlot;
-        set => CurObjSlot = (int)value;
-    }
     public Direction DoorwayDir;         // 53
     public int FromUnderground;    // 5A
     public int ActiveShots;        // 34C
@@ -261,12 +263,11 @@ internal sealed unsafe partial class World
     private bool _giveFakePlayerPos;
     private Point _fakePlayerPos;
 
-    private readonly Actor?[] _objects = new Actor[(int)ObjectSlot.MaxObjects];
-    private readonly Queue<Actor> _objectsToDelete = new();
-    private readonly int[] _objectTimers = new int[(int)ObjectSlot.MaxObjects];
+    private readonly List<Actor> _objects = new();
+    private readonly Dictionary<ObjectTimer, int> _objectTimers = new();
     private int _longTimer;
-    private readonly int[] _stunTimers = new int[(int)ObjectSlot.MaxObjects];
-    private readonly byte[] _placeholderTypes = new byte[(int)ObjectSlot.MaxObjects];
+    private readonly Dictionary<StunTimerSlot, int> _stunTimers = new();
+    private readonly List<ObjType> _pendingEdgeSpawns = new();
 
     private int _triggeredDoorCmd;   // 54
     private Direction _triggeredDoorDir;   // 55
@@ -465,7 +466,7 @@ internal sealed unsafe partial class World
     public void Start(PlayerProfile profile)
     {
         Profile = profile;
-        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHearts);
+        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHeartCount);
 
         GotoLoadLevel(0, true);
     }
@@ -533,13 +534,14 @@ internal sealed unsafe partial class World
     };
 
     public Point GetObservedPlayerPos() => _fakePlayerPos;
-    public LadderActor? GetLadder() => GetObject<LadderActor>(ObjectSlot.Ladder);
-    public void SetLadder(LadderActor? ladder) => SetOnlyObject(ObjectSlot.Ladder, ladder);
+    public LadderActor? GetLadder() => GetObject<LadderActor>();
+    public void SetLadder(LadderActor ladder) => AddOnlyObjectOfType(ladder);
+    public void RemoveLadder() => RemoveObject<LadderActor>();
 
     public void UseRecorder()
     {
         Game.Sound.PushSong(SongId.Recorder);
-        _objectTimers[(int)ObjectSlot.FluteMusic] = 0x98;
+        SetObjectTimer(ObjectTimer.FluteMusic, 0x98);
 
         if (!IsOverworld())
         {
@@ -582,18 +584,14 @@ internal sealed unsafe partial class World
             && _state.Play.RoomType == RoomType.Regular
             && GetItem(ItemSlot.TriforcePieces) != 0)
         {
-            var slot = FindEmptyMonsterSlot();
-            if (slot != ObjectSlot.NoneFound)
-            {
-                ReadOnlySpan<byte> teleportRoomIds = [0x36, 0x3B, 0x73, 0x44, 0x0A, 0x21, 0x41, 0x6C];
+            ReadOnlySpan<byte> teleportRoomIds = [0x36, 0x3B, 0x73, 0x44, 0x0A, 0x21, 0x41, 0x6C];
 
-                var whirlwind = new WhirlwindActor(Game, 0, Game.Link.Y);
-                SetObject(slot, whirlwind);
+            var whirlwind = new WhirlwindActor(Game, 0, Game.Link.Y);
+            AddObject(whirlwind);
 
-                _summonedWhirlwind = true;
-                _teleportingRoomIndex = GetNextTeleportingRoomIndex();
-                whirlwind.SetTeleportPrevRoomId(teleportRoomIds[_teleportingRoomIndex]);
-            }
+            _summonedWhirlwind = true;
+            _teleportingRoomIndex = GetNextTeleportingRoomIndex();
+            whirlwind.SetTeleportPrevRoomId(teleportRoomIds[_teleportingRoomIndex]);
         }
     }
 
@@ -684,70 +682,56 @@ internal sealed unsafe partial class World
         return new Cell((byte)(cell.Row + BaseRows), cell.Col);
     }
 
-    public bool HasObject(ObjectSlot slot) => GetObject(slot) != null;
-    public T? GetObject<T>(ObjectSlot slot) where T : Actor => GetObject(slot) as T;
+    public IEnumerable<Actor> GetObjects() => _objects;
+    public T? GetObject<T>() where T : Actor => _objects.OfType<T>().FirstOrDefault(); // JOE: De-linq this.
+    public T? GetObject<T>(Func<T, bool> pred) where T : Actor => _objects.OfType<T>().FirstOrDefault(pred); // JOE: De-linq this.
+    public Actor? GetObject(Func<Actor, bool> pred) => GetObject<Actor>(pred);
+    public IEnumerable<T> GetObjects<T>() where T : Actor => _objects.OfType<T>(); // JOE: De-linq this.
+    public IEnumerable<T> GetObjects<T>(Func<T, bool> pred) where T : Actor => _objects.OfType<T>().Where(pred); // JOE: De-linq this.
+    public IEnumerable<Actor> GetObjects(Func<Actor, bool> pred) => GetObjects<Actor>(pred);
+    public int CountObjects<T>() where T : Actor => GetObjects<T>().Count();
+    public int CountObjects() => _objects.Count;
 
-    public Actor? GetObject(ObjectSlot slot)
+    public bool HasObject<T>() where T : Actor => GetObjects<T>().Any();
+
+    public void AddObject(Actor obj)
     {
-        return slot == ObjectSlot.Player ? Game.Link : _objects[(int)slot];
+        _traceLog.Write($"AddObject({obj.ObjType}); {obj.X:X2},{obj.Y:X2}");
+        _objects.Add(obj);
     }
 
-    public IEnumerable<T> GetObjects<T>() where T : Actor
+    // Some object constructors add themselves already, making generic object construction need to not double-add.
+    public void AddUniqueObject(Actor obj)
     {
-        for (var slot = ObjectSlot.Monster1; slot < ObjectSlot.MaxObjects; slot++)
+        if (!_objects.Contains(obj)) AddObject(obj);
+    }
+
+    public void AddOnlyObject(Actor? old, Actor obj)
+    {
+        _traceLog.Write($"AddOnlyObject({old?.ObjType}, {obj.ObjType}); {obj.X:X2},{obj.Y:X2}");
+        AddObject(obj);
+        old?.Delete();
+    }
+
+    public void RemoveObject<T>()
+        where T : Actor
+    {
+        for (var i = _objects.Count - 1; i >= 0; i--)
         {
-            var obj = GetObject(slot);
-            if (obj is T actor) yield return actor;
+            if (_objects[i] is T actor)
+            {
+                _traceLog.Write($"RemoveObject({actor.ObjType}); {actor.X:X2},{actor.Y:X2}");
+                actor.Delete();
+                _objects.RemoveAt(i);
+                return;
+            }
         }
     }
 
-    public IEnumerable<T> GetMonsters<T>(bool skipStart = false) where T : Actor
-    {
-        var start = skipStart ? ObjectSlot.Monster1 + 1 : ObjectSlot.Monster1;
-        var end = skipStart ? ObjectSlot.Monster1 + 9 : ObjectSlot.MonsterEnd;
-        for (var slot = start; slot < end; slot++)
-        {
-            var obj = GetObject(slot);
-            if (obj is T monster) yield return monster;
-        }
-    }
-
-    public T? GetFirstObject<T>(ObjectSlot start, ObjectSlot end) where T : Actor
-    {
-        for (var slot = start; slot < end; slot++)
-        {
-            var obj = GetObject<T>(slot);
-            if (obj != null) return obj;
-        }
-
-        return null;
-    }
-
-    public void ClearObject(ObjectSlot slot)
-    {
-        _traceLog.Write($"ClearObject({slot})");
-        SetOnlyObject(slot, null);
-    }
-
-    public void SetObject(ObjectSlot slot, Actor obj)
-    {
-        _traceLog.Write($"SetObject({slot}, {obj?.ObjType}); {obj?.X:X2},{obj?.Y:X2}");
-        SetOnlyObject(slot, obj);
-    }
-
-    public ObjectSlot FindEmptyFireSlot()
-    {
-        for (var i = ObjectSlot.FirstFire; i < ObjectSlot.LastFire; i++)
-        {
-            if (_objects[(int)i] == null) return i;
-        }
-        return ObjectSlot.NoneFound;
-    }
-
-    public ref int GetObjectTimer(ObjectSlot slot) => ref _objectTimers[(int)slot];
-    public void SetObjectTimer(ObjectSlot slot, int value) => _objectTimers[(int)slot] = value;
-    public int GetStunTimer(ObjectSlot slot) => _stunTimers[(int)slot];
-    public void SetStunTimer(ObjectSlot slot, int value) => _stunTimers[(int)slot] = value;
+    public int GetObjectTimer(ObjectTimer slot) => _objectTimers.GetValueOrDefault(slot);
+    public void SetObjectTimer(ObjectTimer slot, int value) => _objectTimers[slot] = value;
+    public int GetStunTimer(StunTimerSlot slot) => _stunTimers.GetValueOrDefault(slot);
+    public void SetStunTimer(StunTimerSlot slot, int value) => _stunTimers[slot] = value;
     public void PushTile(int row, int col) => InteractTile(row, col, TileInteraction.Push);
     private void TouchTile(int row, int col) => InteractTile(row, col, TileInteraction.Touch);
     public void CoverTile(int row, int col) => InteractTile(row, col, TileInteraction.Cover);
@@ -943,7 +927,7 @@ internal sealed unsafe partial class World
             if (roomItem != null && x == roomItem.Value.x && y == roomItem.Value.y)
             {
                 var itemObj = new ItemObjActor(Game, roomItem.Value.AsItemId, true, roomItem.Value.x, roomItem.Value.y);
-                SetOnlyObject(ObjectSlot.Item, itemObj);
+                AddOnlyObjectOfType(itemObj);
             }
         }
     }
@@ -1362,16 +1346,11 @@ internal sealed unsafe partial class World
     private bool GotShortcut(int roomId) => GetRoomFlags(roomId).ShortcutState;
     private bool GotSecret() => GetRoomFlags(CurRoomId).SecretState;
 
-    public ObjectSlot DebugSpawnItem(ItemId itemId)
+    public Actor DebugSpawnItem(ItemId itemId)
     {
-        if (TryFindEmptyMonsterSlot(out var slot))
-        {
-            _objects[(int)slot] = GlobalFunctions.MakeItem(
-                Game, itemId, Game.Link.X, Game.Link.Y - TileHeight, false);
-            return slot;
-        }
-
-        return ObjectSlot.NoneFound;
+        var item = GlobalFunctions.MakeItem(Game, itemId, Game.Link.X, Game.Link.Y - TileHeight, false);
+        AddObject(item);
+        return item;
     }
 
     public void DebugClearHistory()
@@ -1493,6 +1472,14 @@ internal sealed unsafe partial class World
         }
     }
 
+    internal enum ObjectTimer
+    {
+        Fade,
+        Monster1,
+        FluteMusic,
+        Door
+    }
+
     public void FadeIn()
     {
         if (_darkRoomFadeStep == 0)
@@ -1501,7 +1488,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        var timer = GetObjectTimer(ObjectSlot.FadeTimer);
+        var timer = GetObjectTimer(ObjectTimer.Fade);
 
         if (timer == 0)
         {
@@ -1609,7 +1596,7 @@ internal sealed unsafe partial class World
                 if (roomItem != null)
                 {
                     var itemObj = new ItemObjActor(Game, roomItem.Value.AsItemId, true, roomItem.Value.x, roomItem.Value.y);
-                    SetOnlyObject(ObjectSlot.Item, itemObj);
+                    AddOnlyObjectOfType(itemObj);
                 }
             }
         }
@@ -1626,10 +1613,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    public void AddUWRoomItem()
-    {
-        AddUWRoomItem(CurRoomId);
-    }
+    public void AddUWRoomItem() => AddUWRoomItem(CurRoomId);
 
     private void AddUWRoomItem(int roomId)
     {
@@ -1647,7 +1631,7 @@ internal sealed unsafe partial class World
             }
 
             var itemObj = new ItemObjActor(Game, itemId, true, pos.X, pos.Y);
-            SetOnlyObject(ObjectSlot.Item, itemObj);
+            AddOnlyObjectOfType(itemObj);
 
             if (uwRoomAttrs.GetSecret() is Secret.FoesItem or Secret.LastBoss)
             {
@@ -1935,9 +1919,8 @@ internal sealed unsafe partial class World
 
         if (IsOverworld() && FindSparseFlag(Sparse.Dock, CurRoomId))
         {
-            var slot = FindEmptyMonsterSlot();
             var dock = new DockActor(Game, 0, 0);
-            SetObject(slot, dock);
+            AddObject(dock);
         }
 
         // Set the level's level foreground palette before making objects,
@@ -1954,7 +1937,6 @@ internal sealed unsafe partial class World
         MakeObjects(Game.Link.Facing);
         MakeWhirlwind();
         AddRoomToHistory();
-        MoveRoomItem();
 
         if (!IsOverworld())
         {
@@ -2030,7 +2012,7 @@ internal sealed unsafe partial class World
         DecrementObjectTimers();
         DecrementStunTimers();
 
-        if (_objectTimers[(int)ObjectSlot.FluteMusic] != 0) return;
+        if (GetObjectTimer(ObjectTimer.FluteMusic) != 0) return;
 
         if (_pause == PauseState.FillingHearts)
         {
@@ -2051,7 +2033,6 @@ internal sealed unsafe partial class World
         UpdateRupees();
         UpdateLiftItem();
 
-        CurObjSlot = (int)ObjectSlot.Player;
         Game.Link.DecInvincibleTimer();
         Game.Link.Update();
 
@@ -2060,19 +2041,24 @@ internal sealed unsafe partial class World
 
         UpdateObservedPlayerPos();
 
-        for (CurObjSlot = (int)ObjectSlot.MaxObjects - 1; CurObjSlot >= 0; CurObjSlot--)
+        // not sure why these are done backward.
+        for (var i = _objects.Count - 1; i >= 0; i--)
         {
-            var obj = _objects[CurObjSlot];
-            if (obj != null && !obj.IsDeleted)
+            var obj = _objects[i];
+            if (!obj.IsDeleted)
             {
                 if (obj.DecoratedUpdate())
                 {
-                    HandleNormalObjectDeath();
+                    HandleNormalObjectDeath(obj);
                 }
             }
-            else if (_placeholderTypes[CurObjSlot] != 0)
+        }
+
+        for (var i = _pendingEdgeSpawns.Count - 1; i >= 0; i--)
+        {
+            if (PutEdgeObject(_pendingEdgeSpawns[i]))
             {
-                PutEdgeObject();
+                _pendingEdgeSpawns.RemoveAt(i);
             }
         }
 
@@ -2082,7 +2068,6 @@ internal sealed unsafe partial class World
         CheckShutters();
         UpdateDoors2();
         UpdateStatues();
-        MoveRoomItem();
         CheckPowerTriforceFanfare();
         AdjustInventory();
         WarnLowHPIfNeeded();
@@ -2178,7 +2163,7 @@ internal sealed unsafe partial class World
     private void UpdateDoors2()
     {
         if (GetMode() == GameMode.EndLevel
-            || _objectTimers[(int)ObjectSlot.Door] != 0
+            || GetObjectTimer(ObjectTimer.Door) != 0
             || _triggeredDoorCmd == 0)
         {
             return;
@@ -2187,7 +2172,7 @@ internal sealed unsafe partial class World
         if ((_triggeredDoorCmd & 1) == 0)
         {
             _triggeredDoorCmd++;
-            _objectTimers[(int)ObjectSlot.Door] = 8;
+            SetObjectTimer(ObjectTimer.Door, 8);
             return;
         }
 
@@ -2302,10 +2287,9 @@ internal sealed unsafe partial class World
     {
         var uwRoomAttrs = CurrentUWRoomAttrs;
 
-        for (var iBomb = ObjectSlot.FirstBomb; iBomb < ObjectSlot.LastBomb; iBomb++)
+        foreach (var bomb in Game.World.GetObjects<BombActor>())
         {
-            var bomb = GetObject<BombActor>(iBomb);
-            if (bomb == null || bomb.BombState != BombState.Fading) continue;
+            if (bomb.BombState != BombState.Fading) continue;
 
             var bombX = bomb.X + 8;
             var bombY = bomb.Y + 8;
@@ -2339,9 +2323,9 @@ internal sealed unsafe partial class World
 
     private bool CalcHasLivingObjects()
     {
-        foreach (var monster in GetMonsters<Actor>())
+        foreach (var monster in GetObjects<Actor>())
         {
-            if (monster.CountsAsLiving) return true;
+            if (!monster.IsDeleted && monster.CountsAsLiving) return true;
         }
 
         return false;
@@ -2366,7 +2350,8 @@ internal sealed unsafe partial class World
         switch (secret)
         {
             case Secret.Ringleader:
-                if (GetObject(ObjectSlot.Monster1) == null || GetObject(ObjectSlot.Monster1) is PersonActor)
+                // JOE: I'm not sure what RoomObj is for and I feel like I'm double purposing it here...
+                if ((RoomObj == null || RoomObj.IsDeleted) || RoomObj is PersonActor)
                 {
                     KillAllObjects();
                 }
@@ -2401,7 +2386,7 @@ internal sealed unsafe partial class World
 
     public void KillAllObjects()
     {
-        foreach (var monster in GetMonsters<Actor>())
+        foreach (var monster in GetObjects())
         {
             if (monster.ObjType < ObjType.PersonEnd && monster.Decoration == 0)
             {
@@ -2409,18 +2394,6 @@ internal sealed unsafe partial class World
                 monster.Decoration = 0x10;
             }
         }
-    }
-
-    private void MoveRoomItem()
-    {
-        var foe = GetObject(ObjectSlot.Monster1);
-        if (foe == null || !foe.CanHoldRoomItem) return;
-
-        var item = GetObject(ObjectSlot.Item);
-        if (item == null) return;
-
-        item.X = foe.X;
-        item.Y = foe.Y;
     }
 
     private void UpdateStatues()
@@ -2603,10 +2576,10 @@ internal sealed unsafe partial class World
         }
 
         // ORIGINAL: This happens after player items update and before the rest of objects update.
-        ref var timer = ref _stunTimers[(int)ObjectSlot.ObservedPlayerTimer];
+        var timer = GetStunTimer(StunTimerSlot.ObservedPlayer);
         if (timer != 0) return;
 
-        timer = Random.Shared.Next(0, 8);
+        SetStunTimer(StunTimerSlot.ObservedPlayer, Random.Shared.Next(0, 8));
 
         _giveFakePlayerPos = !_giveFakePlayerPos;
         if (_giveFakePlayerPos)
@@ -2728,21 +2701,17 @@ internal sealed unsafe partial class World
     {
         objOverPlayer = null;
 
-        for (var i = ObjectSlot.FirstSlot; i < ObjectSlot.MaxObjects; i++)
+        foreach (var obj in _objects)
         {
-            CurObjectSlot = i;
+            if (obj.IsDeleted) continue;
 
-            var obj = _objects[(int)i];
-            if (obj != null && !obj.IsDeleted)
+            if (!obj.Flags.HasFlag(ActorFlags.DrawAbovePlayer) || objOverPlayer != null)
             {
-                if (!obj.Flags.HasFlag(ActorFlags.DrawAbovePlayer) || objOverPlayer != null)
-                {
-                    obj.DecoratedDraw();
-                }
-                else
-                {
-                    objOverPlayer = obj;
-                }
+                obj.DecoratedDraw();
+            }
+            else
+            {
+                objOverPlayer = obj;
             }
         }
     }
@@ -2779,9 +2748,8 @@ internal sealed unsafe partial class World
         }
 
         var roomAttr = _roomAttrs[CurRoomId];
-        var slot = ObjectSlot.Monster1;
         var objId = (ObjType)roomAttr.MonsterListId;
-        var edgeObjects = false;
+        var monstersEnterFromEdge = false;
 
         if (objId is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble)
         {
@@ -2792,7 +2760,7 @@ internal sealed unsafe partial class World
         if (IsOverworld())
         {
             var owRoomAttrs = CurrentOWRoomAttrs;
-            edgeObjects = owRoomAttrs.MonstersEnter();
+            monstersEnterFromEdge = owRoomAttrs.DoMonstersEnter();
         }
 
         var count = roomAttr.GetMonsterCount();
@@ -2804,11 +2772,11 @@ internal sealed unsafe partial class World
 
         CalcObjCountToMake(ref objId, ref count);
         RoomObjCount = count;
+        var roomObj = GetObject<ItemObjActor>();
 
         if (objId > 0 && count > 0)
         {
             var isList = objId >= ObjType.Rock;
-            var repeatedIds = new byte[(int)ObjectSlot.MaxMonsters];
             ReadOnlySpan<byte> list;
 
             if (isList)
@@ -2818,8 +2786,7 @@ internal sealed unsafe partial class World
             }
             else
             {
-                Array.Fill(repeatedIds, (byte)objId, 0, count);
-                list = repeatedIds;
+                list = Enumerable.Repeat((byte)objId, count).ToArray();
             }
 
             var dirOrd = entryDir.GetOrdinal();
@@ -2830,37 +2797,42 @@ internal sealed unsafe partial class World
 
             var x = 0;
             var y = 0;
-            for (var i = 0; i < count; i++, slot++)
+            for (var i = 0; i < count; i++)
             {
-                // An earlier objects that's made might make some objects in slots after it.
-                // Maybe MakeMonster should take a reference to the current index.
-                if (GetObject(slot) != null) continue;
+                var type = (ObjType)list[i];
 
-                CurObjSlot = (int)slot;
-
-                var type = (ObjType)list[(int)slot];
-
-                if (edgeObjects
+                if (monstersEnterFromEdge
                     && type != ObjType.Zora // JOE: TODO: Move this to an attribute on the class?
                     && type != ObjType.Armos
                     && type != ObjType.StandingFire
                     && type != ObjType.Whirlwind
                     )
                 {
-                    _placeholderTypes[(int)slot] = (byte)type;
+                    _pendingEdgeSpawns.Add(type);
+                    continue;
                 }
-                else if (FindSpawnPos(type, dirSpots, spotsLen, ref x, ref y))
-                {
-                    var obj = Actor.FromType(type, Game, x, y);
-                    SetOnlyObject(slot, obj);
-                }
-            }
-        }
 
-        var monster = GetObject(ObjectSlot.Monster1);
-        if (monster != null)
-        {
-            RoomObj = monster;
+                if (!FindSpawnPos(type, dirSpots, spotsLen, ref x, ref y))
+                {
+                    _log.Error($"Couldn't find spawn position for {type}.");
+                    continue;
+                }
+
+                var obj = Actor.FromType(type, Game, x, y);
+                // The NES logic would only set HoldingItem for the first object.
+                if (i == 0)
+                {
+                    RoomObj = obj; // JOE: I'm not sure what this is for...?
+
+                    if (obj.CanHoldRoomItem && roomObj != null)
+                    {
+                        roomObj.X = obj.X;
+                        roomObj.Y = obj.Y;
+                        obj.HoldingItem = roomObj;
+                    }
+                }
+                AddUniqueObject(obj);
+            }
         }
 
         if (IsOverworld())
@@ -2868,10 +2840,7 @@ internal sealed unsafe partial class World
             var owRoomAttr = CurrentOWRoomAttrs;
             if (owRoomAttr.HasZora())
             {
-                CurObjSlot = (int)slot;
-
-                var zora = Actor.FromType(ObjType.Zora, Game, 0, 0);
-                SetObject(slot, zora);
+                AddObject(Actor.FromType(ObjType.Zora, Game, 0, 0));
             }
         }
     }
@@ -2882,12 +2851,9 @@ internal sealed unsafe partial class World
 
         ReadOnlySpan<int> startXs = [0x20, 0x60, 0x90, 0xD0];
 
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < startXs.Length; i++)
         {
-            CurObjSlot = i;
-
-            var keese = Actor.FromType(ObjType.BlueKeese, Game, startXs[i], startY);
-            SetObject((ObjectSlot)i, keese);
+            AddObject(Actor.FromType(ObjType.BlueKeese, Game, startXs[i], startY));
         }
     }
 
@@ -2973,16 +2939,14 @@ internal sealed unsafe partial class World
 
         if (spec.DwellerType != ObjType.None)
         {
-            CurObjSlot = 0;
             var person = GlobalFunctions.MakePerson(Game, type, spec, 0x78, 0x80);
-            SetObject(0, person);
+            AddObject(person);
         }
 
         for (var i = 0; i < 2; i++)
         {
-            CurObjSlot++;
             var fire = new StandingFireActor(Game, fireXs[i], 0x80);
-            SetObject((ObjectSlot)CurObjSlot, fire);
+            AddObject(fire);
         }
     }
 
@@ -2997,7 +2961,7 @@ internal sealed unsafe partial class World
             WhirlwindTeleporting = 2;
 
             var whirlwind = new WhirlwindActor(Game, 0, y);
-            SetObject(ObjectSlot.Whirlwind, whirlwind);
+            AddObject(whirlwind);
 
             Game.Link.SetState(PlayerState.Paused);
             Game.Link.X = whirlwind.X;
@@ -3012,8 +2976,8 @@ internal sealed unsafe partial class World
         var playerX = Game.Link.X;
         var playerY = Game.Link.Y;
         var noWorldCollision = !objAttrs[(int)type].GetWorldCollision();
-        var i = 0;
-        for (; i < (int)ObjectSlot.MaxObjListSize; i++)
+
+        for (var i = 0; i < len; i++)
         {
             GetRSpotCoord(spots[_spotIndex], ref x, ref y);
             _spotIndex = (_spotIndex + 1) % len;
@@ -3021,21 +2985,20 @@ internal sealed unsafe partial class World
             if ((playerX != x || playerY != y)
                 && (noWorldCollision || !CollidesWithTileStill(x, y)))
             {
-                break;
+                return true;
             }
         }
 
-        if (x == 0 && y == 0) throw new Exception();
-
-        return i != 9;
+        return false;
     }
 
-    private void PutEdgeObject()
+    private bool PutEdgeObject(ObjType placeholder)
     {
-        ref var timer = ref _stunTimers[(int)ObjectSlot.EdgeObjTimer];
-        if (timer != 0) return;
+        var timer = GetStunTimer(StunTimerSlot.EdgeObject);
+        if (timer != 0) return false;
 
         timer = Random.Shared.Next(0, 4) + 2;
+        SetStunTimer(StunTimerSlot.EdgeObject, timer);
 
         var x = _edgeX;
         var y = _edgeY;
@@ -3066,25 +3029,26 @@ internal sealed unsafe partial class World
 
         _edgeX = x;
         _edgeY = y;
-
-        if (Math.Abs(Game.Link.X - x) >= 0x22
-            || Math.Abs(Game.Link.Y - y) >= 0x22)
+        const int linkBoundary = 0x22;
+        if (Math.Abs(Game.Link.X - x) >= linkBoundary
+            || Math.Abs(Game.Link.Y - y) >= linkBoundary)
         {
-            // JOE: TODO: What?
-            var obj = Actor.FromType((ObjType)_placeholderTypes[CurObjSlot], Game, x, y - 3);
-            SetOnlyObject(CurObjectSlot, obj);
-            _placeholderTypes[CurObjSlot] = 0;
+            // Bring them in from the edge of the screen if link isn't too close.
+            var obj = Actor.FromType(placeholder, Game, x, y - 3);
+            AddUniqueObject(obj);
             obj.Decoration = 0;
+            return true;
         }
+
+        return false;
     }
 
-    private void HandleNormalObjectDeath()
+    private void HandleNormalObjectDeath(Actor obj)
     {
-        var obj = _objects[CurObjSlot] ?? throw new Exception("Missing object");
         var x = obj.X;
         var y = obj.Y;
 
-        _objects[CurObjSlot] = null;
+        _objects.Remove(obj);
 
         // JOE: TODO: Put whatever this is on the object itself.
         if (obj.ObjType is not (ObjType.ChildGel or ObjType.RedKeese or ObjType.DeadDummy))
@@ -3108,7 +3072,7 @@ internal sealed unsafe partial class World
 
     private void TryDroppingItem(Actor origType, int x, int y)
     {
-        if (CurObjSlot == (int)ObjectSlot.Monster1 && origType is StalfosActor or GibdoActor) return;
+        if (origType.HoldingItem != null) return;
 
         var objClass = origType.Attributes.GetItemDropClass();
         if (objClass == 0) return;
@@ -3146,7 +3110,7 @@ internal sealed unsafe partial class World
             itemId = (ItemId)dropItems[classIndex];
         }
 
-        _objects[CurObjSlot] = GlobalFunctions.MakeItem(Game, itemId, x, y, false);
+        AddObject(GlobalFunctions.MakeItem(Game, itemId, x, y, false));
     }
 
     private void FillHeartsStep()
@@ -4606,7 +4570,7 @@ internal sealed unsafe partial class World
                         // So, that the OW song is played in the Enter mode.
                         FromUnderground = 2;
                         Game.Link.Initialize();
-                        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHearts);
+                        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHeartCount);
                         Unpause(); // It's easy for select+start to also pause the game, and that's confusing.
                         GotoUnfurl(true);
                         break;
@@ -4870,15 +4834,19 @@ internal sealed unsafe partial class World
 
     public void MakeActivatedObject(ObjType type, int row, int col)
     {
+        if (type is not (ObjType.FlyingGhini or ObjType.Armos))
+        {
+            throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type given to {nameof(MakeActivatedObject)}");
+        }
+
         row += BaseRows;
 
         var x = col * TileWidth;
         var y = row * TileHeight;
 
-        for (var i = (int)ObjectSlot.LastMonster; i >= 0; i--)
+        foreach (var obj in GetObjects<MonsterActor>())
         {
-            var obj = _objects[i];
-            if (obj == null || obj.ObjType != type) continue;
+            if (obj.ObjType != type) continue;
 
             var objCol = obj.X / TileWidth;
             var objRow = obj.Y / TileHeight;
@@ -4886,13 +4854,9 @@ internal sealed unsafe partial class World
             if (objCol == col && objRow == row) return;
         }
 
-        var freeSlot = FindEmptyMonsterSlot();
-        if (freeSlot >= 0)
-        {
-            var obj = Actor.FromType(type, Game, x, y);
-            _objects[(int)freeSlot] = obj;
-            obj.ObjTimer = 0x40;
-        }
+        var activatedObj = Actor.FromType(type, Game, x, y);
+        activatedObj.ObjTimer = 0x40;
+        AddUniqueObject(activatedObj);
     }
 
     public void BlockTileAction(int row, int col, TileInteraction interaction)

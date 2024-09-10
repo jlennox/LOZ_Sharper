@@ -208,32 +208,22 @@ internal static class GlobalFunctions
     }
 
     // JOE: TODO: These should take Game to make them uniform.
-    public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, ObjectSlot slot)
+    public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, Actor actor)
     {
-        var origSlot = world.CurObjSlot;
-        world.CurObjSlot = (int)slot;
-
-        Actor obj = type switch {
-            ObjType.FlyingRock => new FlyingRockProjectile(world.Game, x, y, moving),
-            ObjType.PlayerSwordShot => new PlayerSwordProjectile(world.Game, x, y, moving),
-            ObjType.Arrow => new ArrowProjectile(world.Game, x, y, moving),
-            ObjType.MagicWave => new MagicWaveProjectile(world.Game, ObjType.MagicWave, x, y, moving),
-            ObjType.MagicWave2 => new MagicWaveProjectile(world.Game, ObjType.MagicWave2, x, y, moving),
+        return type switch {
+            ObjType.FlyingRock => new FlyingRockProjectile(world.Game, x, y, moving, actor),
+            ObjType.PlayerSwordShot => new PlayerSwordProjectile(world.Game, x, y, moving, actor),
+            ObjType.Arrow => new ArrowProjectile(world.Game, x, y, moving, actor),
+            ObjType.MagicWave => new MagicWaveProjectile(world.Game, ObjType.MagicWave, x, y, moving, actor),
+            ObjType.MagicWave2 => new MagicWaveProjectile(world.Game, ObjType.MagicWave2, x, y, moving, actor),
             _ => throw new Exception()
         };
-
-        world.CurObjSlot = origSlot;
-        return obj;
     }
 
     public static BoomerangProjectile MakeBoomerang(
-        Game game, int x, int y, Direction moving, int distance, float speed, Actor? owner, ObjectSlot slot)
+        Game game, int x, int y, Direction moving, int distance, float speed, Actor owner)
     {
-        var origSlot = game.World.CurObjSlot;
-        game.World.CurObjSlot = (int)slot;
-        var boomerang = new BoomerangProjectile(game, x, y, moving, distance, speed, owner);
-        game.World.CurObjSlot = origSlot;
-        return boomerang;
+        return new BoomerangProjectile(game, x, y, moving, distance, speed, owner);
     }
 
     public static Actor MakePerson(Game game, ObjType type, CaveSpec spec, int x, int y)
@@ -437,7 +427,6 @@ internal static class GlobalFunctions
     {
         RedLeeverActor.ClearRoomData();
         BouldersActor.ClearRoomData();
-        ManhandlaActor.ClearRoomData();
         Statues.Init();
     }
 

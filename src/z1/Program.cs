@@ -4,6 +4,8 @@
 
 namespace z1;
 
+// Sharper:
+
 // Milestone 1:
 // * Textbox and rupee sounds are wrong.
 // * Darknuts should make parry sound when shot with wave.
@@ -67,8 +69,8 @@ namespace z1;
 // * Cellar:                 W8, l2
 // * Ruppee Boss:            W8, u5, l1
 // * Crab:                   W8, u3, l1
-// * Moldorm:                W7, r1
-// * Lamnola:                W9: u2, l1
+// * Moldorm (fireworm):     W7, r1
+// * Lamnola (centipede):    W9: u2, l1
 // * Pols:                   W8: u2, r1
 // * Patra (expand, type 2): W9: u5, r1
 // * LikeLike:               W9: u2

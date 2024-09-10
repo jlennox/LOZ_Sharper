@@ -218,7 +218,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
         if (dir == Direction.None && this is not GanonActor)
         {
-            throw new Exception($"{ObjType} at {Game.World.CurObjectSlot} attempted to CheckWizzrobeTileCollision with no direction.");
+            throw new Exception($"{ObjType} at attempted to CheckWizzrobeTileCollision with no direction.");
         }
 
         // JOE: NOTE: This is a deviation from the original game and C++ code.
@@ -231,7 +231,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         y += allWizzrobeCollisionYOffsets[(int)ord];
 
         var collision = Game.World.CollidesWithTileStill(x, y);
-        fnlog.Write($"{Game.World.CurObjectSlot} FlashTimer:{FlashTimer} {dir} {x:X2},{y:X2} collision:({collision})");
+        fnlog.Write($"FlashTimer:{FlashTimer} {dir} {x:X2},{y:X2} collision:({collision})");
         if (!collision.Collides) return WizzrobeTileCollisionResult.NoCollision;
 
         // This isn't quite the same as the original game, because the original contrasted
@@ -242,7 +242,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
     }
 }
 
-internal abstract class WizzrobeBase : Actor
+internal abstract class WizzrobeBase : MonsterActor
 {
     protected WizzrobeBase(Game game, ObjType type, int x, int y)
         : base(game, type, x, y) { }
@@ -252,12 +252,9 @@ internal abstract class WizzrobeBase : Actor
         InvincibilityMask = 0xF6;
         if (InvincibilityTimer == 0)
         {
-            CheckWave(ObjectSlot.PlayerSwordShot);
-            CheckBombAndFire(ObjectSlot.Bomb);
-            CheckBombAndFire(ObjectSlot.Bomb2);
-            CheckBombAndFire(ObjectSlot.Fire);
-            CheckBombAndFire(ObjectSlot.Fire2);
-            CheckSword(ObjectSlot.PlayerSword, false);
+            CheckWave();
+            CheckBombAndFire();
+            CheckSword(false);
         }
         CheckPlayerCollision();
     }

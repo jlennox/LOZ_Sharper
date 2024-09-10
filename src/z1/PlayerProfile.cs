@@ -41,8 +41,14 @@ internal enum ItemSlot
     MaxBombs,
     RupeesToAdd,
     RupeesToSubtract,
+    AllowedBombCount,
+    AllowedFireCount,
+    AllowedBoomerangCount,
+    AllowedArrowCount,
+    AllowedSwordShotCount,
+    AllowedMagicWaveCount,
 
-    MaxItems
+MaxItems
 }
 
 internal enum RoomMap
@@ -143,8 +149,13 @@ internal sealed class PlayerStatistics
 internal sealed class PlayerProfile
 {
     public const int MaxNameLength = 8;
-    public const int DefaultHearts = 3;
-    public const int DefaultBombs = 8;
+    public const int DefaultHeartCount = 3;
+    public const int DefaultMaxBombCount = 8;
+    public const int DefaultBombCount = 2;
+    public const int DefaultFireCount = 2;
+    public const int DefaultBoomerangCount = 2;
+    public const int DefaultArrowCount = 2;
+    public const int DefaultShotCount = 2;
 
     public int Version { get; set; }
     public Guid Id { get; set; }
@@ -166,7 +177,7 @@ internal sealed class PlayerProfile
 
     public void Initialize()
     {
-        if (Hearts < DefaultHearts) Hearts = DefaultHearts;
+        if (Hearts < DefaultHeartCount) Hearts = DefaultHeartCount;
         Items ??= new Dictionary<ItemSlot, int>();
         RoomFlags ??= [];
         Statistics ??= new PlayerStatistics();
@@ -178,8 +189,13 @@ internal sealed class PlayerProfile
             {
                 Items[slot] = slot switch
                 {
-                    ItemSlot.HeartContainers => DefaultHearts,
-                    ItemSlot.MaxBombs => DefaultBombs,
+                    ItemSlot.HeartContainers => DefaultHeartCount,
+                    ItemSlot.AllowedBombCount => DefaultBombCount,
+                    ItemSlot.AllowedFireCount => DefaultFireCount,
+                    ItemSlot.AllowedBoomerangCount => DefaultBoomerangCount,
+                    ItemSlot.AllowedArrowCount => DefaultArrowCount,
+                    ItemSlot.AllowedSwordShotCount => DefaultShotCount,
+                    ItemSlot.AllowedMagicWaveCount => DefaultShotCount,
                     _ => 0,
                 };
             }
@@ -226,6 +242,7 @@ internal sealed class PlayerProfile
     public bool PreventDarkRooms(Game game) => game.Enhancements.RedCandleLightsDarkRooms && GetItem(ItemSlot.Candle) >= 2;
     public int GetMaxHeartsValue() => GetMaxHeartsValue(Items[ItemSlot.HeartContainers]);
     public static int GetMaxHeartsValue(int heartContainers) => (heartContainers << 8) - 1;
+    public bool IsFullHealth() => Hearts >= (Items[ItemSlot.HeartContainers] << 8) - 0x80;
 }
 
 internal static class PlayerProfileExtensions
