@@ -2175,6 +2175,7 @@ internal abstract class FlyingActor : MonsterActor
 
         if (Direction.None != CheckWorldMargin(Facing)) return;
 
+        // JOE: Localize this.
         if (this is MoldormActor moldorm)
         {
             if (moldorm.IsHead)
@@ -2489,6 +2490,9 @@ internal sealed class KeeseActor : FlyingActor
 
 internal sealed class MoldormActor : FlyingActor
 {
+    private const int Count = 2;
+    private const int Length = 4;
+
     private static readonly ImmutableArray<AnimationId> _moldormAnimMap = [
         AnimationId.UW_Moldorm,
         AnimationId.UW_Moldorm,
@@ -2498,50 +2502,56 @@ internal sealed class MoldormActor : FlyingActor
 
     private static readonly FlyerSpec _moldormSpec = new(_moldormAnimMap, TileSheet.NpcsUnderworld, Palette.Red, 0x80);
 
-    public bool IsHead => _bodyPart == 0;
+    public bool IsHead => _head == null;
 
     private readonly MoldormActor? _head;
-    private readonly int _bodyPart;
     private Direction _oldFacing;
     private readonly List<MoldormActor> _bodyParts = new();
 
     public override bool IsReoccuring => false;
 
-    private MoldormActor(Game game, MoldormActor? head, int bodyPart, int x, int y)
+    private MoldormActor(Game game, MoldormActor? head, int x, int y, Direction facing = Direction.None)
         : base(game, ObjType.Moldorm, _moldormSpec, x, y)
     {
         _head = head;
-        _bodyPart = bodyPart;
         Decoration = 0;
-        Facing = Direction.None;
-        _oldFacing = Facing;
+        Facing = facing;
+        _oldFacing = facing;
 
         CurSpeed = 0x80;
 
         GoToState(FlyingActorState.Chase, 1);
     }
 
-    public static MoldormActor MakeSet(Game game)
+    public static MoldormActor MakeSet(
+        Game game,
+        int x = 0x80,
+        int y = 0x70,
+        int count = Count,
+        int length = Length)
     {
-        MoldormActor firstMoldorm = null!;
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count, nameof(count));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(length, nameof(length));
 
-        for (var moldormCount = 0; moldormCount < 2; moldormCount++)
+        MoldormActor? firstMoldorm = null;
+
+        for (var moldormCount = 0; moldormCount < count; moldormCount++)
         {
-            var head = new MoldormActor(game, null, 0, 0x80, 0x70);
+            var head = new MoldormActor(game, null, x, y, Random.Shared.GetDirection8());
             game.World.AddObject(head);
             firstMoldorm ??= head;
-            head.Facing = Random.Shared.GetDirection8();
-            head._oldFacing = head.Facing;
 
-            for (var i = 1; i < 5; i++)
+            for (var i = 0; i < length; i++)
             {
-                var bodyPart = new MoldormActor(game, head, i, 0x80, 0x70);
+                var bodyPart = new MoldormActor(game, head, x, y);
                 head._bodyParts.Add(bodyPart);
-                game.World.AddObject(head);
+                game.World.AddObject(bodyPart);
             }
+
+            head._bodyParts.Add(head);
         }
 
-        game.World.RoomObjCount += 8;
+        game.World.RoomObjCount += count * length;
 
         return firstMoldorm ?? throw new Exception();
     }
@@ -2561,6 +2571,7 @@ internal sealed class MoldormActor : FlyingActor
     private void CheckMoldormCollisions()
     {
         // ORIGINAL: This is just like CheckLamnolaCollisions; but it saves stateTimer, and plays sounds.
+        // Check there for more details.
 
         var origFacing = Facing;
         var origStateTimer = ObjTimer;
@@ -2570,43 +2581,37 @@ internal sealed class MoldormActor : FlyingActor
         ObjTimer = origStateTimer;
         Facing = origFacing;
 
+        // Don't do anything else if this part isn't yet dead.
         if (Decoration == 0) return;
 
         Game.Sound.PlayEffect(SoundEffect.BossHit);
         Game.Sound.StopEffect(StopEffect.AmbientInstance);
 
-        // var slot = Game.World.CurObjectSlot;
-        //
-        // slot = slot >= TailSlot2 ? TailSlot2 : TailSlot1;
-        //
-        // for (; ; slot++)
-        // {
-        //     var obj = Game.World.GetObject(slot);
-        //     if (obj != null && obj.ObjType == ObjType) break;
-        // }
-        //
-        // if (slot is HeadSlot1 or HeadSlot2) return;
+        // When a part dies, we want to kill the lowest part on the tail.
+        var head = _head ?? this;
+        var tailmost = head._bodyParts[0];
 
-        // JOE: FIXME: I totally screwed this up.
-        if (IsHead) return;
+        // The last part, the head, is dead. Let's return because the job is done, all parts have died.
+        if (tailmost.IsHead) return;
 
+        // Bring this segment back to life...
         HP = 0x20;
         ShoveDirection = 0;
         ShoveDistance = 0;
         Decoration = 0;
 
+        // ...then kill the tail-most piece by replacing with a dummy.
         var dummy = new DeadDummyActor(Game, X, Y);
-        Game.World.AddOnlyObject(this, dummy);
-        _head?._bodyParts.Remove(this);
+        Game.World.AddOnlyObject(tailmost, dummy);
+        head._bodyParts.RemoveAt(0);
     }
 
     protected override void UpdateTurnImpl()
     {
         if (IsHead)
         {
-
             base.UpdateTurnImpl();
-            UpdateSubstates();
+            UpdateHeadSubstates();
         }
     }
 
@@ -2615,11 +2620,11 @@ internal sealed class MoldormActor : FlyingActor
         if (IsHead)
         {
             base.UpdateChaseImpl();
-            UpdateSubstates();
+            UpdateHeadSubstates();
         }
     }
 
-    private void UpdateSubstates()
+    private void UpdateHeadSubstates()
     {
         if (ObjTimer == 0)
         {
@@ -2628,13 +2633,15 @@ internal sealed class MoldormActor : FlyingActor
 
             ObjTimer = 0x10;
 
-            // This is the head, so all other parts are at lower indexes.
-            // var prevSlot = Game.World.CurObjectSlot - 1;
-            // var obj = Game.World.GetObject(prevSlot);
-            var obj = _bodyParts[0]; // JOE: I think this is wrong.
-            if (obj.Facing != Direction.None)
+            // This is the head and the head is the last body part, so get the
+            // one attached to it.
+            if (_bodyParts.Count > 1)
             {
-                ShiftFacings();
+                var obj = _bodyParts[^2];
+                if (obj.Facing != Direction.None)
+                {
+                    ShiftFacings();
+                }
             }
         }
         else
@@ -2657,8 +2664,6 @@ internal sealed class MoldormActor : FlyingActor
         {
             var curMoldorm = _bodyParts[i];
             var nextMoldorm = _bodyParts[i + 1];
-
-            if (curMoldorm == null || nextMoldorm == null) continue;
 
             var nextOldFacing = nextMoldorm._oldFacing;
             curMoldorm._oldFacing = nextOldFacing;
@@ -3890,26 +3895,43 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
 
 internal sealed class LamnolaActor : MonsterActor
 {
-    private const int BodyPartCount = 4;
+    private const int Count = 2;
+    private const int Length = 4;
+
+    private bool IsHead => _head == null;
 
     private readonly SpriteImage _image;
-    private readonly bool _isHead;
     private readonly LamnolaActor? _head;
     private readonly List<LamnolaActor> _bodyParts = new(); // Only available on heads.
+    private readonly int _speed;
 
-    private LamnolaActor(Game game, ObjType type, bool isHead, LamnolaActor? head, int x, int y)
+    private LamnolaActor(Game game, ObjType type, LamnolaActor? head, int x, int y)
         : base(game, type, x, y)
     {
+        _head = head;
         Decoration = 0;
 
-        var animationId = isHead ? AnimationId.UW_LanmolaHead : AnimationId.UW_LanmolaBody;
+        var animationId = IsHead ? AnimationId.UW_LanmolaHead : AnimationId.UW_LanmolaBody;
         _image = new SpriteImage(TileSheet.NpcsUnderworld, animationId);
-        _isHead = isHead;
-        _head = head;
+        _speed = ObjType switch
+        {
+            ObjType.RedLamnola => 1,
+            ObjType.BlueLamnola => 2,
+            _ => throw new ArgumentOutOfRangeException(nameof(ObjType), ObjType, $"Invalid {nameof(ObjType)} for {nameof(LamnolaActor)}.")
+        };
     }
 
-    public static LamnolaActor MakeSet(Game game, ActorColor color, int bodyPartCount = BodyPartCount)
+    public static LamnolaActor MakeSet(
+        Game game,
+        ActorColor color,
+        int x = 0x40,
+        int y = 0x8D,
+        int count = Count,
+        int length = Length)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count, nameof(count));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(length, nameof(length));
+
         var objtype = color switch
         {
             ActorColor.Red => ObjType.RedLamnola,
@@ -3917,19 +3939,17 @@ internal sealed class LamnolaActor : MonsterActor
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(LamnolaActor)}."),
         };
 
-        const int y = 0x8D;
-
         LamnolaActor? first = null;
 
-        for (var lamnolaCount = 0; lamnolaCount < 2; lamnolaCount++)
+        for (var lamnolaCount = 0; lamnolaCount < count; lamnolaCount++)
         {
-            var head = new LamnolaActor(game, objtype, true, null, 0x40, y) { Facing = Direction.Up };
+            var head = new LamnolaActor(game, objtype, null, x, y) { Facing = Direction.Up };
             first ??= head;
             game.World.AddObject(head);
 
-            for (var i = 0; i < bodyPartCount; i++)
+            for (var i = 0; i < length; i++)
             {
-                var body = new LamnolaActor(game, objtype, false, head, 0x40, y);
+                var body = new LamnolaActor(game, objtype, head, x, y);
                 head._bodyParts.Add(body);
                 game.World.AddObject(body);
             }
@@ -3938,7 +3958,7 @@ internal sealed class LamnolaActor : MonsterActor
             head._bodyParts.Add(head);
         }
 
-        game.World.RoomObjCount += 8;
+        game.World.RoomObjCount += count * length;
 
         return first ?? throw new Exception();
     }
@@ -3949,16 +3969,9 @@ internal sealed class LamnolaActor : MonsterActor
 
         if (!Game.World.HasItem(ItemSlot.Clock))
         {
-            var speed = ObjType switch
-            {
-                ObjType.RedLamnola => 1,
-                ObjType.BlueLamnola => 2,
-                _ => throw new ArgumentOutOfRangeException(nameof(ObjType), ObjType, $"Invalid {nameof(ObjType)} for {nameof(LamnolaActor)}.")
-            };
+            MoveSimple(Facing, _speed);
 
-            MoveSimple(Facing, speed);
-
-            if (_isHead)
+            if (IsHead)
             {
                 UpdateHead();
             }
@@ -4083,7 +4096,7 @@ internal sealed class LamnolaActor : MonsterActor
         var tailmost = head._bodyParts[0];
 
         // The last part, the head, is dead. Let's return because the job is done, all parts have died.
-        if (tailmost._isHead) return;
+        if (tailmost.IsHead) return;
 
         // Bring this segment back to life...
         HP = 0x20;
