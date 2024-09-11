@@ -1,5 +1,8 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics;
+using System.Reflection;
 using ImGuiNET;
+using Silk.NET.SDL;
+using z1.Actors;
 using z1.IO;
 using z1.UI;
 
@@ -89,78 +92,208 @@ internal static class GLWindowGui
         }
     }
 
+    static void DrawMenuItem(string name, PropertyInfo property, object target)
+    {
+        // Not the most efficient way to do it, but this is rarely rendered.
+        if (ImGui.MenuItem(name, null, (bool)property.GetValue(target)))
+        {
+            property.SetValue(target, !(bool)property.GetValue(target));
+            SaveFolder.SaveConfiguration();
+        }
+    }
+
     public static void DrawMenu(GLWindow window)
     {
         var game = window.Game;
 
-        static void DrawMenuItem(string name, PropertyInfo property, object target)
+        if (ImGui.BeginMainMenuBar())
         {
-            // Not the most efficient way to do it, but this is rarely rendered.
-            if (ImGui.MenuItem(name, null, (bool)property.GetValue(target)))
+            DrawFileMenu(game);
+            DrawDisplayMenu(game, window);
+            DrawAudioMenu(game);
+            DrawEnhancementsMenu(game);
+            DrawSpawnMenu(game);
+            ImGui.EndMainMenuBar();
+        }
+    }
+
+    private static void DrawFileMenu(Game game)
+    {
+        if (ImGui.BeginMenu("File"))
+        {
+            if (ImGui.MenuItem("Save", game.World.Profile != null)) game.AutoSave(false);
+            if (ImGui.MenuItem("Open save folder")) Directories.OpenSaveFolder();
+            ImGui.Separator();
+            if (ImGui.MenuItem("Exit Game")) Environment.Exit(0);
+            ImGui.EndMenu();
+        }
+    }
+
+    private static void DrawDisplayMenu(Game game, GLWindow window)
+    {
+        if (ImGui.BeginMenu("Display"))
+        {
+            if (ImGui.MenuItem("Fullscreen", null, window.IsFullScreen)) window.ToggleFullscreen();
+            if (ImGui.BeginMenu("Debug Info"))
             {
-                property.SetValue(target, !(bool)property.GetValue(target));
+                DrawMenuItem("Enabled", DebugInfoProperties.Enabled, game.Configuration.DebugInfo);
+                DrawMenuItem("Room Id", DebugInfoProperties.RoomId, game.Configuration.DebugInfo);
+                DrawMenuItem("Active Shots", DebugInfoProperties.ActiveShots, game.Configuration.DebugInfo);
+                ImGui.EndMenu();
+            }
+            ImGui.EndMenu();
+        }
+    }
+
+    private static void DrawAudioMenu(Game game)
+    {
+        if (ImGui.BeginMenu("Audio"))
+        {
+            var config = new AudioConfigurationPassthrough(game);
+            DrawMenuItem("Mute", AudioProperties.Mute, config);
+            DrawMenuItem("Mute Music", AudioProperties.MuteMusic, config);
+            var volume = config.Volume;
+            if (ImGui.SliderInt("Volume", ref volume, 0, 100))
+            {
+                config.Volume = volume;
                 SaveFolder.SaveConfiguration();
+            }
+            ImGui.EndMenu();
+        }
+    }
+
+    private static void DrawEnhancementsMenu(Game game)
+    {
+        if (ImGui.BeginMenu("Enhancements"))
+        {
+            DrawMenuItem("AutoSave", GameEnhancementsProperties.AutoSave, game.Enhancements);
+            DrawMenuItem("Red Candle Auto-Lights Darkrooms", GameEnhancementsProperties.RedCandleLightsDarkRooms, game.Enhancements);
+            DrawMenuItem("Improved Menus", GameEnhancementsProperties.ImprovedMenus, game.Enhancements);
+            DrawMenuItem("Reduce Flashing", GameEnhancementsProperties.ReduceFlashing, game.Enhancements);
+
+            var speed = game.Enhancements.TextSpeed;
+            if (ImGui.SliderInt("Text Speed", ref speed,
+                    GameEnhancements.TextSpeedMin,
+                    GameEnhancements.TextSpeedMax))
+            {
+                game.Enhancements.TextSpeed = speed;
+                SaveFolder.SaveConfiguration();
+            }
+
+            ImGui.EndMenu();
+        }
+    }
+
+    private static void DrawSpawnMenu(Game game)
+    {
+#if !DEBUG
+        return;
+#endif
+        static void Spawn(Game game, ObjType type)
+        {
+            const int x = Global.StdViewWidth / 2;
+            const int y = Global.StdViewHeight / 2;
+            try
+            {
+                Actor.AddFromType(type, game, x, y);
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Exception " + e);
             }
         }
 
-        if (ImGui.BeginMainMenuBar())
+        if (ImGui.BeginMenu("SpawnOW"))
         {
-            if (ImGui.BeginMenu("File"))
+            if (ImGui.MenuItem("Armos")) Spawn(game, ObjType.Armos);
+            if (ImGui.MenuItem("FlyingGhini")) Spawn(game, ObjType.FlyingGhini);
+            if (ImGui.MenuItem("Ghini")) Spawn(game, ObjType.Ghini);
+            if (ImGui.MenuItem("Leever (Blue)")) Spawn(game, ObjType.BlueLeever);
+            if (ImGui.MenuItem("Leever (Red)")) Spawn(game, ObjType.RedLeever);
+            if (ImGui.MenuItem("Lynel (Blue)")) Spawn(game, ObjType.BlueLynel);
+            if (ImGui.MenuItem("Lynel (Red)")) Spawn(game, ObjType.RedLynel);
+            if (ImGui.MenuItem("Moblin (Blue)")) Spawn(game, ObjType.BlueMoblin);
+            if (ImGui.MenuItem("Moblin (Red)")) Spawn(game, ObjType.RedMoblin);
+            if (ImGui.BeginMenu("Octorock"))
             {
-                if (ImGui.MenuItem("Save", game.World.Profile != null)) game.AutoSave(false);
-                if (ImGui.MenuItem("Open save folder")) Directories.OpenSaveFolder();
-                ImGui.Separator();
-                if (ImGui.MenuItem("Exit Game")) Environment.Exit(0);
+                if (ImGui.MenuItem("Octorock (Blue)")) Spawn(game, ObjType.BlueSlowOctorock);
+                if (ImGui.MenuItem("Octorock (Red)")) Spawn(game, ObjType.RedSlowOctorock);
+                if (ImGui.MenuItem("Octorock (Fast, Blue)")) Spawn(game, ObjType.BlueFastOctorock);
+                if (ImGui.MenuItem("Octorock (Fast, Red)")) Spawn(game, ObjType.RedFastOctorock);
                 ImGui.EndMenu();
             }
+            if (ImGui.MenuItem("Peahat")) Spawn(game, ObjType.Peahat);
+            if (ImGui.MenuItem("Tektite (Blue)")) Spawn(game, ObjType.BlueTektite);
+            if (ImGui.MenuItem("Tektite (Red)")) Spawn(game, ObjType.RedTektite);
+            if (ImGui.MenuItem("Zora")) Spawn(game, ObjType.Zora);
+            ImGui.Separator();
+            if (ImGui.MenuItem("Boulder")) Spawn(game, ObjType.Boulder);
+            if (ImGui.MenuItem("Boulders")) Spawn(game, ObjType.Boulders);
+            if (ImGui.MenuItem("Merchant")) Spawn(game, ObjType.Merchant);
+            if (ImGui.MenuItem("Moblin (Friendly)")) Spawn(game, ObjType.FriendlyMoblin);
+            if (ImGui.MenuItem("OldMan")) Spawn(game, ObjType.OldMan);
+            if (ImGui.MenuItem("OldWoman")) Spawn(game, ObjType.OldWoman);
+            if (ImGui.MenuItem("PondFairy")) Spawn(game, ObjType.PondFairy);
+            if (ImGui.MenuItem("Whirlwind")) Spawn(game, ObjType.Whirlwind);
 
-            if (ImGui.BeginMenu("Display"))
-            {
-                if (ImGui.MenuItem("Fullscreen", null, window.IsFullScreen)) window.ToggleFullscreen();
-                if (ImGui.BeginMenu("Debug Info"))
-                {
-                    DrawMenuItem("Enabled", DebugInfoProperties.Enabled, game.Configuration.DebugInfo);
-                    DrawMenuItem("Room Id", DebugInfoProperties.RoomId, game.Configuration.DebugInfo);
-                    DrawMenuItem("Active Shots", DebugInfoProperties.ActiveShots, game.Configuration.DebugInfo);
-                    ImGui.EndMenu();
-                }
-                ImGui.EndMenu();
-            }
+            ImGui.EndMenu();
+        }
 
-            if (ImGui.BeginMenu("Audio"))
-            {
-                var config = new AudioConfigurationPassthrough(game);
-                DrawMenuItem("Mute", AudioProperties.Mute, config);
-                DrawMenuItem("Mute Music", AudioProperties.MuteMusic, config);
-                var volume = config.Volume;
-                if (ImGui.SliderInt("Volume", ref volume, 0, 100))
-                {
-                    config.Volume = volume;
-                    SaveFolder.SaveConfiguration();
-                }
-                ImGui.EndMenu();
-            }
+        if (ImGui.BeginMenu("SpawnUW"))
+        {
+            if (ImGui.MenuItem("Bubble1")) Spawn(game, ObjType.Bubble1);
+            if (ImGui.MenuItem("Bubble2")) Spawn(game, ObjType.Bubble2);
+            if (ImGui.MenuItem("Bubble3")) Spawn(game, ObjType.Bubble3);
+            if (ImGui.MenuItem("Darknut (Blue)")) Spawn(game, ObjType.BlueDarknut);
+            if (ImGui.MenuItem("Darknut (Red)")) Spawn(game, ObjType.RedDarknut);
+            if (ImGui.MenuItem("Gel")) Spawn(game, ObjType.Gel);
+            if (ImGui.MenuItem("Gibdo")) Spawn(game, ObjType.Gibdo);
+            if (ImGui.MenuItem("Goriya (Blue)")) Spawn(game, ObjType.BlueGoriya);
+            if (ImGui.MenuItem("Goriya (Red)")) Spawn(game, ObjType.RedGoriya);
+            if (ImGui.MenuItem("Keese (Black)")) Spawn(game, ObjType.BlackKeese);
+            if (ImGui.MenuItem("Keese (Blue)")) Spawn(game, ObjType.BlueKeese);
+            if (ImGui.MenuItem("Keese (Red)")) Spawn(game, ObjType.RedKeese);
+            if (ImGui.MenuItem("LikeLike")) Spawn(game, ObjType.LikeLike);
+            if (ImGui.MenuItem("PolsVoice")) Spawn(game, ObjType.PolsVoice);
+            if (ImGui.MenuItem("Rope")) Spawn(game, ObjType.Rope);
+            if (ImGui.MenuItem("Stalfos")) Spawn(game, ObjType.Stalfos);
+            if (ImGui.MenuItem("Vire")) Spawn(game, ObjType.Vire);
+            if (ImGui.MenuItem("Wallmaster")) Spawn(game, ObjType.Wallmaster);
+            if (ImGui.MenuItem("Wizzrobe (Blue)")) Spawn(game, ObjType.BlueWizzrobe);
+            if (ImGui.MenuItem("Wizzrobe (Red)")) Spawn(game, ObjType.RedWizzrobe);
+            if (ImGui.MenuItem("Zol")) Spawn(game, ObjType.Zol);
+            ImGui.Separator();
+            if (ImGui.MenuItem("Grumble")) Spawn(game, ObjType.Grumble);
+            if (ImGui.MenuItem("Patra1")) Spawn(game, ObjType.Patra1);
+            if (ImGui.MenuItem("Patra2")) Spawn(game, ObjType.Patra2);
+            if (ImGui.MenuItem("RupieStash")) Spawn(game, ObjType.RupieStash);
+            if (ImGui.MenuItem("StandingFire")) Spawn(game, ObjType.StandingFire);
+            if (ImGui.MenuItem("Trap")) Spawn(game, ObjType.Trap);
+            if (ImGui.MenuItem("TrapSet4")) Spawn(game, ObjType.TrapSet4);
+            ImGui.Separator();
+            if (ImGui.MenuItem("Digdogger1")) Spawn(game, ObjType.Digdogger1);
+            if (ImGui.MenuItem("Digdogger2")) Spawn(game, ObjType.Digdogger2);
+            if (ImGui.MenuItem("Digdogger (Little)")) Spawn(game, ObjType.LittleDigdogger);
+            if (ImGui.MenuItem("Lamnola (Blue)")) Spawn(game, ObjType.BlueLamnola);
+            if (ImGui.MenuItem("Lamnola (Red)")) Spawn(game, ObjType.RedLamnola);
+            if (ImGui.MenuItem("Manhandla")) Spawn(game, ObjType.Manhandla);
+            if (ImGui.MenuItem("Moldorm")) Spawn(game, ObjType.Moldorm);
+            ImGui.Separator();
+            if (ImGui.MenuItem("Aquamentus")) Spawn(game, ObjType.Aquamentus);
+            if (ImGui.MenuItem("Dodongo (one)")) Spawn(game, ObjType.OneDodongo);
+            if (ImGui.MenuItem("Dodongos (three)")) Spawn(game, ObjType.ThreeDodongos);
+            if (ImGui.MenuItem("Gleeok1")) Spawn(game, ObjType.Gleeok1);
+            if (ImGui.MenuItem("Gleeok2")) Spawn(game, ObjType.Gleeok2);
+            if (ImGui.MenuItem("Gleeok3")) Spawn(game, ObjType.Gleeok3);
+            if (ImGui.MenuItem("Gleeok4")) Spawn(game, ObjType.Gleeok4);
+            if (ImGui.MenuItem("Gohma (Blue)")) Spawn(game, ObjType.BlueGohma);
+            if (ImGui.MenuItem("Gohma (Red)")) Spawn(game, ObjType.RedGohma);
+            ImGui.Separator();
+            if (ImGui.MenuItem("Ganon")) Spawn(game, ObjType.Ganon);
+            if (ImGui.MenuItem("GuardFire")) Spawn(game, ObjType.GuardFire);
+            if (ImGui.MenuItem("Zelda")) Spawn(game, ObjType.Zelda);
 
-            if (ImGui.BeginMenu("Enhancements"))
-            {
-                DrawMenuItem("AutoSave", GameEnhancementsProperties.AutoSave, game.Enhancements);
-                DrawMenuItem("Red Candle Auto-Lights Darkrooms", GameEnhancementsProperties.RedCandleLightsDarkRooms, game.Enhancements);
-                DrawMenuItem("Improved Menus", GameEnhancementsProperties.ImprovedMenus, game.Enhancements);
-                DrawMenuItem("Reduce Flashing", GameEnhancementsProperties.ReduceFlashing, game.Enhancements);
-
-                var speed = game.Enhancements.TextSpeed;
-                if (ImGui.SliderInt("Text Speed", ref speed,
-                    GameEnhancements.TextSpeedMin,
-                    GameEnhancements.TextSpeedMax))
-                {
-                    game.Enhancements.TextSpeed = speed;
-                    SaveFolder.SaveConfiguration();
-                }
-
-                ImGui.EndMenu();
-            }
-
-            ImGui.EndMainMenuBar();
+            ImGui.EndMenu();
         }
     }
 }

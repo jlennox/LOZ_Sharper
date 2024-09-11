@@ -698,7 +698,6 @@ internal sealed unsafe partial class World
         _objects.Add(obj);
     }
 
-    // Some object constructors add themselves already, making generic object construction need to not double-add.
     public void AddUniqueObject(Actor obj)
     {
         if (!_objects.Contains(obj)) AddObject(obj);
@@ -2818,7 +2817,7 @@ internal sealed unsafe partial class World
                     continue;
                 }
 
-                var obj = Actor.FromType(type, Game, x, y);
+                var obj = Actor.AddFromType(type, Game, x, y);
                 // The NES logic would only set HoldingItem for the first object.
                 if (i == 0)
                 {
@@ -2831,7 +2830,6 @@ internal sealed unsafe partial class World
                         obj.HoldingItem = roomObj;
                     }
                 }
-                AddUniqueObject(obj);
             }
         }
 
@@ -2840,7 +2838,7 @@ internal sealed unsafe partial class World
             var owRoomAttr = CurrentOWRoomAttrs;
             if (owRoomAttr.HasZora())
             {
-                AddObject(Actor.FromType(ObjType.Zora, Game, 0, 0));
+                Actor.AddFromType(ObjType.Zora, Game, 0, 0);
             }
         }
     }
@@ -2851,9 +2849,9 @@ internal sealed unsafe partial class World
 
         ReadOnlySpan<int> startXs = [0x20, 0x60, 0x90, 0xD0];
 
-        for (var i = 0; i < startXs.Length; i++)
+        foreach (var x in startXs)
         {
-            AddObject(Actor.FromType(ObjType.BlueKeese, Game, startXs[i], startY));
+            Actor.AddFromType(ObjType.BlueKeese, Game, x, startY);
         }
     }
 
@@ -3034,8 +3032,7 @@ internal sealed unsafe partial class World
             || Math.Abs(Game.Link.Y - y) >= linkBoundary)
         {
             // Bring them in from the edge of the screen if link isn't too close.
-            var obj = Actor.FromType(placeholder, Game, x, y - 3);
-            AddUniqueObject(obj);
+            var obj = Actor.AddFromType(placeholder, Game, x, y - 3);
             obj.Decoration = 0;
             return true;
         }
@@ -4854,9 +4851,8 @@ internal sealed unsafe partial class World
             if (objCol == col && objRow == row) return;
         }
 
-        var activatedObj = Actor.FromType(type, Game, x, y);
+        var activatedObj = Actor.AddFromType(type, Game, x, y);
         activatedObj.ObjTimer = 0x40;
-        AddUniqueObject(activatedObj);
     }
 
     public void BlockTileAction(int row, int col, TileInteraction interaction)

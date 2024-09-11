@@ -3273,8 +3273,8 @@ internal sealed class BouldersActor : MonsterActor
                 x |= 0x80;
             }
 
-            var obj = FromType(ObjType.Boulder, Game, x, y);
-            Game.World.AddUniqueObject(obj);
+            var boulder = new BoulderActor(Game, x, y);
+            Game.World.AddObject(boulder);
 
             ObjTimer = (byte)Random.Shared.Next(32);
 

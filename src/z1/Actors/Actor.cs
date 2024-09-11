@@ -209,6 +209,14 @@ internal abstract class Actor
         return false;
     }
 
+    public static Actor AddFromType(ObjType type, Game game, int x, int y)
+    {
+        // Some object constructors add themselves already, making generic object construction need to not double-add.
+        var actor = FromType(type, game, x, y);
+        game.World.AddUniqueObject(actor);
+        return actor;
+    }
+
     public static Actor FromType(ObjType type, Game game, int x, int y)
     {
         return type switch
