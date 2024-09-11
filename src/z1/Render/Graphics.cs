@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Linq;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
@@ -59,24 +58,7 @@ internal sealed class GraphicSheets
 
     public void AddSheets(ReadOnlySpan<ImageSheet> sheets)
     {
-        foreach (var sheet in sheets)
-        {
-            Sheets.RemoveAll(t => t.Sheet == sheet.Sheet);
-        }
-
         Sheets.AddRange(sheets);
-    }
-
-    public void AddSheet(TileSheet sheet, Asset imageFile, Asset animationFile)
-    {
-        Sheets.RemoveAll(t => t.Sheet == sheet);
-        Sheets.Add(new ImageSheet(sheet, imageFile, animationFile));
-    }
-
-    public void AddSheet(TileSheet sheet, Asset imageFile)
-    {
-        Sheets.RemoveAll(t => t.Sheet == sheet);
-        Sheets.Add(new ImageSheet(sheet, imageFile, default));
     }
 
     public GLImage GetImage(TileSheet sheet)

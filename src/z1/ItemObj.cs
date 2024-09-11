@@ -237,10 +237,12 @@ internal sealed class FireActor : Actor
     private readonly SpriteAnimator _animator;
 
     private FireState _state;
+    private readonly Actor _owner;
 
-    public FireActor(Game game, int x, int y, Direction facing)
+    public FireActor(Game game, Actor owner, int x, int y, Direction facing)
         : base(game, ObjType.Fire, x, y)
     {
+        _owner = owner;
         State = FireState.Moving;
         Facing = facing;
 
@@ -364,10 +366,12 @@ internal sealed class BombActor : Actor
     public BombState BombState = BombState.Initing;
 
     private readonly SpriteAnimator _animator;
+    private readonly Actor _owner;
 
-    public BombActor(Game game, int x, int y)
+    public BombActor(Game game, Actor owner, int x, int y)
         : base(game, ObjType.Bomb, x, y)
     {
+        _owner = owner;
         Facing = Game.Link.Facing;
         Decoration = 0;
         _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.BombItem)

@@ -778,7 +778,7 @@ internal sealed class Link : Actor, IThrower
 
         MoveSimple(ref x, ref y, facingDir, 0x10);
 
-        var fire = new FireActor(Game, x, y, facingDir);
+        var fire = new FireActor(Game, this, x, y, facingDir);
         Game.World.AddObject(fire);
         Game.Sound.PlayEffect(SoundEffect.Fire);
         return 12;
@@ -794,7 +794,7 @@ internal sealed class Link : Actor, IThrower
 
         MoveSimple(ref x, ref y, facingDir, 0x10);
 
-        var bomb = new BombActor(Game, x, y);
+        var bomb = new BombActor(Game, this, x, y);
         Game.World.AddObject(bomb);
         Game.World.DecrementItem(ItemSlot.Bombs);
         Game.Sound.PlayEffect(SoundEffect.PutBomb);

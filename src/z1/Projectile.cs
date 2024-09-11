@@ -720,7 +720,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
     {
         if (Game.World.GetItem(ItemSlot.Book) == 0) return;
 
-        var fire = new FireActor(Game, X, Y, Facing)
+        var fire = new FireActor(Game, _owner, X, Y, Facing)
         {
             ObjTimer = 0x4F,
             State = FireState.Standing
