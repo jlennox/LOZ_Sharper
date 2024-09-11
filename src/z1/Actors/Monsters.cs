@@ -2680,6 +2680,7 @@ internal sealed class PatraActor : FlyingActor
 {
     private const int PatraX = 0x80;
     private const int PatraY = 0x70;
+    public const int ChildPatraCount = 8;
 
     private static readonly ImmutableArray<AnimationId> _patraAnimMap = [
         AnimationId.B3_Patra,
@@ -2696,8 +2697,8 @@ internal sealed class PatraActor : FlyingActor
     private int _childStateTimer;
 
     // JOE: Oh man, this could use a reworking.
-    public int[] PatraAngle = new int[9];
-    public int[] PatraState = new int[9];
+    public int[] PatraAngle = new int[ChildPatraCount + 1];
+    public int[] PatraState = new int[ChildPatraCount + 1];
 
     public override bool IsReoccuring => false;
 
@@ -2726,7 +2727,8 @@ internal sealed class PatraActor : FlyingActor
         var patra = new PatraActor(game, type);
         game.World.AddObject(patra);
 
-        for (var i = 0; i <= 8; i++)
+        // Index 0 is used for the parent.
+        for (var i = 1; i <= ChildPatraCount; i++)
         {
             var child = PatraChildActor.Make(game, patra, i, patraType);
             game.World.AddObject(child);
@@ -2792,12 +2794,12 @@ internal sealed class PatraChildActor : MonsterActor
     private int _y;
     private int _angleAccum;
     private readonly SpriteAnimator _animator;
-    private readonly PatraActor _owner;
+    private readonly PatraActor _parent;
     private readonly int _index;
 
     public override bool IsReoccuring => false;
 
-    private PatraChildActor(Game game, PatraActor owner, int index, ObjType type, int x, int y)
+    private PatraChildActor(Game game, PatraActor parent, int index, ObjType type, int x, int y)
         : base(game, type, x, y)
     {
         if (type is not (ObjType.PatraChild1 or ObjType.PatraChild2))
@@ -2810,7 +2812,7 @@ internal sealed class PatraChildActor : MonsterActor
 
         ObjTimer = 0;
 
-        _owner = owner;
+        _parent = parent;
         _index = index;
         _animator = new SpriteAnimator(TileSheet.Boss9, AnimationId.B3_PatraChild)
         {
@@ -2819,7 +2821,7 @@ internal sealed class PatraChildActor : MonsterActor
         };
     }
 
-    public static PatraChildActor Make(Game game, PatraActor owner, int index, PatraType patraType, int x = 0, int y = 0)
+    public static PatraChildActor Make(Game game, PatraActor parent, int index, PatraType patraType, int x = 0, int y = 0)
     {
         var objtype = patraType switch
         {
@@ -2828,7 +2830,7 @@ internal sealed class PatraChildActor : MonsterActor
             _ => throw new ArgumentOutOfRangeException(nameof(patraType), patraType, "patraType unknown."),
         };
 
-        return new PatraChildActor(game, owner, index, objtype, x, y);
+        return new PatraChildActor(game, parent, index, objtype, x, y);
     }
 
     private static short ShiftMult(int mask, int addend, int shiftCount)
@@ -2851,7 +2853,7 @@ internal sealed class PatraChildActor : MonsterActor
 
     public override void Update()
     {
-        if (_owner.PatraState[_index] == 0)
+        if (_parent.PatraState[_index] == 0)
         {
             UpdateStart();
             return;
@@ -2860,7 +2862,7 @@ internal sealed class PatraChildActor : MonsterActor
         UpdateTurn();
         _animator.Advance();
 
-        if (_owner.PatraState[0] == 0) return;
+        if (_parent.PatraState[0] == 0) return;
 
         CheckCollisions();
         if (Decoration != 0)
@@ -2872,33 +2874,35 @@ internal sealed class PatraChildActor : MonsterActor
 
     public override void Draw()
     {
-        if (_owner.PatraState[_index] != 0)
+        if (_parent.PatraState[_index] != 0)
         {
             var pal = CalcPalette(Palette.Red);
             _animator.Draw(TileSheet.Boss9, X, Y, pal);
         }
     }
 
+    private bool IsLastChild => _index == PatraActor.ChildPatraCount;
+
     private void UpdateStart()
     {
-        if (_index != 1)
+        if (_index > 1)
         {
-            if (_owner.PatraState[1] == 0) return;
+            if (_parent.PatraState[1] == 0) return;
             var index = _index - 2;
-            if (_owner.PatraAngle[1] != _patraEntryAngles[(int)index]) return;
+            if (_parent.PatraAngle[1] != _patraEntryAngles[index]) return;
         }
 
         var distance = ObjType == ObjType.PatraChild1 ? 0x2C : 0x18;
 
-        if (_index == 8)
+        if (IsLastChild)
         {
-            _owner.PatraState[0] = 1;
+            _parent.PatraState[0] = 1;
         }
-        _owner.PatraState[_index] = 1;
-        _owner.PatraAngle[_index] = 0x18;
+        _parent.PatraState[_index] = 1;
+        _parent.PatraAngle[_index] = 0x18;
 
-        _x = _owner.X << 8;
-        _y = (_owner.Y - distance) << 8;
+        _x = _parent.X << 8;
+        _y = (_parent.Y - distance) << 8;
 
         X = _x >> 8;
         Y = _y >> 8;
@@ -2906,18 +2910,18 @@ internal sealed class PatraChildActor : MonsterActor
 
     private void UpdateTurn()
     {
-        _x += _owner.GetXMove() << 8;
-        _y += _owner.GetYMove() << 8;
+        _x += _parent.GetXMove() << 8;
+        _y += _parent.GetYMove() << 8;
 
         var step = ObjType == ObjType.PatraChild1 ? 0x70 : 0x60;
-        var angleFix = (short)((_owner.PatraAngle[_index] << 8) | _angleAccum);
+        var angleFix = (short)((_parent.PatraAngle[_index] << 8) | _angleAccum);
         angleFix -= (short)step;
         _angleAccum = angleFix & 0xFF;
-        _owner.PatraAngle[_index] = (angleFix >> 8) & 0x1F;
+        _parent.PatraAngle[_index] = (angleFix >> 8) & 0x1F;
 
         int yShiftCount;
         int xShiftCount;
-        var index = _owner.GetManeuverState();
+        var index = _parent.GetManeuverState();
 
         if (ObjType == ObjType.PatraChild1)
         {
@@ -2932,11 +2936,11 @@ internal sealed class PatraChildActor : MonsterActor
 
         const int turnSpeed = 0x20;
 
-        index = _owner.PatraAngle[_index] & 0x0F;
+        index = _parent.PatraAngle[_index] & 0x0F;
         var cos = _sinCos[index];
         var n = ShiftMult(cos, turnSpeed, xShiftCount);
 
-        if ((_owner.PatraAngle[_index] & 0x18) < 0x10)
+        if ((_parent.PatraAngle[_index] & 0x18) < 0x10)
         {
             _x += n;
         }
@@ -2945,11 +2949,11 @@ internal sealed class PatraChildActor : MonsterActor
             _x -= n;
         }
 
-        index = (_owner.PatraAngle[_index] + 8) & 0x0F;
+        index = (_parent.PatraAngle[_index] + 8) & 0x0F;
         var sin = _sinCos[index];
         n = ShiftMult(sin, turnSpeed, yShiftCount);
 
-        if (((_owner.PatraAngle[_index] - 8) & 0x18) < 0x10)
+        if (((_parent.PatraAngle[_index] - 8) & 0x18) < 0x10)
         {
             _y += n;
         }
