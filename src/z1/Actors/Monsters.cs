@@ -2707,7 +2707,7 @@ internal sealed class PatraActor : FlyingActor
 
     public override bool IsReoccuring => false;
 
-    private PatraActor(Game game, ObjType type, int x = PatraX, int y = PatraY)
+    private PatraActor(Game game, ObjType type, int x, int y)
         : base(game, type, _patraSpec, x, y)
     {
         InvincibilityMask = 0xFE;
@@ -2720,7 +2720,7 @@ internal sealed class PatraActor : FlyingActor
         Array.Fill(PatraState, 0);
     }
 
-    public static PatraActor MakePatra(Game game, PatraType patraType)
+    public static PatraActor MakePatra(Game game, PatraType patraType, int x = PatraX, int y = PatraY)
     {
         var type = patraType switch
         {
@@ -2729,7 +2729,7 @@ internal sealed class PatraActor : FlyingActor
             _ => throw new ArgumentOutOfRangeException(nameof(patraType), patraType, "patraType unknown."),
         };
 
-        var patra = new PatraActor(game, type);
+        var patra = new PatraActor(game, type, x, y);
         game.World.AddObject(patra);
 
         // Index 0 is used for the parent.
