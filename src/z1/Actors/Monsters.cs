@@ -2541,7 +2541,7 @@ internal sealed class MoldormActor : FlyingActor
             }
         }
 
-        game.World.RoomObjCount = 8;
+        game.World.RoomObjCount += 8;
 
         return firstMoldorm ?? throw new Exception();
     }
@@ -3890,6 +3890,8 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
 
 internal sealed class LamnolaActor : MonsterActor
 {
+    private const int BodyPartCount = 4;
+
     private readonly SpriteImage _image;
     private readonly bool _isHead;
     private readonly LamnolaActor? _head;
@@ -3906,7 +3908,7 @@ internal sealed class LamnolaActor : MonsterActor
         _head = head;
     }
 
-    public static LamnolaActor MakeSet(Game game, ActorColor color)
+    public static LamnolaActor MakeSet(Game game, ActorColor color, int bodyPartCount = BodyPartCount)
     {
         var objtype = color switch
         {
@@ -3921,22 +3923,22 @@ internal sealed class LamnolaActor : MonsterActor
 
         for (var lamnolaCount = 0; lamnolaCount < 2; lamnolaCount++)
         {
-            var head = new LamnolaActor(game, objtype, true, null, 0x40, y)
-            {
-                Facing = Direction.Up
-            };
+            var head = new LamnolaActor(game, objtype, true, null, 0x40, y) { Facing = Direction.Up };
             first ??= head;
             game.World.AddObject(head);
 
-            for (var i = 0; i <= 4; i++)
+            for (var i = 0; i < bodyPartCount; i++)
             {
                 var body = new LamnolaActor(game, objtype, false, head, 0x40, y);
                 head._bodyParts.Add(body);
                 game.World.AddObject(body);
             }
+
+            // In the NES game logic, the head was the last part. They're killed in order, so it makes sense.
+            head._bodyParts.Add(head);
         }
 
-        game.World.RoomObjCount = 8;
+        game.World.RoomObjCount += 8;
 
         return first ?? throw new Exception();
     }
@@ -3947,7 +3949,12 @@ internal sealed class LamnolaActor : MonsterActor
 
         if (!Game.World.HasItem(ItemSlot.Clock))
         {
-            var speed = ObjType - ObjType.RedLamnola + 1;
+            var speed = ObjType switch
+            {
+                ObjType.RedLamnola => 1,
+                ObjType.BlueLamnola => 2,
+                _ => throw new ArgumentOutOfRangeException(nameof(ObjType), ObjType, $"Invalid {nameof(ObjType)} for {nameof(LamnolaActor)}.")
+            };
 
             MoveSimple(Facing, speed);
 
@@ -3977,7 +3984,7 @@ internal sealed class LamnolaActor : MonsterActor
             return;
         }
 
-        for (var i = 0; i < _bodyParts.Count - 2; i++)
+        for (var i = 0; i < _bodyParts.Count - 1; i++)
         {
             var lamnola1 = _bodyParts[i];
             var lamnola2 = _bodyParts[i + 1];
@@ -4060,53 +4067,34 @@ internal sealed class LamnolaActor : MonsterActor
         }
     }
 
-    private LamnolaActor GetLastTailSegment()
-    {
-        var head = _head ?? this;
-        for (var i = head._bodyParts.Count - 1; i >= 0; i--)
-        {
-            var body = head._bodyParts[i];
-            if (!body.IsDeleted)
-            {
-                return body;
-            }
-        }
-
-        return head;
-    }
-
     private void CheckLamnolaCollisions()
     {
+        // The logic here can be a bit confusing, but whenever any piece of the
+        // lamnola dies, we want to kill the lowest piece of tail still alive.
         var origFacing = Facing;
         CheckCollisions();
         Facing = origFacing;
 
+        // Don't do anything else if this part isn't yet dead.
         if (Decoration == 0) return;
 
-        // var slot = Game.World.CurObjectSlot;
-        // slot = slot >= TailSlot2 ? TailSlot2 : TailSlot1;
-        //
-        // for (; ; slot++)
-        // {
-        //     var obj = Game.World.GetObject(slot);
-        //     if (obj != null && obj.ObjType == ObjType)
-        //     {
-        //         break;
-        //     }
-        // }
-        //
-        // if (slot is HeadSlot1 or HeadSlot2) return;
+        // When a part dies, we want to kill the lowest part on the tail.
+        var head = _head ?? this;
+        var tailmost = head._bodyParts[0];
 
-        var bodysegment = GetLastTailSegment();
-        if (bodysegment._isHead) return; // JOE: This seems wrong.
+        // The last part, the head, is dead. Let's return because the job is done, all parts have died.
+        if (tailmost._isHead) return;
 
+        // Bring this segment back to life...
         HP = 0x20;
         ShoveDirection = 0;
         ShoveDistance = 0;
         Decoration = 0;
 
+        // ...then kill the tail-most piece by replacing with a dummy.
         var dummy = new DeadDummyActor(Game, X, Y);
-        Game.World.AddOnlyObject(bodysegment, dummy);
+        Game.World.AddOnlyObject(tailmost, dummy);
+        head._bodyParts.RemoveAt(0);
     }
 }
 
@@ -5220,7 +5208,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
         else
         {
             Game.World.RecorderUsed = 1;
-            Game.World.RoomObjCount = _childCount;
+            Game.World.RoomObjCount += _childCount;
             for (var i = 1; i <= _childCount; i++)
             {
                 var child = DigdoggerChildActor.Make(Game, X, Y);
