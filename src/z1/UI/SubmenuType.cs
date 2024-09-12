@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using SkiaSharp;
+using z1.IO;
 using z1.Render;
 
 namespace z1.UI;
@@ -8,8 +9,8 @@ internal sealed class SubmenuType
 {
     public const int Width = Global.StdViewWidth;
     public const int Height = 0xAE;
-    public const int ActiveItems = 8;
-    public const int PassiveItems = 6;
+    public const int ActiveItemCount = 8;
+    public const int PassiveItemCount = 6;
     public const int YScrollSpeed = 3;
 
     private const int CurItemX = 0x40;
@@ -27,6 +28,8 @@ internal sealed class SubmenuType
     private const int ActiveMapY = 0x58;
 
     private const int ItemsPerRow = 4;
+
+    private static readonly DebugLog _log = new(nameof(SubmenuType));
 
     private readonly record struct PassiveItemSpec(ItemSlot ItemSlot, byte X);
     private readonly record struct TriforcePieceSpec(byte X, byte Y, byte[][] OffTiles, byte[][] OnTiles);
@@ -59,7 +62,7 @@ internal sealed class SubmenuType
         0,          // PartialHeart
         0,          // TriforcePieces
         0,          // PowerTriforce
-        0 // Boomerang
+        0,          // Boomerang
     ];
 
     private static readonly ImmutableArray<TileInst> _uiTiles = [
@@ -185,8 +188,8 @@ internal sealed class SubmenuType
     private bool _enabled;
     private bool _activated;
     private int _activeUISlot;
-    private readonly ItemSlot[] _activeSlots = new ItemSlot[ActiveItems];
-    private readonly ItemId[] _activeItems = new ItemId[ActiveItems];
+    private readonly ItemSlot[] _activeSlots = new ItemSlot[ActiveItemCount];
+    private readonly ItemId[] _activeItems = new ItemId[ActiveItemCount];
     private readonly SpriteImage _cursor = new();
 
     public SubmenuType(Game game)
@@ -234,7 +237,7 @@ internal sealed class SubmenuType
     private void UpdateActiveItems()
     {
         // JOE: TODO: Write an enumerator for this?
-        for (var i = 0; i < ActiveItems; i++)
+        for (var i = 0; i < ActiveItemCount; i++)
         {
             _activeItems[i] = GetItemIdForUISlot(i, ref _activeSlots[i]);
         }
@@ -285,7 +288,7 @@ internal sealed class SubmenuType
             if (_game.Enhancements.ImprovedMenus)
             {
                 var amount = ItemsPerRow * ydir;
-                var target = (_activeUISlot + amount) % ActiveItems;
+                var target = (_activeUISlot + amount) % ActiveItemCount;
                 if (target < 0) target = _activeUISlot - amount;
 
                 if (_activeItems[target] != ItemId.None)
@@ -303,19 +306,38 @@ internal sealed class SubmenuType
         profile.SelectedItem = _activeSlots[_activeUISlot];
     }
 
+    public void SelectItem(ItemSlot slot)
+    {
+        UpdateActiveItems();
+
+        var index = _inventoryOrder.IndexOf(slot);
+        if (index == -1)
+        {
+            _log.Error($"Unable to find index for {slot}");
+            return;
+        }
+
+        if (_activeItems[index] != ItemId.None)
+        {
+            _activeUISlot = index;
+            var profile = _game.World.Profile;
+            profile.SelectedItem = _activeSlots[_activeUISlot];
+        }
+    }
+
     public void SelectPreviousItem() => SelectNextItem(-1);
 
     public void SelectNextItem(int xdir = 1)
     {
         UpdateActiveItems();
 
-        for (var i = 0; i < ActiveItems; i++)
+        for (var i = 0; i < ActiveItemCount; i++)
         {
             _activeUISlot += xdir;
             _activeUISlot += _activeUISlot switch
             {
-                < 0 => ActiveItems,
-                >= ActiveItems => -ActiveItems,
+                < 0 => ActiveItemCount,
+                >= ActiveItemCount => -ActiveItemCount,
                 _ => 0,
             };
 
@@ -364,7 +386,7 @@ internal sealed class SubmenuType
         var x = ActiveItemX;
         var y = ActiveItemY + top;
 
-        for (var i = 0; i < ActiveItems; i++)
+        for (var i = 0; i < ActiveItemCount; i++)
         {
             var itemId = _activeItems[i];
 
@@ -405,7 +427,7 @@ internal sealed class SubmenuType
     {
         var profile = _game.World.Profile;
 
-        for (var i = 0; i < PassiveItems; i++)
+        for (var i = 0; i < PassiveItemCount; i++)
         {
             var slot = _passiveItems[i].ItemSlot;
             var value = profile.Items[slot];

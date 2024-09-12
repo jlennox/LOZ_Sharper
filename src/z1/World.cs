@@ -1981,11 +1981,16 @@ internal sealed unsafe partial class World
 
         if (_pause == PauseState.Unpaused)
         {
-            if (Game.Enhancements.ImprovedMenus)
-            {
-                if (IsButtonPressing(GameButton.ItemNext)) Menu.SelectNextItem();
-                if (IsButtonPressing(GameButton.ItemPrevious)) Menu.SelectPreviousItem();
-            }
+            if (IsButtonPressing(GameButton.ItemNext)) Menu.SelectNextItem();
+            if (IsButtonPressing(GameButton.ItemPrevious)) Menu.SelectPreviousItem();
+            if (IsButtonPressing(GameButton.ItemBoomerang)) Menu.SelectItem(ItemSlot.Boomerang);
+            if (IsButtonPressing(GameButton.ItemBombs)) Menu.SelectItem(ItemSlot.Bombs);
+            if (IsButtonPressing(GameButton.ItemArrow)) Menu.SelectItem(ItemSlot.Arrow);
+            if (IsButtonPressing(GameButton.ItemCandle)) Menu.SelectItem(ItemSlot.Candle);
+            if (IsButtonPressing(GameButton.ItemRecorder)) Menu.SelectItem(ItemSlot.Recorder);
+            if (IsButtonPressing(GameButton.ItemFood)) Menu.SelectItem(ItemSlot.Food);
+            if (IsButtonPressing(GameButton.ItemLetter)) Menu.SelectItem(ItemSlot.Letter);
+            if (IsButtonPressing(GameButton.ItemRod)) Menu.SelectItem(ItemSlot.Rod);
 
             if (IsAnyButtonPressing(GameButton.Select, GameButton.Pause))
             {

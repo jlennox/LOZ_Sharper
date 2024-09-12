@@ -30,6 +30,15 @@ internal enum GameButton
     ItemPrevious,
     ItemNext,
 
+    ItemBoomerang,
+    ItemBombs,
+    ItemArrow,
+    ItemCandle,
+    ItemRecorder,
+    ItemFood,
+    ItemLetter,
+    ItemRod,
+
     FullScreenToggle,
 
     CheatKillAll,
