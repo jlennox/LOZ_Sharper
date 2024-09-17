@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using z1.IO;
 using z1.Render;
 
 namespace z1.Actors;
@@ -6,12 +7,6 @@ namespace z1.Actors;
 internal sealed class PersonActor : Actor
 {
     public const int PersonWallY = 0x8E;
-
-    private const int ItemY = 0x98;
-    private const int PriceY = 0xB0;
-
-    private const int MaxItemCount = 3;
-    private const int PriceLength = 4;
 
     private enum PersonState
     {
@@ -22,20 +17,13 @@ internal sealed class PersonActor : Actor
         WaitingForStairs,
     }
 
-    private enum PersonType
-    {
-        Shop,
-        Grumble,
-        MoneyOrLife,
-        DoorRepair,
-        Gambling,
-        EnterLevel9,
-        CaveShortcut,
-        MoreBombs,
-    }
+    private static readonly DebugLog _log = new(nameof(PersonActor));
 
-    private static readonly ImmutableArray<byte> _itemXs = [0x58, 0x78, 0x98];
-    private static readonly ImmutableArray<byte> _priceXs = [0x48, 0x68, 0x88];
+    private readonly record struct ItemLocation(int X, int Y, int PriceX, int PriceY);
+
+    private static readonly ImmutableArray<ItemLocation> _defaultItemLocations = [
+        new(0x58, 0x98, 0x48, 0xB0), new(0x78, 0x98, 0x68, 0xB0), new(0x98, 0x98, 0x88, 0xB0)
+    ];
 
     private static readonly ImmutableArray<ItemGraphics> _personGraphics = [
         new(AnimationId.OldMan,   Palette.Red),
@@ -44,113 +32,107 @@ internal sealed class PersonActor : Actor
         new(AnimationId.Moblin,   Palette.Red)
     ];
 
+    private PersonType PersonType => _spec.PersonType;
+
     private PersonState _state = PersonState.Idle;
     private readonly SpriteImage? _image;
 
-    public CaveSpec Spec; // Do not make readonly to avoid struct copies.
-    public readonly TextBox? TextBox;
-    public int ChosenIndex;
-    public bool ShowNumbers;
+    private readonly CaveSpec _spec; // Do not make readonly to avoid struct copies.
+    private readonly TextBox _textBox;
+    private int _chosenIndex;
+    private bool _showNumbers;
+    private readonly ImmutableArray<ItemLocation> _itemLocations;
 
-    private readonly byte[] _priceStrs = new byte[MaxItemCount * PriceLength];
-    private Span<byte> GetPrice(int index) => _priceStrs.AsSpan(index * PriceLength, PriceLength);
-
-    public readonly byte[] GamblingAmounts = new byte[3];
-    public readonly byte[] GamblingIndexes = new byte[3];
+    private readonly byte[] _gamblingAmounts = new byte[3];
+    private readonly byte[] _gamblingIndexes = new byte[3];
+    private readonly string[] _priceStrings = [];
 
     public override bool ShouldStopAtPersonWall => true;
     public override bool IsUnderworldPerson => true;
 
-    private readonly PersonType _personType;
-
-    public PersonActor(Game game, ObjType type, CaveSpec spec, int x, int y)
-        : base(game, type, x, y)
+    // Arg. Sometimes "CaveId" is an ObjType.Person1-end :/
+    // This code got to be a pretty big mess but I'm hoping a mapping format rewrite can clean that up.
+    public PersonActor(Game game, CaveId type, CaveSpec spec, int x, int y)
+        : base(game, (ObjType)type, x, y)
     {
-        Spec = spec;
+        // We operate on a clone of it because we modify it to keep track of the state of this instance.
+        _spec = spec.Clone();
         HP = 0;
         // This isn't used anymore. The effect is implemented a different way.
-        Game.World.SetPersonWallY(0x8D);
+        // Game.World.SetPersonWallY(0x8D);
 
         if (!Game.World.IsOverworld())
         {
             Game.Sound.PlayEffect(SoundEffect.Item);
         }
 
-        _personType = GetPersonType();
-        var stringId = Spec.GetStringId();
+        _itemLocations = spec.Items?.Length switch
+        {
+            1 => [_defaultItemLocations[1]],
+            2 => [_defaultItemLocations[0], _defaultItemLocations[^1]],
+            _ => _defaultItemLocations,
+        };
 
         // Room has been previously paid for. Clear it out.
         if (Game.World.GotItem())
         {
-            switch (_personType)
-            {
-                case PersonType.DoorRepair:
-                    Delete();
-                    return;
-
-                case PersonType.MoneyOrLife:
-                    Game.World.OpenShutters();
-                    Game.World.SetPersonWallY(0);
-                    Delete();
-                    return;
-
-                case PersonType.Grumble:
-                    Game.World.SetPersonWallY(0);
-                    Delete();
-                    return;
-            }
+            MarkItem();
+            return;
         }
 
-        if (_personType == PersonType.EnterLevel9)
+        if (spec.HasEntranceCheck)
         {
-            if (Game.World.GetItem(ItemSlot.TriforcePieces) == 0xFF)
+            var checkItem = spec.EntranceCheckItem ?? throw new Exception("EntranceCheckItem is unset.");
+            var checkAmount = spec.EntranceCheckAmount ?? throw new Exception("EntranceCheckAmount is unset.");
+            var item = game.World.GetItem(checkItem);
+            if (item >= checkAmount)
             {
-                Game.World.OpenShutters();
-                Game.World.SetPersonWallY(0);
-                Delete();
+                MarkItem();
                 return;
             }
         }
 
-        if (spec.GetPickUp() && !spec.GetShowPrices())
+        if (spec.HasEntranceCost)
         {
-            if (Game.World.GotItem())
+            var checkItem = spec.EntranceCheckItem ?? throw new Exception("EntranceCheckItem is unset.");
+            var checkAmount = spec.EntranceCheckAmount ?? throw new Exception("EntranceCheckAmount is unset.");
+            if (checkItem == ItemSlot.Rupees)
             {
-                Delete();
+                game.World.PostRupeeLoss(checkAmount);
+                MarkItem();
                 return;
             }
+
+            // JOE: TODO
+            throw new Exception($"EntranceCost is not implemented for this item {checkItem}.");
         }
 
-        var animIndex = spec.DwellerType - ObjType.OldMan;
+        var animIndex = (ObjType)spec.DwellerType - ObjType.OldMan;
         var animId = _personGraphics[animIndex].AnimId;
         _image = new SpriteImage(TileSheet.PlayerAndItems, animId);
-        TextBox = new TextBox(Game, Game.World.GetString(stringId).ToArray());
+        _textBox = new TextBox(Game, spec.Text);
 
-        Array.Fill(_priceStrs, (byte)Char.Space);
-
-        if (Spec.GetShowPrices() || Spec.GetSpecial())
+        if ((spec.ShowNumbers || spec.IsSpecial) && spec.Items != null)
         {
-            var sign = Spec.GetShowNegative() ? NumberSign.Negative : NumberSign.None;
-
-            for (var i = 0; i < 3; i++)
+            var negative = spec.ShowNegative;
+            _priceStrings = spec.Items.Select(t =>
             {
-                var price = GetPrice(i);
-                GlobalFunctions.NumberToStringR(Spec.GetPrice(i), sign, ref price);
-            }
+                var neg = negative || t.ShowNegative ? NumberSign.Negative : NumberSign.None;
+                return GlobalFunctions.NumberToString(t.Cost, neg);
+            }).ToArray();
         }
 
-        if (_personType == PersonType.Gambling)
+        if (PersonType == PersonType.Gambling)
         {
             InitGambling();
         }
 
-        if (type == ObjType.CaveMedicineShop)
+        // JOE: TODO: Move this
+        if (type == CaveId.Cave11MedicineShop)
         {
             var itemValue = Game.World.GetItem(ItemSlot.Letter);
             _state = itemValue == 2 ? PersonState.Idle : PersonState.WaitingForLetter;
         }
-
-        ShowNumbers = stringId is StringId.MoreBombs or StringId.MoneyOrLife;
 
         if (_state == PersonState.Idle)
         {
@@ -158,26 +140,12 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    // JOE: TODO: Start using this. I think "Shop" might be a boolean out argument?
-    private PersonType GetPersonType()
+    private void MarkItem()
     {
-        if (IsGambling()) return PersonType.Gambling;
-        var stringId = Spec.GetStringId();
-        switch (stringId)
-        {
-            case StringId.DoorRepair: return PersonType.DoorRepair;
-            case StringId.MoneyOrLife: return PersonType.MoneyOrLife;
-            case StringId.EnterLevel9: return PersonType.EnterLevel9;
-            case StringId.MoreBombs: return PersonType.MoreBombs;
-        }
-
-        switch (ObjType)
-        {
-            case ObjType.CaveShortcut: return PersonType.CaveShortcut;
-            case ObjType.Grumble: return PersonType.Grumble;
-        }
-
-        return PersonType.Shop;
+        Game.World.MarkItem();
+        if (_spec.DoesControlsBlockingWall) Game.World.SetPersonWallY(0);
+        if (_spec.DoesControlsShutters) Game.World.OpenShutters();
+        Delete();
     }
 
     public override void Update()
@@ -209,14 +177,14 @@ internal sealed class PersonActor : Actor
 
     private void UpdateDialog()
     {
-        if (TextBox == null) throw new Exception();
-        if (TextBox.IsDone()) return;
+        if (_textBox == null) throw new Exception();
+        if (_textBox.IsDone()) return;
 
-        TextBox.Update();
+        _textBox.Update();
 
-        if (TextBox.IsDone())
+        if (_textBox.IsDone())
         {
-            switch (_personType)
+            switch (PersonType)
             {
                 case PersonType.DoorRepair:
                     Game.World.PostRupeeLoss(20);
@@ -242,214 +210,251 @@ internal sealed class PersonActor : Actor
 
     private void CheckPlayerHit()
     {
-        if (!Spec.GetPickUp()) return;
+        if (_spec.Items == null) return;
+        if (!_spec.IsPay) return;
 
         var player = Game.Link;
 
-        var distanceY = Math.Abs(ItemY - player.Y);
-        if (distanceY >= 6) return;
-
-        for (var i = 0; i < CaveSpec.Count; i++)
+        for (var i = 0; i < _spec.Items.Length; i++)
         {
-            var itemId = Spec.GetItemId(i);
-            if (itemId != ItemId.None && player.X == _itemXs[i])
+            var item = _spec.Items[i];
+            var itemId = item.ItemId;
+            var location = _itemLocations[i];
+
+            var distanceY = Math.Abs(location.Y - player.Y);
+            if (distanceY >= 6) continue;
+
+            if (itemId != ItemId.None && player.X == location.X)
             {
-                HandlePlayerHit(i);
+                HandlePlayerHit(item, i);
                 break;
             }
         }
     }
 
-    private void HandlePlayerHit(int index)
+    private void HandlePlayerHit(CaveShopItem item, int index)
     {
-        if (Spec.GetCheckHearts())
+        if (item.HasOption(CaveShopItemOptions.CheckCost))
         {
-            var expectedCount = ObjType switch
+            var actual = Game.World.GetItem(item.Costing);
+            if (actual < item.Cost)
             {
-                ObjType.Cave3WhiteSword => 5,
-                ObjType.Cave4MagicSword => 12,
-                _ => throw new Exception()
-            };
-
-            if (Game.World.GetItem(ItemSlot.HeartContainers) < expectedCount) return;
+                _log.Write($"Failed check: {actual} < {item.Costing} for {item.ItemId}.");
+                return;
+            }
         }
 
-        if (Spec.GetPay())
+        if (_spec.IsPay)
         {
-            var price = Spec.GetPrice(index);
-            if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
-            Game.World.PostRupeeLoss(price);
+            var actual = Game.World.GetItem(item.Costing);
+            if (item.Cost > actual)
+            {
+                _log.Write($"Failed pay: {actual} < {item.Costing} for {item.ItemId}.");
+                return;
+            }
+
+            // TODO: I want to do positives this way too.
+            if (item.Costing == ItemSlot.Rupees)
+            {
+                Game.World.PostRupeeLoss(item.Cost);
+            }
+            else
+            {
+                var newValue = actual - item.Cost;
+                // This is to emulate the zombie link game behavior.
+                if (item.Costing == ItemSlot.HeartContainers && newValue <= PlayerProfile.DefaultHeartCount)
+                {
+                    Game.World.Profile.Hearts = 0;
+                }
+                else
+                {
+                    Game.World.SetItem(item.Costing, actual - item.Cost);
+                }
+            }
         }
 
-        if (!Spec.GetShowPrices())
+        if (!_spec.ShowNumbers)
         {
             Game.World.MarkItem();
         }
 
-        if (Spec.GetHint())
+        if (HandlePickUpHint(item))
         {
-            HandlePickUpHint(index);
+            return;
         }
-        else if (Spec.GetSpecial())
+
+        if (_spec.IsSpecial)
         {
-            HandlePickUpSpecial(index);
+            HandlePickUpSpecial(item, index);
         }
         else
         {
-            HandlePickUpItem(index);
+            HandlePickUpItem(item);
         }
     }
 
-    private void HandlePickUpItem(int index)
+    private void HandlePickUpItem(CaveShopItem item)
     {
-        var itemId = Spec.GetItemId(index);
-        Game.World.AddItem(itemId);
-        ChosenIndex = index;
-        _state = PersonState.PickedUp;
-        ObjTimer = 0x40;
-        Game.World.LiftItem(itemId);
-        Game.Sound.PushSong(SongId.ItemLift);
-        Spec.ClearShowPrices();
+        HandlePickUpHint(item);
+
+        // JOE: NOTE: This should ultimately go...? Or it needs to handle all the conditions.
+        Game.World.AddItem(item.ItemId, item.ItemAmount);
+
+        if (item.FillItem != null)
+        {
+            var max = Game.World.Profile.GetMax(item.FillItem.Value);
+            Game.World.SetItem(item.FillItem.Value, max);
+        }
+        // ChosenIndex = index;
+        if (_spec.IsPickUp)
+        {
+            _state = PersonState.PickedUp;
+            ObjTimer = 0x40;
+            Game.World.LiftItem(item.ItemId);
+            Game.Sound.PushSong(SongId.ItemLift);
+        }
+        _spec.ClearOptions(CaveSpecOptions.ShowNumbers);
         Game.AutoSave();
     }
 
-    private void HandlePickUpHint(int index)
+    private bool HandlePickUpHint(CaveShopItem item)
     {
-        if (TextBox == null) throw new Exception();
+        if (item.Hint == null) return false;
 
-        var stringId = (index, ObjType) switch
-        {
-            (2, ObjType.Cave12LostHillsHint) => StringId.LostHillsHint,
-            (2, ObjType.Cave13LostWoodsHint) => StringId.LostWoodsHint,
-            (2, _) => throw new Exception(),
-            _ => StringId.AintEnough,
-        };
+        _textBox.Reset(item.Hint);
 
-        TextBox.Reset(Game.World.GetString(stringId).ToArray());
-
-        Spec.ClearShowPrices();
-        Spec.ClearPickUp();
+        _spec.ClearOptions(CaveSpecOptions.ShowNumbers);
+        _spec.ClearOptions(CaveSpecOptions.PickUp);
+        return true;
     }
 
-    private void HandlePickUpSpecial(int index)
+    private void HandlePickUpSpecial(CaveShopItem item, int index)
     {
-        if (_personType == PersonType.Gambling)
+        if (PersonType == PersonType.Gambling)
         {
-            var price = Spec.GetPrice(index);
+            var price = item.Cost;
             if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
 
             int finalIndex;
 
-            for (var i = 0; i < CaveSpec.Count; i++)
+            for (var i = 0; i < _gamblingIndexes.Length; i++)
             {
-                finalIndex = GamblingIndexes[i];
+                finalIndex = _gamblingIndexes[i];
                 var sign = finalIndex != 2 ? NumberSign.Negative : NumberSign.Positive;
-                var pricex = GetPrice(i);
-                GlobalFunctions.NumberToStringR(GamblingAmounts[finalIndex], sign, ref pricex);
+                _priceStrings[i] = GlobalFunctions.NumberToString(_gamblingAmounts[finalIndex], sign);
             }
 
-            Spec.ClearPickUp();
-            finalIndex = GamblingIndexes[index];
+            _spec.ClearOptions(CaveSpecOptions.PickUp);
+            finalIndex = _gamblingIndexes[index];
 
             if (finalIndex == 2)
             {
-                Game.World.PostRupeeWin(GamblingAmounts[finalIndex]);
+                Game.World.PostRupeeWin(_gamblingAmounts[finalIndex]);
             }
             else
             {
-                Game.World.PostRupeeLoss(GamblingAmounts[finalIndex]);
+                Game.World.PostRupeeLoss(_gamblingAmounts[finalIndex]);
             }
 
             return;
         }
-
-        if (_personType == PersonType.MoreBombs)
-        {
-            var price = Spec.GetPrice(index);
-            if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
-
-            Game.World.PostRupeeLoss(price);
-            var profile = Game.World.Profile;
-            profile.Items[ItemSlot.MaxBombs] += 4;
-            profile.Items[ItemSlot.Bombs] = profile.Items[ItemSlot.MaxBombs];
-
-            ShowNumbers = false;
-            _state = PersonState.PickedUp;
-            ObjTimer = 0x40;
-            return;
-        }
-
-        if (_personType == PersonType.MoneyOrLife)
-        {
-            var price = Spec.GetPrice(index);
-            var itemId = Spec.GetItemId(index);
-
-            if (itemId == ItemId.Rupee)
-            {
-                if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
-
-                Game.World.PostRupeeLoss(price);
-            }
-            else if (itemId == ItemId.HeartContainer)
-            {
-                if (price > Game.World.GetItem(ItemSlot.HeartContainers)) return;
-
-                var profile = Game.World.Profile;
-                if (profile.Items[ItemSlot.HeartContainers] <= PlayerProfile.DefaultHeartCount)
-                {
-                    // This is to emulate the zombie link game behavior.
-                    profile.Hearts = 0;
-                }
-                else
-                {
-                    profile.Items[ItemSlot.HeartContainers]--;
-                    if (profile.Hearts > 0x100)
-                    {
-                        profile.Hearts -= 0x100;
-                    }
-                    Game.Sound.PlayEffect(SoundEffect.KeyHeart);
-                }
-            }
-            else
-            {
-                return;
-            }
-
-            Game.World.MarkItem();
-            Game.World.OpenShutters();
-
-            ShowNumbers = false;
-            _state = PersonState.PickedUp;
-            ObjTimer = 0x40;
-            return;
-        }
+        //
+        // if (PersonType == PersonType.MoreBombs)
+        // {
+        //     var price = item.Cost;
+        //     if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
+        //
+        //     Game.World.PostRupeeLoss(price);
+        //     var profile = Game.World.Profile;
+        //     profile.Items[ItemSlot.MaxBombs] += 4;
+        //     profile.Items[ItemSlot.Bombs] = profile.Items[ItemSlot.MaxBombs];
+        //
+        //     _showNumbers = false;
+        //     _state = PersonState.PickedUp;
+        //     ObjTimer = 0x40;
+        //     return;
+        // }
+        //
+        // if (PersonType == PersonType.MoneyOrLife)
+        // {
+        //     var price = item.Cost;
+        //     var itemId = item.ItemId;
+        //
+        //     if (itemId == ItemId.Rupee)
+        //     {
+        //         if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
+        //
+        //         Game.World.PostRupeeLoss(price);
+        //     }
+        //     else if (itemId == ItemId.HeartContainer)
+        //     {
+        //         if (price > Game.World.GetItem(ItemSlot.HeartContainers)) return;
+        //
+        //         var profile = Game.World.Profile;
+        //         if (profile.Items[ItemSlot.HeartContainers] <= PlayerProfile.DefaultHeartCount)
+        //         {
+        //             // This is to emulate the zombie link game behavior.
+        //             profile.Hearts = 0;
+        //         }
+        //         else
+        //         {
+        //             profile.Items[ItemSlot.HeartContainers]--;
+        //             if (profile.Hearts > 0x100)
+        //             {
+        //                 profile.Hearts -= 0x100;
+        //             }
+        //             Game.Sound.PlayEffect(SoundEffect.KeyHeart);
+        //         }
+        //     }
+        //     else
+        //     {
+        //         return;
+        //     }
+        //
+        //     Game.World.MarkItem();
+        //     Game.World.OpenShutters();
+        //
+        //     _showNumbers = false;
+        //     _state = PersonState.PickedUp;
+        //     ObjTimer = 0x40;
+        //     return;
+        // }
 
         // Give money
-        var amount = Spec.GetPrice(index);
+        var amount = item.Cost;
 
         Game.World.PostRupeeWin(amount);
         Game.World.MarkItem();
-        Spec.ClearPickUp();
-        ShowNumbers = true;
+        _spec.ClearOptions(CaveSpecOptions.PickUp);
+        _showNumbers = true;
     }
 
-    private bool IsGambling()
+    private void AddItem(CaveShopItem item)
     {
-        return Spec.GetSpecial() && ObjType >= ObjType.Cave1 && ObjType < ObjType.Cave18;
+        // JOE: TODO: This has a lot more work needed.
+        var set = item.HasOption(CaveShopItemOptions.SetItem);
+        if (!World.ItemToEquipment.TryGetValue(item.ItemId, out var val)) return;
+        if (set)
+        {
+            Game.World.SetItem(val.Slot, item.ItemAmount);
+            return;
+        }
+
+        Game.World.AddItem(item.ItemId);
     }
 
     private void InitGambling()
     {
-        for (var i = 0; i < GamblingIndexes.Length; i++)
+        for (var i = 0; i < _gamblingIndexes.Length; i++)
         {
-            GamblingIndexes[i] = (byte)i;
+            _gamblingIndexes[i] = (byte)i;
         }
 
-        GamblingAmounts[0] = (byte)(Random.Shared.Next(2) == 0 ? 10 : 40);
-        GamblingAmounts[1] = 10;
-        GamblingAmounts[2] = (byte)(Random.Shared.Next(2) == 0 ? 20 : 50);
+        _gamblingAmounts[0] = (byte)(Random.Shared.Next(2) == 0 ? 10 : 40);
+        _gamblingAmounts[1] = 10;
+        _gamblingAmounts[2] = (byte)(Random.Shared.Next(2) == 0 ? 20 : 50);
 
-        GamblingIndexes.Shuffle();
+        _gamblingIndexes.Shuffle();
     }
 
     private void UpdatePickUp()
@@ -546,40 +551,41 @@ internal sealed class PersonActor : Actor
 
         if (_image == null) throw new NullReferenceException("_image is null.");
 
-        var animIndex = Spec.DwellerType - ObjType.OldMan;
+        var animIndex = (ObjType)_spec.DwellerType - ObjType.OldMan;
         var palette = _personGraphics[animIndex].Palette;
         palette = CalcPalette(palette);
         _image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
 
         if (_state == PersonState.WaitingForLetter) return;
 
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; _spec.Items != null && i < _spec.Items.Length; i++)
         {
-            var itemId = Spec.GetItemId(i);
+            var item = _spec.Items[i];
+            var location = _itemLocations[i];
 
-            if (itemId < ItemId.MAX && (_state != PersonState.PickedUp || i != ChosenIndex))
+            if (_state != PersonState.PickedUp || i != _chosenIndex)
             {
-                if (Spec.GetShowItems())
+                if (_spec.ShowItems)
                 {
-                    GlobalFunctions.DrawItemWide(Game, itemId, _itemXs[i], ItemY);
+                    GlobalFunctions.DrawItemWide(Game, item.ItemId, location.X, location.Y);
                 }
-                if (Spec.GetShowPrices() || ShowNumbers)
+                if (_spec.ShowNumbers || _showNumbers)
                 {
-                    GlobalFunctions.DrawString(GetPrice(i), _priceXs[i], PriceY, 0);
+                    GlobalFunctions.DrawString(_priceStrings[i], location.PriceX, location.PriceY, 0);
                 }
             }
         }
 
-        if (Spec.GetShowPrices())
+        if (_spec.ShowNumbers)
         {
             GlobalFunctions.DrawItemWide(Game, ItemId.Rupee, 0x30, 0xAC);
-            GlobalFunctions.DrawChar(Char.X, 0x40, 0xB0, 0);
+            GlobalFunctions.DrawChar(Chars.X, 0x40, 0xB0, 0);
         }
     }
 
     private void DrawDialog()
     {
-        if (TextBox == null) throw new Exception();
-        TextBox.Draw();
+        if (_textBox == null) throw new Exception();
+        _textBox.Draw();
     }
 }

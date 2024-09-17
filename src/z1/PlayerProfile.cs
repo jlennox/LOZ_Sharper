@@ -7,50 +7,6 @@ using z1.Render;
 
 namespace z1;
 
-internal enum ItemSlot
-{
-    Sword,
-    Bombs,
-    Arrow,
-    Bow,
-    Candle,
-    Recorder,
-    Food,
-    Potion,
-    Rod,
-    Raft,
-    Book,
-    Ring,
-    Ladder,
-    MagicKey,
-    Bracelet,
-    Letter,
-    Compass,
-    Map,
-    Compass9,
-    Map9,
-    Clock,
-    Rupees,
-    Keys,
-    HeartContainers,
-    PartialHeart_Unused,
-    TriforcePieces,
-    PowerTriforce,
-    Boomerang,
-    MagicShield,
-    MaxBombs,
-    RupeesToAdd,
-    RupeesToSubtract,
-    AllowedBombCount,
-    AllowedFireCount,
-    AllowedBoomerangCount,
-    AllowedArrowCount,
-    AllowedSwordShotCount,
-    AllowedMagicWaveCount,
-
-MaxItems
-}
-
 internal enum RoomMap
 {
     Overworld,
@@ -100,11 +56,12 @@ internal sealed class PlayerProfiles : IInitializable
 internal sealed class PlayerStatistics
 {
     public int Version { get; set; }
-    public Dictionary<ObjType, int> Kills { get; set; }
-    public Dictionary<ItemSlot, int> ItemUses { get; set; }
+    public Dictionary<ObjType, long> Kills { get; set; }
+    public Dictionary<ItemSlot, long> ItemUses { get; set; }
     public Dictionary<DamageType, long> DamageDone { get; set; }
     public Dictionary<ObjType, long> DamageTaken { get; set; }
     public int SaveCount { get; set; } // TODO
+    public int CheatCount { get; set; } // TODO
     public int UWWallsBombed { get; set; }
     public int TreesBurned { get; set; }
     public int OWBlocksBombed { get; set; }
@@ -145,6 +102,19 @@ internal sealed class PlayerStatistics
     }
 }
 
+internal sealed class DungeonItems
+{
+    public Dictionary<ItemId, bool> Items { get; set; }
+
+    public void Initialize()
+    {
+        Items ??= new();
+    }
+
+    public bool Get(ItemId item) => Items.ContainsKey(item);
+    public bool Set(ItemId item) => Items[item] = true;
+}
+
 [DebuggerDisplay("{Name} ({Hearts})")]
 internal sealed class PlayerProfile
 {
@@ -156,6 +126,8 @@ internal sealed class PlayerProfile
     public const int DefaultBoomerangCount = 2;
     public const int DefaultArrowCount = 2;
     public const int DefaultShotCount = 2;
+    public const int DefaultMaxRupees = 2;
+    public const int DefaultMaxBombs = 8;
 
     public int Version { get; set; }
     public Guid Id { get; set; }
@@ -168,8 +140,8 @@ internal sealed class PlayerProfile
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
     public PlayerStatistics Statistics { get; set; }
-    public int UsedCheats { get; set; }
     public List<RoomFlags> RoomFlags { get; set; }
+    public Dictionary<int, DungeonItems> DungeonItems { get; set; }
 
     public PlayerProfile()
     {
@@ -181,6 +153,7 @@ internal sealed class PlayerProfile
         Items ??= new Dictionary<ItemSlot, int>();
         RoomFlags ??= [];
         Statistics ??= new PlayerStatistics();
+        DungeonItems ??= new Dictionary<int, DungeonItems>();
         if (Id == default) Id = Guid.NewGuid();
 
         foreach (var slot in Enum.GetValues<ItemSlot>())
@@ -196,6 +169,8 @@ internal sealed class PlayerProfile
                     ItemSlot.AllowedArrowCount => DefaultArrowCount,
                     ItemSlot.AllowedSwordShotCount => DefaultShotCount,
                     ItemSlot.AllowedMagicWaveCount => DefaultShotCount,
+                    ItemSlot.MaxRupees => DefaultMaxRupees,
+                    ItemSlot.MaxBombs => DefaultMaxBombs,
                     _ => 0,
                 };
             }
@@ -226,12 +201,48 @@ internal sealed class PlayerProfile
         return room;
     }
 
+    public DungeonItems GetDungeonItems(int dungeon)
+    {
+        if (!DungeonItems.TryGetValue(dungeon, out var items))
+        {
+            items = new DungeonItems();
+            items.Initialize();
+            DungeonItems[dungeon] = items;
+        }
+
+        return items;
+    }
+
+    public void SetDungeonItem(int dungeon, ItemId item) => GetDungeonItems(dungeon).Set(item);
+    public bool GetDungeonItem(int dungeon, ItemId item)
+    {
+        if (dungeon == 0) return false; // overworld.
+        return GetDungeonItems(dungeon).Get(item);
+    }
+
+    public void AddItem(ItemSlot itemSlot, int amount)
+    {
+        var have = Items[itemSlot];
+        var max = GetMax(itemSlot);
+        Items[itemSlot] = Math.Clamp(have + amount, 0, max);
+    }
+
     public void SetPlayerColor()
     {
         ReadOnlySpan<byte> palette = [0x29, 0x32, 0x16];
 
         var value = Items[ItemSlot.Ring];
         Graphics.SetColorIndexed(Palette.Player, 1, palette[value]);
+    }
+
+    public int GetMax(ItemSlot slot)
+    {
+        return slot switch
+        {
+            ItemSlot.Bombs => Items[ItemSlot.MaxBombs],
+            ItemSlot.Rupees => Items[ItemSlot.MaxRupees],
+            _ => 0xFF,
+        };
     }
 
     public static PlayerProfile MakeDefault() => new();

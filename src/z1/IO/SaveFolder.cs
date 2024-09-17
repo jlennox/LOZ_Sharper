@@ -55,7 +55,10 @@ internal static class SaveFolder
         }
         catch (JsonException e)
         {
-            _log.Write($"Error parsing {typeof(T).Name}: {e}");
+            _log.Error($"Error parsing {typeof(T).Name}: {e}");
+#if DEBUG
+            throw;
+#endif
             return makeDefaults();
         }
         catch (FileNotFoundException e)
@@ -65,7 +68,10 @@ internal static class SaveFolder
         }
         catch (Exception e)
         {
-            _log.Write($"Error loading {typeof(T).Name}: {e}");
+            _log.Error($"Error loading {typeof(T).Name}: {e}");
+#if DEBUG
+            throw;
+#endif
             return makeDefaults();
         }
     }
@@ -81,7 +87,7 @@ internal static class SaveFolder
         }
         catch (Exception e)
         {
-            _log.Write($"Error saving {typeof(T).Name}: {e}");
+            _log.Error($"Error saving {typeof(T).Name}: {e}");
             throw;
         }
         return true;

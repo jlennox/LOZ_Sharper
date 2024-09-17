@@ -18,6 +18,7 @@ internal readonly struct AssetLoader
         {
             var file = Path.Combine(basepath, "info.json");
             if (!File.Exists(file)) return false;
+
             try
             {
                 var json = File.ReadAllText(file);
@@ -115,14 +116,12 @@ internal readonly struct AssetLoader
 
         // Write last because it doubles as a "finished" marker.
         AssetMetadata.Write(Directories.Assets);
+
         // Copy the ROM incase the asset version changes.
-        try
+        var copyDestination = Path.Combine(Directories.Assets, "rom.nes");
+        if (romfile != copyDestination)
         {
-            File.Copy(romfile, Path.Combine(Directories.Assets, "rom.nes"), true);
-        }
-        catch
-        {
-            // On asset version updates the file is still seen as being open, and I have not debugged this yet.
+            File.Copy(romfile, copyDestination, true);
         }
         _log.Write($"Initialized using \"{romfile}\" to \"{Directories.Assets}\"");
         return assets;

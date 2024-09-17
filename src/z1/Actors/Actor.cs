@@ -68,7 +68,7 @@ internal abstract class Actor
     public ActorFlags Flags;
 
     public ObjType ObjType { get; }
-    public ObjectAttr Attributes => Game.World.GetObjectAttrs(ObjType);
+    public ObjectAttribute Attributes => Game.World.GetObjectAttribute(ObjType);
 
     protected bool IsStunned => _isStunned();
 
@@ -352,7 +352,7 @@ internal abstract class Actor
             if (Decoration == 0)
             {
                 // JOE: CHECK: Not sure this is right. It use to be: slot < ObjectSlot.Buffer
-                if (this is MonsterActor && !Attributes.GetCustomCollision())
+                if (this is MonsterActor && !Attributes.HasCustomCollision)
                 {
                     // ORIGINAL: flag 4 if custom draw. If not set, then call $77D4.
                     // But, this stock drawing code is used for very few objects. This includes
@@ -424,7 +424,7 @@ internal abstract class Actor
 
     protected bool CheckCollisions()
     {
-        if (!Attributes.GetInvincibleToWeapons())
+        if (!Attributes.IsInvincibleToWeapons)
         {
             if (InvincibilityTimer != 0) return false;
 
@@ -616,7 +616,7 @@ internal abstract class Actor
             return new Point(X + 0x10, Y + 0x10);
         }
 
-        var xOffset = Attributes.GetHalfWidth() ? 4 : 8;
+        var xOffset = Attributes.IsHalfWidth ? 4 : 8;
         return new Point(X + xOffset, Y + 8);
     }
 
@@ -838,7 +838,7 @@ internal abstract class Actor
 
         // JOE: Old code was: if (Game.World.CurObjectSlot >= ObjectSlot.Buffer) return;
         if (this is not MonsterActor) return;
-        if (Attributes.GetUnknown80__() || this is VireActor) return;
+        if (Attributes.Unknown80 || this is VireActor) return;
 
         Facing = Facing.GetOppositeDirection();
 }
@@ -850,7 +850,7 @@ internal abstract class Actor
         var weaponObj = context.Weapon ?? throw new InvalidOperationException("Weapon was null.");
         var dir = weaponObj.Facing;
 
-        if (Attributes.GetUnknown80__())
+        if (Attributes.Unknown80)
         {
             // Debugger.Break();
             dir |= (Direction)0x40;
@@ -1355,159 +1355,4 @@ internal abstract class Actor
     {
         return Game.ShootFireball(type, x, y, offset);
     }
-}
-
-internal enum ObjType
-{
-    None,
-
-    BlueLynel,
-    RedLynel,
-    BlueMoblin,
-    RedMoblin,
-    BlueGoriya,
-    RedGoriya,
-    RedSlowOctorock,
-    RedFastOctorock,
-    BlueSlowOctorock,
-    BlueFastOctorock,
-    RedDarknut,
-    BlueDarknut,
-    BlueTektite,
-    RedTektite,
-    BlueLeever,
-    RedLeever,
-    Zora,
-    Vire,
-    Zol,
-    ChildGel,
-    Gel,
-    PolsVoice,
-    LikeLike,
-    LittleDigdogger,
-    Unknown1__,
-    Peahat,
-    BlueKeese,
-    RedKeese,
-    BlackKeese,
-    Armos,
-    Boulders,
-    Boulder,
-    Ghini,
-    FlyingGhini,
-    BlueWizzrobe,
-    RedWizzrobe,
-    PatraChild1,
-    PatraChild2,
-    Wallmaster,
-    Rope,
-    Unknown5__,
-    Stalfos,
-    Bubble1,
-    Bubble2,
-    Bubble3,
-    Whirlwind,
-    PondFairy,
-    Gibdo,
-    ThreeDodongos,
-    OneDodongo,
-    BlueGohma,
-    RedGohma,
-    RupieStash,
-    Grumble,
-    Zelda,
-    Digdogger1,
-    Digdogger2,
-    RedLamnola,
-    BlueLamnola,
-    Manhandla,
-    Aquamentus,
-    Ganon,
-    GuardFire,
-    StandingFire,
-    Moldorm,
-    Gleeok1,
-    Gleeok2,
-    Gleeok3,
-    Gleeok4,
-    GleeokHead,
-    Patra1,
-    Patra2,
-    Trap,
-    TrapSet4,
-
-    Person1,
-    Person2,
-    Person3,
-    Person4,
-    Person5,
-    Person6,
-    Person7,
-    Person8,
-
-    FlyingRock,
-    Unknown54__,
-    Fireball,
-    Fireball2,
-    PlayerSwordShot,
-
-    OldMan,
-    OldWoman,
-    Merchant,
-    FriendlyMoblin,
-
-    MagicWave = OldMan,
-    MagicWave2 = OldWoman,
-    Arrow = FriendlyMoblin,
-
-    Boomerang,
-    DeadDummy,
-    FluteSecret,
-    Ladder,
-    Item,
-
-    Dock,
-    Rock,
-    RockWall,
-    Tree,
-    Headstone,
-
-    Unknown66__,
-    Unknown67__,
-    Block,
-    Unknown69__,
-
-    Cave1,
-    Cave2,
-    Cave3WhiteSword,
-    Cave4MagicSword,
-    Cave5Shortcut,
-    Cave6,
-    Cave7,
-    Cave8,
-    Cave9,
-    Cave10,
-    Cave11MedicineShop,
-    Cave12LostHillsHint,
-    Cave13LostWoodsHint,
-    Cave14,
-    Cave15,
-    Cave16,
-    Cave17,
-    Cave18,
-    Cave19,
-    Cave20,
-
-    Bomb,
-    PlayerSword,
-    Fire,
-    Rod,
-    Food,
-
-    Player,
-
-    PersonEnd = Person8 + 1,
-    PersonTypes = PersonEnd - Person1,
-    CaveMedicineShop = Cave11MedicineShop,
-    CaveShortcut = Cave5Shortcut,
 }

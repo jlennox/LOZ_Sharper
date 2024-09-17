@@ -2,7 +2,6 @@
 using z1.Actors;
 using z1.Render;
 using z1.IO;
-using z1.UI;
 
 namespace z1;
 
@@ -35,49 +34,6 @@ internal enum NumberSign
     None,
     Negative,
     Positive,
-}
-
-internal enum ItemId
-{
-    Bomb,
-    WoodSword,
-    WhiteSword,
-    MagicSword,
-    Food,
-    Recorder,
-    BlueCandle,
-    RedCandle,
-    WoodArrow,
-    SilverArrow,
-    Bow,
-    MagicKey,
-    Raft,
-    Ladder,
-    PowerTriforce,
-    FiveRupees,
-    Rod,
-    Book,
-    BlueRing,
-    RedRing,
-    Bracelet,
-    Letter,
-    Compass,
-    Map,
-    Rupee,
-    Key,
-    HeartContainer,
-    TriforcePiece,
-    MagicShield,
-    WoodBoomerang,
-    MagicBoomerang,
-    BluePotion,
-    RedPotion,
-    Clock,
-    Heart,
-    Fairy,
-
-    MAX = 0x3F,
-    None = MAX
 }
 
 internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette, bool Flash = false)
@@ -126,31 +82,11 @@ internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette
     ];
 }
 
-internal enum Char
-{
-    FullHeart = 0xF2,
-    HalfHeart = 0x65,
-    EmptyHeart = 0x66,
-
-    BoxTL = 0x69,
-    BoxTR = 0x6B,
-    BoxBL = 0x6E,
-    BoxBR = 0x6D,
-    BoxHorizontal = 0x6A,
-    BoxVertical = 0x6C,
-
-    X = 0x21,
-    Space = 0x24,
-    JustSpace = 0x25,
-    Minus = 0x62,
-    Plus = 0x64,
-}
-
 // The top bit indicates it'll be directly translated to a byte when inside a string.
 internal enum StringChar
 {
-    BoxHorizontal = Char.BoxHorizontal |  0x80,
-    BoxVertical = Char.BoxVertical | 0x80,
+    BoxHorizontal = Chars.BoxHorizontal |  0x80,
+    BoxVertical = Chars.BoxVertical | 0x80,
 }
 
 internal static class GlobalFunctions
@@ -226,9 +162,9 @@ internal static class GlobalFunctions
         return new BoomerangProjectile(game, x, y, moving, distance, speed, owner);
     }
 
-    public static Actor MakePerson(Game game, ObjType type, CaveSpec spec, int x, int y)
+    public static Actor MakePerson(Game game, CaveId caveId, CaveSpec spec, int x, int y)
     {
-        return new PersonActor(game, type, spec, x, y);
+        return new PersonActor(game, caveId, spec, x, y);
     }
 
     public static Actor MakeItem(Game game, ItemId itemId, int x, int y, bool isRoomItem)
@@ -280,7 +216,7 @@ internal static class GlobalFunctions
         DrawItem(game, itemId, x, y, 16);
     }
 
-    public static void DrawChar(Char ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency) => DrawChar((byte)ch, x, y, palette, flags);
+    public static void DrawChar(Chars ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency) => DrawChar((byte)ch, x, y, palette, flags);
     public static void DrawChar(int ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
     {
         var srcX = (ch % 16) * 8;
@@ -318,6 +254,12 @@ internal static class GlobalFunctions
         }
     }
 
+    public static void DrawChar(char c, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
+    {
+        var t = ZeldaString.ByteFromChar(c);
+        DrawChar(t, x, y, palette, flags);
+    }
+
     public static void DrawSparkle(int x, int y, Palette palette, int frame)
     {
         var animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Sparkle);
@@ -336,21 +278,21 @@ internal static class GlobalFunctions
         var xs = new[] { x, x2 };
         var ys = new[] { y, y2 };
 
-        DrawChar(Char.BoxTL, x, y, 0);
-        DrawChar(Char.BoxTR, x2, y, 0);
-        DrawChar(Char.BoxBL, x, y2, 0);
-        DrawChar(Char.BoxBR, x2, y2, 0);
+        DrawChar(Chars.BoxTL, x, y, 0);
+        DrawChar(Chars.BoxTR, x2, y, 0);
+        DrawChar(Chars.BoxBL, x, y2, 0);
+        DrawChar(Chars.BoxBR, x2, y2, 0);
 
         for (var i = 0; i < 2; i++)
         {
             for (var xx = x + 8; xx < x2; xx += 8)
             {
-                DrawChar(Char.BoxHorizontal, xx, ys[i], 0);
+                DrawChar(Chars.BoxHorizontal, xx, ys[i], 0);
             }
 
             for (var yy = y + 8; yy < y2; yy += 8)
             {
-                DrawChar(Char.BoxVertical, xs[i], yy, 0);
+                DrawChar(Chars.BoxVertical, xs[i], yy, 0);
             }
         }
     }
@@ -378,9 +320,9 @@ internal static class GlobalFunctions
         {
             var tile = i switch
             {
-                _ when i < fullHearts => Char.FullHeart,
-                _ when i < fullAndPartialHearts => Char.HalfHeart,
-                _ => Char.EmptyHeart,
+                _ when i < fullHearts => Chars.FullHeart,
+                _ when i < fullAndPartialHearts => Chars.HalfHeart,
+                _ => Chars.EmptyHeart,
             };
 
             DrawChar((byte)tile, x, y, Palette.RedBgPalette);
@@ -430,35 +372,43 @@ internal static class GlobalFunctions
         Statues.Init();
     }
 
-    // TODO: Make these use a saner .ToString/ZeldaString method that allows arbitrary lengths.
-    public static byte[] NumberToStringR(int number, NumberSign sign, ref Span<byte> charBuf)
+    public static string NumberToString(int number, NumberSign sign)
     {
-        return NumberToStringR((byte)number, sign, ref charBuf);
+        Span<char> buffer = stackalloc char[16];
+        var actual = NumberToString(number, sign, buffer);
+        return new string(actual);
+    }
+
+    public static ReadOnlySpan<char> NumberToString(int number, NumberSign sign, Span<char> output)
+    {
+        var signstr = sign switch
+        {
+            NumberSign.Negative => '-',
+            NumberSign.Positive => '+',
+            _ => '\0',
+        };
+
+        if (!number.TryFormat(output, out var size)) throw new Exception();
+        if (!number.TryFormat(output[^size..], out _)) throw new Exception();
+
+        if (signstr != '\0')
+        {
+            size++;
+            output[^size..][0] = signstr;
+        }
+
+        // Left pad to 4 because that's how the game does it.
+        while (size < 4)
+        {
+            size++;
+            output[^size..][0] = ' ';
+        }
+
+        return output[^size..];
     }
 
     public static byte[] NumberToStringR(byte number, NumberSign sign, ref Span<byte> charBuf)
     {
-        // JOE: TODO: Make this 0 allocation. Return the length, I believe? Callers can use charBuf.
-        // var signstr = sign switch
-        // {
-        //     NumberSign.Negative => "-",
-        //     NumberSign.Positive => "+",
-        //     _ => "",
-        // };
-        //
-        // var length = number switch
-        // {
-        //     < 10 => 1,
-        //     < 100 => 2,
-        //     _ => 3,
-        // };
-        //
-        // if (sign != NumberSign.None) ++length;
-        //
-        // var str = ZeldaString.EnumerateText((signstr + number).PadLeft(charBuf.Length - length)).ToArray();
-        // str.CopyTo(charBuf);
-        // return str;
-
         var bufLen = charBuf.Length;
 
         Debug.Assert(bufLen >= 3);
@@ -478,7 +428,7 @@ internal static class GlobalFunctions
 
         if (sign != NumberSign.None && number != 0)
         {
-            charBuf[pChar] = sign == NumberSign.Negative ? (byte)Char.Minus : (byte)Char.Plus;
+            charBuf[pChar] = sign == NumberSign.Negative ? (byte)Chars.Minus : (byte)Chars.Plus;
             pChar--;
         }
 
@@ -486,7 +436,7 @@ internal static class GlobalFunctions
 
         for (; pChar >= 0; pChar--)
         {
-            charBuf[pChar] = (byte)Char.Space;
+            charBuf[pChar] = (byte)Chars.Space;
         }
 
         charBuf = charBuf[strLeft..];

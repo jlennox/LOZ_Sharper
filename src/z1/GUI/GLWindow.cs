@@ -47,6 +47,7 @@ internal sealed class GLWindow : IDisposable
         {
             _log.Error("Error initializing assets: " + e);
             MessageBox.Show(e.ToString());
+            throw;
             Environment.Exit(1);
         }
 

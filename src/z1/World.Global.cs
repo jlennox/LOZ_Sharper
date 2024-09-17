@@ -53,12 +53,6 @@ internal partial class World
         row -= 4;
     }
 
-    private static void GetRSpotCoord(int position, ref int x, ref int y)
-    {
-        x = (position & 0x0F) << 4;
-        y = (position & 0xF0) | 0xD;
-    }
-
     private static Point GetRoomItemPosition(byte position)
     {
         return new Point(position & 0xF0, (byte)(position << 4));

@@ -876,7 +876,7 @@ internal sealed class Link : Actor, IThrower
         var itemValue = Game.World.GetItem(ItemSlot.Letter);
         if (itemValue != 1) return 0;
 
-        var obj = Game.World.GetObject(static obj => obj.ObjType == ObjType.CaveMedicineShop);
+        var obj = Game.World.GetObject(static obj => obj.ObjType == ObjType.Cave11MedicineShop);
         if (obj == null) return 0;
 
         Game.World.SetItem(ItemSlot.Letter, 2);

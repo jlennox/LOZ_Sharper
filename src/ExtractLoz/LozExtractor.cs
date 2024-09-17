@@ -5,14 +5,13 @@
    See the LICENSE text file for details.
 */
 
-// This file has been modified by Joseph Lennox 2014
+// This file has been modified by Joseph Lennox 2024
 
-using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
 using System.Security.Cryptography;
+using z1.Common;
 using z1.Common.IO;
 
 namespace ExtractLoz
@@ -73,10 +72,10 @@ namespace ExtractLoz
             CheckSupportedRom( options );
 
             Dictionary<string, Extractor> extractorMap = new Dictionary<string, Extractor> {
+                { "text", ExtractTextBundle },
                 { "overworldtiles", ExtractOverworldBundle },
                 { "underworldtiles", ExtractUnderworldBundle },
                 { "sprites", ExtractSpriteBundle },
-                { "text", ExtractTextBundle },
                 { "sound", ExtractSound }
             };
 
@@ -397,7 +396,10 @@ namespace ExtractLoz
             }
         }
 
-        private static void ExtractText( Options options )
+        private static readonly List<string> _gameStrings = new();
+        private static readonly List<string> _caveStrings = new();
+
+        private static string[] ExtractText( Options options )
         {
             const int TextPtrs = 0x4000 + 16;
 
@@ -429,6 +431,19 @@ namespace ExtractLoz
                     {
                         ushort ptr = (ushort) (listPtrs[i] - listPtrs[0]);
                         writer.Write( ptr );
+
+                        var str = heap[ptr..];
+                        for (var findEnd = 0; findEnd < str.Length; ++findEnd)
+                        {
+                            var chr = str[findEnd];
+                            if ((chr & 0xC0) == 0xC0)
+                            {
+                                // str[findEnd] = (byte)(chr & 0x3F);
+                                str = str[..(findEnd + 1)];
+                                _gameStrings.Add(ZeldaString.FromBytes(str));
+                                break;
+                            }
+                        }
                     }
 
                     writer.Write( heap );
@@ -436,6 +451,10 @@ namespace ExtractLoz
                     Utility.PadStream( writer.BaseStream );
                 }
             }
+
+            options.AddJson("text.json", _gameStrings);
+
+            return _gameStrings.ToArray();
         }
 
         private static void ExtractCredits( Options options )
@@ -2460,10 +2479,7 @@ namespace ExtractLoz
             dir.TilesImage = "overworldTiles.png";
             dir.PlayerImage = "playerItem.png";
             dir.PlayerSheet = "playerItemsSheet.tab";
-            dir.NpcImage = "owNpcs.png";
-            dir.NpcSheet = "owNpcsSheet.tab";
             dir.RoomAttrs = "overworldRoomAttr.dat";
-            dir.LevelInfoEx = "overworldInfoEx.tab";
             dir.ObjLists = "objLists.tab";
             dir.Extra1 = "overworldRoomSparseAttr.tab";
             WriteLevelDir( options, 0, 0, dir );
@@ -2679,12 +2695,7 @@ namespace ExtractLoz
             dir.TilesImage = "underworldTiles.png";
             dir.PlayerImage = "playerItem.png";
             dir.PlayerSheet = "playerItemsSheet.tab";
-            dir.NpcImage = "uwNpcs.png";
-            dir.NpcSheet = "uwNpcsSheet.tab";
-            dir.BossImage = bossImageFilename;
-            dir.BossSheet = bossSheetFilename;
             dir.RoomAttrs = roomAttrFilename;
-            dir.LevelInfoEx = "overworldInfoEx.tab";
             dir.ObjLists = "objLists.tab";
             dir.Extra1 = "overworldRoomSparseAttr.tab";
             dir.Extra2 = "underworldWalls.png";
@@ -2718,7 +2729,37 @@ namespace ExtractLoz
 
         private delegate void ReadTranslateDelegate( BinaryReader reader, BinaryWriter writer );
 
-        private static void ExtractOverworldInfoEx( Options options )
+        public sealed class ObjectAttr
+        {
+            public int ItemDropClass { get; set; }
+            public bool CustomCollision { get; set; }
+            public bool InvincibleToWeapons { get; set; }
+            public bool HalfWidth { get; set; }
+            public bool WorldCollision { get; set; }
+            public bool Unknown10__ { get; set; }
+            public bool Unknown80__ { get; set; }
+        }
+
+        [Flags]
+        private enum ObjectAttrBin
+        {
+            None = 0,
+            CustomCollision = 1,
+            CustomDraw = 4,
+            Unknown10__ = 0x10,
+            InvincibleToWeapons = 0x20,
+            HalfWidth = 0x40,
+            Unknown80__ = 0x80,
+            WorldCollision = 0x100,
+        }
+
+        private static int GetObjectMaxHP(HPAttr[] hpAttrs, int type)
+        {
+            var index = (int)type / 2;
+            return (byte)hpAttrs[index].GetHP((int)type);
+        }
+
+        private static LevelInfoEx ExtractOverworldInfoEx( Options options )
         {
             var filePath = ( "overworldInfoEx.tab" );
 
@@ -2728,16 +2769,56 @@ namespace ExtractLoz
                 const int Alignment = 4;
                 const int DataLines = 8;
 
-                ReadTranslateDelegate[] converters = new ReadTranslateDelegate[DataLines]
+                var hp = ReadTranslateHitPoints(reader, writer);
+                var damage = ReadTranslatePlayerDamage(reader, writer);
+
+                var attrs = ReadTranslateObjAttrs(reader, writer);
+
+                static bool ShouldSerailize(ObjectAttribute attr)
                 {
-                    ReadTranslateOWPondColors,
-                    ReadTranslateSpawnSpots,
-                    ReadTranslateObjAttrs,
-                    ReadTranslateCavePalettes,
-                    ReadTranslateCaves,
-                    ReadTranslateLevelPersonStringIds,
-                    ReadTranslateHitPoints,
-                    ReadTranslatePlayerDamage,
+                    return attr.HitPoints != null || attr.Damage != null;
+                }
+
+                var objAttributes = Enumerable.Range(0, Math.Max(hp.Length, damage.Length))
+                    .Select(t => new
+                    {
+                        ObjType = (ObjType)t,
+                        Attr = new ObjectAttribute
+                        {
+                            HitPoints = GetObjectMaxHP(hp, t),
+                            Damage = damage[t],
+                            ItemDropClass = attrs[t].ItemDropClass,
+                            HasCustomCollision = attrs[t].CustomCollision,
+                            IsInvincibleToWeapons = attrs[t].InvincibleToWeapons,
+                            IsHalfWidth = attrs[t].HalfWidth,
+                            HasWorldCollision = attrs[t].WorldCollision,
+                            Unknown10 = attrs[t].Unknown10__,
+                            Unknown80 = attrs[t].Unknown80__,
+    }
+                    })
+                    .Where(t => ShouldSerailize(t.Attr))
+                    .ToDictionary(t => t.ObjType, t => t.Attr);
+
+                var levelInfo = new LevelInfoEx
+                {
+                    OWPondColors = ReadTranslateOWPondColors(reader, writer),
+                    CavePalette = ReadTranslateCavePalettes(reader, writer),
+                    CaveSpec = ReadTranslateCaves(reader, writer),
+                    ObjectAttribute = objAttributes,
+                    LevelPersonStringIds = ReadTranslateLevelPersonStringIds(reader, writer),
+                    SpawnSpot = ReadTranslateSpawnSpots(reader, writer),
+                };
+
+                var converters = new ReadTranslateDelegate[]
+                {
+                    (r, w) => ReadTranslateOWPondColors(r, w),
+                    (r, w) => ReadTranslateSpawnSpots(r, w),
+                    (r, w) => ReadTranslateObjAttrs(r, w),
+                    (r, w) => ReadTranslateCavePalettes(r, w),
+                    (r, w) => ReadTranslateCaves(r, w),
+                    (r, w) => ReadTranslateLevelPersonStringIds(r, w),
+                    (r, w) => ReadTranslateHitPoints(r, w),
+                    (r, w) => ReadTranslatePlayerDamage(r, w),
                 };
 
                 var ptrs = new ushort[DataLines];
@@ -2761,10 +2842,14 @@ namespace ExtractLoz
                 {
                     writer.Write( (ushort) (ptr - bufBase) );
                 }
+
+                options.AddJson("overworldInfoEx.json", levelInfo);
+
+                return levelInfo;
             }
         }
 
-        private static void ReadTranslateOWPondColors( BinaryReader reader, BinaryWriter writer )
+        private static byte[] ReadTranslateOWPondColors( BinaryReader reader, BinaryWriter writer )
         {
             const int OWPondColorSeq = 0x1FEE8 + 16;
 
@@ -2773,9 +2858,10 @@ namespace ExtractLoz
 
             writer.Write( colorIndexes.Length );
             writer.Write( colorIndexes );
+            return colorIndexes;
         }
 
-        private static void ReadTranslateSpawnSpots( BinaryReader reader, BinaryWriter writer )
+        private static PointXY[] ReadTranslateSpawnSpots( BinaryReader reader, BinaryWriter writer )
         {
             const int SpawnSpots = 0x1464E + 16;
 
@@ -2788,9 +2874,15 @@ namespace ExtractLoz
             {
                 writer.Write( spots[i] );
             }
+
+            return spots
+                .Select(t => new PointXY(
+                    (t & 0x0F) << 4,
+                    (t & 0xF0) | 0xD)
+                ).ToArray();
         }
 
-        private static void ReadTranslateObjAttrs( BinaryReader reader, BinaryWriter writer )
+        private static ObjectAttr[] ReadTranslateObjAttrs( BinaryReader reader, BinaryWriter writer )
         {
             const int ObjAttrs = 0x1FAEF + 0x10;
 
@@ -2849,9 +2941,26 @@ namespace ExtractLoz
             {
                 writer.Write( finalAttrs[i] );
             }
+            return finalAttrs.Select(CreateObjectAttr).ToArray();
+
+            static ObjectAttr CreateObjectAttr(ushort s)
+            {
+                var typed = (ObjectAttrBin)s;
+                var attr = new ObjectAttr
+                {
+                    CustomCollision = typed.HasFlag(ObjectAttrBin.CustomCollision),
+                    InvincibleToWeapons = typed.HasFlag(ObjectAttrBin.InvincibleToWeapons),
+                    HalfWidth = typed.HasFlag(ObjectAttrBin.HalfWidth),
+                    WorldCollision = typed.HasFlag(ObjectAttrBin.WorldCollision),
+                    Unknown10__ = typed.HasFlag(ObjectAttrBin.Unknown10__),
+                    Unknown80__ = typed.HasFlag(ObjectAttrBin.Unknown80__),
+                    ItemDropClass = s >> 9 & 7
+                };
+                return attr;
+            }
         }
 
-        private static void ReadTranslateCavePalettes( BinaryReader reader, BinaryWriter writer )
+        private static CavePaletteSet ReadTranslateCavePalettes( BinaryReader reader, BinaryWriter writer )
         {
             const int OWCavePalettes = 0x1A260 + 16;
 
@@ -2861,14 +2970,33 @@ namespace ExtractLoz
             writer.Write( (int) 2 );
             writer.Write( (int) 2 );
             WritePalettes( writer, colorIndexes, colorIndexes.Length );
+            return new CavePaletteSet
+            {
+                PaletteA = colorIndexes.Take(4).ToArray(),
+                PaletteB = colorIndexes.Skip(4).ToArray()
+            };
         }
 
-        private static void ReadTranslateCaves( BinaryReader reader, BinaryWriter writer )
+        internal enum StringId
+        {
+            DoorRepair = 5,
+            AintEnough = 10,
+            LostHillsHint = 11,
+            LostWoodsHint = 12,
+            Grumble = 18,
+            MoreBombs = 25,
+            MoneyOrLife = 27,
+            EnterLevel9 = 34,
+        }
+
+        private static CaveSpec[] ReadTranslateCaves( BinaryReader reader, BinaryWriter writer )
         {
             const int OWCaveDwellers = 0x6E6F + 16;
             const int OWCaveStringIds = 0x45A2 + 16;
             const int OWCaveItems = 0x18600 + 16;
             const int OWCavePrices = 0x1863C + 16;
+
+            var caves = new List<CaveSpec>();
 
             reader.BaseStream.Position = OWCaveDwellers;
             var types = reader.ReadBytes( 20 );
@@ -2884,6 +3012,34 @@ namespace ExtractLoz
 
             writer.Write( (int) 20 );
 
+            bool IsGambling(int i)
+            {
+                var type2 = (ObjType)((int)ObjType.Cave1 + i);
+                return type2 == ObjType.Cave7;
+            }
+
+            PersonType GetPersonType(StringId stringId, int i)
+            {
+                // Commented out are the underworld ones. They're artificially constructed later.
+                if (IsGambling(i)) return PersonType.Gambling;
+                var type = (ObjType)((int)ObjType.Cave1 + i);
+                switch (stringId)
+                {
+                    case StringId.DoorRepair: return PersonType.DoorRepair;
+                    // case StringId.MoneyOrLife: return PersonType.MoneyOrLife;
+                    // case StringId.EnterLevel9: return PersonType.EnterLevel9;
+                    // case StringId.MoreBombs: return PersonType.MoreBombs;
+                }
+
+                switch (type)
+                {
+                    case ObjType.Cave5Shortcut: return PersonType.CaveShortcut;
+                    // case ObjType.Grumble: return PersonType.Grumble;
+                }
+
+                return PersonType.Shop;
+            }
+
             for ( int i = 0; i < 20; i++ )
             {
                 byte origStringAttr = stringIds[i];
@@ -2893,51 +3049,259 @@ namespace ExtractLoz
                 writer.Write( stringAttr );
                 writer.Write( items, i * 3, 3 );
                 writer.Write( prices, i * 3, 3 );
+
+                var indexOf3 = i * 3;
+
+                var itemAbin = items[indexOf3];
+                var itemBbin = items[indexOf3 + 1];
+                var itemCbin = items[indexOf3 + 2];
+
+                var stringId = stringAttr & 0x3F;
+                var pay = (stringAttr & 0x80) != 0; // JOE: Not sure I get what this one is...?
+                var pickUp = (stringAttr & 0x40) != 0;
+                var showNegative = (itemAbin & 0x80) != 0;
+                var checkHearts = (itemAbin & 0x40) != 0;
+                var special = (itemBbin & 0x80) != 0;
+                var hint = (itemBbin & 0x40) != 0;
+                var showPrices = (itemCbin & 0x80) != 0;
+                var showItems = (itemCbin & 0x40) != 0;
+
+                var caveshopitems = Enumerable.Range(0, 3)
+                    .Select(t => new CaveShopItem
+                    {
+                        ItemId = (ItemId)(items[indexOf3 + t] & 0x3F),
+                        ItemAmount = 1,
+                        Cost = prices[indexOf3 + t],
+                        Costing = ItemSlot.Rupees,
+                    }).ToArray();
+
+                var personType = GetPersonType((StringId)stringAttr, i);
+
+                var options = CaveSpecOptions.None;
+                if (showNegative) options |= CaveSpecOptions.ShowNegative;
+                if (showPrices) options |= CaveSpecOptions.ShowNumbers;
+                if (showItems) options |= CaveSpecOptions.ShowItems;
+                if (special) options |= CaveSpecOptions.Special;
+                if (pay) options |= CaveSpecOptions.Pay;
+                if (pickUp) options |= CaveSpecOptions.PickUp;
+
+                var caveId = (CaveId)((int)ObjType.Cave1 + i);
+                var caveType = caveId == CaveId.Cave5Shortcut ? CaveType.Shortcut : CaveType.Items;
+
+                var spec = new CaveSpec
+                {
+                    DwellerType = (CaveDwellerType)types[i],
+                    CaveId = caveId,
+                    CaveType = caveType,
+                    Options = options,
+                    Text = _gameStrings[stringId],
+                    PersonType = personType,
+                    Items = caveshopitems,
+                };
+
+                switch (personType)
+                {
+                    case PersonType.DoorRepair:
+                        spec.Options |= CaveSpecOptions.EntranceCost;
+                        spec.EntranceCheckItem = ItemSlot.Rupees;
+                        spec.EntranceCheckAmount = 20;
+                        break;
+                }
+
+                if (spec.CaveId == CaveId.Cave11MedicineShop)
+                {
+                    spec.RequiresItem = ItemId.Letter;
+                }
+
+                if (hint)
+                {
+                    var hintStringId = spec.CaveId switch
+                    {
+                        CaveId.Cave12LostHillsHint => StringId.LostHillsHint,
+                        CaveId.Cave13LostWoodsHint => StringId.LostWoodsHint,
+                        _ => StringId.AintEnough,
+                    };
+                    caveshopitems[0].Hint = _gameStrings[(int)StringId.AintEnough];
+                    caveshopitems[1].Hint = _gameStrings[(int)StringId.AintEnough];
+                    caveshopitems[2].Hint = _gameStrings[(int)hintStringId];
+                }
+
+                foreach (var item in caveshopitems)
+                {
+                    if (item.ItemId == 0) continue;
+
+                    if (item.ItemId == ItemId.WhiteSword)
+                    {
+                        item.Cost = 5;
+                        item.Costing = ItemSlot.HeartContainers;
+                        item.Options |= CaveShopItemOptions.CheckCost | CaveShopItemOptions.SetItem;
+                    }
+                    else if (item.ItemId == ItemId.MagicSword)
+                    {
+                        item.Cost = 12;
+                        item.Costing = ItemSlot.HeartContainers;
+                        item.Options |= CaveShopItemOptions.CheckCost | CaveShopItemOptions.SetItem;
+                    }
+
+                    if (checkHearts) item.Options |= CaveShopItemOptions.CheckCost;
+                    if (spec.PersonType == PersonType.Gambling) item.Options |= CaveShopItemOptions.Gambling;
+                }
+
+                spec.Items = spec.Items.Where(t => t.ItemId < ItemId.MAX).ToArray();
+                caves.Add(spec);
             }
+
+            caves.Add(new CaveSpec
+            {
+                DwellerType = CaveDwellerType.Moblin,
+                PersonType = PersonType.Grumble,
+                Text = _gameStrings[(int)StringId.Grumble],
+                Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutters,
+                RequiresItem = ItemId.Food,
+            });
+
+            caves.Add(new CaveSpec
+            {
+                DwellerType = CaveDwellerType.OldMan,
+                PersonType = PersonType.MoneyOrLife,
+                Text = _gameStrings[(int)StringId.MoneyOrLife],
+                Options = CaveSpecOptions.ShowNumbers | CaveSpecOptions.ControlsBlockingWall
+                    | CaveSpecOptions.ControlsShutters | CaveSpecOptions.ShowItems | CaveSpecOptions.Pay,
+                Items = [
+                    new CaveShopItem {
+                        ItemId = ItemId.HeartContainer,
+                        Costing = ItemSlot.HeartContainers,
+                        Cost = 1,
+                        Options = CaveShopItemOptions.ShowNegative,
+                    },
+                    new CaveShopItem {
+                        ItemId = ItemId.Rupee,
+                        Costing = ItemSlot.Rupees,
+                        Cost = 50,
+                        Options = CaveShopItemOptions.ShowNegative,
+                    }
+                ],
+            });
+
+            caves.Add(new CaveSpec
+            {
+                DwellerType = CaveDwellerType.OldMan,
+                PersonType = PersonType.MoreBombs,
+                Text = _gameStrings[(int)StringId.MoreBombs],
+                Options = CaveSpecOptions.ShowNumbers | CaveSpecOptions.PickUp | CaveSpecOptions.ShowItems,
+                Items = [
+                    new CaveShopItem {
+                        ItemId = ItemId.MaxBombs,
+                        ItemAmount = 4,
+                        Costing = ItemSlot.Rupees,
+                        FillItem = ItemSlot.Bombs,
+                        Cost = 100,
+                        Options = CaveShopItemOptions.ShowNegative | CaveShopItemOptions.ShowCostingItem
+                    }
+                ],
+            });
+
+            caves.Add(new CaveSpec
+            {
+                DwellerType = CaveDwellerType.OldMan,
+                PersonType = PersonType.EnterLevel9,
+                Text = _gameStrings[(int)StringId.EnterLevel9],
+                Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutters | CaveSpecOptions.EntranceCheck,
+                EntranceCheckItem = ItemSlot.TriforcePieces,
+                EntranceCheckAmount = 0xFF,
+            });
+
+            // These are the only items that are added to the existing total.
+            var shouldAddItem = new HashSet<ItemId>
+            {
+                ItemId.FiveRupees,
+                ItemId.Rupee,
+                ItemId.Key,
+                ItemId.HeartContainer,
+                ItemId.RedPotion,
+                ItemId.Heart,
+            };
+
+            foreach (var cave in caves.Where(t => t.Items != null))
+            {
+                foreach (var item in cave.Items.Where(t => !shouldAddItem.Contains(t.ItemId)))
+                {
+                    item.Options |= CaveShopItemOptions.SetItem;
+                }
+            }
+
+            return caves.ToArray();
         }
 
-        private static void ReadTranslateLevelPersonStringIds( BinaryReader reader, BinaryWriter writer )
+        private static int[][] ReadTranslateLevelPersonStringIds( BinaryReader reader, BinaryWriter writer )
         {
             byte[] stringIds = null;
 
+            var tables = new List<int[]>();
+
             reader.BaseStream.Position = 0x4A1B + 0x10;
             stringIds = reader.ReadBytes( 8 );
+            tables.Add(stringIds.Select(t => t / 2).ToArray());
+
             for ( int i = 0; i < stringIds.Length; i++ )
                 stringIds[i] = (byte) (stringIds[i] / 2);
             writer.Write( stringIds );
 
             reader.BaseStream.Position = 0x4A61 + 0x10;
             stringIds = reader.ReadBytes( 8 );
+            tables.Add(stringIds.Select(t => t / 2).ToArray());
             for ( int i = 0; i < stringIds.Length; i++ )
                 stringIds[i] = (byte) (stringIds[i] / 2);
             writer.Write( stringIds );
 
             reader.BaseStream.Position = 0x4A80 + 0x10;
             stringIds = reader.ReadBytes( 4 );
+            tables.Add(stringIds.Select(t => t / 2).ToArray());
             for ( int i = 0; i < stringIds.Length; i++ )
                 stringIds[i] = (byte) (stringIds[i] / 2);
             writer.Write( stringIds );
 
             for ( int i = 0; i < 4; i++ )
                 writer.Write( (byte) 0 );
+
+            tables.Add(Enumerable.Range(0, 4).ToArray());
+
+            return tables.ToArray();
         }
 
-        private static void ReadTranslateHitPoints( BinaryReader reader, BinaryWriter writer )
+        [DebuggerDisplay("{Data}")]
+        private struct HPAttr
+        {
+            public byte Data;
+
+            public readonly int GetHP(int type)
+            {
+                return (type & 1) switch
+                {
+                    0 => Data & 0xF0,
+                    _ => Data << 4
+                };
+            }
+        }
+
+        private static HPAttr[] ReadTranslateHitPoints( BinaryReader reader, BinaryWriter writer )
         {
             const int EnemyHP = 0x1FB4E + 0x10;
 
             reader.BaseStream.Position = EnemyHP;
             var hpBytes = reader.ReadBytes( 128 );
             writer.Write( hpBytes );
+            return hpBytes.Select(t => new HPAttr { Data = t }).ToArray();
         }
 
-        private static void ReadTranslatePlayerDamage( BinaryReader reader, BinaryWriter writer )
+        private static int[] ReadTranslatePlayerDamage( BinaryReader reader, BinaryWriter writer )
         {
             const int PlayerDamage = 0x72BA + 0x10;
 
             reader.BaseStream.Position = PlayerDamage;
             var bytes = reader.ReadBytes( 128 );
             writer.Write( bytes );
+            return bytes.Select(damageByte => ((damageByte & 0x0F) << 8) | (damageByte & 0xF0)).ToArray();
         }
 
         private static void ExtractObjLists( Options options )

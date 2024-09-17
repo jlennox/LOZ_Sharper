@@ -9,7 +9,7 @@ internal static class Directories
     {
         // TODO: Handle/report errors.
         var applicationData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var path = Path.Combine(applicationData ?? Executable, "LOZ1");
+        var path = Path.Combine(applicationData ?? Executable, "LOZ_Sharper");
         Directory.CreateDirectory(path);
         return path;
     });

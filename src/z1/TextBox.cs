@@ -13,10 +13,10 @@ internal sealed class TextBox
     private int _charTimer;
     private bool _drawingDialog = true;
     private readonly Game _game;
-    private byte[] _text;
+    private string _text;
     private int _currentTextIndex;
 
-    public TextBox(Game game, byte[] text, int delay)
+    public TextBox(Game game, string text, int delay)
     {
         _game = game;
         _text = text;
@@ -24,17 +24,36 @@ internal sealed class TextBox
         if (_charDelay < 1) _charDelay = 1;
     }
 
+    public TextBox(Game game, byte[] text, int delay)
+        : this(game, ZeldaString.FromBytes(text), delay)
+    {
+        _game = game;
+        _text = ZeldaString.FromBytes(text);
+        _charDelay = Game.Cheats.SpeedUp ? 1 : delay;
+        if (_charDelay < 1) _charDelay = 1;
+    }
+
+    public TextBox(Game game, string text)
+        : this(game, text, CharDelay - game.Enhancements.TextSpeed + 1)
+    {
+    }
+
     public TextBox(Game game, byte[] text)
         : this(game, text, CharDelay - game.Enhancements.TextSpeed + 1)
     {
     }
 
-    public void Reset(byte[] text)
+    public void Reset(string text)
     {
         _drawingDialog = true;
         _charTimer = 0;
         _text = text;
         _currentTextIndex = 0;
+    }
+
+    public void Reset(byte[] text)
+    {
+        Reset(ZeldaString.FromBytes(text));
     }
 
     public bool IsDone() => !_drawingDialog;
@@ -54,27 +73,20 @@ internal sealed class TextBox
             return;
         }
 
-        int ch;
-        do
+        // Skip over the space characters.
+        for (; _currentTextIndex < _text.Length; _currentTextIndex++)
         {
             var curCharPtr = _text[_currentTextIndex];
-            ch = curCharPtr & 0x3F;
-            var attr = curCharPtr & 0xC0;
-            if (attr == 0xC0)
+            switch (curCharPtr)
             {
-                _drawingDialog = false;
+                case '\n': _height += 8; continue;
+                case ' ': continue;
             }
-            else if (attr != 0)
-            {
-                _height += 8;
-            }
-
             _currentTextIndex++;
-            if (ch != (int)Char.JustSpace)
-            {
-                _game.Sound.PlayEffect(SoundEffect.Character);
-            }
-        } while (_drawingDialog && ch == (int)Char.JustSpace);
+            _game.Sound.PlayEffect(SoundEffect.Character);
+            break;
+        }
+        _drawingDialog = _currentTextIndex != _text.Length;
         _charTimer = _charDelay - 1;
     }
 
@@ -86,23 +98,20 @@ internal sealed class TextBox
         for (var i = 0; i < _currentTextIndex; i++ )
         {
             var chr = _text[i];
-            var attr = chr & 0xC0;
-            var ch = chr & 0x3F;
 
-            if (ch != (int)Char.JustSpace)
-            {
-                GlobalFunctions.DrawChar((byte)ch, x, y, 0);
-            }
-
-            if (attr == 0)
-            {
-                x += 8;
-            }
-            else
+            if (chr == '\n')
             {
                 x = StartX;
                 y += 8;
+                continue;
             }
+
+            if (chr != (int)Chars.JustSpace)
+            {
+                GlobalFunctions.DrawChar(chr, x, y, 0);
+            }
+
+            x += 8;
         }
     }
 }

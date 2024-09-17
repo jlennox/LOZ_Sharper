@@ -5,7 +5,7 @@
    See the LICENSE text file for details.
 */
 
-// This file has been modified by Joseph Lennox 2014
+// This file has been modified by Joseph Lennox 2024
 
 using System.Text;
 using System.Drawing;
@@ -14,7 +14,7 @@ using System.Text.Json;
 
 namespace ExtractLoz
 {
-    class Options
+    internal sealed class Options
     {
         public string RomPath;
         public string Function;
@@ -79,7 +79,13 @@ namespace ExtractLoz
 
         public OptionsStream AddStream(string relativePath)
         {
-            return new OptionsStream(relativePath, this);
+            return new OptionsStream(relativePath, this, false);
+        }
+
+        // A stream to keep old program functionality but prevent output (until all bugs are worked out).
+        public OptionsStream AddVoidStream(string relativePath)
+        {
+            return new OptionsStream(relativePath, this, true);
         }
 
         public OptionsTempFile AddTempFile(string relativePath)
@@ -88,21 +94,23 @@ namespace ExtractLoz
         }
     }
 
-    class OptionsStream : MemoryStream
+    internal sealed class OptionsStream : MemoryStream
     {
         private readonly string _filename;
         private readonly Options _options;
         private bool _closed = false;
+        private readonly bool _void;
 
-        public OptionsStream(string filename, Options options)
+        public OptionsStream(string filename, Options options, bool @void)
         {
             _filename = filename;
             _options = options;
+            _void = @void;
         }
 
         public new void Dispose()
         {
-            if (_closed) return;
+            if (_closed || _void) return;
             _closed = true;
             _options.AddFile(_filename, this);
             base.Dispose();
@@ -115,7 +123,7 @@ namespace ExtractLoz
         }
     }
 
-    class OptionsTempFile : IDisposable
+    internal sealed class OptionsTempFile : IDisposable
     {
         public readonly string TempFilename;
 

@@ -6,49 +6,48 @@ internal partial class World
 {
     private static readonly ImmutableArray<byte> _levelGroups = [0, 0, 1, 1, 0, 1, 0, 1, 2];
 
-    private readonly record struct EquipValue(byte Value, ItemSlot Slot);
+    public readonly record struct EquipValue(ItemSlot Slot, byte Value, ItemSlot? Max = null, int? MaxValue = null);
 
     // The item ID to item slot map is at $6B14, and copied to RAM at $72A4.
     // The item ID to item value map is at $6B38, and copied to RAM at $72C8.
     // They're combined here.
-    private static readonly ImmutableArray<EquipValue> _itemToEquipment = [
-        new EquipValue(4, ItemSlot.Bombs),
-        new EquipValue(1, ItemSlot.Sword),
-        new EquipValue(2, ItemSlot.Sword),
-        new EquipValue(3, ItemSlot.Sword),
-        new EquipValue(1, ItemSlot.Food),
-        new EquipValue(1, ItemSlot.Recorder),
-        new EquipValue(1, ItemSlot.Candle),
-        new EquipValue(2, ItemSlot.Candle),
-        new EquipValue(1, ItemSlot.Arrow),
-        new EquipValue(2, ItemSlot.Arrow),
-        new EquipValue(1, ItemSlot.Bow),
-        new EquipValue(1, ItemSlot.MagicKey),
-        new EquipValue(1, ItemSlot.Raft),
-        new EquipValue(1, ItemSlot.Ladder),
-        new EquipValue(1, ItemSlot.PowerTriforce),
-        new EquipValue(5, ItemSlot.RupeesToAdd),
-        new EquipValue(1, ItemSlot.Rod),
-        new EquipValue(1, ItemSlot.Book),
-        new EquipValue(1, ItemSlot.Ring),
-        new EquipValue(2, ItemSlot.Ring),
-        new EquipValue(1, ItemSlot.Bracelet),
-        new EquipValue(1, ItemSlot.Letter),
-        new EquipValue(1, ItemSlot.Compass9),
-        new EquipValue(1, ItemSlot.Map9),
-        new EquipValue(1, ItemSlot.RupeesToAdd),
-        new EquipValue(1, ItemSlot.Keys),
-        new EquipValue(1, ItemSlot.HeartContainers),
-        new EquipValue(1, ItemSlot.TriforcePieces),
-        new EquipValue(1, ItemSlot.MagicShield),
-        new EquipValue(1, ItemSlot.Boomerang),
-        new EquipValue(2, ItemSlot.Boomerang),
-        new EquipValue(1, ItemSlot.Potion),
-        new EquipValue(2, ItemSlot.Potion),
-        new EquipValue(1, ItemSlot.Clock),
-        new EquipValue(1, ItemSlot.Bombs),
-        new EquipValue(3, ItemSlot.Bombs)
-    ];
+    public static readonly ImmutableDictionary<ItemId, EquipValue> ItemToEquipment = new Dictionary<ItemId, EquipValue> {
+        { ItemId.Bomb,           new EquipValue(ItemSlot.Bombs,           4, ItemSlot.MaxBombs) },
+        { ItemId.WoodSword,      new EquipValue(ItemSlot.Sword,           1) },
+        { ItemId.WhiteSword,     new EquipValue(ItemSlot.Sword,           2) },
+        { ItemId.MagicSword,     new EquipValue(ItemSlot.Sword,           3) },
+        { ItemId.Food,           new EquipValue(ItemSlot.Food,            1) },
+        { ItemId.Recorder,       new EquipValue(ItemSlot.Recorder,        1) },
+        { ItemId.BlueCandle,     new EquipValue(ItemSlot.Candle,          1) },
+        { ItemId.RedCandle,      new EquipValue(ItemSlot.Candle,          2) },
+        { ItemId.WoodArrow,      new EquipValue(ItemSlot.Arrow,           1) },
+        { ItemId.SilverArrow,    new EquipValue(ItemSlot.Arrow,           2) },
+        { ItemId.Bow,            new EquipValue(ItemSlot.Bow,             1) },
+        { ItemId.MagicKey,       new EquipValue(ItemSlot.MagicKey,        1) },
+        { ItemId.Raft,           new EquipValue(ItemSlot.Raft,            1) },
+        { ItemId.Ladder,         new EquipValue(ItemSlot.Ladder,          1) },
+        { ItemId.PowerTriforce,  new EquipValue(ItemSlot.PowerTriforce,   1) },
+        { ItemId.FiveRupees,     new EquipValue(ItemSlot.RupeesToAdd,     5, ItemSlot.MaxRupees) },
+        { ItemId.Rod,            new EquipValue(ItemSlot.Rod,             1) },
+        { ItemId.Book,           new EquipValue(ItemSlot.Book,            1) },
+        { ItemId.BlueRing,       new EquipValue(ItemSlot.Ring,            1) },
+        { ItemId.RedRing,        new EquipValue(ItemSlot.Ring,            2) },
+        { ItemId.Bracelet,       new EquipValue(ItemSlot.Bracelet,        1) },
+        { ItemId.Letter,         new EquipValue(ItemSlot.Letter,          1) },
+        { ItemId.Rupee,          new EquipValue(ItemSlot.RupeesToAdd,     1, ItemSlot.MaxRupees) },
+        { ItemId.Key,            new EquipValue(ItemSlot.Keys,            1) },
+        { ItemId.HeartContainer, new EquipValue(ItemSlot.HeartContainers, 1) },
+        { ItemId.TriforcePiece,  new EquipValue(ItemSlot.TriforcePieces,  1) },
+        { ItemId.MagicShield,    new EquipValue(ItemSlot.MagicShield,     1) },
+        { ItemId.WoodBoomerang,  new EquipValue(ItemSlot.Boomerang,       1) },
+        { ItemId.MagicBoomerang, new EquipValue(ItemSlot.Boomerang,       2) },
+        { ItemId.BluePotion,     new EquipValue(ItemSlot.Potion,          1, null, 2) },
+        { ItemId.RedPotion,      new EquipValue(ItemSlot.Potion,          2, null, 2) },
+        { ItemId.Clock,          new EquipValue(ItemSlot.Clock,           1) },
+        { ItemId.Heart,          new EquipValue(ItemSlot.None,            1) },
+        { ItemId.Fairy,          new EquipValue(ItemSlot.None,            3) },
+        { ItemId.MaxBombs,       new EquipValue(ItemSlot.MaxBombs,        4) },
+    }.ToImmutableDictionary();
 
     private readonly record struct DoorStateBehaviors(TileBehavior Closed, TileBehavior Open);
 

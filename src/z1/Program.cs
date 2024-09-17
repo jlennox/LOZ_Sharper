@@ -1,10 +1,15 @@
-﻿using z1.GUI;
+﻿global using z1.Common;
+
+using z1.GUI;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("z1.Tests")]
+
 
 namespace z1;
 
 // Sharper:
+// * Make random seeded.
+// * Make elimination mode work with arrows.
 
 // Milestone 1:
 // * Textbox and rupee sounds are wrong.

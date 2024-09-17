@@ -26,7 +26,7 @@ internal struct RoomAttrs
 internal readonly record struct OWRoomAttrs(RoomAttrs Attrs)
 {
     public byte GetExitPosition() => Attrs.A;
-    public int GetCaveId() => Attrs.B & 0x3F;
+    public CaveId GetCaveId() => (CaveId)(Attrs.B & 0x3F);
     public int GetShortcutStairsIndex() => (Attrs.C & 0x03);
     public bool HasZora() => (Attrs.C & 0x04) != 0;
     public bool DoMonstersEnter() => (Attrs.C & 0x08) != 0;

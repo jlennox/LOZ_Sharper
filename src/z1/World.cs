@@ -168,7 +168,6 @@ internal sealed unsafe partial class World
 
     private delegate void LoadMobDelegate(ref TileMap map, int row, int col, int mobIndex);
     private enum PauseState { Unpaused, Paused, FillingHearts }
-    private enum Cave { Items = 0x79, Shortcut = 0x7A, }
     private enum TileScheme { Overworld, UnderworldMain, UnderworldCellar }
     private enum UniqueRoomIds { TopRightOverworldSecret = 0x0F }
 
@@ -203,12 +202,13 @@ internal sealed unsafe partial class World
     private byte[] _tileAttrs = new byte[MobTypes];
     private byte[] _tileBehaviors = new byte[TileTypes];
     private TableResource<byte> _sparseRoomAttrs;
-    private TableResource<byte> _extraData;
+    private LevelInfoEx _extraData;
     private TableResource<byte> _objLists;
-    private TableResource<byte> _textTable;
+    private ImmutableArray<string> _textTable;
     private ListResource<byte> _primaryMobs;
     private ListResource<byte> _secondaryMobs;
     private LoadMobDelegate _loadMobFunc;
+    private WorldLevel _level = WorldLevel.Overworld;
 
     private int _rowCount;
     private int _colCount;
@@ -372,6 +372,10 @@ internal sealed unsafe partial class World
         _tileBehaviors = ListResource<byte>.LoadList("uwTileBehaviors.dat", TileTypes).ToArray();
     }
 
+    private readonly struct WorldLevelData(WorldLevel Level, RoomAttrs[] Attributes)
+    {
+    }
+
     private void LoadLevel(int level)
     {
         var profile = GetProfile();
@@ -415,7 +419,6 @@ internal sealed unsafe partial class World
         }
 
         _roomAttrs = ListResource<RoomAttrs>.LoadList(new Asset(_directory.RoomAttrs), Rooms).ToArray();
-        _extraData = TableResource<byte>.Load(new Asset(_directory.LevelInfoEx));
         _objLists = TableResource<byte>.Load(new Asset(_directory.ObjLists));
         _sparseRoomAttrs = TableResource<byte>.Load(new Asset(_directory.Extra1));
 
@@ -456,7 +459,8 @@ internal sealed unsafe partial class World
             new ImageSheet(TileSheet.NpcsUnderworld, new Asset("uwNpcs.png"), new Asset("uwNpcsSheet.tab")),
         ]);
 
-        _textTable = TableResource<byte>.Load(new Asset("text.tab"));
+        _textTable = new Asset("text.json").ReadJson<string[]>().ToImmutableArray();
+        _extraData = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
 
         GotoFileMenu();
     }
@@ -1186,8 +1190,13 @@ internal sealed unsafe partial class World
     public int GetItem(ItemSlot itemSlot) => GetProfile().Items[itemSlot];
     public void SetItem(ItemSlot itemSlot, int value) => GetProfile().Items[itemSlot] = value;
 
-    private void PostRupeeChange(byte value, ItemSlot itemSlot)
+    private void PostRupeeChange(int value, ItemSlot itemSlot)
     {
+        if (itemSlot is not (ItemSlot.RupeesToAdd or ItemSlot.RupeesToSubtract))
+        {
+            throw new ArgumentOutOfRangeException(nameof(itemSlot), itemSlot, "Invalid itemSlot for PostRupeeChange.");
+        }
+
         var profile = GetProfile();
         var curValue = profile.Items[itemSlot];
         var newValue = Math.Clamp(curValue + value, 0, 255);
@@ -1201,8 +1210,8 @@ internal sealed unsafe partial class World
         profile.Items[itemSlot] = newValue;
     }
 
-    public void PostRupeeWin(byte value) => PostRupeeChange(value, ItemSlot.RupeesToAdd);
-    public void PostRupeeLoss(byte value) => PostRupeeChange(value, ItemSlot.RupeesToSubtract);
+    public void PostRupeeWin(int value) => PostRupeeChange(value, ItemSlot.RupeesToAdd);
+    public void PostRupeeLoss(int value) => PostRupeeChange(value, ItemSlot.RupeesToSubtract);
 
     public void FillHearts(int heartValue)
     {
@@ -1216,15 +1225,20 @@ internal sealed unsafe partial class World
         }
     }
 
-    public void AddItem(ItemId itemId)
+    public void AddItem(ItemId itemId, int? amount = null)
     {
         if ((int)itemId >= (int)ItemId.None) return;
 
         GlobalFunctions.PlayItemSound(Game, itemId);
+        var profile = GetProfile();
 
-        var equip = _itemToEquipment[(int)itemId];
+        var equip = ItemToEquipment[itemId];
         var slot = equip.Slot;
-        var value = equip.Value;
+        var value = amount ?? equip.Value;
+
+        var max = -1;
+        if (equip.MaxValue.HasValue) max = equip.MaxValue.Value;
+        if (equip.Max.HasValue) max = profile.Items[equip.Max.Value];
 
         if (itemId is ItemId.Heart or ItemId.Fairy)
         {
@@ -1232,51 +1246,30 @@ internal sealed unsafe partial class World
             FillHearts(heartValue);
             return;
         }
-        else if (slot == ItemSlot.Bombs)
+        else if (slot is ItemSlot.RupeesToAdd or ItemSlot.Keys or ItemSlot.HeartContainers or ItemSlot.MaxBombs or ItemSlot.Bombs)
         {
-            value += (byte)Profile.Items[ItemSlot.Bombs];
-            if (value > Profile.Items[ItemSlot.MaxBombs])
-            {
-                value = (byte)Profile.Items[ItemSlot.MaxBombs];
-            }
+            value += (byte)profile.Items[slot];
+
         }
-        else if (slot is ItemSlot.RupeesToAdd or ItemSlot.Keys or ItemSlot.HeartContainers)
+        else if (itemId is ItemId.Compass or ItemId.Map)
         {
-            value += (byte)Profile.Items[slot];
-            if (value > 255)
-            {
-                value = 255;
-            }
-        }
-        else if (itemId == ItemId.Compass)
-        {
-            if (_infoBlock.LevelNumber < 9)
-            {
-                var bit = 1 << (_infoBlock.LevelNumber - 1);
-                value = (byte)(Profile.Items[ItemSlot.Compass] | bit);
-                slot = ItemSlot.Compass;
-            }
-        }
-        else if (itemId == ItemId.Map)
-        {
-            if (_infoBlock.LevelNumber < 9)
-            {
-                var bit = 1 << (_infoBlock.LevelNumber - 1);
-                value = (byte)(Profile.Items[ItemSlot.Map] | bit);
-                slot = ItemSlot.Map;
-            }
+            profile.SetDungeonItem(_infoBlock.LevelNumber, itemId);
+            return;
         }
         else if (itemId == ItemId.TriforcePiece)
         {
             var bit = 1 << (_infoBlock.LevelNumber - 1);
-            value = (byte)(Profile.Items[ItemSlot.TriforcePieces] | bit);
+            value = (byte)(profile.Items[ItemSlot.TriforcePieces] | bit);
+            profile.SetDungeonItem(_infoBlock.LevelNumber, itemId);
         }
 
-        Profile.Items[slot] = value;
+        if (max > 0) value = Math.Min(value, max);
+
+        profile.Items[slot] = value;
 
         if (slot == ItemSlot.Ring)
         {
-            Profile.SetPlayerColor();
+            profile.SetPlayerColor();
             Graphics.UpdatePalettes();
         }
 
@@ -1295,22 +1288,8 @@ internal sealed unsafe partial class World
         }
     }
 
-    public bool HasCurrentMap() => HasCurrentLevelItem(ItemSlot.Map, ItemSlot.Map9);
-    public bool HasCurrentCompass() => HasCurrentLevelItem(ItemSlot.Compass, ItemSlot.Compass9);
-
-    private bool HasCurrentLevelItem(ItemSlot itemSlot1To8, ItemSlot itemSlot9)
-    {
-        if (_infoBlock.LevelNumber == 0) return false;
-
-        if (_infoBlock.LevelNumber < 9)
-        {
-            var itemValue = Profile.Items[itemSlot1To8];
-            var bit = 1 << (_infoBlock.LevelNumber - 1);
-            return (itemValue & bit) != 0;
-        }
-
-        return Profile.Items[itemSlot9] != 0;
-    }
+    public bool HasCurrentMap() => Profile.GetDungeonItem(_infoBlock.LevelNumber, ItemId.Map);
+    public bool HasCurrentCompass() => Profile.GetDungeonItem(_infoBlock.LevelNumber, ItemId.Compass);
 
     private DoorType GetDoorType(Direction dir)
     {
@@ -1369,7 +1348,7 @@ internal sealed unsafe partial class World
     public void TakeSecret() => GetRoomFlags(CurRoomId).SecretState = true;
     public bool GotItem() => GotItem(CurRoomId);
     public bool GotItem(int roomId) => GetRoomFlags(roomId).ItemState;
-    public void MarkItem() => GetRoomFlags(CurRoomId).ItemState = true;
+    public void MarkItem(bool set = true) => GetRoomFlags(CurRoomId).ItemState = set;
     private bool GetDoorState(int roomId, Direction door) => GetRoomFlags(roomId).GetDoorState(door);
     private void SetDoorState(int roomId, Direction door) => GetRoomFlags(roomId).SetDoorState(door);
 
@@ -1544,21 +1523,27 @@ internal sealed unsafe partial class World
     private SparsePos? FindSparsePos(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos>(attrId, roomId);
     private SparsePos2? FindSparsePos2(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos2>(attrId, roomId);
     private SparseRoomItem? FindSparseItem(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparseRoomItem>(attrId, roomId);
-    private ReadOnlySpan<ObjectAttr> GetObjectAttrs() => _extraData.GetItems<ObjectAttr>(Extra.ObjAttrs);
-    public ObjectAttr GetObjectAttrs(ObjType type) => GetObjectAttrs()[(int)type];
+    public ObjectAttribute GetObjectAttribute(ObjType type)
+    {
+        if (!_extraData.ObjectAttribute.TryGetValue(type, out var objAttr))
+        {
+            // throw new ArgumentOutOfRangeException(nameof(type), type, "Unable to locate object attributes.");
+            // This is mutable which makes me hate not instancing something new here :)
+            return ObjectAttribute.Default;
+        }
+        return objAttr;
+    }
 
     public int GetObjectMaxHP(ObjType type)
     {
-        var hpAttrs = _extraData.GetItems<HPAttr>(Extra.HitPoints);
-        var index = (int)type / 2;
-        return hpAttrs[index].GetHP((int)type);
+        var objAttr = GetObjectAttribute(type);
+        return objAttr.HitPoints;
     }
 
     public int GetPlayerDamage(ObjType type)
     {
-        var damageAttrs = _extraData.GetItems<byte>(Extra.PlayerDamage);
-        var damageByte = damageAttrs[(int)type];
-        return ((damageByte & 0xF) << 8) | (damageByte & 0xF0);
+        var objAttr = GetObjectAttribute(type);
+        return objAttr.Damage;
     }
 
     public void LoadOverworldRoom(int x, int y) => LoadRoom(x + y * 16, _curTileMapIndex);
@@ -1639,7 +1624,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void LoadCaveRoom(Cave uniqueRoomId)
+    private void LoadCaveRoom(CaveType uniqueRoomId)
     {
         _curTileMapIndex = 0;
 
@@ -2269,7 +2254,7 @@ internal sealed unsafe partial class World
 
         if ((_state.Play.Timer % 8) == 0)
         {
-            var colorSeq = _extraData.ReadLengthPrefixedItem((int)Extra.PondColors);
+            var colorSeq = _extraData.OWPondColors;
             if (_curColorSeqNum < colorSeq.Length - 1)
             {
                 if (_curColorSeqNum == colorSeq.Length - 2)
@@ -2279,6 +2264,7 @@ internal sealed unsafe partial class World
 
                 int colorIndex = colorSeq[_curColorSeqNum];
                 _curColorSeqNum++;
+                // JOE: The ordering on these appears wrong. colorIndex should be the second argument?
                 Graphics.SetColorIndexed((Palette)3, 3, colorIndex);
                 Graphics.UpdatePalettes();
             }
@@ -2397,6 +2383,14 @@ internal sealed unsafe partial class World
                 // JOE: TODO: This is too cryptic. Have a "Kill" on Actor? Have "Decoration" be an enum as well?
                 monster.Decoration = 0x10;
             }
+        }
+    }
+
+    public void DebugKillAllObjects()
+    {
+        foreach (var monster in GetObjects())
+        {
+            monster.Delete();
         }
     }
 
@@ -2794,8 +2788,8 @@ internal sealed unsafe partial class World
             }
 
             var dirOrd = entryDir.GetOrdinal();
-            // var spotSeq = extraData.GetItem<SpotSeq>(Extra.SpawnSpots);
-            var spots = _extraData.ReadLengthPrefixedItem((int)Extra.SpawnSpots);
+            // var spotSeq = extraData.GetItem<SpotSeq>(Extra.SpawnSpot);
+            var spots = _extraData.SpawnSpot;
             var spotsLen = spots.Length / 4;
             var dirSpots = spots[(spotsLen * dirOrd)..]; // JOE: This is very sus.
 
@@ -2865,84 +2859,128 @@ internal sealed unsafe partial class World
         var owRoomAttrs = CurrentOWRoomAttrs;
         var caveIndex = owRoomAttrs.GetCaveId() - FirstCaveIndex;
 
-        var caves = _extraData.LoadVariableLengthData<CaveSpecListStruct, CaveSpecList>((int)Extra.Caves);
+        var type = (CaveId)((int)CaveId.Cave1 + caveIndex);
+        MakeCaveObjects(type);
+    }
 
-        if (caveIndex >= caves.Count)
-        {
-            throw new Exception($"Invalid caveIndex. {caveIndex} >= {caves.Count}");
-        }
+    public void MakeCaveObjects(CaveId caveId)
+    {
+        var index = caveId - CaveId.Cave1;
+        var spec = _extraData.CaveSpec[(int)index];
 
-        var cave = caves[caveIndex];
-        var type = (ObjType)((int)ObjType.Cave1 + caveIndex);
+        MakePersonRoomObjects(caveId, spec);
+    }
 
-        MakePersonRoomObjects(type, cave);
+    public void DebugMakeUnderworldPerson(PersonType type)
+    {
+        var spec = _extraData.CaveSpec.First(t => t.PersonType == type);
+        MakePersonRoomObjects((CaveId)ObjType.Person1, spec);
     }
 
     private void MakeUnderworldPerson(ObjType type)
     {
-        // JOE: TODO: Make all of these private and make a MoneyOrLife/etc constructor on CaveSpec.
-        var cave = new CaveSpec
-        {
-            ItemA = (byte)ItemId.None,
-            ItemB = (byte)ItemId.None,
-            ItemC = (byte)ItemId.None
-        };
-
         var uwRoomAttrs = CurrentUWRoomAttrs;
         var secret = uwRoomAttrs.GetSecret();
 
+        PersonType? findType = null;
+        CaveSpec? spec = null;
+
+        // JOE: TODO: This all needs to be defined in the level data.
         if (type == ObjType.Grumble)
         {
-            cave.StringId = (byte)StringId.Grumble;
-            cave.DwellerType = ObjType.FriendlyMoblin;
+            findType = PersonType.Grumble;
         }
         else if (secret == Secret.MoneyOrLife)
         {
-            cave.StringId = (byte)StringId.MoneyOrLife;
-            cave.DwellerType = ObjType.OldMan;
-            cave.ItemA = (byte)ItemId.HeartContainer;
-            cave.PriceA = 1;
-            cave.ItemC = (byte)ItemId.Rupee;
-            cave.PriceC = 50;
-            cave.SetShowNegative();
-            cave.SetShowItems();
-            cave.SetSpecial();
-            cave.SetPickUp();
+            findType = PersonType.MoneyOrLife;
         }
         else
         {
-            var stringIdTables = _extraData.GetItem<LevelPersonStrings>(Extra.LevelPersonStringIds);
-
             var levelIndex = _infoBlock.EffectiveLevelNumber - 1;
-            int levelTableIndex = _levelGroups[levelIndex];
+            var levelTableIndex = _levelGroups[levelIndex];
             var stringSlot = type - ObjType.Person1;
-            var stringId = (StringId)stringIdTables.GetStringIds(levelTableIndex)[stringSlot];
+            var stringId = _extraData.LevelPersonStringIds[levelTableIndex][stringSlot];
 
-            cave.DwellerType = ObjType.OldMan;
-            cave.StringId = (byte)stringId;
-
-            if (stringId == StringId.MoreBombs)
+            if ((StringId)stringId == StringId.MoreBombs)
             {
-                cave.ItemB = (byte)ItemId.Rupee;
-                cave.PriceB = 100;
-                cave.SetShowNegative();
-                cave.SetShowItems();
-                cave.SetSpecial();
-                cave.SetPickUp();
+                findType = PersonType.MoreBombs;
+            }
+            else
+            {
+                spec = new CaveSpec
+                {
+                    DwellerType = CaveDwellerType.OldMan,
+                    Text = _textTable[stringId],
+                };
             }
         }
 
-        MakePersonRoomObjects(type, cave);
+        if (spec == null && findType == null) throw new Exception();
+
+        spec ??= _extraData.CaveSpec.First(t => t.PersonType == findType);
+
+        MakePersonRoomObjects((CaveId)type, spec);
+
+        // JOE: TODO: Move this over to the extractor.
+        // JOE: TODO: Make all of these private and make a MoneyOrLife/etc constructor on CaveSpec.
+        // var cave = new CaveSpec
+        // {
+        //     ItemA = (byte)ItemId.None,
+        //     ItemB = (byte)ItemId.None,
+        //     ItemC = (byte)ItemId.None
+        // };
+        //
+
+        //
+        // if (type == ObjType.Grumble)
+        // {
+        //     cave.StringId = (byte)StringId.Grumble;
+        //     cave.DwellerType = ObjType.FriendlyMoblin;
+        // }
+        // else if (secret == Secret.MoneyOrLife)
+        // {
+        //     cave.StringId = (byte)StringId.MoneyOrLife;
+        //     cave.DwellerType = ObjType.OldMan;
+        //     cave.ItemA = (byte)ItemId.HeartContainer;
+        //     cave.PriceA = 1;
+        //     cave.ItemC = (byte)ItemId.Rupee;
+        //     cave.PriceC = 50;
+        //     cave.SetShowNegative();
+        //     cave.SetShowItems();
+        //     cave.SetSpecial();
+        //     cave.SetPickUp();
+        // }
+        // else
+        // {
+        //     var stringIdTables = _extraData.GetItem<LevelPersonStrings>(Extra.LevelPersonStringIds);
+        //
+        //     var levelIndex = _infoBlock.EffectiveLevelNumber - 1;
+        //     int levelTableIndex = _levelGroups[levelIndex];
+        //     var stringSlot = type - ObjType.Person1;
+        //     var stringId = (StringId)stringIdTables.GetStringIds(levelTableIndex)[stringSlot];
+        //
+        //     cave.Dweller = CaveDwellerType.OldMan;
+        //     cave.StringId = (byte)stringId;
+        //
+        //     if (stringId == StringId.MoreBombs)
+        //     {
+        //         cave.ItemB = (byte)ItemId.Rupee;
+        //         cave.PriceB = 100;
+        //         cave.SetShowNegative();
+        //         cave.SetShowItems();
+        //         cave.SetSpecial();
+        //         cave.SetPickUp();
+        //     }
+        // }
     }
 
-    // JOE: type is no longer a type I think? It's a cave ID.
-    private void MakePersonRoomObjects(ObjType type, CaveSpec spec)
+    private void MakePersonRoomObjects(CaveId caveId, CaveSpec spec)
     {
         ReadOnlySpan<int> fireXs = [0x48, 0xA8];
 
-        if (spec.DwellerType != ObjType.None)
+        if (spec.DwellerType != CaveDwellerType.None)
         {
-            var person = GlobalFunctions.MakePerson(Game, type, spec, 0x78, 0x80);
+            var person = GlobalFunctions.MakePerson(Game, caveId, spec, 0x78, 0x80);
             AddObject(person);
         }
 
@@ -2972,17 +3010,19 @@ internal sealed unsafe partial class World
         }
     }
 
-    private bool FindSpawnPos(ObjType type, ReadOnlySpan<byte> spots, int len, ref int x, ref int y)
+    private bool FindSpawnPos(ObjType type, ReadOnlySpan<PointXY> spots, int len, ref int x, ref int y)
     {
-        var objAttrs = GetObjectAttrs();
+        var objAttrs = GetObjectAttribute(type);
 
         var playerX = Game.Link.X;
         var playerY = Game.Link.Y;
-        var noWorldCollision = !objAttrs[(int)type].GetWorldCollision();
+        var noWorldCollision = !objAttrs.HasWorldCollision;
 
         for (var i = 0; i < len; i++)
         {
-            GetRSpotCoord(spots[_spotIndex], ref x, ref y);
+            var point = spots[_spotIndex];
+            x = point.X;
+            y = point.Y;
             _spotIndex = (_spotIndex + 1) % len;
 
             if ((playerX != x || playerY != y)
@@ -3076,7 +3116,7 @@ internal sealed unsafe partial class World
     {
         if (origType.HoldingItem != null) return;
 
-        var objClass = origType.Attributes.GetItemDropClass();
+        var objClass = origType.Attributes.ItemDropClass;
         if (objClass == 0) return;
         objClass--;
 
@@ -3210,7 +3250,7 @@ internal sealed unsafe partial class World
         {
             _curColorSeqNum--;
 
-            var colorSeq = _extraData.ReadLengthPrefixedItem((int)Extra.PondColors);
+            var colorSeq = _extraData.OWPondColors;
             int color = colorSeq[_curColorSeqNum];
             Graphics.SetColorIndexed((Palette)3, 3, color);
             Graphics.UpdatePalettes();
@@ -3642,9 +3682,9 @@ internal sealed unsafe partial class World
         Game.Link.Y = row * MobTileHeight + 0xD;
     }
 
-    public ReadOnlySpan<byte> GetString(StringId stringId)
+    public string GetString(StringId stringId)
     {
-        return _textTable.GetItem((int)stringId);
+        return _textTable[(int)stringId];
     }
 
     private void UpdateLoadLevel()
@@ -3961,15 +4001,15 @@ internal sealed unsafe partial class World
             case StairsState.Substates.WalkCave when _state.Stairs.HasReachedTarget(Game.Link):
                 var owRoomAttrs = CurrentOWRoomAttrs;
                 var cave = owRoomAttrs.GetCaveId();
-                _log.Write($"Cave: {cave}");
+                _log.Write($"CaveType: {cave}");
 
-                if (cave <= 9)
+                if ((int)cave <= 9)
                 {
-                    GotoLoadLevel(cave);
+                    GotoLoadLevel((int)cave);
                 }
                 else
                 {
-                    GotoPlayCave();
+                    GotoPlayCave(cave);
                 }
                 break;
 
@@ -4254,9 +4294,10 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void GotoPlayCave()
+    private void GotoPlayCave(CaveId caveId)
     {
         _state.PlayCave.Substate = PlayCaveState.Substates.Start;
+        _state.PlayCave.CaveId = caveId;
 
         _curMode = GameMode.InitPlayCave;
     }
@@ -4287,8 +4328,8 @@ internal sealed unsafe partial class World
 
     private void UpdatePlayCave_LoadRoom()
     {
-        var paletteSet = _extraData.GetItem<PaletteSet>(Extra.CavePalettes);
-        var caveLayout = FindSparseFlag(Sparse.Shortcut, CurRoomId) ? Cave.Shortcut : Cave.Items;
+        var paletteSet = _extraData.CavePalette;
+        var caveLayout = FindSparseFlag(Sparse.Shortcut, CurRoomId) ? CaveType.Shortcut : CaveType.Items;
 
         LoadCaveRoom(caveLayout);
 
@@ -4301,7 +4342,7 @@ internal sealed unsafe partial class World
 
         for (var i = 0; i < 2; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)i + 2, paletteSet.GetPalette(i));
+            Graphics.SetPaletteIndexed((Palette)i + 2, paletteSet.GetByIndex(i));
         }
         Graphics.UpdatePalettes();
     }
@@ -4615,7 +4656,7 @@ internal sealed unsafe partial class World
         }
 
         y = 0x50 + ((int)_state.Continue.SelectedIndex * 24);
-        GlobalFunctions.DrawChar(Char.FullHeart, 0x40, y, Palette.RedFgPalette);
+        GlobalFunctions.DrawChar(Chars.FullHeart, 0x40, y, Palette.RedFgPalette);
     }
 
     private void GotoFileMenu()

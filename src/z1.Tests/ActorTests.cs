@@ -1,5 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using z1.Actors;
+using z1.Common;
 
 namespace z1.Tests;
 
@@ -22,6 +23,26 @@ internal class ActorTests
     {
         var actor = Actor.FromType(type, TestObjects.Game, 0, 0);
         Assert.That(actor.ObjTimer, Is.EqualTo(0));
+    }
+}
+
+[TestFixture]
+internal class NumberToStringTests
+{
+    [Test]
+    [TestCase(1232, NumberSign.Positive, "+1232")]
+    [TestCase(1232, NumberSign.Negative, "-1232")]
+    [TestCase(1232, NumberSign.None, "1232")]
+    [TestCase(1232, NumberSign.None, "1232")]
+    [TestCase(2, NumberSign.None, "   2")]
+    [TestCase(12, NumberSign.None, "  12")]
+    [TestCase(12, NumberSign.Negative, " -12")]
+    [TestCase(123, NumberSign.Negative, "-123")]
+    [TestCase(1234, NumberSign.Negative, "-1234")]
+    public void EnsureNumberToStringWorks(int number, NumberSign sign, string expected)
+    {
+        var actual = GlobalFunctions.NumberToString(number, sign);
+        Assert.That(actual, Is.EqualTo(expected));
     }
 }
 

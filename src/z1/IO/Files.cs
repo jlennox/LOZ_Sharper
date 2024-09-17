@@ -1,8 +1,5 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
-using z1.Actors;
 
 namespace z1.IO;
 
@@ -356,45 +353,6 @@ internal enum Extra
     LevelPersonStringIds,
     HitPoints,
     PlayerDamage,
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct PaletteSet
-{
-    public readonly int Length;
-    public readonly int Start;
-    public fixed byte PaletteA[LevelInfoBlock.PaletteLength];
-    public fixed byte PaletteB[LevelInfoBlock.PaletteLength];
-
-    public ReadOnlySpan<byte> GetPalette(int i)
-    {
-        // JOE: NOTE: This appears to be fixed at 2?! If so, why the length property.
-        if (Length != 2) throw new ArgumentOutOfRangeException();
-
-        fixed (byte* p = PaletteA)
-        fixed (byte* p2 = PaletteB)
-        {
-            return new ReadOnlySpan<byte>(i == 0 ? p : p2, LevelInfoBlock.PaletteLength);
-        }
-    }
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct CaveSpecListStruct : ILoadVariableLengthData<CaveSpecList>
-{
-    public readonly int Count;
-
-    public readonly CaveSpecList LoadVariableData(ReadOnlySpan<byte> buf)
-    {
-        var frames = MemoryMarshal.Cast<byte, CaveSpec>(buf)[..Count].ToArray();
-        return new CaveSpecList(this, frames);
-    }
-}
-
-internal record CaveSpecList(CaveSpecListStruct Spec, CaveSpec[] Frames)
-{
-    public int Count => Spec.Count;
-    public CaveSpec this[int i] => Frames[i];
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

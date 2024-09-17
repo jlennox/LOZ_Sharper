@@ -244,7 +244,7 @@ internal sealed class StatusBar
         if (count < 100)
         {
             var newStrLeft = new byte[strLeft.Length + 1];
-            newStrLeft[0] = (byte)Char.X;
+            newStrLeft[0] = (byte)Chars.X;
             Array.Copy(strLeft, 0, newStrLeft, 1, strLeft.Length);
             strLeft = newStrLeft;
         }
@@ -258,7 +258,7 @@ internal sealed class StatusBar
         {
             if (_world.GetItem(ItemSlot.MagicKey) != 0)
             {
-                var xa = new byte[] { (byte)Char.X, 0x0A };
+                var xa = new byte[] { (byte)Chars.X, 0x0A };
                 GlobalFunctions.DrawString(xa, CountersX, 0x28 + baseY, 0);
             }
             else

@@ -49,7 +49,7 @@ internal static class GLWindowGui
 
         public static readonly PropertyInfo Enabled = GetProperty(nameof(DebugInfoConfiguration.Enabled));
         public static readonly PropertyInfo RoomId = GetProperty(nameof(DebugInfoConfiguration.RoomId));
-        public static readonly PropertyInfo ActiveShots  = GetProperty(nameof(DebugInfoConfiguration.ActiveShots));
+        public static readonly PropertyInfo ActiveShots = GetProperty(nameof(DebugInfoConfiguration.ActiveShots));
     }
 
     private readonly struct AudioConfigurationPassthrough
@@ -112,7 +112,9 @@ internal static class GLWindowGui
             DrawDisplayMenu(game, window);
             DrawAudioMenu(game);
             DrawEnhancementsMenu(game);
+            DrawWarpMenu(game);
             DrawSpawnMenu(game);
+            DrawPersonMenu(game);
             ImGui.EndMainMenuBar();
         }
     }
@@ -292,6 +294,86 @@ internal static class GLWindowGui
             if (ImGui.MenuItem("Ganon")) Spawn(game, ObjType.Ganon);
             if (ImGui.MenuItem("GuardFire")) Spawn(game, ObjType.GuardFire);
             if (ImGui.MenuItem("Zelda")) Spawn(game, ObjType.Zelda);
+
+            ImGui.EndMenu();
+        }
+    }
+
+    private static void DrawWarpMenu(Game game)
+    {
+#if !DEBUG
+        return;
+#endif
+
+        static void Warp(Game game, int levelNumber)
+        {
+            game.World.KillAllObjects();
+            game.World.GotoLoadLevel(levelNumber);
+        }
+
+        if (ImGui.BeginMenu("Warp"))
+        {
+            if (ImGui.MenuItem("Level 1")) Warp(game, 1);
+            if (ImGui.MenuItem("Level 2")) Warp(game, 2);
+            if (ImGui.MenuItem("Level 3")) Warp(game, 3);
+            if (ImGui.MenuItem("Level 4")) Warp(game, 4);
+            if (ImGui.MenuItem("Level 5")) Warp(game, 5);
+            if (ImGui.MenuItem("Level 6")) Warp(game, 6);
+            if (ImGui.MenuItem("Level 7")) Warp(game, 7);
+            if (ImGui.MenuItem("Level 8")) Warp(game, 8);
+            if (ImGui.MenuItem("Level 9")) Warp(game, 9);
+
+            ImGui.EndMenu();
+        }
+    }
+
+    private static void DrawPersonMenu(Game game)
+    {
+#if !DEBUG
+        return;
+#endif
+
+        static void SpawnCave(Game game, CaveId caveId)
+        {
+            game.World.DebugKillAllObjects();
+            game.World.MarkItem(false);
+            game.World.MakeCaveObjects(caveId);
+        }
+
+        static void SpawnPerson(Game game, PersonType type)
+        {
+            game.World.DebugKillAllObjects();
+            game.World.MarkItem(false);
+            game.World.DebugMakeUnderworldPerson(type);
+        }
+
+        if (ImGui.BeginMenu("Person"))
+        {
+            if (ImGui.MenuItem("Cave 1: Wooden")) SpawnCave(game, CaveId.Cave1);
+            if (ImGui.MenuItem("Cave 2: Take any")) SpawnCave(game, CaveId.Cave2);
+            if (ImGui.MenuItem("Cave 3: White")) SpawnCave(game, CaveId.Cave3WhiteSword);
+            if (ImGui.MenuItem("Cave 4: Magic")) SpawnCave(game, CaveId.Cave4MagicSword);
+            if (ImGui.MenuItem("Cave 5: Warp")) SpawnCave(game, CaveId.Cave5Shortcut);
+            if (ImGui.MenuItem("Cave 6: Hint")) SpawnCave(game, CaveId.Cave6);
+            if (ImGui.MenuItem("Cave 7: Gamble")) SpawnCave(game, CaveId.Cave7);
+            if (ImGui.MenuItem("Cave 8: Mugger")) SpawnCave(game, CaveId.Cave8);
+            if (ImGui.MenuItem("Cave 9: Letter")) SpawnCave(game, CaveId.Cave9);
+            if (ImGui.MenuItem("Cave 10: Hint")) SpawnCave(game, CaveId.Cave10);
+            if (ImGui.MenuItem("Cave 11: Medicine")) SpawnCave(game, CaveId.Cave11MedicineShop);
+            if (ImGui.MenuItem("Cave 12: Lost hills hint")) SpawnCave(game, CaveId.Cave12LostHillsHint);
+            if (ImGui.MenuItem("Cave 13: Lost woods hint")) SpawnCave(game, CaveId.Cave13LostWoodsHint);
+            if (ImGui.MenuItem("Cave 14: Shop")) SpawnCave(game, CaveId.Cave14);
+            if (ImGui.MenuItem("Cave 15: Shop")) SpawnCave(game, CaveId.Cave15);
+            if (ImGui.MenuItem("Cave 16: Shop")) SpawnCave(game, CaveId.Cave16);
+            if (ImGui.MenuItem("Cave 17: Shop")) SpawnCave(game, CaveId.Cave17);
+            if (ImGui.MenuItem("Cave 18: Secret 30")) SpawnCave(game, CaveId.Cave18);
+            if (ImGui.MenuItem("Cave 19: Secret 100")) SpawnCave(game, CaveId.Cave19);
+            if (ImGui.MenuItem("Cave 20: Secret 10")) SpawnCave(game, CaveId.Cave20);
+            ImGui.Separator();
+            if (ImGui.MenuItem("Grumble")) SpawnPerson(game, PersonType.Grumble);
+            if (ImGui.MenuItem("Money or life")) SpawnPerson(game, PersonType.MoneyOrLife);
+            if (ImGui.MenuItem("More bombs")) SpawnPerson(game, PersonType.MoreBombs);
+            if (ImGui.MenuItem("Level 9")) SpawnPerson(game, PersonType.EnterLevel9);
 
             ImGui.EndMenu();
         }

@@ -158,7 +158,7 @@ internal sealed class ProfileSelectMenu : Menu
                 GlobalFunctions.DrawHearts(heartsValue, totalHearts, 0x90, y + 8);
                 DrawFileIcon(profile, 0x30, y, profile.Quest);
             }
-            GlobalFunctions.DrawChar(Char.Minus, 0x88, y, 0);
+            GlobalFunctions.DrawChar(Chars.Minus, 0x88, y, 0);
             y += 24;
         }
 
@@ -170,7 +170,7 @@ internal sealed class ProfileSelectMenu : Menu
         {
             y = 0xA8 + (_selectedIndex - MaxProfiles) * 16;
         }
-        GlobalFunctions.DrawChar(Char.FullHeart, 0x28, y, (Palette)7);
+        GlobalFunctions.DrawChar(Chars.FullHeart, 0x28, y, (Palette)7);
 
         Graphics.End();
     }
@@ -280,7 +280,7 @@ internal sealed class EliminateMenu : Menu
         {
             y = 0x78 + (_selectedIndex - 3) * 16;
         }
-        GlobalFunctions.DrawChar(Char.FullHeart, 0x44, y, Palette.LevelFgPalette);
+        GlobalFunctions.DrawChar(Chars.FullHeart, 0x44, y, Palette.LevelFgPalette);
 
         Graphics.End();
     }
@@ -469,11 +469,11 @@ internal sealed class RegisterMenu : Menu
         {
             var x = nameX + (_namePos * 8);
             y = 0x30 + (0 * 24);
-            GlobalFunctions.DrawChar(Char.JustSpace, x, y, (Palette)7);
+            GlobalFunctions.DrawChar(Chars.JustSpace, x, y, (Palette)7);
 
             x = 0x30 + (_charPosCol * 8);
             y = 0x88 + (_charPosRow * 8);
-            GlobalFunctions.DrawChar(Char.JustSpace, x, y, (Palette)7);
+            GlobalFunctions.DrawChar(Chars.JustSpace, x, y, (Palette)7);
         }
 
         GlobalFunctions.DrawBox(0x28, 0x80, 0xB8, 0x48);
@@ -491,7 +491,7 @@ internal sealed class RegisterMenu : Menu
 
         y = 0x30;
         GlobalFunctions.DrawString(_profile.Name, nameX, y, 0);
-        GlobalFunctions.DrawChar(Char.FullHeart, nameX - 16, y, (Palette)7);
+        GlobalFunctions.DrawChar(Chars.FullHeart, nameX - 16, y, (Palette)7);
 
         Graphics.End();
     }

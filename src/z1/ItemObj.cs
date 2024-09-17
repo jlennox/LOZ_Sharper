@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Runtime.InteropServices;
 using z1.Actors;
 using z1.Render;
 using z1.IO;
@@ -626,61 +625,6 @@ internal sealed class PlayerSwordActor : Actor
         var xOffset = (16 - _image.Animation.Width) / 2;
         _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y, palette);
     }
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct CaveSpec
-{
-    public const int Count = 3;
-
-    public byte Dweller;
-    public byte StringId;
-    public byte ItemA;
-    public byte ItemB;
-    public byte ItemC;
-    public byte PriceA;
-    public byte PriceB;
-    public byte PriceC;
-
-    public readonly ItemId GetItemId(int i) => i switch
-    {
-        0 => (ItemId)(ItemA & 0x3F),
-        1 => (ItemId)(ItemB & 0x3F),
-        2 => (ItemId)(ItemC & 0x3F),
-        _ => throw new ArgumentOutOfRangeException(nameof(i)),
-    };
-
-    public readonly byte GetPrice(int i) => i switch
-    {
-        0 => PriceA,
-        1 => PriceB,
-        2 => PriceC,
-        _ => throw new ArgumentOutOfRangeException(nameof(i)),
-    };
-
-    public ObjType DwellerType
-    {
-        readonly get => (ObjType)Dweller;
-        set => Dweller = (byte)value;
-    }
-
-    public readonly StringId GetStringId() => (StringId)(StringId & 0x3F);
-    public readonly bool GetPay() => (StringId & 0x80) != 0;
-    public readonly bool GetPickUp() => (StringId & 0x40) != 0;
-    public readonly bool GetShowNegative() => (ItemA & 0x80) != 0;
-    public readonly bool GetCheckHearts() => (ItemA & 0x40) != 0;
-    public readonly bool GetSpecial() => (ItemB & 0x80) != 0;
-    public readonly bool GetHint() => (ItemB & 0x40) != 0;
-    public readonly bool GetShowPrices() => (ItemC & 0x80) != 0;
-    public readonly bool GetShowItems() => (ItemC & 0x40) != 0;
-
-    public void ClearPickUp() { unchecked { StringId &= (byte)~0x40; } }
-    public void ClearShowPrices() { unchecked { ItemC &= (byte)~0x80; } }
-    public void SetPickUp() { StringId |= 0x40; }
-    public void SetShowNegative() { ItemA |= 0x80; }
-    public void SetSpecial() { ItemB |= 0x80; }
-    public void SetShowPrices() { ItemC |= 0x80; }
-    public void SetShowItems() { ItemC |= 0x40; }
 }
 
 internal sealed class ItemObjActor : Actor
