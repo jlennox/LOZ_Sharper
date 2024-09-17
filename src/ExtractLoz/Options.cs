@@ -82,6 +82,11 @@ namespace ExtractLoz
             return new OptionsStream(relativePath, this, false);
         }
 
+        public BinaryWriter AddBinaryWriter(string relativePath)
+        {
+            return new BinaryWriter(new OptionsStream(relativePath, this, false));
+        }
+
         // A stream to keep old program functionality but prevent output (until all bugs are worked out).
         public OptionsStream AddVoidStream(string relativePath)
         {
