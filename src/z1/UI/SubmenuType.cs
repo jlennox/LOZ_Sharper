@@ -208,7 +208,7 @@ internal sealed class SubmenuType
             if (profile.Items[ItemSlot.Arrow] != 0
                 && profile.Items[ItemSlot.Bow] != 0)
             {
-                var arrowId = GlobalFunctions.ItemValueToItemId(_game.World, ItemSlot.Arrow);
+                var arrowId = GlobalFunctions.ItemValueToItemId(_game, ItemSlot.Arrow);
                 return arrowId;
             }
         }
@@ -394,7 +394,7 @@ internal sealed class SubmenuType
             {
                 if (profile.Items[ItemSlot.Arrow] != 0)
                 {
-                    itemId = GlobalFunctions.ItemValueToItemId(_game.World, ItemSlot.Arrow);
+                    itemId = GlobalFunctions.ItemValueToItemId(_game, ItemSlot.Arrow);
                     GlobalFunctions.DrawItemNarrow(_game.World.Game, itemId, x, y);
                 }
                 if (profile.Items[ItemSlot.Bow] != 0)
@@ -447,7 +447,7 @@ internal sealed class SubmenuType
 
         if (curSlot != 0)
         {
-            var itemId = GlobalFunctions.ItemValueToItemId(_game.World, curSlot);
+            var itemId = GlobalFunctions.ItemValueToItemId(_game, curSlot);
             GlobalFunctions.DrawItemWide(_game.World.Game, itemId, CurItemX, CurItemY + top);
         }
     }

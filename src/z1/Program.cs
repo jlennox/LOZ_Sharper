@@ -7,6 +7,8 @@ using z1.GUI;
 namespace z1;
 
 // Sharper:
+// * Rectify MarginRight.
+// * Refactor out ActiveShots.
 
 // Milestone 1:
 // * Coming out of stairs into spiral room spawns you in a bad spot: Example in 9, up 2, left 2.

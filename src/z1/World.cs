@@ -185,6 +185,7 @@ internal sealed unsafe partial class World
     public int ActiveShots;        // 34C
     public int RecorderUsed;       // 51B
     public bool CandleUsed;         // 513
+    // JOE: NOTE: Ultimately this (and others, like CandleUsed) needs to be owned by Link so that multiple Links are possible.
     public PlayerProfile Profile { get; private set; }
 
     private LevelDirectory _directory;
@@ -972,13 +973,12 @@ internal sealed unsafe partial class World
                 }
             }
 
-            // JOE: TODO: Make this normal enum constants.
-            switch ((int)Profile.SelectedItem)
+            switch (Profile.SelectedItem)
             {
-                case 0x07: Profile.SelectedItem = (ItemSlot)0x0F; break;
-                case 0x0F: Profile.SelectedItem = (ItemSlot)0x06; break;
-                case 0x01: Profile.SelectedItem = (ItemSlot)0x1B; break;
-                case 0x1B: Profile.SelectedItem = (ItemSlot)0x08; break;
+                case ItemSlot.Potion: Profile.SelectedItem = ItemSlot.Letter; break;
+                case ItemSlot.Letter: Profile.SelectedItem = ItemSlot.Food; break;
+                case ItemSlot.Bombs: Profile.SelectedItem = ItemSlot.Boomerang; break;
+                case ItemSlot.Boomerang: Profile.SelectedItem = ItemSlot.Rod; break;
                 default: Profile.SelectedItem--; break;
             }
         }
@@ -2259,12 +2259,7 @@ internal sealed unsafe partial class World
 
     private bool CalcHasLivingObjects()
     {
-        foreach (var monster in GetObjects<Actor>())
-        {
-            if (!monster.IsDeleted && monster.CountsAsLiving) return true;
-        }
-
-        return false;
+        return GetObjects().Any(static monster => !monster.IsDeleted && monster.CountsAsLiving);
     }
 
     private void CheckSecrets()
@@ -2866,58 +2861,6 @@ internal sealed unsafe partial class World
         spec ??= _extraData.CaveSpec.First(t => t.PersonType == findType);
 
         MakePersonRoomObjects((CaveId)type, spec);
-
-        // JOE: TODO: Move this over to the extractor.
-        // JOE: TODO: Make all of these private and make a MoneyOrLife/etc constructor on CaveSpec.
-        // var cave = new CaveSpec
-        // {
-        //     ItemA = (byte)ItemId.None,
-        //     ItemB = (byte)ItemId.None,
-        //     ItemC = (byte)ItemId.None
-        // };
-        //
-
-        //
-        // if (type == ObjType.Grumble)
-        // {
-        //     cave.StringId = (byte)StringId.Grumble;
-        //     cave.DwellerType = ObjType.FriendlyMoblin;
-        // }
-        // else if (secret == Secret.MoneyOrLife)
-        // {
-        //     cave.StringId = (byte)StringId.MoneyOrLife;
-        //     cave.DwellerType = ObjType.OldMan;
-        //     cave.ItemA = (byte)ItemId.HeartContainer;
-        //     cave.PriceA = 1;
-        //     cave.ItemC = (byte)ItemId.Rupee;
-        //     cave.PriceC = 50;
-        //     cave.SetShowNegative();
-        //     cave.SetShowItems();
-        //     cave.SetSpecial();
-        //     cave.SetPickUp();
-        // }
-        // else
-        // {
-        //     var stringIdTables = _extraData.GetItem<LevelPersonStrings>(Extra.LevelPersonStringIds);
-        //
-        //     var levelIndex = _infoBlock.EffectiveLevelNumber - 1;
-        //     int levelTableIndex = _levelGroups[levelIndex];
-        //     var stringSlot = type - ObjType.Person1;
-        //     var stringId = (StringId)stringIdTables.GetStringIds(levelTableIndex)[stringSlot];
-        //
-        //     cave.Dweller = CaveDwellerType.OldMan;
-        //     cave.StringId = (byte)stringId;
-        //
-        //     if (stringId == StringId.MoreBombs)
-        //     {
-        //         cave.ItemB = (byte)ItemId.Rupee;
-        //         cave.PriceB = 100;
-        //         cave.SetShowNegative();
-        //         cave.SetShowItems();
-        //         cave.SetSpecial();
-        //         cave.SetPickUp();
-        //     }
-        // }
     }
 
     private void MakePersonRoomObjects(CaveId caveId, CaveSpec spec)

@@ -200,7 +200,6 @@ internal sealed class ProfileSelectMenu : Menu
         Graphics.Clear(SKColors.Black);
         GlobalFunctions.DrawBox(_mainBox);
 
-        // JOE: TODO: Use normal strings.
         GlobalFunctions.DrawString("- s e l e c t -", 0x40, 0x28, 0);
         GlobalFunctions.DrawString(_pageString, _mainBox.X, _mainBox.Bottom + 4, 0);
         GlobalFunctions.DrawString(_menuStr, _mainBox.X, _mainBox.Bottom + 16, 0);

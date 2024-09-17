@@ -1336,7 +1336,7 @@ internal abstract class Actor
 
         var shot = shotType == ObjType.Boomerang
             ? GlobalFunctions.MakeBoomerang(Game, x, y, facing, 0x51, 2.5f, this)
-            : GlobalFunctions.MakeProjectile(Game.World, shotType, x, y, facing, this);
+            : GlobalFunctions.MakeProjectile(Game, shotType, x, y, facing, this);
 
         var newActiveShots = Game.World.ActiveShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)

@@ -573,11 +573,11 @@ internal sealed class PlayerSwordActor : Actor
             {
                 ObjType.MagicWave => (
                     MagicWaveProjectile.PlayerCount(Game),
-                    Game.World.GetItem(ItemSlot.AllowedMagicWaveCount),
+                    Game.World.GetItem(ItemSlot.MaxConcurrentMagicWaves),
                     SoundEffect.MagicWave),
                 ObjType.PlayerSwordShot => (
                     PlayerSwordProjectile.PlayerCount(Game),
-                    Game.World.GetItem(ItemSlot.AllowedSwordShotCount),
+                    Game.World.GetItem(ItemSlot.MaxConcurrentSwordShots),
                     SoundEffect.SwordWave),
                 _ => throw new Exception(type.ToString())
             };
@@ -586,7 +586,7 @@ internal sealed class PlayerSwordActor : Actor
 
             Game.Sound.PlayEffect(effect);
 
-            var shot = GlobalFunctions.MakeProjectile(Game.World, type, x, y, dir, _owner);
+            var shot = GlobalFunctions.MakeProjectile(Game, type, x, y, dir, _owner);
             Game.World.AddObject(shot);
             shot.TileOffset = _owner.TileOffset;
         }

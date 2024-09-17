@@ -138,20 +138,19 @@ internal static class GlobalFunctions
         return (ItemId)(byte)(EquippedItemIds()[(int)slot] + itemValue);
     }
 
-    public static ItemId ItemValueToItemId(World world, ItemSlot slot)
+    public static ItemId ItemValueToItemId(Game game, ItemSlot slot)
     {
-        return ItemValueToItemId(slot, world.Profile.Items[slot]);
+        return ItemValueToItemId(slot, game.World.Profile.Items[slot]);
     }
 
-    // JOE: TODO: These should take Game to make them uniform.
-    public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, Actor actor)
+    public static Actor MakeProjectile(Game game, ObjType type, int x, int y, Direction moving, Actor actor)
     {
         return type switch {
-            ObjType.FlyingRock => new FlyingRockProjectile(world.Game, x, y, moving, actor),
-            ObjType.PlayerSwordShot => new PlayerSwordProjectile(world.Game, x, y, moving, actor),
-            ObjType.Arrow => new ArrowProjectile(world.Game, x, y, moving, actor),
-            ObjType.MagicWave => new MagicWaveProjectile(world.Game, ObjType.MagicWave, x, y, moving, actor),
-            ObjType.MagicWave2 => new MagicWaveProjectile(world.Game, ObjType.MagicWave2, x, y, moving, actor),
+            ObjType.FlyingRock => new FlyingRockProjectile(game, x, y, moving, actor),
+            ObjType.PlayerSwordShot => new PlayerSwordProjectile(game, x, y, moving, actor),
+            ObjType.Arrow => new ArrowProjectile(game, x, y, moving, actor),
+            ObjType.MagicWave => new MagicWaveProjectile(game, ObjType.MagicWave, x, y, moving, actor),
+            ObjType.MagicWave2 => new MagicWaveProjectile(game, ObjType.MagicWave2, x, y, moving, actor),
             _ => throw new Exception()
         };
     }
@@ -181,11 +180,13 @@ internal static class GlobalFunctions
     {
         if (itemId >= 0x3F) return null;
 
-        // JOE: TODO: Should this be an exception?
         if (itemId >= ItemGraphics.Items.Length)
         {
             _log.Write($"GetItemGraphics: Invalid item id: {itemId}");
             itemId = 0;
+#if DEBUG
+            throw new Exception();
+#endif
         }
 
         return ItemGraphics.Items[itemId];

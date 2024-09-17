@@ -286,10 +286,10 @@ public enum ItemSlot
     MagicKey,
     Bracelet,
     Letter,
-    // Compass,
-    // Map,
-    // Compass9,
-    // Map9,
+    Compass, // unused but need to keep for the index values.
+    Map, // unused but need to keep for the index values.
+    Compass9, // unused but need to keep for the index values.
+    Map9, // unused but need to keep for the index values.
     Clock,
     Rupees,
     Keys,
@@ -304,12 +304,12 @@ public enum ItemSlot
     RupeesToSubtract,
 
     // Added
-    AllowedBombCount,
-    AllowedFireCount,
-    AllowedBoomerangCount,
-    AllowedArrowCount,
-    AllowedSwordShotCount,
-    AllowedMagicWaveCount,
+    MaxConcurrentBombs,
+    MaxConcurrentFire,
+    MaxConcurrentBoomerangs,
+    MaxConcurrentArrows,
+    MaxConcurrentSwordShots,
+    MaxConcurrentMagicWaves,
     MaxRupees,
 
     MaxItems

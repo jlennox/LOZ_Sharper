@@ -771,7 +771,7 @@ internal sealed class Link : Actor, IThrower
         Game.World.CandleUsed = true;
 
         var count = Game.World.CountObjects<FireActor>();
-        var allowed = Game.World.GetItem(ItemSlot.AllowedFireCount);
+        var allowed = Game.World.GetItem(ItemSlot.MaxConcurrentFire);
 
         if (count >= allowed) return 0;
 
@@ -786,7 +786,7 @@ internal sealed class Link : Actor, IThrower
     private int UseBomb(int x, int y, Direction facingDir)
     {
         var bombs = Game.World.GetObjects<BombActor>();
-        var allowed = Game.World.GetItem(ItemSlot.AllowedBombCount);
+        var allowed = Game.World.GetItem(ItemSlot.MaxConcurrentBombs);
         var stableCount = bombs.Count(b => b.BombState < BombState.Blasting);
 
         if (stableCount >= allowed) return 0;
@@ -805,7 +805,7 @@ internal sealed class Link : Actor, IThrower
         // ORIGINAL: Trumps food. Look at $05:8E40. The behavior is tied to the statement below.
         //           Skip throw, if there's already a boomerang in the slot. But overwrite Food.
         var count = BoomerangProjectile.PlayerCount(Game);
-        var allowed = Game.World.GetItem(ItemSlot.AllowedBoomerangCount);
+        var allowed = Game.World.GetItem(ItemSlot.MaxConcurrentBoomerangs);
         if (count >= allowed) return 0;
 
         var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
@@ -828,7 +828,7 @@ internal sealed class Link : Actor, IThrower
         if (Game.World.GetItem(ItemSlot.Rupees) == 0) return 0;
 
         var count = ArrowProjectile.PlayerCount(Game);
-        var allowed = Game.World.GetItem(ItemSlot.AllowedArrowCount);
+        var allowed = Game.World.GetItem(ItemSlot.MaxConcurrentArrows);
         if (count >= allowed) return 0;
 
         Game.World.PostRupeeLoss(1);
@@ -840,7 +840,7 @@ internal sealed class Link : Actor, IThrower
             x += 3;
         }
 
-        var arrow = GlobalFunctions.MakeProjectile(Game.World, ObjType.Arrow, x, y, facingDir, this);
+        var arrow = GlobalFunctions.MakeProjectile(Game, ObjType.Arrow, x, y, facingDir, this);
         Game.World.AddObject(arrow);
         Game.Sound.PlayEffect(SoundEffect.Boomerang);
         return 6;

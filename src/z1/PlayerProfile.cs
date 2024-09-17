@@ -163,12 +163,12 @@ internal sealed class PlayerProfile
                 Items[slot] = slot switch
                 {
                     ItemSlot.HeartContainers => DefaultHeartCount,
-                    ItemSlot.AllowedBombCount => DefaultBombCount,
-                    ItemSlot.AllowedFireCount => DefaultFireCount,
-                    ItemSlot.AllowedBoomerangCount => DefaultBoomerangCount,
-                    ItemSlot.AllowedArrowCount => DefaultArrowCount,
-                    ItemSlot.AllowedSwordShotCount => DefaultShotCount,
-                    ItemSlot.AllowedMagicWaveCount => DefaultShotCount,
+                    ItemSlot.MaxConcurrentBombs => DefaultBombCount,
+                    ItemSlot.MaxConcurrentFire => DefaultFireCount,
+                    ItemSlot.MaxConcurrentBoomerangs => DefaultBoomerangCount,
+                    ItemSlot.MaxConcurrentArrows => DefaultArrowCount,
+                    ItemSlot.MaxConcurrentSwordShots => DefaultShotCount,
+                    ItemSlot.MaxConcurrentMagicWaves => DefaultShotCount,
                     ItemSlot.MaxRupees => DefaultMaxRupees,
                     ItemSlot.MaxBombs => DefaultMaxBombs,
                     _ => 0,

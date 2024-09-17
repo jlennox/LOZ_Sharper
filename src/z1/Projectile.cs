@@ -7,6 +7,8 @@ namespace z1;
 
 internal interface IProjectile : IBlockableProjectile
 {
+    bool IsPlayerWeapon { get; }
+
     bool IsInShotStartState();
 }
 
@@ -402,7 +404,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
     private readonly int _startX;
     private readonly int _startY;
     private int _distanceTarget;
-    private readonly Actor _owner; // JOE: TODO: Can this be null?
+    private readonly Actor _owner;
     private float _x;
     private float _y;
     private readonly float _leaveSpeed;
