@@ -216,8 +216,8 @@ internal sealed unsafe partial class World
     public int MarginLeft;
     public int MarginBottom;
     public int MarginTop;
-    private GLImage? _wallsBmp;
-    private GLImage? _doorsBmp;
+    private GLImage _wallsBmp;
+    private GLImage _doorsBmp;
 
     private GameMode _lastMode;
     private GameMode _curMode;
@@ -385,11 +385,6 @@ internal sealed unsafe partial class World
         _directory = new Asset(levelDirName).ReadJson<LevelDirectory>();
         _infoBlock = ListResource<LevelInfoBlock>.LoadSingle(_directory.LevelInfoBlock);
 
-        _wallsBmp?.Dispose();
-        _wallsBmp = null;
-        _doorsBmp?.Dispose();
-        _doorsBmp = null;
-
         _tempShutterRoomId = 0;
         _tempShutterDoorDir = 0;
         _tempShutters = false;
@@ -406,8 +401,6 @@ internal sealed unsafe partial class World
         else
         {
             LoadUnderworldContext();
-            _wallsBmp = Graphics.CreateImage(new Asset(_directory.Extra2));
-            _doorsBmp = Graphics.CreateImage(new Asset(_directory.Extra3));
             _currentRoomMap = level < 7 ? RoomMap.UnderworldA : RoomMap.UnderworldB;
 
             foreach (var tileMap in _tileMaps)
@@ -447,6 +440,8 @@ internal sealed unsafe partial class World
     {
         _textTable = new Asset("text.json").ReadJson<string[]>().ToImmutableArray();
         _extraData = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
+        _wallsBmp = Graphics.CreateImage(new Asset("underworldWalls.png"));
+        _doorsBmp = Graphics.CreateImage(new Asset("underworldDoors.png"));
 
         Profile = profile;
         Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHeartCount);

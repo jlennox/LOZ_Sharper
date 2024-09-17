@@ -21,6 +21,4 @@ public sealed class LevelDirectory
     public string RoomAttrs { get; set; }
     public string ObjLists { get; set; }
     public string Extra1 { get; set; }
-    public string Extra2 { get; set; }
-    public string Extra3 { get; set; }
 }

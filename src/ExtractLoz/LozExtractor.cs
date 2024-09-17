@@ -2698,8 +2698,6 @@ namespace ExtractLoz
             dir.RoomAttrs = roomAttrFilename;
             dir.ObjLists = "objLists.tab";
             dir.Extra1 = "overworldRoomSparseAttr.tab";
-            dir.Extra2 = "underworldWalls.png";
-            dir.Extra3 = "underworldDoors.png";
             WriteLevelDir( options, quest, level, dir );
         }
 
