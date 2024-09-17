@@ -62,6 +62,7 @@ internal sealed class TiledProperty
     public string Value { get; set; }
 }
 
+// Need properties like "bomb removes"
 internal sealed class TiledLayerObject
 {
     public int Id { get; set; }

@@ -72,22 +72,27 @@ internal record Cell(byte Row, byte Col)
 
 internal sealed class TileMap
 {
-    public const int Size = World.Rows * World.Columns;
+    public const int Size = World.ScreenRows * World.ScreenColumns;
+
+    public byte this[int row, int col]
+    {
+        get => _tileRefs[row * World.ScreenColumns + col];
+        set => _tileRefs[row * World.ScreenColumns + col] = (byte)value;
+    }
 
     private readonly byte[] _tileRefs = new byte[Size];
-    private readonly byte[] _tileBehaviors = new byte[World.Rows * World.Columns];
+    private readonly byte[] _tileBehaviors = new byte[Size];
 
     public ref byte Refs(int index) => ref _tileRefs[index];
-    public ref byte Refs(int row, int col) => ref _tileRefs[row * World.Columns + col];
-    public ref byte Behaviors(int row, int col) => ref _tileBehaviors[row * World.Columns + col];
+    public ref byte Refs(int row, int col) => ref _tileRefs[row * World.ScreenColumns + col];
+    public ref byte Behaviors(int row, int col) => ref _tileBehaviors[row * World.ScreenColumns + col];
     public ref byte Behaviors(int index) => ref _tileBehaviors[index];
     public TileBehavior AsBehaviors(int row, int col)
     {
-        // JOE: TODO: Think this through properly. The checks should be against World.Rows/World.Columns.
-        row = Math.Max(0, Math.Min(row, World.Rows - 1));
-        col = Math.Max(0, Math.Min(col, World.Columns - 1));
+        row = Math.Max(0, Math.Min(row, World.ScreenRows - 1));
+        col = Math.Max(0, Math.Min(col, World.ScreenColumns - 1));
 
-        return (TileBehavior)_tileBehaviors[row * World.Columns + col];
+        return (TileBehavior)_tileBehaviors[row * World.ScreenColumns + col];
     }
 }
 
@@ -96,13 +101,13 @@ internal sealed unsafe partial class World
     public const int LevelGroups = 3;
 
     public const int MobColumns = 16;
-    public const int Rows = 22;
-    public const int Columns = 32;
+    public const int ScreenRows = 22;
+    public const int ScreenColumns = 32;
     public const int MobTileWidth = 16;
     public const int MobTileHeight = 16;
     public const int TileWidth = 8;
     public const int TileHeight = 8;
-    public const int TileMapWidth = Columns * TileWidth;
+    public const int TileMapWidth = ScreenColumns * TileWidth;
 
     public const int WorldLimitTop = TileMapBaseY;
     public const int WorldLimitBottom = WorldLimitTop + TileMapHeight;
@@ -113,7 +118,7 @@ internal sealed unsafe partial class World
     public const int WorldHeight = 8;
 
     private const int BaseRows = 8;
-    private const int TileMapHeight = Rows * TileHeight;
+    private const int TileMapHeight = ScreenRows * TileHeight;
     private const int TileMapBaseY = 64;
     private const int Doors = 4;
 
@@ -190,19 +195,10 @@ internal sealed unsafe partial class World
 
     private LevelDirectory _directory;
     private LevelInfoBlock _infoBlock;
-    private RoomCols[] _roomCols = new RoomCols[UniqueRooms];
-    private TableResource<byte> _colTables;
-    private readonly TileMap[] _tileMaps = [new(), new(), new()];
-    private RoomAttrs[] _roomAttrs = new RoomAttrs[Rooms];
-    private int _curTileMapIndex;
-    private byte[] _tileAttrs = new byte[MobTypes];
-    private byte[] _tileBehaviors = new byte[TileTypes];
     private TableResource<byte> _sparseRoomAttrs;
     private LevelInfoEx _extraData;
     private TableResource<byte> _objLists;
     private ImmutableArray<string> _textTable;
-    private ListResource<byte> _primaryMobs;
-    private ListResource<byte> _secondaryMobs;
     private LoadMobDelegate _loadMobFunc;
     private WorldLevel _level = WorldLevel.Overworld;
     private readonly RoomHistory _roomHistory;
@@ -346,8 +342,8 @@ internal sealed unsafe partial class World
         _prevRoomWasCellar = false;
         LoadOpenRoomContext();
         LoadMapResourcesFromDirectory(124);
-        _primaryMobs = ListResource<byte>.Load(new Asset("owPrimaryMobs.list"));
-        _secondaryMobs = ListResource<byte>.Load(new Asset("owSecondaryMobs.list"));
+        _squareTable = ListResource<byte>.Load(new Asset("owPrimaryMobs.list"));
+        _squareTableSecondary = ListResource<byte>.Load(new Asset("owSecondaryMobs.list"));
         _tileBehaviors = ListResource<byte>.LoadList(new Asset("owTileBehaviors.dat"), TileTypes).ToArray();
     }
 
@@ -356,7 +352,7 @@ internal sealed unsafe partial class World
         _prevRoomWasCellar = false;
         LoadClosedRoomContext();
         LoadMapResourcesFromDirectory(64);
-        _primaryMobs = ListResource<byte>.Load(new Asset("uwPrimaryMobs.list"));
+        _squareTable = ListResource<byte>.Load(new Asset("uwPrimaryMobs.list"));
         _tileBehaviors = ListResource<byte>.LoadList(new Asset("uwTileBehaviors.dat"), TileTypes).ToArray();
     }
 
@@ -370,71 +366,9 @@ internal sealed unsafe partial class World
 
         _tileAttrs = ListResource<byte>.LoadList("underworldCellarTileAttrs.dat", _tileTypeCount).ToArray();
 
-        _primaryMobs = ListResource<byte>.Load("uwCellarPrimaryMobs.list");
-        _secondaryMobs = ListResource<byte>.Load("uwCellarSecondaryMobs.list");
+        _squareTable = ListResource<byte>.Load("uwCellarPrimaryMobs.list");
+        _squareTableSecondary = ListResource<byte>.Load("uwCellarSecondaryMobs.list");
         _tileBehaviors = ListResource<byte>.LoadList("uwTileBehaviors.dat", TileTypes).ToArray();
-    }
-
-    private readonly struct WorldLevelData(WorldLevel Level, RoomAttrs[] Attributes)
-    {
-    }
-
-    private void LoadLevel(int level)
-    {
-        var levelDirName = $"levelDir_{Profile.Quest}_{level}.json";
-
-        _directory = new Asset(levelDirName).ReadJson<LevelDirectory>();
-        _infoBlock = ListResource<LevelInfoBlock>.LoadSingle(_directory.LevelInfoBlock);
-
-        _tempShutterRoomId = 0;
-        _tempShutterDoorDir = 0;
-        _tempShutters = false;
-        _darkRoomFadeStep = 0;
-        Array.Clear(_levelKillCounts);
-        _roomHistory.Clear();
-        WhirlwindTeleporting = 0;
-
-        if (level == 0)
-        {
-            LoadOverworldContext();
-            _currentRoomMap = RoomMap.Overworld;
-        }
-        else
-        {
-            LoadUnderworldContext();
-            _currentRoomMap = level < 7 ? RoomMap.UnderworldA : RoomMap.UnderworldB;
-
-            foreach (var tileMap in _tileMaps)
-            {
-                for (var x = 0; x < TileMap.Size; x++)
-                {
-                    tileMap.Refs(x) = (byte)BlockObjType.TileWallEdge;
-                }
-            }
-        }
-
-        _roomAttrs = ListResource<RoomAttrs>.LoadList(new Asset(_directory.RoomAttrs), Rooms).ToArray();
-        _objLists = TableResource<byte>.Load(new Asset(_directory.ObjLists));
-        _sparseRoomAttrs = TableResource<byte>.Load(new Asset(_directory.Extra1));
-
-        var facing = Game.Link?.Facing ?? Direction.Up;
-
-        Game.Link = new Link(Game, facing);
-
-        // Replace room attributes, if in second quest.
-
-        if (level == 0 && Profile.Quest == 1)
-        {
-            var pReplacement = _sparseRoomAttrs.GetItems<byte>(Sparse.RoomReplacement);
-            int replacementCount = pReplacement[0];
-            var sparseAttr = MemoryMarshal.Cast<byte, SparseRoomAttr>(pReplacement[2..]); // JOE: Go until replacementCount * sizeof(SparseRoomAttr) ??
-
-            for (var i = 0; i < replacementCount; i++)
-            {
-                int roomId = sparseAttr[i].roomId;
-                _roomAttrs[roomId] = sparseAttr[i].attrs;
-            }
-        }
     }
 
     private void Init(PlayerProfile profile)
@@ -608,7 +542,7 @@ internal sealed unsafe partial class World
         var fineCol = x / TileWidth;
         var fineRow = (y - TileMapBaseY) / TileHeight;
 
-        if (fineCol is < 0 or >= Columns || fineRow is < 0 or >= Rows) return;
+        if (fineCol is < 0 or >= ScreenColumns || fineRow is < 0 or >= ScreenRows) return;
 
         SetMob(fineRow, fineCol, mobIndex);
     }
@@ -636,12 +570,12 @@ internal sealed unsafe partial class World
 
     public Cell GetRandomWaterTile()
     {
-        var waterList = new Cell[Rows * Columns];
+        var waterList = new Cell[ScreenRows * ScreenColumns];
         var waterCount = 0;
 
-        for (var r = 0; r < Rows - 1; r++)
+        for (var r = 0; r < ScreenRows - 1; r++)
         {
-            for (var c = 0; c < Columns - 1; c++)
+            for (var c = 0; c < ScreenColumns - 1; c++)
             {
                 if (GetTileBehavior(r, c) == TileBehavior.Water
                     && GetTileBehavior(r, c + 1) == TileBehavior.Water
@@ -716,7 +650,7 @@ internal sealed unsafe partial class World
 
     private void InteractTile(int row, int col, TileInteraction interaction)
     {
-        if (row < 0 || col < 0 || row >= Rows || col >= Columns) return;
+        if (row < 0 || col < 0 || row >= ScreenRows || col >= ScreenColumns) return;
 
         var behavior = GetTileBehavior(row, col);
         var behaviorFunc = BehaviorFuncs[(int)behavior];
@@ -1038,91 +972,6 @@ internal sealed unsafe partial class World
         var pos = _infoBlock.ShortcutPosition[index];
         GetRoomCoord(pos, out var row, out var col);
         SetMob(row * 2, col * 2, BlockObjType.MobStairs);
-    }
-
-    private void DrawMap(int roomId, int mapIndex, int offsetX, int offsetY)
-    {
-        Graphics.Begin();
-
-        var outerPalette = _roomAttrs[roomId].GetOuterPalette();
-        var innerPalette = _roomAttrs[roomId].GetInnerPalette();
-        var map = _tileMaps[mapIndex];
-
-        if (IsUWCellar(roomId) || IsPlayingCave())
-        {
-            outerPalette = (Palette)3;
-            innerPalette = (Palette)2;
-        }
-
-        var firstRow = 0;
-        var lastRow = Rows;
-        var tileOffsetY = offsetY;
-
-        var firstCol = 0;
-        var lastCol = Columns;
-        var tileOffsetX = offsetX;
-
-        if (offsetY < 0)
-        {
-            firstRow = -offsetY / TileHeight;
-            tileOffsetY = -(-offsetY % TileHeight);
-        }
-        else if (offsetY > 0)
-        {
-            lastRow = Rows - offsetY / TileHeight;
-        }
-        else if (offsetX < 0)
-        {
-            firstCol = -offsetX / TileWidth;
-            tileOffsetX = -(-offsetX % TileWidth);
-        }
-        else if (offsetX > 0)
-        {
-            lastCol = Columns - offsetX / TileWidth;
-        }
-
-        var endCol = _startCol + _colCount;
-        var endRow = _startRow + _rowCount;
-
-        var y = TileMapBaseY + tileOffsetY;
-
-        if (IsUWMain(roomId))
-        {
-            Graphics.DrawImage(
-                _wallsBmp,
-                0, 0,
-                TileMapWidth, TileMapHeight,
-                offsetX, TileMapBaseY + offsetY,
-                outerPalette, 0);
-        }
-
-        var backgroundSheet = IsOverworld() ? TileSheet.BackgroundOverworld : TileSheet.BackgroundUnderworld;
-
-        for (var r = firstRow; r < lastRow; r++, y += TileHeight)
-        {
-            if (r < _startRow || r >= endRow) continue;
-
-            var x = tileOffsetX;
-            for (var c = firstCol; c < lastCol; c++, x += TileWidth)
-            {
-                if (c < _startCol || c >= endCol) continue;
-
-                var tileRef = map.Refs(r, c);
-                var srcX = (tileRef & 0x0F) * TileWidth;
-                var srcY = ((tileRef & 0xF0) >> 4) * TileHeight;
-
-                var palette = (r is < 4 or >= 18 || c is < 4 or >= 28) ? outerPalette : innerPalette;
-
-                Graphics.DrawTile(backgroundSheet, srcX, srcY, TileWidth, TileHeight, x, y, palette, 0);
-            }
-        }
-
-        if (IsUWMain(roomId))
-        {
-            DrawDoors(roomId, false, offsetX, offsetY);
-        }
-
-        Graphics.End();
     }
 
     private void DrawDoors(int roomId, bool above, int offsetX, int offsetY)
@@ -1573,198 +1422,7 @@ internal sealed unsafe partial class World
     private void LoadCaveRoom(CaveType uniqueRoomId)
     {
         _curTileMapIndex = 0;
-
         LoadLayout((int)uniqueRoomId, 0, TileScheme.Overworld);
-    }
-
-    private void LoadMap(int roomId, int tileMapIndex)
-    {
-        TileScheme tileScheme;
-        var uniqueRoomId = _roomAttrs[roomId].GetUniqueRoomId();
-
-        if (IsOverworld())
-        {
-            tileScheme = TileScheme.Overworld;
-        }
-        else if (uniqueRoomId >= 0x3E)
-        {
-            tileScheme = TileScheme.UnderworldCellar;
-            uniqueRoomId -= 0x3E;
-        }
-        else
-        {
-            tileScheme = TileScheme.UnderworldMain;
-        }
-
-        LoadLayout(uniqueRoomId, tileMapIndex, tileScheme);
-
-        if (tileScheme == TileScheme.UnderworldMain)
-        {
-            for (var i = 0; i < Doors; i++)
-            {
-                UpdateDoorTileBehavior(roomId, tileMapIndex, i);
-            }
-        }
-    }
-
-    private void LoadOWMob(ref TileMap map, int row, int col, int mobIndex)
-    {
-        var primary = _primaryMobs[mobIndex];
-
-        if (primary == 0xFF)
-        {
-            var index = mobIndex * 4;
-            var secondaries = _secondaryMobs;
-            map.Refs(row, col) = secondaries[index + 0];
-            map.Refs(row, col + 1) = secondaries[index + 2];
-            map.Refs(row + 1, col) = secondaries[index + 1];
-            map.Refs(row + 1, col + 1) = secondaries[index + 3];
-        }
-        else
-        {
-            map.Refs(row, col) = primary;
-            map.Refs(row, col + 1) = (byte)(primary + 2);
-            map.Refs(row + 1, col) = (byte)(primary + 1);
-            map.Refs(row + 1, col + 1) = (byte)(primary + 3);
-        }
-    }
-
-    private void LoadUWMob(ref TileMap map, int row, int col, int mobIndex)
-    {
-        var primary = _primaryMobs[mobIndex];
-
-        if (primary is < 0x70 or > 0xF2)
-        {
-            map.Refs(row, col) = primary;
-            map.Refs(row, col + 1) = primary;
-            map.Refs(row + 1, col) = primary;
-            map.Refs(row + 1, col + 1) = primary;
-        }
-        else
-        {
-            map.Refs(row, col) = primary;
-            map.Refs(row, col + 1) = (byte)(primary + 2);
-            map.Refs(row + 1, col) = (byte)(primary + 1);
-            map.Refs(row + 1, col + 1) = (byte)(primary + 3);
-        }
-    }
-
-    private void LoadLayout(int uniqueRoomId, int tileMapIndex, TileScheme tileScheme)
-    {
-        var logfn = _traceLog.CreateFunctionLog();
-        logfn.Write($"({uniqueRoomId}, {tileMapIndex}, {tileScheme})");
-
-        var maxColumnStartOffset = (_colCount / 2 - 1) * _rowCount / 2;
-
-        var columns = _roomCols[uniqueRoomId];
-        var map = _tileMaps[tileMapIndex];
-        var rowEnd = _startRow + _rowCount;
-
-        var owLayoutFormat = tileScheme is TileScheme.Overworld or TileScheme.UnderworldCellar;
-
-        _loadMobFunc = tileScheme switch
-        {
-            TileScheme.Overworld => LoadOWMob,
-            TileScheme.UnderworldMain => LoadUWMob,
-            TileScheme.UnderworldCellar => LoadOWMob,
-            _ => _loadMobFunc
-        };
-
-        var owRoomAttrs = CurrentOWRoomAttrs;
-        var roomAttrs = CurrentOWRoomAttrs.Attrs;
-        logfn.Write($"owRoomAttrs:{roomAttrs.A:X2},{roomAttrs.D:X2},{roomAttrs.C:X2},{roomAttrs.D:X2}");
-
-        for (var i = 0; i < _colCount / 2; i++)
-        {
-            var columnDesc = columns.ColumnDesc[i];
-            var tableIndex = (byte)((columnDesc & 0xF0) >> 4);
-            var columnIndex = (byte)(columnDesc & 0x0F);
-
-            var table = _colTables.GetItem(tableIndex);
-            var k = 0;
-            var columnStart = 0;
-
-            for (columnStart = 0; columnStart <= maxColumnStartOffset; columnStart++)
-            {
-                var t = table[columnStart];
-
-                if ((t & 0x80) != 0)
-                {
-                    if (k == columnIndex) break;
-                    k++;
-                }
-            }
-
-            if (columnStart > maxColumnStartOffset) throw new Exception();
-
-            var c = _startCol + i * 2;
-
-            for (var r = _startRow; r < rowEnd; columnStart++)
-            {
-                var t = table[columnStart];
-                var tileRef = owLayoutFormat ? (byte)(t & 0x3F) : (byte)(t & 0x7);
-
-                _loadMobFunc(ref map, r, c, tileRef);
-
-                var attr = _tileAttrs[tileRef];
-                var action = owRoomAttrs.IsInQuest(Profile.Quest) ? TileAttr.GetAction(attr) : TileAction.None;
-                TileActionDel? actionFunc = null;
-
-                if (action != TileAction.None)
-                {
-                    logfn.Write($"tileRef:{tileRef}, attr:{attr:X2}, action:{action}, pos:{r:X2},{c:X2}");
-                    actionFunc = ActionFuncs[(int)action];
-                    actionFunc(r, c, TileInteraction.Load);
-                }
-
-                r += 2;
-
-                if (owLayoutFormat)
-                {
-                    if ((t & 0x40) != 0 && r < rowEnd)
-                    {
-                        _loadMobFunc(ref map, r, c, tileRef);
-                        actionFunc?.Invoke(r, c, TileInteraction.Load);
-                        r += 2;
-                    }
-                }
-                else
-                {
-                    var repeat = (t >> 4) & 0x7;
-                    for (var m = 0; m < repeat && r < rowEnd; m++)
-                    {
-                        _loadMobFunc(ref map, r, c, tileRef);
-                        actionFunc?.Invoke(r, c, TileInteraction.Load);
-                        r += 2;
-                    }
-                }
-            }
-        }
-
-        if (IsUWMain(CurRoomId))
-        {
-            var uwRoomAttrs = CurrentUWRoomAttrs;
-            if (uwRoomAttrs.HasBlock())
-            {
-                for (var c = _startCol; c < _startCol + _colCount; c += 2)
-                {
-                    var tileRef = _tileMaps[_curTileMapIndex].Refs(UWBlockRow, c);
-                    if (tileRef == (byte)BlockObjType.TileBlock)
-                    {
-                        ActionFuncs[(int)TileAction.Block](UWBlockRow, c, TileInteraction.Load);
-                        break;
-                    }
-                }
-            }
-        }
-
-        for (var i = 0; i < Rows * Columns; i++)
-        {
-            var t = map.Refs(i);
-            map.Behaviors(i) = _tileBehaviors[t];
-        }
-
-        PatchTileBehaviors();
     }
 
     private void PatchTileBehaviors()

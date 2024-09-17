@@ -388,17 +388,17 @@ internal static class GlobalFunctions
         if (!number.TryFormat(output, out var size)) throw new Exception();
         if (!number.TryFormat(output[^size..], out _)) throw new Exception();
 
-        var signstr = sign switch
+        var signChar = sign switch
         {
             NumberSign.Negative => '-',
             NumberSign.Positive => '+',
             _ => '\0',
         };
 
-        if (signstr != '\0')
+        if (signChar != '\0')
         {
             size++;
-            output[^size] = signstr;
+            output[^size] = signChar;
         }
 
         // Left pad to 4 because that's how the game does it.

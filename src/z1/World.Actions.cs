@@ -191,7 +191,7 @@ internal partial class World
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Invalid game mode.")
     };
 
-private Action? GetDrawFunction(GameMode mode) => mode switch
+    private Action? GetDrawFunction(GameMode mode) => mode switch
     {
         GameMode.Demo => null,
         GameMode.LoadLevel => DrawLoadLevel,
