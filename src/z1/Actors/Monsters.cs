@@ -109,7 +109,7 @@ internal abstract class WalkerActor : MonsterActor
     {
         if (!HasProjectile) return;
 
-        if (ObjType.IsBlueWalker() || ShootTimer != 0 || Random.Shared.Next(0xFF) >= 0xF8)
+        if (ObjType.IsBlueWalker() || ShootTimer != 0 || Game.Random.Next(0xFF) >= 0xF8)
         {
             if (InvincibilityTimer > 0)
             {
@@ -318,7 +318,7 @@ internal abstract class WandererWalkerActor : WalkerActor
 
         TileOffset &= 0x0F;
 
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
 
         // ORIGINAL: If (r > turnRate) or (player.state = $FF), then ...
         //           But, I don't see how the player can get in that state.
@@ -367,14 +367,14 @@ internal abstract class WandererWalkerActor : WalkerActor
     private void TurnX()
     {
         Facing = GetXDirToPlayer(X);
-        _turnTimer = Random.Shared.GetByte();
+        _turnTimer = Game.Random.GetByte();
         WantToShoot = true;
     }
 
     private void TurnY()
     {
         Facing = GetYDirToPlayer(Y);
-        _turnTimer = Random.Shared.GetByte();
+        _turnTimer = Game.Random.GetByte();
         WantToShoot = true;
     }
 }
@@ -1408,7 +1408,7 @@ internal sealed class GelActor : WandererWalkerActor
 
             if (ObjTimer == 0 && TileOffset == 0)
             {
-                var index = Random.Shared.Next(4);
+                var index = Game.Random.Next(4);
                 ObjTimer = _gelWaitTimes[index];
             }
         }
@@ -1457,7 +1457,7 @@ internal sealed class ZolActor : WandererWalkerActor
 
             if (ObjTimer == 0 && TileOffset == 0)
             {
-                var index = Random.Shared.Next(4);
+                var index = Game.Random.Next(4);
                 ObjTimer = _zolWaitTimes[index];
             }
         }
@@ -2054,7 +2054,7 @@ internal sealed class RedLeeverActor : Actor
 
         Facing = player.Facing;
 
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
         if (r >= 0xC0)
         {
             Facing = Facing.GetOppositeDirection();
@@ -2236,7 +2236,7 @@ internal abstract class FlyingActor : MonsterActor
         {
             CurSpeed = 0;
             State = FlyingActorState.Still;
-            ObjTimer = (byte)(Random.Shared.Next(64) + 64);
+            ObjTimer = (byte)(Game.Random.Next(64) + 64);
         }
     }
 
@@ -2247,7 +2247,7 @@ internal abstract class FlyingActor : MonsterActor
 
     protected virtual void UpdateFullSpeedImpl()
     {
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
 
         State = r switch {
             >= 0xB0 => FlyingActorState.Chase,
@@ -2409,7 +2409,7 @@ internal sealed class FlyingGhiniActor : FlyingActor
 
     protected override void UpdateFullSpeedImpl()
     {
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
         var newState = r switch
         {
             >= 0xA0 => FlyingActorState.Chase,
@@ -2443,7 +2443,7 @@ internal sealed class KeeseActor : FlyingActor
         : base(game, type, spec, x, y)
     {
         CurSpeed = startSpeed;
-        Facing = Random.Shared.GetDirection8();
+        Facing = Game.Random.GetDirection8();
     }
 
     public static KeeseActor Make(Game game, ActorColor color, int x, int y)
@@ -2472,7 +2472,7 @@ internal sealed class KeeseActor : FlyingActor
 
     protected override void UpdateFullSpeedImpl()
     {
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
         var newstate = r switch {
             >= 0xA0 => FlyingActorState.Chase,
             >= 0x20 => FlyingActorState.Turn,
@@ -2537,7 +2537,7 @@ internal sealed class MoldormActor : FlyingActor
 
         for (var moldormCount = 0; moldormCount < count; moldormCount++)
         {
-            var head = new MoldormActor(game, null, x, y, Random.Shared.GetDirection8());
+            var head = new MoldormActor(game, null, x, y, game.Random.GetDirection8());
             game.World.AddObject(head);
             firstMoldorm ??= head;
 
@@ -2628,7 +2628,7 @@ internal sealed class MoldormActor : FlyingActor
     {
         if (ObjTimer == 0)
         {
-            var r = Random.Shared.GetByte();
+            var r = Game.Random.GetByte();
             GoToState(r < 0x40 ? FlyingActorState.Turn : FlyingActorState.Chase, 8);
 
             ObjTimer = 0x10;
@@ -2784,7 +2784,7 @@ internal sealed class PatraActor : FlyingActor
 
     protected override void UpdateFullSpeedImpl()
     {
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
         GoToState(r >= 0x40 ? FlyingActorState.Chase : FlyingActorState.Turn, 8);
     }
 }
@@ -2982,7 +2982,7 @@ internal readonly record struct JumperSpec(
 
 internal abstract class JumperActor : MonsterActor
 {
-    public static readonly ImmutableArray<int> JumperStartDirs = [1, 2, 5, 0xA];
+    public static readonly ImmutableArray<Direction> JumperStartDirs = [(Direction)1, (Direction)2, (Direction)5, (Direction)0xA];
     private static readonly ImmutableArray<int> _targetYOffset = [0, 0, 0, 0, 0, 0x20, 0x20, 0, 0, -0x20, -0x20];
 
     private int _curSpeed;
@@ -3007,7 +3007,7 @@ internal abstract class JumperActor : MonsterActor
             DurationFrames = spec.AnimationTimer
         };
 
-        Facing = (Direction)JumperStartDirs.GetRandom();
+        Facing = game.Random.GetRandom(JumperStartDirs);
         ObjTimer = (byte)((int)Facing * 4);
 
         if (this is BoulderActor)
@@ -3162,7 +3162,7 @@ internal abstract class JumperActor : MonsterActor
 
     private int GetRandomStillTime()
     {
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
         var t = (byte)(r + 0x10);
 
         if (t < 0x20)
@@ -3257,7 +3257,7 @@ internal sealed class BouldersActor : MonsterActor
     public BouldersActor(Game game, int x, int y)
         : base(game, ObjType.Boulders, x, y)
     {
-        var facing = JumperActor.JumperStartDirs.GetRandom();
+        var facing = (int)game.Random.GetRandom(JumperActor.JumperStartDirs);
         ObjTimer = (byte)(facing * 4);
         Decoration = 0;
     }
@@ -3270,7 +3270,7 @@ internal sealed class BouldersActor : MonsterActor
         {
             var playerPos = Game.World.GetObservedPlayerPos();
             const int y = World.WorldLimitTop;
-            var x = Random.Shared.GetByte();
+            var x = Game.Random.GetByte();
 
             // Make sure the new boulder is in the same half of the screen.
             if (playerPos.X < World.WorldMidX)
@@ -3285,12 +3285,12 @@ internal sealed class BouldersActor : MonsterActor
             var boulder = new BoulderActor(Game, x, y);
             Game.World.AddObject(boulder);
 
-            ObjTimer = (byte)Random.Shared.Next(32);
+            ObjTimer = (byte)Game.Random.Next(32);
 
             return;
         }
 
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
         ObjTimer = (byte)((ObjTimer + r) % 256);
     }
 
@@ -3495,7 +3495,7 @@ internal sealed class RopeActor : MonsterActor
 
             if (_speed != RopeFastSpeed && ObjTimer == 0)
             {
-                ObjTimer = (byte)Random.Shared.Next(0x40);
+                ObjTimer = (byte)Game.Random.Next(0x40);
                 TurnToUnblockedDir();
             }
         }
@@ -3658,7 +3658,7 @@ internal sealed class PolsVoiceActor : MonsterActor
             _state = 0;
             _curSpeed = 0;
             _accelStep = 0;
-            var r = Random.Shared.GetByte();
+            var r = Game.Random.GetByte();
             Facing = (r & 3).GetOrdDirection();
             _stateTimer = (r & 0x40) + 0x30;
             X = (X + 8) & 0xF0;
@@ -3853,7 +3853,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
         {
             var player = Game.Link;
 
-            var r = Random.Shared.Next(16);
+            var r = Game.Random.Next(16);
             var dirOrd = r % 4;
             Facing = _wizzrobeDirs[dirOrd];
 
@@ -4016,7 +4016,7 @@ internal sealed class LamnolaActor : MonsterActor
     {
         var oppositeDir = Facing.GetOppositeDirection();
         var dirMask = ~oppositeDir;
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
         Direction dir;
 
         if (r < 128)
@@ -4029,7 +4029,7 @@ internal sealed class LamnolaActor : MonsterActor
         else
         {
             dir = Facing;
-            r = Random.Shared.GetByte();
+            r = Game.Random.GetByte();
 
             if (r < 128)
             {
@@ -4364,7 +4364,7 @@ internal sealed class AquamentusActor : MonsterActor
     {
         if (_distance == 0)
         {
-            var r = Random.Shared.Next(16);
+            var r = Game.Random.Next(16);
             _distance = r | 7;
             Facing = (Direction)((r & 1) + 1);
             return;
@@ -4396,7 +4396,7 @@ internal sealed class AquamentusActor : MonsterActor
     {
         if (ObjTimer == 0)
         {
-            var r = Random.Shared.GetByte();
+            var r = Game.Random.GetByte();
             ObjTimer = (byte)(r | 0x70);
 
             for (var i = 0; i < 3; i++)
@@ -4497,7 +4497,7 @@ internal sealed class DodongoActor : WandererWalkerActor
         ];
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar2, true, Sound.AmbientInstance);
-        var r = Random.Shared.Next(2);
+        var r = Game.Random.Next(2);
         Facing = r == 1 ? Direction.Left : Direction.Right;
 
         Animator.DurationFrames = 16;
@@ -4827,7 +4827,7 @@ internal sealed class ManhandlaActor : MonsterActor
 
     public static ManhandlaActor Make(Game game, int x, int y)
     {
-        var dir = Random.Shared.GetDirection8();
+        var dir = game.Random.GetDirection8();
 
         game.Sound.PlayEffect(SoundEffect.BossRoar3, true, Sound.AmbientInstance);
 
@@ -4931,7 +4931,7 @@ internal sealed class ManhandlaActor : MonsterActor
         {
             ObjTimer = 0x10;
 
-            var r = Random.Shared.Next(2);
+            var r = Game.Random.Next(2);
             Facing = r == 0 ? TurnRandomly8(Facing) : TurnTowardsPlayer8(X, Y, Facing);
 
             // The original game set sBounceDir = Facing here, instead of to Direction.None above.
@@ -4947,7 +4947,7 @@ internal sealed class ManhandlaActor : MonsterActor
 
         MoveSimple8(Facing, speed);
 
-        _frameAccum += (ushort)(Random.Shared.Next(4) + speed);
+        _frameAccum += (ushort)(Game.Random.Next(4) + speed);
 
         if (CheckWorldMargin(Facing) == Direction.None)
         {
@@ -4962,7 +4962,7 @@ internal sealed class ManhandlaActor : MonsterActor
             _oldFrame = _frame;
 
             if (_frame == 0
-                && Random.Shared.GetByte() >= 0xE0
+                && Game.Random.GetByte() >= 0xE0
                 && (_parent.Fireball == null || _parent.Fireball.IsDeleted))
             {
                 _parent.Fireball = ShootFireball(ObjType.Fireball2, X, Y);
@@ -5031,7 +5031,7 @@ internal abstract class DigdoggerActorBase : MonsterActor
     protected DigdoggerActorBase(Game game, ObjType type, int x, int y)
         : base(game, type, x, y)
     {
-        Facing = Random.Shared.GetDirection8();
+        Facing = Game.Random.GetDirection8();
         IsChild = this is DigdoggerChildActor;
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar3, true, Sound.AmbientInstance);
@@ -5043,7 +5043,7 @@ internal abstract class DigdoggerActorBase : MonsterActor
         {
             ObjTimer = 0x10;
 
-            var r = Random.Shared.Next(2);
+            var r = Game.Random.Next(2);
             Facing = r == 0 ? TurnRandomly8(Facing) : TurnTowardsPlayer8(X, Y, Facing);
         }
 
@@ -5370,7 +5370,7 @@ internal sealed class GohmaActor : MonsterActor
     private void ChangeFacing()
     {
         var dir = 1;
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
 
         if (r < 0xB0)
         {
@@ -5414,7 +5414,7 @@ internal sealed class GohmaActor : MonsterActor
         if (_startOpenEyeTimer == 0)
         {
             _eyeOpenTimer = 0x80;
-            _startOpenEyeTimer = 0xC0 | Random.Shared.GetByte();
+            _startOpenEyeTimer = 0xC0 | Game.Random.GetByte();
         }
 
         if ((Game.FrameCounter & 1) == 1)
@@ -5494,7 +5494,7 @@ internal sealed class ArmosActor : ChaseWalkerActor
         // Set this to make up for the fact that this armos begins completely aligned with tile.
         TileOffset = 3;
 
-        CurrentSpeed = Random.Shared.GetRandom(0x20, 0x60);
+        CurrentSpeed = Game.Random.GetRandom(0x20, 0x60);
     }
 
     public override void Update()
@@ -5581,7 +5581,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
     {
         _shotRef = null;
 
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
         var t = r switch {
             < 0x30 => 0x30,
             < 0x70 => 0x50,
@@ -5609,7 +5609,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
 
         if (ObjType == ObjType.RedGoriya)
         {
-            var r = Random.Shared.GetByte();
+            var r = Game.Random.GetByte();
             if (r != 0x23 && r != 0x77)
             {
                 return;
@@ -5623,7 +5623,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
         {
             WantToShoot = false;
             _shotRef = shot;
-            ObjTimer = (byte)Random.Shared.Next(0x40);
+            ObjTimer = (byte)Game.Random.Next(0x40);
         }
     }
 }
@@ -5667,7 +5667,7 @@ internal static class Statues
 
             if (timer != 0) continue;
 
-            var r = Random.Shared.GetByte();
+            var r = game.Random.GetByte();
             if (r >= 0xF0) continue;
 
             var j = r & 3;

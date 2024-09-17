@@ -450,11 +450,11 @@ internal sealed class PersonActor : Actor
             _gamblingIndexes[i] = (byte)i;
         }
 
-        _gamblingAmounts[0] = (byte)(Random.Shared.Next(2) == 0 ? 10 : 40);
+        _gamblingAmounts[0] = (byte)(Game.Random.Next(2) == 0 ? 10 : 40);
         _gamblingAmounts[1] = 10;
-        _gamblingAmounts[2] = (byte)(Random.Shared.Next(2) == 0 ? 20 : 50);
+        _gamblingAmounts[2] = (byte)(Game.Random.Next(2) == 0 ? 20 : 50);
 
-        _gamblingIndexes.Shuffle();
+        Game.Random.Shuffle(_gamblingIndexes);
     }
 
     private void UpdatePickUp()

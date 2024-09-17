@@ -94,20 +94,20 @@ internal static class Extensions
     }
 
     public static byte GetByte(this Random random) => (byte)random.Next(256);
-    public static Direction GetDirection8(this Random random) => Random.Shared.Next(8).GetDirection8();
+    public static Direction GetDirection8(this Random random) => random.Next(8).GetDirection8();
 
-    public static void Shuffle<T>(this T[] array)
+    public static void Shuffle<T>(this Random random, T[] array)
     {
         var n = array.Length;
         for (var i = n - 1; i > 0; i--)
         {
-            var j = Random.Shared.Next(i + 1);
+            var j = random.Next(i + 1);
             (array[i], array[j]) = (array[j], array[i]);
         }
     }
 
-    public static T GetRandom<T>(this T[] array) => array[Random.Shared.Next(array.Length)];
-    public static T GetRandom<T>(this ImmutableArray<T> array) => array[Random.Shared.Next(array.Length)];
+    public static T GetRandom<T>(this Random random, T[] array) => array[random.Next(array.Length)];
+    public static T GetRandom<T>(this Random random, ImmutableArray<T> array) => array[random.Next(array.Length)];
     public static T GetRandom<T>(this Random random, T a, T b) => random.Next(2) == 0 ? a : b;
 
     public static bool IsBlueWalker(this ObjType type)

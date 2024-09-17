@@ -26,10 +26,12 @@ internal sealed class Game
     public Input Input;
     public GameCheats GameCheats;
     public GameConfiguration Configuration = SaveFolder.Configuration;
+    public readonly Random Random = new();
     public readonly OnScreenDisplay OnScreenDisplay = new();
     public readonly DebugInfo DebugInfo;
 
     public int FrameCounter { get; private set; }
+
 
     public Game()
     {

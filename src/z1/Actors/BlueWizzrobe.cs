@@ -66,7 +66,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         // BlueWizzrobe_AlignWithNearestSquareAndRandomizeTimer
         if (FlashTimer == 0)
         {
-            var r = Random.Shared.GetByte();
+            var r = Game.Random.GetByte();
             ObjTimer = (byte)(r | 0x70);
             TruncatePosition();
             Turn();
@@ -176,7 +176,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
     // BlueWizzrobe_ChooseTeleportTarget
     private void TryTeleporting()
     {
-        var index = Random.Shared.Next(4);
+        var index = Game.Random.Next(4);
 
         var teleportX = X + _blueWizzrobeTeleportXOffsets[index];
         var teleportY = Y + _blueWizzrobeTeleportYOffsets[index];
@@ -193,7 +193,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         }
         else
         {
-            var r = Random.Shared.GetByte();
+            var r = Game.Random.GetByte();
             ObjTimer = (byte)(r | 0x70);
         }
 

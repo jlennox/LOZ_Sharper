@@ -67,9 +67,9 @@ internal abstract class MonsterActor : Actor
         return dirIndex.GetDirection8();
     }
 
-    protected static Direction TurnRandomly8(Direction facing)
+    protected Direction TurnRandomly8(Direction facing)
     {
-        return Random.Shared.GetByte() switch
+        return Game.Random.GetByte() switch
         {
             >= 0xA0 => facing, // keep going in the same direction
             >= 0x50 => facing.GetNextDirection8(),

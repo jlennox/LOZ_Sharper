@@ -22,7 +22,7 @@ internal sealed class GleeokHeadActor : FlyingActor
         : base(game, ObjType.GleeokHead, _gleeokHeadSpec, x, y)
     {
         _parent = parent;
-        Facing = Random.Shared.GetDirection8();
+        Facing = Game.Random.GetDirection8();
 
         CurSpeed = 0xBF;
         InvincibilityMask = 0xFF;
@@ -32,7 +32,7 @@ internal sealed class GleeokHeadActor : FlyingActor
     {
         UpdateStateAndMove();
 
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
 
         if (r < 0x20
             && (MoveCounter & 1) == 0
@@ -51,7 +51,7 @@ internal sealed class GleeokHeadActor : FlyingActor
     protected override void UpdateFullSpeedImpl()
     {
         var nextState = FlyingActorState.Chase;
-        var r = Random.Shared.GetByte();
+        var r = Game.Random.GetByte();
 
         if (r >= 0xD0)
         {
@@ -190,7 +190,7 @@ internal sealed class GleeokNeck
 
     private void TryShooting()
     {
-        var r = Random.Shared.GetByte();
+        var r = _game.Random.GetByte();
         if (r < 0x20 && (_parent.Fireball == null || _parent.Fireball.IsDeleted))
         {
             _parent.Fireball = _game.ShootFireball(ObjType.Fireball2, _parts[ShooterIndex].X, _parts[ShooterIndex].Y);
@@ -334,7 +334,7 @@ internal sealed class GleeokNeck
 
     private void CrossedNoLimits(int index)
     {
-        var r = Random.Shared.Next(2);
+        var r = _game.Random.Next(2);
         if (r == 0)
         {
             var oldX = _parts[index + 1].X;
@@ -386,7 +386,7 @@ internal sealed class GleeokNeck
 
     private void CrossedBothMidLimits(int index)
     {
-        var r = Random.Shared.Next(2);
+        var r = _game.Random.Next(2);
         if (r == 0)
         {
             CrossedMidXLimit(index);

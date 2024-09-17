@@ -8,7 +8,6 @@ using z1.GUI;
 namespace z1;
 
 // Sharper:
-// * Make random seeded.
 // * Make elimination mode work with arrows.
 
 // Milestone 1:

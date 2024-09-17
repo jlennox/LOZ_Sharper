@@ -679,7 +679,7 @@ internal sealed unsafe partial class World
 
         if (waterCount <= 0) throw new Exception();
 
-        var waterRandom = Random.Shared.Next(0, waterCount);
+        var waterRandom = Game.Random.Next(0, waterCount);
         var cell = waterList[waterRandom];
         return new Cell((byte)(cell.Row + BaseRows), cell.Col);
     }
@@ -2577,7 +2577,7 @@ internal sealed unsafe partial class World
         var timer = GetStunTimer(StunTimerSlot.ObservedPlayer);
         if (timer != 0) return;
 
-        SetStunTimer(StunTimerSlot.ObservedPlayer, Random.Shared.Next(0, 8));
+        SetStunTimer(StunTimerSlot.ObservedPlayer, Game.Random.Next(0, 8));
 
         _giveFakePlayerPos = !_giveFakePlayerPos;
         if (_giveFakePlayerPos)
@@ -3040,7 +3040,7 @@ internal sealed unsafe partial class World
         var timer = GetStunTimer(StunTimerSlot.EdgeObject);
         if (timer != 0) return false;
 
-        timer = Random.Shared.Next(0, 4) + 2;
+        timer = Game.Random.Next(0, 4) + 2;
         SetStunTimer(StunTimerSlot.EdgeObject, timer);
 
         var x = _edgeX;
@@ -3144,7 +3144,7 @@ internal sealed unsafe partial class World
                 0x23, 0x18, 0x22, 0x23, 0x22, 0x22, 0x22, 0x18
             ];
 
-            var r = Random.Shared.GetByte();
+            var r = Game.Random.GetByte();
             var rate = classRates[objClass];
             if (r >= rate) return;
 

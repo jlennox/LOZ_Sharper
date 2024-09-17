@@ -381,6 +381,9 @@ internal static class GlobalFunctions
 
     public static ReadOnlySpan<char> NumberToString(int number, NumberSign sign, Span<char> output)
     {
+        if (!number.TryFormat(output, out var size)) throw new Exception();
+        if (!number.TryFormat(output[^size..], out _)) throw new Exception();
+
         var signstr = sign switch
         {
             NumberSign.Negative => '-',
@@ -388,20 +391,17 @@ internal static class GlobalFunctions
             _ => '\0',
         };
 
-        if (!number.TryFormat(output, out var size)) throw new Exception();
-        if (!number.TryFormat(output[^size..], out _)) throw new Exception();
-
         if (signstr != '\0')
         {
             size++;
-            output[^size..][0] = signstr;
+            output[^size] = signstr;
         }
 
         // Left pad to 4 because that's how the game does it.
         while (size < 4)
         {
             size++;
-            output[^size..][0] = ' ';
+            output[^size] = ' ';
         }
 
         return output[^size..];

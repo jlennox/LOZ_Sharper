@@ -1145,7 +1145,7 @@ internal abstract class Actor
             // Choose a random direction perpendicular to facing.
             case 0:
                 var index = 0;
-                var r = Random.Shared.GetByte();
+                var r = Game.Random.GetByte();
                 if ((r & 1) == 0) index++;
                 if (Facing.IsVertical()) index += 2;
                 return nextDirections[index];
