@@ -8,7 +8,6 @@ using z1.GUI;
 namespace z1;
 
 // Sharper:
-// * Make elimination mode work with arrows.
 
 // Milestone 1:
 // * Textbox and rupee sounds are wrong.

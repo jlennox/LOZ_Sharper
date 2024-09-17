@@ -213,15 +213,16 @@ internal sealed class EliminateMenu : Menu
         _profiles = profiles;
         _page = page;
 
-        SelectNext();
+        SelectNext(1);
     }
 
-    private void SelectNext()
+    private void SelectNext(int direction)
     {
         do
         {
-            _selectedIndex++;
+            _selectedIndex += direction;
             if (_selectedIndex >= 4) _selectedIndex = 0;
+            if (_selectedIndex < 0) _selectedIndex = 3;
         } while (_selectedIndex < SaveFolder.MaxProfiles && !_profiles[_selectedIndex].IsActive());
     }
 
@@ -235,9 +236,14 @@ internal sealed class EliminateMenu : Menu
 
     public override void Update()
     {
-        if (_game.Input.IsButtonPressing(GameButton.Select))
+        if (_game.Input.IsAnyButtonPressing(GameButton.Select, GameButton.Down))
         {
-            SelectNext();
+            SelectNext(1);
+            _game.Sound.PlayEffect(SoundEffect.Cursor);
+        }
+        else if (_game.Input.IsButtonPressing(GameButton.Up))
+        {
+            SelectNext(-1);
             _game.Sound.PlayEffect(SoundEffect.Cursor);
         }
         else if (_game.Input.IsButtonPressing(GameButton.Start))
