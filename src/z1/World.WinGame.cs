@@ -218,7 +218,7 @@ internal partial class World
                 SaveFolder.SaveProfiles();
 
                 Game.Sound.StopAll();
-                GotoFileMenu();
+                Game.Menu.GotoFileMenu();
             }
         }
         else

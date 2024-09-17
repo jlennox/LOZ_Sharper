@@ -171,7 +171,6 @@ internal partial class World
     private Action? GetUpdateFunction(GameMode mode) => mode switch
     {
         GameMode.Demo => null,
-        GameMode.GameMenu => UpdateGameMenu,
         GameMode.LoadLevel => UpdateLoadLevel,
         GameMode.Unfurl => UpdateUnfurl,
         GameMode.Enter => UpdateEnter,
@@ -183,9 +182,6 @@ internal partial class World
         GameMode.LeaveCellar => UpdateLeaveCellar,
         GameMode.PlayCave => UpdatePlay,
         GameMode.PlayShortcuts => null,
-        GameMode.UnknownD__ => null,
-        GameMode.Register => UpdateRegisterMenu,
-        GameMode.Elimination => UpdateEliminateMenu,
         GameMode.Stairs => UpdateStairsState,
         GameMode.Death => UpdateDie,
         GameMode.EndLevel => UpdateEndLevel,
@@ -198,7 +194,6 @@ internal partial class World
 private Action? GetDrawFunction(GameMode mode) => mode switch
     {
         GameMode.Demo => null,
-        GameMode.GameMenu => DrawGameMenu,
         GameMode.LoadLevel => DrawLoadLevel,
         GameMode.Unfurl => DrawUnfurl,
         GameMode.Enter => DrawEnter,
@@ -210,9 +205,6 @@ private Action? GetDrawFunction(GameMode mode) => mode switch
         GameMode.LeaveCellar => DrawLeaveCellar,
         GameMode.PlayCave => DrawPlay,
         GameMode.PlayShortcuts => null,
-        GameMode.UnknownD__ => null,
-        GameMode.Register => DrawGameMenu,
-        GameMode.Elimination => DrawGameMenu,
         GameMode.Stairs => DrawStairsState,
         GameMode.Death => DrawDie,
         GameMode.EndLevel => DrawEndLevel,

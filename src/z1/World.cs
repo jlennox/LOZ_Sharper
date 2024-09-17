@@ -34,7 +34,6 @@ internal enum Direction
 internal enum GameMode
 {
     Demo,
-    GameMenu,
     LoadLevel,
     Unfurl,
     Enter,
@@ -46,9 +45,6 @@ internal enum GameMode
     LeaveCellar,
     PlayCave,
     PlayShortcuts,
-    UnknownD__,
-    Register,
-    Elimination,
     Stairs,
     Death,
     EndLevel,
@@ -189,8 +185,7 @@ internal sealed unsafe partial class World
     public int ActiveShots;        // 34C
     public int RecorderUsed;       // 51B
     public bool CandleUsed;         // 513
-    public PlayerProfile? Profile { get; private set; }
-    public PlayerProfile GetProfile() => Profile ?? throw new Exception("Profile missing.");
+    public PlayerProfile Profile { get; private set; }
 
     private LevelDirectory _directory;
     private LevelInfoBlock _infoBlock;
@@ -209,6 +204,7 @@ internal sealed unsafe partial class World
     private ListResource<byte> _secondaryMobs;
     private LoadMobDelegate _loadMobFunc;
     private WorldLevel _level = WorldLevel.Overworld;
+    private readonly RoomHistory _roomHistory;
 
     private int _rowCount;
     private int _colCount;
@@ -229,8 +225,6 @@ internal sealed unsafe partial class World
     private CreditsType? _credits;
     private TextBox? _textBox1;
     private TextBox? _textBox2;
-    private Menu? _gameMenu;
-    private Menu? _nextGameMenu;
 
     private readonly WorldState _state = new();
     private int _curColorSeqNum;
@@ -244,7 +238,6 @@ internal sealed unsafe partial class World
     private int _savedOWRoomId;
     private int _edgeX;
     private int _edgeY;
-    private int _nextRoomHistorySlot;    // 620
 
     private byte _worldKillCycle;         // 52A
     private byte _worldKillCount;         // 627
@@ -259,7 +252,6 @@ internal sealed unsafe partial class World
     private int _submenuOffsetY;         // EC
     private bool _statusBarVisible;
     private readonly int[] _levelKillCounts = new int[(int)LevelBlock.Rooms];
-    private readonly byte[] _roomHistory = new byte[RoomHistoryLength];
 
     private bool _giveFakePlayerPos;
     private Point _fakePlayerPos;
@@ -292,17 +284,27 @@ internal sealed unsafe partial class World
     private UWRoomAttrs GetUWRoomAttrs(int roomId) => _roomAttrs[roomId];
     private OWRoomAttrs GetOWRoomAttrs(int roomId) => _roomAttrs[roomId];
 
+    private readonly bool _dummyWorld;
+
     public World(Game game)
     {
+        _dummyWorld = true;
         Game = game;
+        _roomHistory = new(game, RoomHistoryLength);
         _statusBar = new StatusBar(this);
         Menu = new SubmenuType(game);
 
         _lastMode = GameMode.Demo;
         _curMode = GameMode.Play;
         _edgeY = 0x40;
+    }
 
-        Init();
+    public World(Game game, PlayerProfile profile)
+        : this(game)
+    {
+        // I'm not fond of _dummyWorld, but I want to keep Game.World and World.Profile to not be nullable
+        _dummyWorld = false;
+        Init(profile);
     }
 
     private void LoadOpenRoomContext()
@@ -378,8 +380,7 @@ internal sealed unsafe partial class World
 
     private void LoadLevel(int level)
     {
-        var profile = GetProfile();
-        var levelDirName = $"levelDir_{profile.Quest}_{level}.json";
+        var levelDirName = $"levelDir_{Profile.Quest}_{level}.json";
 
         _directory = new Asset(levelDirName).ReadJson<LevelDirectory>();
         _infoBlock = ListResource<LevelInfoBlock>.LoadSingle(_directory.LevelInfoBlock);
@@ -394,7 +395,7 @@ internal sealed unsafe partial class World
         _tempShutters = false;
         _darkRoomFadeStep = 0;
         Array.Clear(_levelKillCounts);
-        Array.Clear(_roomHistory);
+        _roomHistory.Clear();
         WhirlwindTeleporting = 0;
 
         if (level == 0)
@@ -428,7 +429,7 @@ internal sealed unsafe partial class World
 
         // Replace room attributes, if in second quest.
 
-        if (level == 0 && profile.Quest == 1)
+        if (level == 0 && Profile.Quest == 1)
         {
             var pReplacement = _sparseRoomAttrs.GetItems<byte>(Sparse.RoomReplacement);
             int replacementCount = pReplacement[0];
@@ -442,31 +443,11 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void Init()
+    private void Init(PlayerProfile profile)
     {
-        var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
-        Graphics.LoadSystemPalette(sysPal);
-
-        Graphics.GraphicSheets.AddSheets([
-            new ImageSheet(TileSheet.Font, new Asset("font.png")),
-            new ImageSheet(TileSheet.BackgroundUnderworld, new Asset("underworldTiles.png")),
-            new ImageSheet(TileSheet.BackgroundOverworld, new Asset("overworldTiles.png")),
-            new ImageSheet(TileSheet.PlayerAndItems, new Asset("playerItem.png"), new Asset("playerItemsSheet.tab")),
-            new ImageSheet(TileSheet.Boss1257, new Asset("uwBoss1257.png"), new Asset("uwBossSheet1257.tab")),
-            new ImageSheet(TileSheet.Boss3468, new Asset("uwBoss3468.png"), new Asset("uwBossSheet3468.tab")),
-            new ImageSheet(TileSheet.Boss9, new Asset("uwBoss9.png"), new Asset("uwBossSheet9.tab")),
-            new ImageSheet(TileSheet.NpcsOverworld, new Asset("owNpcs.png"), new Asset("owNpcsSheet.tab")),
-            new ImageSheet(TileSheet.NpcsUnderworld, new Asset("uwNpcs.png"), new Asset("uwNpcsSheet.tab")),
-        ]);
-
         _textTable = new Asset("text.json").ReadJson<string[]>().ToImmutableArray();
         _extraData = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
 
-        GotoFileMenu();
-    }
-
-    public void Start(PlayerProfile profile)
-    {
         Profile = profile;
         Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHeartCount);
 
@@ -475,6 +456,8 @@ internal sealed unsafe partial class World
 
     public void Update()
     {
+        if (_dummyWorld) throw new Exception("This version of the world should never be run.");
+
         var mode = GetMode();
 
         if (_lastMode != mode)
@@ -491,9 +474,6 @@ internal sealed unsafe partial class World
             }
 
             _lastMode = mode;
-
-            _gameMenu = _nextGameMenu;
-            _nextGameMenu = null;
         }
 
         GetUpdateFunction(_curMode)!();
@@ -501,6 +481,7 @@ internal sealed unsafe partial class World
 
     public void Draw()
     {
+        if (_dummyWorld) throw new Exception("This version of the world should never be run.");
         if (_statusBarVisible)
         {
             _statusBar.Draw(_submenuOffsetY);
@@ -973,45 +954,44 @@ internal sealed unsafe partial class World
 
     private void AdjustInventory()
     {
-        var profile = GetProfile();
-        if (profile.SelectedItem == 0)
+        if (Profile.SelectedItem == 0)
         {
-            profile.SelectedItem = ItemSlot.Boomerang;
+            Profile.SelectedItem = ItemSlot.Boomerang;
         }
 
         for (var i = 0; i < 10; i++)
         {
-            if (profile.SelectedItem is ItemSlot.Arrow or ItemSlot.Bow)
+            if (Profile.SelectedItem is ItemSlot.Arrow or ItemSlot.Bow)
             {
-                if (profile.Items[ItemSlot.Arrow] != 0
-                    && profile.Items[ItemSlot.Bow] != 0)
+                if (Profile.Items[ItemSlot.Arrow] != 0
+                    && Profile.Items[ItemSlot.Bow] != 0)
                 {
                     break;
                 }
             }
             else
             {
-                if (profile.Items[profile.SelectedItem] != 0)
+                if (Profile.Items[Profile.SelectedItem] != 0)
                 {
                     break;
                 }
             }
 
             // JOE: TODO: Make this normal enum constants.
-            switch ((int)profile.SelectedItem)
+            switch ((int)Profile.SelectedItem)
             {
-                case 0x07: profile.SelectedItem = (ItemSlot)0x0F; break;
-                case 0x0F: profile.SelectedItem = (ItemSlot)0x06; break;
-                case 0x01: profile.SelectedItem = (ItemSlot)0x1B; break;
-                case 0x1B: profile.SelectedItem = (ItemSlot)0x08; break;
-                default: profile.SelectedItem--; break;
+                case 0x07: Profile.SelectedItem = (ItemSlot)0x0F; break;
+                case 0x0F: Profile.SelectedItem = (ItemSlot)0x06; break;
+                case 0x01: Profile.SelectedItem = (ItemSlot)0x1B; break;
+                case 0x1B: Profile.SelectedItem = (ItemSlot)0x08; break;
+                default: Profile.SelectedItem--; break;
             }
         }
     }
 
     private void WarnLowHPIfNeeded()
     {
-        if (GetProfile().Hearts >= 0x100) return;
+        if (Profile.Hearts >= 0x100) return;
 
         Game.Sound.PlayEffect(SoundEffect.LowHp);
     }
@@ -1187,8 +1167,8 @@ internal sealed unsafe partial class World
     }
 
     public bool HasItem(ItemSlot itemSlot) => GetItem(itemSlot) > 0;
-    public int GetItem(ItemSlot itemSlot) => GetProfile().Items[itemSlot];
-    public void SetItem(ItemSlot itemSlot, int value) => GetProfile().Items[itemSlot] = value;
+    public int GetItem(ItemSlot itemSlot) => Profile.Items[itemSlot];
+    public void SetItem(ItemSlot itemSlot, int value) => Profile.Items[itemSlot] = value;
 
     private void PostRupeeChange(int value, ItemSlot itemSlot)
     {
@@ -1197,7 +1177,7 @@ internal sealed unsafe partial class World
             throw new ArgumentOutOfRangeException(nameof(itemSlot), itemSlot, "Invalid itemSlot for PostRupeeChange.");
         }
 
-        var profile = GetProfile();
+        var profile = Profile;
         var curValue = profile.Items[itemSlot];
         var newValue = Math.Clamp(curValue + value, 0, 255);
 
@@ -1215,7 +1195,7 @@ internal sealed unsafe partial class World
 
     public void FillHearts(int heartValue)
     {
-        var profile = GetProfile();
+        var profile = Profile;
         var maxHeartValue = profile.Items[ItemSlot.HeartContainers] << 8;
 
         profile.Hearts += heartValue;
@@ -1230,7 +1210,7 @@ internal sealed unsafe partial class World
         if ((int)itemId >= (int)ItemId.None) return;
 
         GlobalFunctions.PlayItemSound(Game, itemId);
-        var profile = GetProfile();
+        var profile = Profile;
 
         var equip = ItemToEquipment[itemId];
         var slot = equip.Slot;
@@ -1334,7 +1314,7 @@ internal sealed unsafe partial class World
     public void DebugClearHistory()
     {
         Array.Clear(_levelKillCounts);
-        Array.Clear(_roomHistory);
+        _roomHistory.Clear();
     }
 
     public ReadOnlySpan<byte> GetShortcutRooms()
@@ -1488,35 +1468,6 @@ internal sealed unsafe partial class World
 
         DecrementItem(ItemSlot.Keys);
         return true;
-    }
-
-    private bool IsRoomInHistory()
-    {
-        for (var i = 0; i < _roomHistory.Length; i++)
-        {
-            if (_roomHistory[i] == CurRoomId) return true;
-        }
-        return false;
-    }
-
-    private void AddRoomToHistory()
-    {
-        var i = 0;
-
-        for (; i < _roomHistory.Length; i++)
-        {
-            if (_roomHistory[i] == CurRoomId) break;
-        }
-
-        if (i == _roomHistory.Length)
-        {
-            _roomHistory[_nextRoomHistorySlot] = (byte)CurRoomId;
-            _nextRoomHistorySlot++;
-            if (_nextRoomHistorySlot >= _roomHistory.Length)
-            {
-                _nextRoomHistorySlot = 0;
-            }
-        }
     }
 
     private bool FindSparseFlag(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos>(attrId, roomId).HasValue;
@@ -1920,7 +1871,7 @@ internal sealed unsafe partial class World
         InitPlaceholderTypes();
         MakeObjects(Game.Link.Facing);
         MakeWhirlwind();
-        AddRoomToHistory();
+        _roomHistory.AddRoomToHistory();
 
         if (!IsOverworld())
         {
@@ -2299,7 +2250,7 @@ internal sealed unsafe partial class World
                 {
                     _triggeredDoorCmd = 6;
                     _triggeredDoorDir = doorDir;
-                    GetProfile().Statistics.UWWallsBombed++;
+                    Profile.Statistics.UWWallsBombed++;
                     break;
                 }
             }
@@ -2509,7 +2460,7 @@ internal sealed unsafe partial class World
 
         if (IsOverworld())
         {
-            if (!IsRoomInHistory() && (flags.ObjectCount == 7))
+            if (!_roomHistory.IsRoomInHistory() && (flags.ObjectCount == 7))
             {
                 flags.ObjectCount = 0;
                 return;
@@ -2536,7 +2487,7 @@ internal sealed unsafe partial class World
         }
         else // Is Underworld
         {
-            if (IsRoomInHistory() || flags.ObjectCount != 3)
+            if (_roomHistory.IsRoomInHistory() || flags.ObjectCount != 3)
             {
                 if (count < _levelKillCounts[CurRoomId])
                 {
@@ -4620,11 +4571,11 @@ internal sealed unsafe partial class World
 
                     case ContinueState.Indexes.Save:
                         SaveFolder.SaveProfiles();
-                        GotoFileMenu();
+                        Game.Menu.GotoFileMenu();
                         break;
 
                     case ContinueState.Indexes.Retry:
-                        GotoFileMenu();
+                        Game.Menu.GotoFileMenu();
                         break;
                 }
                 break;
@@ -4658,34 +4609,6 @@ internal sealed unsafe partial class World
         y = 0x50 + ((int)_state.Continue.SelectedIndex * 24);
         GlobalFunctions.DrawChar(Chars.FullHeart, 0x40, y, Palette.RedFgPalette);
     }
-
-    private void GotoFileMenu()
-    {
-        GotoFileMenu(SaveFolder.Profiles.Profiles);
-    }
-
-    public void GotoFileMenu(List<PlayerProfile> summaries, int page = 0)
-    {
-        _nextGameMenu = new ProfileSelectMenu(Game, summaries, page);
-        _curMode = GameMode.GameMenu;
-    }
-
-    public void GotoRegisterMenu(List<PlayerProfile> summaries)
-    {
-        _nextGameMenu = new RegisterMenu(Game, summaries);
-        _curMode = GameMode.Register;
-    }
-
-    public void GotoEliminateMenu(List<PlayerProfile> summaries, int page)
-    {
-        _nextGameMenu = new EliminateMenu(Game, summaries, page);
-        _curMode = GameMode.Elimination;
-    }
-
-    private void UpdateGameMenu() => _gameMenu.Update();
-    private void UpdateRegisterMenu() => _gameMenu.Update();
-    private void UpdateEliminateMenu() => _gameMenu.Update();
-    private void DrawGameMenu() => _gameMenu?.Draw();
 
     private int FindCellarRoomId(int mainRoomId, out bool isLeft)
     {

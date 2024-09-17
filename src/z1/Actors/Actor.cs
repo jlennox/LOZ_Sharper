@@ -728,7 +728,7 @@ internal abstract class Actor
     protected void DealDamage(CollisionContext context)
     {
         Game.Sound.PlayEffect(SoundEffect.MonsterHit);
-        Game.World.GetProfile().Statistics.DealDamage(context);
+        Game.World.Profile.Statistics.DealDamage(context);
 
         if (HP < context.Damage)
         {
@@ -757,7 +757,7 @@ internal abstract class Actor
         ShoveDistance = 0;
         InvincibilityTimer = 0;
 
-        Game.World.GetProfile().Statistics.AddKill(ObjType);
+        Game.World.Profile.Statistics.AddKill(ObjType);
     }
 
     protected void PlayParrySoundIfSupported(DamageType damageType)

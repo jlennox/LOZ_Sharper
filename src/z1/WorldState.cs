@@ -352,3 +352,47 @@ internal enum LevelBlock
     Height = 8,
     Rooms = 128,
 }
+
+internal sealed class RoomHistory
+{
+    private readonly Game _game;
+    private readonly byte[] _roomHistory;
+    private int _nextRoomHistorySlot;
+
+    public RoomHistory(Game game, int length)
+    {
+        _game = game;
+        _roomHistory = new byte[length];
+    }
+
+    public bool IsRoomInHistory()
+    {
+        for (var i = 0; i < _roomHistory.Length; i++)
+        {
+            if (_roomHistory[i] == _game.World.CurRoomId) return true;
+        }
+        return false;
+    }
+
+    public void AddRoomToHistory()
+    {
+        var i = 0;
+
+        for (; i < _roomHistory.Length; i++)
+        {
+            if (_roomHistory[i] == _game.World.CurRoomId) break;
+        }
+
+        if (i == _roomHistory.Length)
+        {
+            _roomHistory[_nextRoomHistorySlot] = (byte)_game.World.CurRoomId;
+            _nextRoomHistorySlot++;
+            if (_nextRoomHistorySlot >= _roomHistory.Length)
+            {
+                _nextRoomHistorySlot = 0;
+            }
+        }
+    }
+
+    public void Clear() => Array.Clear(_roomHistory);
+}

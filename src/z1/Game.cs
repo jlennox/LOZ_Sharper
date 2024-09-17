@@ -22,16 +22,16 @@ internal sealed class Game
 
     public GameEnhancements Enhancements => Configuration.Enhancements;
 
-    public World World;
-    public Input Input;
-    public GameCheats GameCheats;
-    public GameConfiguration Configuration = SaveFolder.Configuration;
-    public readonly Random Random = new();
-    public readonly OnScreenDisplay OnScreenDisplay = new();
-    public readonly DebugInfo DebugInfo;
+    public World World { get; private set; }
+    public Input Input { get; }
+    public GameCheats GameCheats { get; }
+    public GameConfiguration Configuration { get; } = SaveFolder.Configuration;
+    public Random Random { get; } = new();
+    public OnScreenDisplay OnScreenDisplay { get; } = new();
+    public DebugInfo DebugInfo { get; }
+    public PregameMenu Menu { get; }
 
     public int FrameCounter { get; private set; }
-
 
     public Game()
     {
@@ -40,14 +40,20 @@ internal sealed class Game
         GameCheats = new GameCheats(this, Input);
         Sound = new Sound(Configuration.Audio);
         DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
+        Menu = new PregameMenu(this, SaveFolder.Profiles.Profiles);
+    }
+
+    public void Start(PlayerProfile profile)
+    {
+        World = new World(this, profile);
     }
 
     public void Update()
     {
         ++FrameCounter;
 
-        GameUpdate();
-        World.Update();
+        CheckInput();
+        if (!Menu.UpdateIfActive()) World.Update();
         Sound.Update();
         GameCheats.Update();
 
@@ -55,7 +61,7 @@ internal sealed class Game
         Input.Update();
     }
 
-    private void GameUpdate()
+    private void CheckInput()
     {
         if (Input.IsButtonPressing(GameButton.AudioDecreaseVolume))
         {
@@ -83,7 +89,7 @@ internal sealed class Game
 
     public void Draw()
     {
-        World.Draw();
+        if (!Menu.DrawIfActive()) World.Draw();
         OnScreenDisplay.Draw();
         DebugInfo.Draw();
     }

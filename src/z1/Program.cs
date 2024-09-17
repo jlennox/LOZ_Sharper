@@ -4,14 +4,11 @@ using z1.GUI;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("z1.Tests")]
 
-
 namespace z1;
 
 // Sharper:
 
 // Milestone 1:
-// * Textbox and rupee sounds are wrong.
-// * Darknuts should make parry sound when shot with wave.
 // * Coming out of stairs into spiral room spawns you in a bad spot: Example in 9, up 2, left 2.
 //   I might have been stuck in the wall?
 // * Red Ring Room Problems:
@@ -26,28 +23,20 @@ namespace z1;
 //   - And stopwatch doesn't stop them from appearing.
 // * Do second quest skeletons fire swords?
 // * Add cheat to unparalyze link incase someone gets stuck.
-// * Make it not run too fast on higher refresh rates.
 
 // Minor:
 // * Vire keese seem to spawn too close together. -- but the assembly seems to check out.
 // * Dungeon shutters draw closed when moving between rooms.
 // * Dungeon walls without doors draw over swords/bombs.
-// * Holding the button spams the sword.
+// * Holding the button spams the sword. Is that a problem?
 // * Swords and items picked up out of order should not downgrade.
 
 // To check:
-// * Check `IsReoccuring` is proper.
-// * Do bubbles work properly? (normal kind: yes)
 // * Boss noises when next to boss room.
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.
 // * Rewrite the RoomAttrs. Make them a single type and mimic the RoomFlags.
-// * Refactor World enough so that Profile can not be null.
-// * Move history out of World.
-// * Try this for the palettes? https://skia.org/docs/user/sksl/
-// * File select dialog?
-// * Add levels to DebugLog.
 // * Make a RoomID object.
 
 // BUGS TO ADD:

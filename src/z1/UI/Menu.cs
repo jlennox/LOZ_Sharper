@@ -24,6 +24,73 @@ internal abstract class Menu
     }
 }
 
+internal sealed class PregameMenu : Menu
+{
+    public bool IsActive { get; private set; }
+
+    private readonly Game _game;
+    private readonly List<PlayerProfile> _profiles;
+    private Menu _currentMenu;
+
+    public PregameMenu(Game game, List<PlayerProfile> profiles)
+    {
+        IsActive = true;
+        _game = game;
+        _profiles = profiles;
+
+        _currentMenu = new ProfileSelectMenu(_game, this, _profiles);
+    }
+
+    public override void Update() => _currentMenu.Update();
+    public override void Draw() => _currentMenu.Draw();
+
+    public bool UpdateIfActive()
+    {
+        if (IsActive)
+        {
+            Update();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool DrawIfActive()
+    {
+        if (IsActive)
+        {
+            Draw();
+            return true;
+        }
+
+        return false;
+    }
+
+    public void StartWorld(PlayerProfile profile)
+    {
+        IsActive = false;
+        _game.Start(profile);
+    }
+
+    public void GotoFileMenu(int page = 0)
+    {
+        IsActive = true;
+        _currentMenu = new ProfileSelectMenu(_game, this, _profiles, page);
+    }
+
+    public void GotoRegisterMenu()
+    {
+        IsActive = true;
+        _currentMenu = new RegisterMenu(_game, this, _profiles);
+    }
+
+    public void GotoEliminateMenu(int page)
+    {
+        IsActive = true;
+        _currentMenu = new EliminateMenu(_game, this, _profiles, page);
+    }
+}
+
 internal sealed class ProfileSelectMenu : Menu
 {
     private const int MaxProfiles = SaveFolder.MaxProfiles;
@@ -47,14 +114,16 @@ internal sealed class ProfileSelectMenu : Menu
     private int _selectedIndex;
     private readonly List<PlayerProfile> _profiles;
     private readonly Game _game;
+    private readonly PregameMenu _menu;
     private int _page = 0;
     private int _pageCount = 0;
     private string _pageString = "";
     private readonly string _menuStr = "press alt for menu";
 
-    public ProfileSelectMenu(Game game, List<PlayerProfile> profiles, int page = 0)
+    public ProfileSelectMenu(Game game, PregameMenu menu, List<PlayerProfile> profiles, int page = 0)
     {
         _game = game;
+        _menu = menu;
         _profiles = profiles;
 
         _menuStr = GetCentered(_menuStr);
@@ -91,11 +160,6 @@ internal sealed class ProfileSelectMenu : Menu
         }
     }
 
-    private void StartWorld(PlayerProfile profile)
-    {
-        _game.World.Start(profile);
-    }
-
     public override void Update()
     {
         if (_game.Input.IsAnyButtonPressing(GameButton.Select, GameButton.Down))
@@ -122,9 +186,9 @@ internal sealed class ProfileSelectMenu : Menu
         {
             switch (_selectedIndex)
             {
-                case < MaxProfiles: StartWorld(_profiles.GetProfile(_page, _selectedIndex)); break;
-                case RegisterIndex: _game.World.GotoRegisterMenu(_profiles); break;
-                case EliminateIndex: _game.World.GotoEliminateMenu(_profiles, _page); break;
+                case < MaxProfiles: _menu.StartWorld(_profiles.GetProfile(_page, _selectedIndex)); break;
+                case RegisterIndex: _menu.GotoRegisterMenu(); break;
+                case EliminateIndex: _menu.GotoEliminateMenu(_page); break;
             }
         }
     }
@@ -203,13 +267,15 @@ internal sealed class ProfileSelectMenu : Menu
 internal sealed class EliminateMenu : Menu
 {
     private readonly Game _game;
+    private readonly PregameMenu _menu;
     private readonly List<PlayerProfile> _profiles;
     private readonly int _page;
     private int _selectedIndex = -1; // Account for first SelectNext. JOE: TODO: Recode all menu's into generic selection API.
 
-    public EliminateMenu(Game game, List<PlayerProfile> profiles, int page)
+    public EliminateMenu(Game game, PregameMenu menu, List<PlayerProfile> profiles, int page)
     {
         _game = game;
+        _menu = menu;
         _profiles = profiles;
         _page = page;
 
@@ -251,7 +317,7 @@ internal sealed class EliminateMenu : Menu
             switch (_selectedIndex)
             {
                 case < SaveFolder.MaxProfiles: DeleteCurrentProfile(); break;
-                case SaveFolder.MaxProfiles: _game.World.GotoFileMenu(_profiles, _page); break;
+                case SaveFolder.MaxProfiles: _menu.GotoFileMenu(_page); break;
             }
         }
     }
@@ -314,15 +380,17 @@ internal sealed class RegisterMenu : Menu
     ];
 
     private readonly Game _game;
+    private readonly PregameMenu _menu;
     private readonly List<PlayerProfile> _profiles;
     private readonly PlayerProfile _profile;
     private int _namePos;
     private int _charPosCol;
     private int _charPosRow;
 
-    public RegisterMenu(Game game, List<PlayerProfile> profiles)
+    public RegisterMenu(Game game, PregameMenu menu, List<PlayerProfile> profiles)
     {
         _game = game;
+        _menu = menu;
         _profiles = profiles;
 
         _profile = new PlayerProfile();
@@ -415,7 +483,7 @@ internal sealed class RegisterMenu : Menu
         if (_game.Input.IsButtonPressing(GameButton.Start))
         {
             CommitFiles();
-            _game.World.GotoFileMenu(_profiles);
+            _menu.GotoFileMenu();
         }
 
         if (_game.Input.IsButtonPressing(GameButton.A))

@@ -75,7 +75,6 @@ internal sealed class Link : Actor, IThrower
     private static readonly DebugLog _movementTraceLog = new(nameof(Link), "MovementTrace", DebugLogDestination.None);
 
     public override bool IsPlayer => true;
-    public PlayerSwordActor? PlayerSwordShot { get; set; } // TODO: Allow multiple.
 
     private readonly LinkParalyzedTokenSource _paralyzedTokenSource = new();
     public bool IsParalyzed => _paralyzedTokenSource.IsParalyzed;
@@ -728,7 +727,7 @@ internal sealed class Link : Actor, IThrower
         damage >>= ringValue;
 
         Game.World.ResetKilledObjectCount();
-        Game.World.GetProfile().Statistics.TakeDamage(collider, damage);
+        Game.World.Profile.Statistics.TakeDamage(collider, damage);
 
         if (Game.World.Profile.Hearts <= damage)
         {
@@ -886,7 +885,7 @@ internal sealed class Link : Actor, IThrower
     // JOE: NOTE: Return value is properly unused?
     private int UseItem()
     {
-        var profile = Game.World.GetProfile();
+        var profile = Game.World.Profile;
         if (profile.SelectedItem == 0) return 0;
 
         var itemValue = profile.Items[profile.SelectedItem];
@@ -933,7 +932,7 @@ internal sealed class Link : Actor, IThrower
         if (!Game.World.HasItem(itemSlot)) return 0;
         if (Game.World.HasObject<PlayerSwordActor>()) return 0;
 
-        Game.World.GetProfile().Statistics.AddItemUse(itemSlot);
+        Game.World.Profile.Statistics.AddItemUse(itemSlot);
 
         // The original game did this:
         //   player.animTimer := 1

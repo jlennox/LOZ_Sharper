@@ -45,7 +45,7 @@ internal sealed class CreditsType
 
     public bool IsDone() => _windowTopLine == GetTopLineAtEnd();
     public int GetTop() => _top;
-    private int GetTopLineAtEnd() => _game.World.GetProfile().Quest == 0 ? 46 : 61;
+    private int GetTopLineAtEnd() => _game.World.Profile.Quest == 0 ? 46 : 61;
 
     public void Update()
     {
@@ -89,7 +89,7 @@ internal sealed class CreditsType
 
     private int[] GetPlayerLine(Line line)
     {
-        var profile = _game.World.GetProfile();
+        var profile = _game.World.Profile;
         // JOE: TODO: I think you messed this up.
         _playerLine ??= ZeldaString.EnumerateText($"{ZeldaString.FromBytes(line.Text)} {profile.Name} {profile.Deaths}").ToArray();
         return _playerLine;
@@ -108,7 +108,7 @@ internal sealed class CreditsType
     {
         var mappedLine = _windowFirstMappedLine;
         var y = _windowTop;
-        var profile = _game.World.GetProfile();
+        var profile = _game.World.Profile;
 
         for (var i = _windowTopLine; i < _windowBottomLine; i++)
         {

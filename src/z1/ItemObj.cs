@@ -341,7 +341,7 @@ internal sealed class TreeActor : Actor
             Game.World.SetMobXY(X, Y, BlockObjType.MobStairs);
             Game.World.TakeSecret();
             Game.Sound.PlayEffect(SoundEffect.Secret);
-            Game.World.GetProfile().Statistics.TreesBurned++;
+            Game.World.Profile.Statistics.TreesBurned++;
             Delete();
             return;
         }
@@ -462,7 +462,7 @@ internal sealed class RockWallActor : Actor
             Game.World.SetMobXY(X, Y, BlockObjType.MobCave);
             Game.World.TakeSecret();
             Game.Sound.PlayEffect(SoundEffect.Secret);
-            Game.World.GetProfile().Statistics.OWBlocksBombed++;
+            Game.World.Profile.Statistics.OWBlocksBombed++;
             Delete();
             return;
         }
@@ -547,7 +547,7 @@ internal sealed class PlayerSwordActor : Actor
 
         if (ObjType == ObjType.PlayerSword)
         {
-            var profile = Game.World.GetProfile();
+            var profile = Game.World.Profile;
             makeWave = profile.IsFullHealth();
         }
 

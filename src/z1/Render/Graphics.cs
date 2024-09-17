@@ -111,6 +111,21 @@ internal static class Graphics
         _gl = gl;
         GLSpriteShader.Initialize(gl);
         GLVertexArray.Initialize(gl);
+
+        var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
+        LoadSystemPalette(sysPal);
+
+        GraphicSheets.AddSheets([
+            new ImageSheet(TileSheet.Font, new Asset("font.png")),
+            new ImageSheet(TileSheet.BackgroundUnderworld, new Asset("underworldTiles.png")),
+            new ImageSheet(TileSheet.BackgroundOverworld, new Asset("overworldTiles.png")),
+            new ImageSheet(TileSheet.PlayerAndItems, new Asset("playerItem.png"), new Asset("playerItemsSheet.tab")),
+            new ImageSheet(TileSheet.Boss1257, new Asset("uwBoss1257.png"), new Asset("uwBossSheet1257.tab")),
+            new ImageSheet(TileSheet.Boss3468, new Asset("uwBoss3468.png"), new Asset("uwBossSheet3468.tab")),
+            new ImageSheet(TileSheet.Boss9, new Asset("uwBoss9.png"), new Asset("uwBossSheet9.tab")),
+            new ImageSheet(TileSheet.NpcsOverworld, new Asset("owNpcs.png"), new Asset("owNpcsSheet.tab")),
+            new ImageSheet(TileSheet.NpcsUnderworld, new Asset("uwNpcs.png"), new Asset("uwNpcsSheet.tab")),
+        ]);
     }
 
     public static void StartRender()
