@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using z1.Actors;
 using z1.Render;
 using z1.IO;
@@ -234,6 +235,8 @@ internal static class GlobalFunctions
             x += 8;
         }
     }
+
+    public static void DrawString(ImmutableArray<byte> str, int x, int y, Palette palette) => DrawString(str.AsSpan(), x, y, palette);
 
     public static void DrawString(ReadOnlySpan<byte> str, int x, int y, Palette palette)
     {

@@ -1,6 +1,6 @@
-﻿namespace z1;
+﻿namespace z1.Common;
 
-internal enum Palette
+public enum Palette
 {
     Red = 6, Blue = 5, Player = 4, SeaPal = 7,
     WhiteBgPalette = 0,

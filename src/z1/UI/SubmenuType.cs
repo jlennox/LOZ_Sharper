@@ -530,8 +530,8 @@ internal sealed class SubmenuType
     {
         GlobalFunctions.DrawString("map", 0x28, 0x58 + top, (Palette)1);
         GlobalFunctions.DrawString("compass", 0x18, 0x80 + top, (Palette)1);
-        GlobalFunctions.DrawString(_topMapLine.AsSpan(), 0x60, 0x50 + top, (Palette)1);
-        GlobalFunctions.DrawString(_bottomMapLine.AsSpan(), 0x60, 0x98 + top, (Palette)1);
+        GlobalFunctions.DrawString(_topMapLine, 0x60, 0x50 + top, (Palette)1);
+        GlobalFunctions.DrawString(_bottomMapLine, 0x60, 0x98 + top, (Palette)1);
 
         var y = 0x58 + top;
         for (var r = 0; r < 8; r++, y += 8)
