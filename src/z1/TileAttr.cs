@@ -1,22 +1,5 @@
 ﻿namespace z1;
 
-internal enum TileAction
-{
-    None,
-    Push,
-    Bomb,
-    Burn,
-    Headstone,
-    Ladder,
-    Raft,
-    Cave,
-    Stairs,
-    Ghost,
-    Armos,
-    Block,
-}
-
-
 internal static class TileAttr
 {
     public static TileAction GetAction(byte t) => (TileAction)((t & 0xF0) >> 4);

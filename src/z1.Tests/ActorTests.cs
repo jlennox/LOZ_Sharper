@@ -46,6 +46,23 @@ internal class NumberToStringTests
     }
 }
 
+[TestFixture]
+internal class ScreenZeldaMapObjectTests
+{
+    [Test]
+    [TestCase(null, new ObjType[] { })]
+    [TestCase("", new ObjType[] { })]
+    [TestCase("RedDarknut", new[] { ObjType.RedDarknut })]
+    [TestCase("RedDarknut*3", new[] { ObjType.RedDarknut, ObjType.RedDarknut, ObjType.RedDarknut })]
+    [TestCase("   RedDarknut  *  3  ", new[] { ObjType.RedDarknut, ObjType.RedDarknut, ObjType.RedDarknut })]
+    [TestCase(" RedDarknut*3 , BlueDarknut  *  2 ", new[] { ObjType.RedDarknut, ObjType.RedDarknut, ObjType.RedDarknut, ObjType.BlueDarknut, ObjType.BlueDarknut })]
+    public void EnsureScreenZeldaMapObjectIsCreated(string? monsterList, ObjType[] expected)
+    {
+        var actual = ScreenZeldaMapObject.ParseMonsters(monsterList);
+        Assert.That(actual, Is.EqualTo(expected));
+    }
+}
+
 [TestFixture, Explicit]
 public class OffsetExtractor
 {

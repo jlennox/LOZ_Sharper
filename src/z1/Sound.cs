@@ -12,55 +12,6 @@ namespace z1;
 // I'm not great at audio code. A lot of this could be simplified or made to be better leverage NAudio.
 // IE, there's a lot of overlap between the different custom streams here that I believe could be merged.
 
-internal enum SoundEffect
-{
-    Sea,
-    SwordWave,
-    BossHit,
-    Door,
-    PlayerHit,
-    BossRoar1,
-    BossRoar2,
-    BossRoar3,
-    Cursor,
-    RoomItem,
-    Secret,
-    Item,
-    MonsterDie,
-    Sword,
-    Boomerang,
-    Fire,
-    Stairs,
-    Bomb,
-    Parry,
-    MonsterHit,
-    MagicWave,
-    KeyHeart,
-    Character,
-    PutBomb,
-    LowHp,
-
-    MAX
-}
-
-internal enum SongId
-{
-    Intro,
-    Ending,
-    Overworld,
-    Underworld,
-    ItemLift,
-    Triforce,
-    Ganon,
-    Level9,
-    GameOver,
-    Death,
-    Recorder,
-    Zelda,
-
-    MAX
-}
-
 internal enum SongStream
 {
     MainSong,

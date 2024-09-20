@@ -15,7 +15,7 @@ internal unsafe partial class World
     private readonly TileMap[] _tileMaps = [new(), new(), new()];
     private RoomAttrs[] _roomAttrs = new RoomAttrs[Rooms];
     private int _curTileMapIndex;
-    private byte[] _tileAttrs = new byte[MobTypes];
+    private byte[] _tileAttrs = new byte[MapObjectTypes];
     private byte[] _tileBehaviors = new byte[TileTypes];
 
     private void LoadLevel(int level)
@@ -172,12 +172,15 @@ internal unsafe partial class World
         private readonly int _squareMask = IsOverworld ? OverworldSquareMask : 0x07;
 
         public byte SquareNumber => (byte)(Desc & _squareMask);
-
         public int RepeatCount
         {
             get
             {
-                if (IsOverworld) return (Desc & OverworldDuplicatedMask) != 0 ? 1 : 0;
+                if (IsOverworld)
+                {
+                    return (Desc & OverworldDuplicatedMask) != 0 ? 1 : 0;
+                }
+
                 return (Desc >> 4) & 0x7;
             }
         }
@@ -195,7 +198,7 @@ internal unsafe partial class World
 
         var owLayoutFormat = tileScheme is TileScheme.Overworld or TileScheme.UnderworldCellar;
 
-        _loadMobFunc = owLayoutFormat switch
+        _loadMapObjectFunc = owLayoutFormat switch
         {
             true => LoadOWMapSquare,
             _ => LoadUWMapSquare
@@ -239,17 +242,17 @@ internal unsafe partial class World
             for (var rowIndex = _startRow; rowIndex < rowEnd; columnStart++)
             {
                 var columnRow = new ColumnRow(columnTable[columnStart], owLayoutFormat);
-                var tileRef = columnRow.SquareNumber;
+                var squareNumber = columnRow.SquareNumber;
 
-                _loadMobFunc(ref map, rowIndex, column, tileRef);
+                _loadMapObjectFunc(ref map, rowIndex, column, squareNumber);
 
-                var attr = _tileAttrs[tileRef];
+                var attr = _tileAttrs[squareNumber];
                 var action = owRoomAttrs.IsInQuest(Profile.Quest) ? TileAttr.GetAction(attr) : TileAction.None;
                 TileActionDel? actionFunc = null;
 
                 if (action != TileAction.None)
                 {
-                    logfn.Write($"tileRef:{tileRef}, attr:{attr:X2}, action:{action}, pos:{rowIndex:X2},{column:X2}");
+                    logfn.Write($"tileRef:{squareNumber}, attr:{attr:X2}, action:{action}, pos:{rowIndex:X2},{column:X2}");
                     actionFunc = ActionFuncs[(int)action];
                     actionFunc(rowIndex, column, TileInteraction.Load);
                 }
@@ -259,7 +262,7 @@ internal unsafe partial class World
                 var repeatCount = columnRow.RepeatCount;
                 for (var m = 0; m < repeatCount && rowIndex < rowEnd; m++)
                 {
-                    _loadMobFunc(ref map, rowIndex, column, tileRef);
+                    _loadMapObjectFunc(ref map, rowIndex, column, squareNumber);
                     actionFunc?.Invoke(rowIndex, column, TileInteraction.Load);
                     rowIndex += 2;
                 }

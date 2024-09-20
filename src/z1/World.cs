@@ -1,7 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using z1.Actors;
+using z1.Common.Data;
 using z1.Common.IO;
 using z1.IO;
 using z1.Render;
@@ -74,7 +74,7 @@ internal sealed class TileMap
 {
     public const int Size = World.ScreenRows * World.ScreenColumns;
 
-    public byte this[int row, int col]
+    public int this[int row, int col]
     {
         get => _tileRefs[row * World.ScreenColumns + col];
         set => _tileRefs[row * World.ScreenColumns + col] = (byte)value;
@@ -96,15 +96,69 @@ internal sealed class TileMap
     }
 }
 
+internal sealed class ZeldaScreen
+{
+    public ZeldaScreenMap Map { get; }
+    public int X { get; }
+    public int Y { get; }
+    public int Width { get; }
+    public int Height { get; }
+
+    public ZeldaScreen(int x, int y, int width, int height)
+    {
+        Map = new ZeldaScreenMap(width, height);
+        X = x;
+        Y = y;
+        Width = width;
+        Height = height;
+    }
+}
+
+internal sealed class ZeldaScreenMap
+{
+    public int Width { get; }
+    public int Height { get; }
+
+    private readonly TiledTile[] _refs;
+    private readonly TileBehavior[] _behaviors;
+
+    public TiledTile this[int row, int col]
+    {
+        get => _refs[row * World.ScreenColumns + col];
+        set => _refs[row * World.ScreenColumns + col] = value;
+    }
+
+    public ZeldaScreenMap(int width, int height)
+    {
+        Width = width;
+        Height = height;
+        var size = width * height;
+        _refs = new TiledTile[size];
+        _behaviors = new TileBehavior[size];
+    }
+
+    public ref TiledTile Refs(int index) => ref _refs[index];
+    public ref TiledTile Refs(int row, int col) => ref _refs[row * World.ScreenColumns + col];
+    public ref TileBehavior Behaviors(int row, int col) => ref _behaviors[row * World.ScreenColumns + col];
+    public ref TileBehavior Behaviors(int index) => ref _behaviors[index];
+    public TileBehavior AsBehaviors(int row, int col)
+    {
+        row = Math.Max(0, Math.Min(row, Height - 1));
+        col = Math.Max(0, Math.Min(col, Width - 1));
+
+        return (TileBehavior)_behaviors[row * Width + col];
+    }
+}
+
 internal sealed unsafe partial class World
 {
     public const int LevelGroups = 3;
 
-    public const int MobColumns = 16;
     public const int ScreenRows = 22;
     public const int ScreenColumns = 32;
-    public const int MobTileWidth = 16;
-    public const int MobTileHeight = 16;
+    public const int MapObjectColumns = 16;
+    public const int MapObjectTileWidth = 16;
+    public const int MapObjectTileHeight = 16;
     public const int TileWidth = 8;
     public const int TileHeight = 8;
     public const int TileMapWidth = ScreenColumns * TileWidth;
@@ -130,7 +184,7 @@ internal sealed unsafe partial class World
     private const int UniqueRooms = 124;
     private const int ColumnTables = 16;
     private const int ScrollSpeed = 4;
-    private const int MobTypes = 56;
+    private const int MapObjectTypes = 56;
     private const int TileTypes = 256;
     private const int TileActions = 16;
     private const int LoadingTileActions = 4;
@@ -199,7 +253,7 @@ internal sealed unsafe partial class World
     private LevelInfoEx _extraData;
     private TableResource<byte> _objLists;
     private ImmutableArray<string> _textTable;
-    private LoadMobDelegate _loadMobFunc;
+    private LoadMobDelegate _loadMapObjectFunc;
     private WorldLevel _level = WorldLevel.Overworld;
     private readonly RoomHistory _roomHistory;
 
@@ -287,7 +341,7 @@ internal sealed unsafe partial class World
     {
         _dummyWorld = true;
         Game = game;
-        _roomHistory = new(game, RoomHistoryLength);
+        _roomHistory = new RoomHistory(game, RoomHistoryLength);
         _statusBar = new StatusBar(this);
         Menu = new SubmenuType(game);
 
@@ -549,7 +603,7 @@ internal sealed unsafe partial class World
 
     private void SetMob(int row, int col, BlockObjType mobIndex)
     {
-        _loadMobFunc(ref _tileMaps[_curTileMapIndex], row, col, (byte)mobIndex); // JOE: FIXME: BlockObjTypes
+        _loadMapObjectFunc(ref _tileMaps[_curTileMapIndex], row, col, (byte)mobIndex); // JOE: FIXME: BlockObjTypes
 
         for (var r = row; r < row + 2; r++)
         {
@@ -559,8 +613,6 @@ internal sealed unsafe partial class World
                 _tileMaps[_curTileMapIndex].Behaviors(r, c) = _tileBehaviors[t];
             }
         }
-
-        // TODO: Will we need to run some function to initialize the map object, like in LoadLayout?
     }
 
     public Palette GetInnerPalette()
@@ -798,7 +850,7 @@ internal sealed unsafe partial class World
                 if (FindSparseFlag(Sparse.Shortcut, CurRoomId))
                 {
                     TakeShortcut();
-                    ShowShortcutStairs(CurRoomId, _curTileMapIndex);
+                    ShowShortcutStairs(CurRoomId);
                 }
             }
         }
@@ -965,7 +1017,7 @@ internal sealed unsafe partial class World
         }
     }
 
-    public void ShowShortcutStairs(int roomId, int tileMapIndex) // JOE: TODO: Is _tileMapIndex not being used a mistake?
+    public void ShowShortcutStairs(int roomId)
     {
         var owRoomAttrs = GetOWRoomAttrs(roomId);
         var index = owRoomAttrs.GetShortcutStairsIndex();
@@ -1365,7 +1417,7 @@ internal sealed unsafe partial class World
             {
                 if (FindSparseFlag(Sparse.Shortcut, roomId))
                 {
-                    ShowShortcutStairs(roomId, tileMapIndex);
+                    ShowShortcutStairs(roomId);
                 }
             }
 
@@ -1438,10 +1490,11 @@ internal sealed unsafe partial class World
             var row = cells[i].Row;
             var col = cells[i].Col;
             var behavior = (byte)((int)baseBehavior + 15 - i);
-            _tileMaps[_curTileMapIndex].Behaviors(row, col) = behavior;
-            _tileMaps[_curTileMapIndex].Behaviors(row, col + 1) = behavior;
-            _tileMaps[_curTileMapIndex].Behaviors(row + 1, col) = behavior;
-            _tileMaps[_curTileMapIndex].Behaviors(row + 1, col + 1) = behavior;
+            var map = _tileMaps[_curTileMapIndex];
+            map.Behaviors(row, col) = behavior;
+            map.Behaviors(row, col + 1) = behavior;
+            map.Behaviors(row + 1, col) = behavior;
+            map.Behaviors(row + 1, col + 1) = behavior;
         }
     }
 
@@ -3082,7 +3135,7 @@ internal sealed unsafe partial class World
             var behavior = GetTileBehaviorXY(Game.Link.X, Game.Link.Y + 3);
             if (behavior == TileBehavior.Cave)
             {
-                Game.Link.Y += MobTileHeight;
+                Game.Link.Y += MapObjectTileHeight;
                 Game.Link.Facing = Direction.Down;
 
                 _state.Enter.PlayerFraction = 0;
@@ -3108,7 +3161,7 @@ internal sealed unsafe partial class World
             var oppositeDir = _state.Enter.ScrollDir.GetOppositeDirection();
             var door = oppositeDir.GetOrdinal();
             var doorType = uwRoomAttrs.GetDoor(door);
-            var distance = doorType is DoorType.Shutter or DoorType.Bombable ? MobTileWidth * 2 : MobTileWidth;
+            var distance = doorType is DoorType.Shutter or DoorType.Bombable ? MapObjectTileWidth * 2 : MapObjectTileWidth;
 
             _state.Enter.TargetX = Game.Link.X;
             _state.Enter.TargetY = Game.Link.Y;
@@ -3225,8 +3278,8 @@ internal sealed unsafe partial class World
         var col = exitRPos & 0x0F;
         var row = (exitRPos >> 4) + 4;
 
-        Game.Link.X = col * MobTileWidth;
-        Game.Link.Y = row * MobTileHeight + 0xD;
+        Game.Link.X = col * MapObjectTileWidth;
+        Game.Link.Y = row * MapObjectTileHeight + 0xD;
     }
 
     public string GetString(StringId stringId)

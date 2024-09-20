@@ -149,7 +149,7 @@ internal readonly struct ListResource<T>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal unsafe struct RoomCols
 {
-    public fixed byte ColumnDesc[World.MobColumns];
+    public fixed byte ColumnDesc[World.MapObjectColumns];
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -74,7 +74,7 @@ namespace ExtractLoz
         public void AddJson<T>(string path, T obj)
         {
             var json = JsonSerializer.Serialize(obj, _jsonOptions);
-            Files.Add(path, Encoding.UTF8.GetBytes(json));
+            Files[path] = Encoding.UTF8.GetBytes(json);
         }
 
         public OptionsStream AddStream(string relativePath)

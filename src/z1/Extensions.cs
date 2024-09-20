@@ -1,10 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Numerics;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
-using SkiaSharp;
-using z1.Actors;
 
 namespace z1;
 
@@ -95,16 +92,6 @@ internal static class Extensions
 
     public static byte GetByte(this Random random) => (byte)random.Next(256);
     public static Direction GetDirection8(this Random random) => random.Next(8).GetDirection8();
-
-    public static void Shuffle<T>(this Random random, T[] array)
-    {
-        var n = array.Length;
-        for (var i = n - 1; i > 0; i--)
-        {
-            var j = random.Next(i + 1);
-            (array[i], array[j]) = (array[j], array[i]);
-        }
-    }
 
     public static T GetRandom<T>(this Random random, T[] array) => array[random.Next(array.Length)];
     public static T GetRandom<T>(this Random random, ImmutableArray<T> array) => array[random.Next(array.Length)];
@@ -206,5 +193,5 @@ internal static class Extensions
         }
     }
 
-    public static Vector4 ToVector4(this SKColor color) => new Vector4(color.Red / 255f, color.Green / 255f, color.Blue / 255f, color.Alpha / 255f);
+    public static Point ToPoint(this PointXY point) => new(point.X, point.Y);
 }

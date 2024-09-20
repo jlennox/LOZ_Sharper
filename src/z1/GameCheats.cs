@@ -154,7 +154,7 @@ internal sealed class GameCheats
             switch (target.ToLowerInvariant())
             {
                 case "w":
-                    game.World.ShowShortcutStairs(7 * 16 + 9, 1);
+                    game.World.ShowShortcutStairs(7 * 16 + 9);
                     game.Toast("Warping to stairs.");
                     return;
             }

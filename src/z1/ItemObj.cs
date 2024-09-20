@@ -94,8 +94,8 @@ internal abstract class BlockObjBase : Actor
         var playerX = player.X;
         var playerY = player.Y + 3;
 
-        if (Math.Abs(playerX - X) < World.MobTileWidth
-            && Math.Abs(playerY - Y) < World.MobTileHeight)
+        if (Math.Abs(playerX - X) < World.MapObjectTileWidth
+            && Math.Abs(playerY - Y) < World.MapObjectTileHeight)
         {
             _log.Write(nameof(CheckCollision), $"Blocked {X:X2},{Y:X2}");
             return CollisionResponse.Blocked;
@@ -136,8 +136,8 @@ internal abstract class BlockObjBase : Actor
         var playerY = player.Y + 3;
 
         var pushed = dir.IsVertical()
-            ? X == playerX && Math.Abs(Y - playerY) <= World.MobTileHeight
-            : Y == playerY && Math.Abs(X - playerX) <= World.MobTileWidth;
+            ? X == playerX && Math.Abs(Y - playerY) <= World.MapObjectTileHeight
+            : Y == playerY && Math.Abs(X - playerX) <= World.MapObjectTileWidth;
 
         if (!pushed)
         {
@@ -150,10 +150,10 @@ internal abstract class BlockObjBase : Actor
         {
             TargetPos = dir switch
             {
-                Direction.Right => X + World.MobTileWidth,
-                Direction.Left => X - World.MobTileWidth,
-                Direction.Down => Y + World.MobTileHeight,
-                Direction.Up => Y - World.MobTileHeight,
+                Direction.Right => X + World.MapObjectTileWidth,
+                Direction.Left => X - World.MapObjectTileWidth,
+                Direction.Down => Y + World.MapObjectTileHeight,
+                Direction.Up => Y - World.MapObjectTileHeight,
                 _ => TargetPos
             };
             Game.World.SetMobXY(X, Y, FloorMob1);

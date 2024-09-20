@@ -16,6 +16,7 @@ internal readonly struct AssetLoader
 
         public static bool IsValid(string basepath)
         {
+            return false; // JOE: DO NOT MERGE!!!!!
             var file = Path.Combine(basepath, "info.json");
             if (!File.Exists(file)) return false;
 

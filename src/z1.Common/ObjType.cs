@@ -314,3 +314,72 @@ public enum ItemSlot
 
     MaxItems
 }
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum SoundEffect
+{
+    Sea,
+    SwordWave,
+    BossHit,
+    Door,
+    PlayerHit,
+    BossRoar1,
+    BossRoar2,
+    BossRoar3,
+    Cursor,
+    RoomItem,
+    Secret,
+    Item,
+    MonsterDie,
+    Sword,
+    Boomerang,
+    Fire,
+    Stairs,
+    Bomb,
+    Parry,
+    MonsterHit,
+    MagicWave,
+    KeyHeart,
+    Character,
+    PutBomb,
+    LowHp,
+
+    MAX
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum TileAction
+{
+    None,
+    Push,
+    Bomb,
+    Burn,
+    Headstone,
+    Ladder,
+    Raft,
+    Cave,
+    Stairs,
+    Ghost,
+    Armos,
+    Block,
+    Recorder,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum SongId
+{
+    Intro,
+    Ending,
+    Overworld,
+    Underworld,
+    ItemLift,
+    Triforce,
+    Ganon,
+    Level9,
+    GameOver,
+    Death,
+    Recorder,
+    Zelda,
+
+    MAX
+}

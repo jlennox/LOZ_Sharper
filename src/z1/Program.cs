@@ -9,6 +9,12 @@ namespace z1;
 // Sharper:
 // * Rectify MarginRight.
 // * Refactor out ActiveShots.
+// * Make replay engine?
+// * Figure out where to define what song is playing.
+
+// Known tiled map issues:
+// * Q1 level 7 recorder spot isn't marked as first quest only.
+// * Somethings that shouldn't merge are still merging. Notably, overworld q6 entrance.
 
 // Milestone 1:
 // * Coming out of stairs into spiral room spawns you in a bad spot: Example in 9, up 2, left 2.

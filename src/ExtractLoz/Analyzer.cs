@@ -5,9 +5,6 @@
    See the LICENSE text file for details.
 */
 
-using System;
-using System.IO;
-
 namespace ExtractLoz
 {
     struct MapLayout
