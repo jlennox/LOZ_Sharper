@@ -418,7 +418,7 @@ internal sealed class SubmenuType
         x = ActiveItemX + (_activeUISlot % 4) * ActiveItemStrideX;
         y = ActiveItemY + (_activeUISlot / 4) * ActiveItemStrideY + top;
 
-        var cursorPals = new[] { Palette.BlueFgPalette, Palette.RedFgPalette };
+        var cursorPals = new[] { Palette.Blue, Palette.Red };
         var cursorPal = cursorPals[(_game.World.Game.FrameCounter >> 3) & 1];
         _cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal);
     }
@@ -467,26 +467,26 @@ internal sealed class SubmenuType
 
     private void DrawTriforce(int top)
     {
-        GlobalFunctions.DrawChar(0xED, 0x78, 0x68 + top, Palette.RedBgPalette);
-        GlobalFunctions.DrawChar(0xEE, 0x80, 0x68 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xED, 0x78, 0x68 + top, Palette.RedBackground);
+        GlobalFunctions.DrawChar(0xEE, 0x80, 0x68 + top, Palette.RedBackground);
 
-        GlobalFunctions.DrawChar(0xED, 0x68, 0x78 + top, Palette.RedBgPalette);
-        GlobalFunctions.DrawChar(0xEE, 0x90, 0x78 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xED, 0x68, 0x78 + top, Palette.RedBackground);
+        GlobalFunctions.DrawChar(0xEE, 0x90, 0x78 + top, Palette.RedBackground);
 
-        GlobalFunctions.DrawChar(0xED, 0x58, 0x88 + top, Palette.RedBgPalette);
-        GlobalFunctions.DrawChar(0xEE, 0xA0, 0x88 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xED, 0x58, 0x88 + top, Palette.RedBackground);
+        GlobalFunctions.DrawChar(0xEE, 0xA0, 0x88 + top, Palette.RedBackground);
 
-        GlobalFunctions.DrawChar(0xEB, 0x50, 0x90 + top, Palette.RedBgPalette);
-        GlobalFunctions.DrawChar(0xEF, 0x58, 0x90 + top, Palette.RedBgPalette);
-        GlobalFunctions.DrawChar(0xF0, 0xA0, 0x90 + top, Palette.RedBgPalette);
-        GlobalFunctions.DrawChar(0xEC, 0xA8, 0x90 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawChar(0xEB, 0x50, 0x90 + top, Palette.RedBackground);
+        GlobalFunctions.DrawChar(0xEF, 0x58, 0x90 + top, Palette.RedBackground);
+        GlobalFunctions.DrawChar(0xF0, 0xA0, 0x90 + top, Palette.RedBackground);
+        GlobalFunctions.DrawChar(0xEC, 0xA8, 0x90 + top, Palette.RedBackground);
 
-        GlobalFunctions.DrawString(_triforce.AsSpan(), 0x60, 0xA0 + top, Palette.RedBgPalette);
+        GlobalFunctions.DrawString(_triforce.AsSpan(), 0x60, 0xA0 + top, Palette.RedBackground);
 
         var x = 0x60;
         for (var i = 0; i < 8; i++, x += 8)
         {
-            GlobalFunctions.DrawChar(0xF1, x, 0x90 + top, Palette.RedBgPalette);
+            GlobalFunctions.DrawChar(0xF1, x, 0x90 + top, Palette.RedBackground);
         }
 
         var pieces = _game.World.GetItem(ItemSlot.TriforcePieces);
@@ -505,21 +505,21 @@ internal sealed class SubmenuType
                     var xx = _pieceSpecs[i].X + (c * 8);
                     var yy = _pieceSpecs[i].Y + (r * 8) + top;
                     // JOE: TODO: Uh, is this right? Maybe just flatten the array?
-                    GlobalFunctions.DrawChar(tiles[ii / tiles.Length][ii % tiles.Length], xx, yy, Palette.RedBgPalette);
+                    GlobalFunctions.DrawChar(tiles[ii / tiles.Length][ii % tiles.Length], xx, yy, Palette.RedBackground);
                 }
             }
         }
 
         if ((pieces & 0x30) == 0x30)
         {
-            GlobalFunctions.DrawChar(0xF5, 0x70, 0x80 + top, Palette.RedBgPalette);
-            GlobalFunctions.DrawChar(0xF5, 0x78, 0x88 + top, Palette.RedBgPalette);
+            GlobalFunctions.DrawChar(0xF5, 0x70, 0x80 + top, Palette.RedBackground);
+            GlobalFunctions.DrawChar(0xF5, 0x78, 0x88 + top, Palette.RedBackground);
         }
 
         if ((pieces & 0xC0) == 0xC0)
         {
-            GlobalFunctions.DrawChar(0xF5, 0x88, 0x80 + top, Palette.RedBgPalette);
-            GlobalFunctions.DrawChar(0xF5, 0x80, 0x88 + top, Palette.RedBgPalette);
+            GlobalFunctions.DrawChar(0xF5, 0x88, 0x80 + top, Palette.RedBackground);
+            GlobalFunctions.DrawChar(0xF5, 0x80, 0x88 + top, Palette.RedBackground);
         }
     }
 

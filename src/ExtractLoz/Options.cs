@@ -21,6 +21,7 @@ namespace ExtractLoz
         public string Error;
         public bool AnalysisWrites;
         public byte[] RomHash;
+        public byte[] RomData;
 
         public Dictionary<string, byte[]> Files = new();
 
@@ -33,25 +34,26 @@ namespace ExtractLoz
 
             options.RomPath = args[0];
             options.Function = args[1].ToLowerInvariant();
+            options.RomData = File.ReadAllBytes(options.RomPath);
 
             return options;
         }
 
         public BinaryReader GetBinaryReader()
         {
-            return new BinaryReader(File.OpenRead(RomPath), Encoding.UTF8, false);
+            return new BinaryReader(new MemoryStream(RomData), Encoding.UTF8, false);
         }
 
         public void AddFile(string relativePath, byte[] data)
         {
-            Files.Add(relativePath, data);
+            Files[relativePath] = data;
         }
 
         public void AddFile(string relativePath, Stream data)
         {
             using var ms = new MemoryStream();
             data.CopyTo(ms);
-            Files.Add(relativePath, ms.ToArray());
+            Files[relativePath] = ms.ToArray();
         }
 
         public void AddFile(string relativePath, MemoryStream data)
@@ -63,7 +65,7 @@ namespace ExtractLoz
         {
             using var ms = new MemoryStream();
             bitmap.Save(ms, imageformat);
-            Files.Add(relativePath, ms.ToArray());
+            Files[relativePath] = ms.ToArray();
         }
 
         private static readonly JsonSerializerOptions _jsonOptions = new()
@@ -73,7 +75,12 @@ namespace ExtractLoz
 
         public void AddJson<T>(string path, T obj)
         {
-            var json = JsonSerializer.Serialize(obj, _jsonOptions);
+            AddJson<T>(path, obj, _jsonOptions);
+        }
+
+        public void AddJson<T>(string path, T obj, JsonSerializerOptions options)
+        {
+            var json = JsonSerializer.Serialize(obj, options);
             Files[path] = Encoding.UTF8.GetBytes(json);
         }
 

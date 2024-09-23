@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using SkiaSharp;
 using z1.Common.IO;
@@ -10,6 +11,11 @@ internal readonly struct Asset
 {
     // The assets are so small that we can buffer them all into memory without an issue.
     private static readonly Dictionary<string, byte[]> _assets = new(128);
+
+    private static readonly JsonSerializerOptions _jsonDeserializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
 
     public string Filename { get; } // For debug purposes only.
     public bool IsEmpty => _assetData == null || _assetData.Length == 0;
@@ -35,6 +41,11 @@ internal readonly struct Asset
         AddFontAddendum();
     }
 
+    static Asset()
+    {
+        _jsonDeserializerOptions.Converters.Add(new LowerCaseEnumConverterFactory());
+    }
+
     private static void AddFontAddendum()
     {
         using var fontAddendum = EmbeddedResource.GetFontAddendum();
@@ -54,7 +65,7 @@ internal readonly struct Asset
     public byte[] ReadAllBytes() => _assetData;
     public MemoryStream GetStream() => new(_assetData);
     public SKBitmap DecodeSKBitmap() => SKBitmap.Decode(_assetData);
-    public T ReadJson<T>() => JsonSerializer.Deserialize<T>(_assetData);
+    public T ReadJson<T>() => JsonSerializer.Deserialize<T>(_assetData, _jsonDeserializerOptions);
 
     public SKBitmap DecodeSKBitmapTileData()
     {

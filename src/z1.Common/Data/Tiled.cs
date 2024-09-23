@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
+using SkiaSharp;
 
 namespace z1.Common.Data;
 
@@ -65,8 +66,15 @@ public readonly record struct TiledTile(int Tile)
         }
     }
 
+    public static TiledTile Create(int tileId, int tileSheetId)
+    {
+        var tile = tileId | (tileSheetId << 16);
+        return new TiledTile(tile);
+    }
+
     public static TiledTile Create(int tileId) => new(tileId);
 
+    // 0 means empty. 1 is the first entry in the tileset.
     public int TileId => Tile & TileMask;
     public int TileSheet => (Tile & TileSheetMask) >> 16;
     public bool IsFlippedX => (Tile & FlipXFlag) != 0;
@@ -154,6 +162,8 @@ public sealed class TiledProperty
         Name = name;
         Value = value.ToString();
     }
+
+    public TiledProperty(string name, object value) : this(name, (value ?? "").ToString()) { }
 }
 
 // Need properties like "bomb removes"
@@ -182,14 +192,31 @@ public sealed class TiledTileSet
     public string Image { get; set; }
     public string Name { get; set; }
     public string Type { get; set; } = "tileset";
+    public int Columns { get; set; }
     public int ImageHeight { get; set; }
     public int ImageWidth { get; set; }
     public int Margin { get; set; }
-    public int Space { get; set; }
+    public int Spacing { get; set; }
     public int TileCount { get; set; }
     public int TileHeight { get; set; }
     public int TileWidth { get; set; }
     public TiledTileSetTile[]? Tiles { get; set; }
+
+    [JsonConstructor]
+    public TiledTileSet() { }
+
+    public TiledTileSet(string filename, byte[] image, int tileWidth, int tileHeight)
+    {
+        Image = filename;
+        Name = Path.GetFileName(filename);
+        var bitmap = SKBitmap.Decode(image);
+        ImageWidth = bitmap.Width;
+        ImageHeight = bitmap.Height;
+        TileWidth = tileWidth;
+        TileHeight = tileHeight;
+        Columns = ImageWidth / TileWidth;
+        TileCount = Columns * (ImageHeight / TileHeight);
+    }
 }
 
 public static class TiledExtensions
@@ -207,6 +234,23 @@ public static class TiledExtensions
         }
 
         return null;
+    }
+
+    public static bool TryGetProperty(this IHasTiledProperties tiled, string name, out string value)
+    {
+        value = "";
+        if (tiled.Properties == null) return false;
+
+        foreach (var prop in tiled.Properties)
+        {
+            if (prop.Name == name)
+            {
+                value = prop.Value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static bool TryGetEnumProperty<T>(this IHasTiledProperties tiled, string name, out T value) where T : struct
@@ -232,6 +276,27 @@ public static class TiledExtensions
         return Enum.Parse<T>(stringvalue, ignoreCase: true);
     }
 
+    public static T[] GetEnumArray<T>(this IHasTiledProperties tiled, string name) where T : struct
+    {
+        var stringvalue = tiled.GetProperty(name);
+        if (string.IsNullOrEmpty(stringvalue)) return [];
+
+        var count = 1;
+        foreach (var c in stringvalue) if (c == ',') count++;
+        Span<Range> outputs = stackalloc Range[count];
+        var stringSpan = stringvalue.AsSpan();
+        var nfound = stringSpan.Split(outputs, ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var list = new T[count];
+
+        for (var i = 0; i < nfound; ++i)
+        {
+            var enumName = stringSpan[outputs[i]];
+            list[i] = Enum.Parse<T>(enumName, ignoreCase: true);
+        }
+
+        return list.ToArray();
+    }
+
     public static bool GetBooleanProperty(this IHasTiledProperties tiled, string name)
     {
         var stringvalue = tiled.GetProperty(name);
@@ -239,10 +304,17 @@ public static class TiledExtensions
         return bool.Parse(stringvalue);
     }
 
+    public static bool TryGetIntProperty(this IHasTiledProperties tiled, string name, out int value)
+    {
+        var stringvalue = tiled.GetProperty(name);
+        return int.TryParse(stringvalue, out value);
+    }
+
     public static PointXY GetPoint(this IHasTiledProperties tiled, string name)
     {
         var stringvalue = tiled.GetProperty(name);
         if (stringvalue == null) return default;
+
         var index = stringvalue.IndexOf(',');
         var span = stringvalue.AsSpan();
         return new PointXY(int.Parse(span[..index]), int.Parse(span[(index + 1)..]));
@@ -282,6 +354,10 @@ public static class TiledObjectProperties
     public const string Monsters = nameof(Monsters);
     public const string MonstersEnter = nameof(MonstersEnter);
     public const string AmbientSound = nameof(AmbientSound);
+    public const string Maze = nameof(Maze);
+    public const string MazeExit = nameof(MazeExit);
+    public const string InnerPalette = nameof(InnerPalette);
+    public const string OuterPalette = nameof(OuterPalette);
 
     // Action
     public const string TileAction = nameof(TileAction);
@@ -289,7 +365,25 @@ public static class TiledObjectProperties
     public const string ExitPosition = nameof(ExitPosition);
     public const string Owner = nameof(Owner);
     public const string Reveals = nameof(Reveals);
+    public const string Direction = nameof(Direction); // Used by the raft. Should also have a destination screen id.
 
     // TileBehavior
     public const string TileBehavior = nameof(TileBehavior);
+}
+
+public static class TiledTileSetTileProperties
+{
+    public static readonly TileBehavior DefaultTileBehavior = TileBehavior.GenericWalkable;
+
+    public const string Behavior = nameof(Behavior);
+    public const string Object = nameof(Object);
+    public const string ObjectOffsets = nameof(ObjectOffsets);
+}
+
+public enum GameObjectLayerObjectType
+{
+    Unknown,
+    Screen,
+    Action,
+    TileBehavior,
 }

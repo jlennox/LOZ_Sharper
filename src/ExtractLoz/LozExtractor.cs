@@ -7,16 +7,14 @@
 
 // This file has been modified by Joseph Lennox 2024
 
+global using z1.Common;
+global using z1.Common.Data;
+global using z1.Common.IO;
+
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO.Compression;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Text.Json;
-using z1.Common;
-using z1.Common.Data;
-using z1.Common.IO;
 #pragma warning disable CA1416
 
 namespace ExtractLoz;
@@ -35,7 +33,7 @@ internal class SpriteAnim
     public SpriteFrame[] Frames;
 }
 
-public class LozExtractor
+public partial class LozExtractor
 {
     private delegate void Extractor(Options options);
 
@@ -89,6 +87,8 @@ public class LozExtractor
             Console.WriteLine("Extracting {0} ...", pair.Key);
             pair.Value(options);
         }
+
+        ExtractTiledMaps(options);
 
         return options.Files;
     }
@@ -635,12 +635,13 @@ public class LozExtractor
         }
     }
 
-    private static void ExtractUnderworldMobs(Options options, BinaryReader reader)
+    private static ListResource<byte> ExtractUnderworldMobs(Options options, BinaryReader reader)
     {
         reader.BaseStream.Position = UnderworldSquareTable;
         var primaries = reader.ReadBytes(8);
 
         WriteListFile(options, "uwPrimaryMobs.list", primaries);
+        return ListResource<byte>.Load(options.Files["uwPrimaryMobs.list"]);
     }
 
     private static void ExtractUnderworldTilesDebug(BinaryReader reader, Bitmap bmp)
@@ -1171,26 +1172,7 @@ public class LozExtractor
         return attrs;
     }
 
-    private enum TileBehavior
-    {
-        None = -1,
-
-        GenericWalkable,
-        Sand,
-        SlowStairs,
-        Stairs,
-
-        Doorway,
-        Water,
-        GenericSolid,
-        Cave,
-        Ghost0,
-        Armos0 = Ghost0 + 16,
-        Door = Armos0 + 16,
-        Wall,
-    }
-
-    private static void ExtractOverworldTileBehaviors(Options options, BinaryReader reader)
+    private static ReadOnlySpan<byte> ExtractOverworldTileBehaviors(Options options, BinaryReader reader)
     {
         reader.BaseStream.Position = PrimarySquareTable;
         var primaries = reader.ReadBytes(56);
@@ -1265,6 +1247,7 @@ public class LozExtractor
         tileToBehaviorMap[0x73] = (byte)TileBehavior.GenericWalkable;
 
         options.AddFile("owTileBehaviors.dat", tileToBehaviorMap);
+        return ListResource<byte>.LoadList(options.Files["owTileBehaviors.dat"], World.TileTypes);
     }
 
     private static bool IsUnderworldWalkable(int t)
@@ -1284,7 +1267,7 @@ public class LozExtractor
         }
     }
 
-    private static void ExtractUnderworldTileAttrs(Options options)
+    private static byte[] ExtractUnderworldTileAttrs(Options options)
     {
         int[] tileAttrs = new int[9];
         var tileActions = new TileAction[9];
@@ -1339,6 +1322,8 @@ public class LozExtractor
 
             Utility.PadStream(writer.BaseStream);
         }
+
+        return options.Files["underworldTileAttrs.dat"];
     }
 
     private static void ExtractUnderworldCellarTileAttrs(Options options)
@@ -1405,7 +1390,7 @@ public class LozExtractor
         }
     }
 
-    private static void ExtractUnderworldTileBehaviors(Options options, BinaryReader reader)
+    private static ReadOnlySpan<byte> ExtractUnderworldTileBehaviors(Options options, BinaryReader reader)
     {
         var tileToBehaviorMap = new byte[256];
 
@@ -1467,310 +1452,14 @@ public class LozExtractor
 
         string outPath = "uwTileBehaviors.dat";
         options.AddFile(outPath, tileToBehaviorMap);
+        return ListResource<byte>.LoadList(options.Files[outPath], World.TileTypes);
     }
 
     private const int OWRoomCols = 0x15418 + 16;
     private const int OWColDir = 0x19D0F + 16;
     private const int OWColTables = 0x15BD8 + 16;
 
-    class GraphicTile
-    {
-        public byte[] Graphics;
-        public int Hash { get; set; }
 
-    }
-
-    private static MapLayout ExtractOverworldMap(Options options)
-    {
-        byte[] roomCols = null;
-        byte[][] roomCols2 = new byte[World.UniqueRooms][];
-        ushort[] colTablePtrs = null;
-        byte[] colTables = null;
-
-        using var reader = options.GetBinaryReader();
-        reader.BaseStream.Position = OWRoomCols;
-        roomCols = reader.ReadBytes(124 * 16);
-        reader.BaseStream.Position = OWRoomCols;
-        for (var i = 0; i < roomCols2.Length; i++)
-        {
-            roomCols2[i] = reader.ReadBytes(16);
-        }
-
-        reader.BaseStream.Position = OWColDir;
-        colTablePtrs = new ushort[16];
-        for (int i = 0; i < 16; i++)
-        {
-            colTablePtrs[i] = (ushort)(reader.ReadUInt16() - colTablePtrs[0]);
-        }
-        colTablePtrs[0] = 0;
-
-        // There are only 10 columns in the last table
-        reader.BaseStream.Position = OWColTables;
-        colTables = reader.ReadBytes(964);
-
-        var filePath = "overworldRoomCols.dat";
-        options.AddFile(filePath, roomCols);
-
-        filePath = "overworldCols.tab";
-        var pointers = new List<short>();
-        using (var writer = options.AddBinaryWriter(filePath))
-        {
-            writer.Write((ushort)colTablePtrs.Length);
-            for (int i = 0; i < colTablePtrs.Length; i++)
-            {
-                ushort ptr = (ushort)(colTablePtrs[i] - colTablePtrs[0]);
-                pointers.Add((short)ptr);
-                writer.Write(ptr);
-            }
-
-            writer.Write(colTables);
-
-            Utility.PadStream(writer.BaseStream);
-        }
-
-        static string GetScreenName(int x, int y) => $"Screen {x},{y}";
-
-        var questObjects = Enumerable.Range(0, 3).Select(_ => new List<TiledLayerObject>()).ToArray();
-
-        var isOverworld = true;
-
-        var infoBlock = ExtractOverworldInfo(options);
-        var tileAttributes = ExtractOverworldTileAttrs(options);
-        var (primaries, secondaries) = ExtractOverworldMobs(options, reader);
-        var columnTables = new TableResource<byte>(colTablePtrs.Length, pointers.ToArray(), colTables);
-        var sparseTable = ExtractOverworldMapSparseAttrs(options);
-        var roomAttributes = ExtractOverworldMapAttrs(options);
-        var objectList = ExtractObjLists(options);
-        var extractor = new MapExtractor(isOverworld, sparseTable, roomAttributes, infoBlock, primaries, secondaries, null, roomCols2, tileAttributes);
-
-        var allTiles = new List<TiledTile[]>();
-
-        var currentRoomId = 0;
-        for (var y = 0; y < World.WorldHeight; ++y)
-        {
-            for (var x = 0; x < World.WorldWidth; x++)
-            {
-                var map = extractor.LoadLayout(currentRoomId, columnTables, out var actions);
-                var tiles = extractor.DrawMap(map, currentRoomId, 0, 0);
-                allTiles.Add(tiles);
-
-                var basex = x * World.ScreenColumns * World.TileWidth;
-                var basey = y * World.ScreenRows * World.TileHeight;
-
-                foreach (var action in actions)
-                {
-                    questObjects[action.QuestId].Add(new TiledLayerObject
-                    {
-                        Id = y * World.WorldWidth + x,
-                        X = basex + action.X * World.TileWidth,
-                        Y = basey + action.Y * World.TileHeight,
-                        Width = World.TileWidth * 2 * action.Width,
-                        Height = World.TileHeight * 2 * action.Height,
-                        Name = $"{action.Action}",
-                        Visible = true,
-                        Properties = [
-                            new TiledProperty("Type", "Action"),
-                            new TiledProperty("Action", action.Action.ToString()),
-                            new TiledProperty("Owner", GetScreenName(x, y)),
-                            .. (action.Properties ?? [])
-                        ],
-                    });
-                }
-                currentRoomId++;
-            }
-        }
-
-        var orderedTiles = new List<TiledTile>();
-
-        for (var y = 0; y < World.ScreenRows * World.WorldHeight; y++)
-        {
-            var screenY = y / World.ScreenRows;
-            var mapY = y % World.ScreenRows;
-            for (var x = 0; x < World.ScreenColumns * World.WorldWidth; x++)
-            {
-                var screenX = x / World.ScreenColumns;
-                var mapX = x % World.ScreenColumns;
-
-                var roomId = screenY * World.WorldWidth + screenX;
-                var tiles = allTiles[roomId];
-
-                var tile = tiles[mapY * World.ScreenColumns + mapX];
-                orderedTiles.Add(tile);
-            }
-        }
-
-        currentRoomId = 0;
-        for (var y = 0; y < World.WorldHeight; y++)
-        {
-            var basey = y * World.ScreenRows * 8;
-
-            for (var x = 0; x < World.WorldWidth; x++)
-            {
-                var basex = x * World.ScreenColumns * 8;
-                var screenProperties = new List<TiledProperty>();
-                var maze = sparseTable.FindSparseAttr<SparseMaze>(Sparse.Maze, currentRoomId);
-                var roomAttr = roomAttributes[currentRoomId];
-                var owRoomAttrs = new OWRoomAttr(roomAttr);
-
-                if (maze != null)
-                {
-                    screenProperties.Add(new TiledProperty("Maze", string.Join(", ", maze.Value.Paths.ToArray().Select(t => t.ToString()))));
-                    screenProperties.Add(new TiledProperty("MazeExit", maze.Value.ExitDirection.ToString()));
-                }
-
-                if (isOverworld)
-                {
-                    if (owRoomAttrs.DoMonstersEnter())
-                    {
-                        screenProperties.Add(new TiledProperty("MonstersEnter", true));
-                    }
-
-                    if (owRoomAttrs.HasAmbientSound())
-                    {
-                        screenProperties.Add(new TiledProperty("AmbientSound", SoundEffect.Sea.ToString()));
-                    }
-                }
-
-                // JOE: TODO: Need to handle a lot of other cases here.
-                var monsterCount = roomAttr.GetMonsterCount();
-                if (monsterCount > 0)
-                {
-                    var objId = (ObjType)roomAttr.MonsterListId;
-                    var isList = objId >= ObjType.Rock;
-                    var monsterList = new List<(int Count, ObjType Type)>();
-
-                    if (isOverworld && owRoomAttrs.HasZora())
-                    {
-                        monsterList.Add((1, ObjType.Zora));
-                    }
-
-                    if (isList)
-                    {
-                        var listId = objId - ObjType.Rock;
-                        var list = objectList.GetItem(listId);
-                        var monsters = new ObjType[monsterCount];
-                        for (var i = 0; i < monsterCount; i++) monsters[i] = (ObjType)list[i];
-                        monsterList.AddRange(monsters.GroupBy(t => t).Select(t => (t.Count(), t.Key)));
-                    }
-                    else
-                    {
-                        monsterList.Add((monsterCount, objId));
-                    }
-
-                    var monsterString = string.Join(", ", monsterList
-                        .Where(t => t.Type != ObjType.None)
-                        .Select(t => t.Count == 1 ? t.Type.ToString() : $"{t.Type}*{t.Count}"));
-
-                    if (!string.IsNullOrWhiteSpace(monsterString))
-                    {
-                        screenProperties.Add(new TiledProperty("Monsters", monsterString));
-                    }
-                }
-
-                questObjects[0].Add(new TiledLayerObject
-                {
-                    Id = y * World.WorldWidth + x,
-                    X = basex,
-                    Y = basey,
-                    Width = World.ScreenColumns * 8,
-                    Height = World.ScreenRows * 8,
-                    Name = GetScreenName(x, y),
-                    Visible = true,
-                    Properties = [
-                        new TiledProperty("Type", "Screen"),
-                        .. screenProperties
-                    ],
-                });
-
-                currentRoomId++;
-            }
-        }
-
-        // Walk through wall in upper right of overworld map.
-        questObjects[0].Add(new TiledLayerObject
-        {
-            X = 15 * World.ScreenColumns * 8 + 0x80,
-            Y = 1 * World.ScreenRows * 8,
-            Width = 16,
-            Height = 16 * 2,
-            Name = "TileBehavior",
-            Visible = true,
-            Properties = [
-                new TiledProperty("TileBehavior", TileBehavior.GenericWalkable.ToString()),
-            ],
-        });
-
-        var backgroundLayer = new TiledLayer(World.ScreenColumns * World.WorldWidth, World.ScreenRows * World.WorldHeight, orderedTiles.ToArray())
-        {
-            Name = "World",
-            Type = TiledLayerType.TileLayer,
-            Visible = true,
-            Opacity = 1.0f,
-        };
-
-        var objectLayers = questObjects
-            .Where(t => t.Count > 0)
-            .Select((objects, i) =>
-                {
-                    var properties = new List<TiledProperty>();
-                    var title = "Object";
-                    if (i > 0)
-                    {
-                        properties.Add(new TiledProperty(TiledLayerProperties.QuestId, i));
-                        title = $"Object (Quest {i})";
-                    }
-
-                    return new TiledLayer(World.ScreenColumns * World.WorldWidth, World.ScreenRows * World.WorldHeight)
-                    {
-                        Name = title,
-                        Type = TiledLayerType.ObjectGroup,
-                        Visible = true,
-                        Opacity = 1.0f,
-                        Objects = objects.ToArray(),
-                        Properties = properties.Count == 0 ? null : properties.ToArray(),
-                    };
-                }
-            ).ToArray();
-
-        var tiledmap = new TiledMap
-        {
-            Width = World.ScreenColumns * World.WorldWidth,
-            Height = World.ScreenRows * World.WorldHeight,
-            TileWidth = 8,
-            TileHeight = 8,
-            Layers = [backgroundLayer, .. objectLayers],
-            TileSets = [
-                new TiledTileSetReference {
-                    FirstGid = 1,
-                    Source = "overworldTiles.tsx",
-                },
-                new TiledTileSetReference {
-                    FirstGid = 257,
-                    Source = "underworldTiles.tsx",
-                },
-            ]
-        };
-
-        var jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = new LowerCaseNamingPolicy(),
-            WriteIndented = true,
-        };
-        jsonOptions.Converters.Add(new LowerCaseEnumConverterFactory());
-
-        File.WriteAllText(@"C:\Users\joe\z1 tile tests\tiledmap.json", JsonSerializer.Serialize(tiledmap, jsonOptions));
-
-        return new MapLayout
-        {
-            uniqueRoomCount = 124,
-            columnsInRoom = 16,
-            rowsInRoom = 11,
-            owLayoutFormat = true,
-            roomCols = roomCols,
-            colTablePtrs = colTablePtrs,
-            colTables = colTables,
-        };
-    }
 
     private const int UWRoomCols = 0x160DE + 16;
     private const int UWColDir = 0x16704 + 16;
@@ -1826,14 +1515,19 @@ public class LozExtractor
             Utility.PadStream(writer.BaseStream);
         }
 
-        return new MapLayout {
-            uniqueRoomCount = 64,
+        const int uniqueRoomCount = 64;
+
+        return new MapLayout
+        {
+            uniqueRoomCount = uniqueRoomCount,
             columnsInRoom = 12,
             rowsInRoom = 7,
             owLayoutFormat = false,
             roomCols = roomCols,
             colTablePtrs = colTablePtrs,
-            colTables = colTables
+            colTables = colTables,
+            Table = TableResource<byte>.Load(options.Files[filePath]),
+            RoomCols = ListResource<RoomCols>.LoadList(options.Files["underworldRoomCols.dat"], uniqueRoomCount).ToArray()
         };
     }
 
@@ -2266,15 +1960,17 @@ public class LozExtractor
         writer.Write(b);
     }
 
-    private static void ExtractUnderworldMapAttrs(Options options)
+    private readonly record struct RoomAttrLevelGroup(int LevelGroup, RoomAttr[] RoomAttributes);
+
+    private static IEnumerable<RoomAttrLevelGroup> ExtractUnderworldMapAttrs(Options options)
     {
         for (int i = 0; i < 4; i++)
         {
-            ExtractUnderworldMapAttrs(options, i);
+            yield return ExtractUnderworldMapAttrs(options, i);
         }
     }
 
-    private static void ExtractUnderworldMapAttrs(Options options, int uwLevelGroup)
+    private static RoomAttrLevelGroup ExtractUnderworldMapAttrs(Options options, int uwLevelGroup)
     {
         UWRoomAttrs roomAttrs = null;
 
@@ -2294,6 +1990,8 @@ public class LozExtractor
 
             Utility.PadStream(writer.BaseStream);
         }
+
+        return new RoomAttrLevelGroup(uwLevelGroup, ListResource<RoomAttr>.LoadList(options.Files[filename], 128).ToArray());
     }
 
     private const int OWArmosStairsRoomCount = 6;
@@ -2753,15 +2451,19 @@ public class LozExtractor
         return ListResource<LevelInfoBlock>.LoadSingle(options.Files[filePath]);
     }
 
-    private static void ExtractUnderworldInfo(Options options)
+    private static Dictionary<LevelGroupMap, LevelInfoBlock> ExtractUnderworldInfo(Options options)
     {
+        var result = new Dictionary<LevelGroupMap, LevelInfoBlock>();
         for (int quest = 0; quest < 2; quest++)
         {
             for (int level = 1; level < 10; level++)
             {
-                ExtractUnderworldInfo(options, quest, level);
+                var info = ExtractUnderworldInfo(options, quest, level);
+                result[new LevelGroupMap(quest, level)] = info;
             }
         }
+
+        return result;
     }
 
     private const int InfoBlockSize = 0xFC;
@@ -2806,7 +2508,7 @@ public class LozExtractor
     private const int InfoBlockDiffDrawnMap = 0x16;
     private const int InfoBlockDiffShortcutPosArray = 0;
 
-    private static void ExtractUnderworldInfo(Options options, int quest, int level)
+    private static LevelInfoBlock ExtractUnderworldInfo(Options options, int quest, int level)
     {
         var filename = string.Format("levelInfo_{0}_{1}.dat", quest, level);
         var filePath = filename;
@@ -2954,18 +2656,21 @@ public class LozExtractor
 
         // TODO: Some of these are for the OW, until we extract the matching UW parts.
 
-        var dir = new LevelDirectory();
-        dir.LevelInfoBlock = filename;
-        dir.RoomCols = "underworldRoomCols.dat";
-        dir.ColTables = "underworldCols.tab";
-        dir.TileAttrs = "underworldTileAttrs.dat";
-        dir.TilesImage = "underworldTiles.png";
-        dir.PlayerImage = "playerItem.png";
-        dir.PlayerSheet = "playerItemsSheet.tab";
-        dir.RoomAttrs = roomAttrFilename;
-        dir.ObjLists = "objLists.tab";
-        dir.Extra1 = "overworldRoomSparseAttr.tab";
+        var dir = new LevelDirectory
+        {
+            LevelInfoBlock = filename,
+            RoomCols = "underworldRoomCols.dat",
+            ColTables = "underworldCols.tab",
+            TileAttrs = "underworldTileAttrs.dat",
+            TilesImage = "underworldTiles.png",
+            PlayerImage = "playerItem.png",
+            PlayerSheet = "playerItemsSheet.tab",
+            RoomAttrs = roomAttrFilename,
+            ObjLists = "objLists.tab",
+            Extra1 = "overworldRoomSparseAttr.tab"
+        };
         WriteLevelDir(options, quest, level, dir);
+        return ListResource<LevelInfoBlock>.LoadSingle(options.Files[filePath]);
     }
 
     private static void WriteLevelDir(Options options, int quest, int level, LevelDirectory dir)

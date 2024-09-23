@@ -13,8 +13,8 @@ namespace z1.Render;
 internal enum DrawingFlags
 {
     None = 0,
-    FlipHorizontal = 1 << 0,
-    FlipVertical = 1 << 1,
+    FlipX = 1 << 0,
+    FlipY = 1 << 1,
     NoTransparency = 1 << 2,
 }
 

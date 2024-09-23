@@ -398,7 +398,7 @@ internal abstract class Actor
         {
             var frame = Decoration - 1;
             var animator = Graphics.GetSpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Cloud);
-            animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, Palette.BlueFgPalette, frame);
+            animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, Palette.Blue, frame);
         }
         else
         {

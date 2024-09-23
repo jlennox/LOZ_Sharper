@@ -23,6 +23,12 @@ internal struct Point
     public static Point operator +(Point pt, Size sz) => Add(pt, sz);
     public static bool operator ==(Point left, Point right) => left.X == right.X && left.Y == right.Y;
     public static bool operator !=(Point left, Point right) => !(left == right);
+
+    public void Deconstruct(out int x, out int y)
+    {
+        x = X;
+        y = Y;
+    }
 }
 
 [DebuggerDisplay("{X},{Y}")]

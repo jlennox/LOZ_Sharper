@@ -64,104 +64,24 @@ internal enum StunTimerSlot
     EdgeObject
 }
 
-internal record Cell(byte Row, byte Col)
+internal record Cell(byte Y, byte X)
 {
     public const int MobPatchCellCount = 16;
     public static Cell[] MakeMobPatchCell() => new Cell[MobPatchCellCount];
-}
-
-internal sealed class TileMap
-{
-    public const int Size = World.ScreenRows * World.ScreenColumns;
-
-    public int this[int row, int col]
-    {
-        get => _tileRefs[row * World.ScreenColumns + col];
-        set => _tileRefs[row * World.ScreenColumns + col] = (byte)value;
-    }
-
-    private readonly byte[] _tileRefs = new byte[Size];
-    private readonly byte[] _tileBehaviors = new byte[Size];
-
-    public ref byte Refs(int index) => ref _tileRefs[index];
-    public ref byte Refs(int row, int col) => ref _tileRefs[row * World.ScreenColumns + col];
-    public ref byte Behaviors(int row, int col) => ref _tileBehaviors[row * World.ScreenColumns + col];
-    public ref byte Behaviors(int index) => ref _tileBehaviors[index];
-    public TileBehavior AsBehaviors(int row, int col)
-    {
-        row = Math.Max(0, Math.Min(row, World.ScreenRows - 1));
-        col = Math.Max(0, Math.Min(col, World.ScreenColumns - 1));
-
-        return (TileBehavior)_tileBehaviors[row * World.ScreenColumns + col];
-    }
-}
-
-internal sealed class ZeldaScreen
-{
-    public ZeldaScreenMap Map { get; }
-    public int X { get; }
-    public int Y { get; }
-    public int Width { get; }
-    public int Height { get; }
-
-    public ZeldaScreen(int x, int y, int width, int height)
-    {
-        Map = new ZeldaScreenMap(width, height);
-        X = x;
-        Y = y;
-        Width = width;
-        Height = height;
-    }
-}
-
-internal sealed class ZeldaScreenMap
-{
-    public int Width { get; }
-    public int Height { get; }
-
-    private readonly TiledTile[] _refs;
-    private readonly TileBehavior[] _behaviors;
-
-    public TiledTile this[int row, int col]
-    {
-        get => _refs[row * World.ScreenColumns + col];
-        set => _refs[row * World.ScreenColumns + col] = value;
-    }
-
-    public ZeldaScreenMap(int width, int height)
-    {
-        Width = width;
-        Height = height;
-        var size = width * height;
-        _refs = new TiledTile[size];
-        _behaviors = new TileBehavior[size];
-    }
-
-    public ref TiledTile Refs(int index) => ref _refs[index];
-    public ref TiledTile Refs(int row, int col) => ref _refs[row * World.ScreenColumns + col];
-    public ref TileBehavior Behaviors(int row, int col) => ref _behaviors[row * World.ScreenColumns + col];
-    public ref TileBehavior Behaviors(int index) => ref _behaviors[index];
-    public TileBehavior AsBehaviors(int row, int col)
-    {
-        row = Math.Max(0, Math.Min(row, Height - 1));
-        col = Math.Max(0, Math.Min(col, Width - 1));
-
-        return (TileBehavior)_behaviors[row * Width + col];
-    }
 }
 
 internal sealed unsafe partial class World
 {
     public const int LevelGroups = 3;
 
-    public const int ScreenRows = 22;
-    public const int ScreenColumns = 32;
-    public const int MapObjectColumns = 16;
-    public const int MapObjectTileWidth = 16;
-    public const int MapObjectTileHeight = 16;
+    public const int ScreenTileWidth = 32;
+    public const int ScreenTileHeight = 22;
+    public const int ScreenBlockWidth = 16;
+    public const int BlockWidth = 16;
+    public const int BlockHeight = 16;
     public const int TileWidth = 8;
     public const int TileHeight = 8;
-    public const int TileMapWidth = ScreenColumns * TileWidth;
+    public const int TileMapWidth = ScreenTileWidth * TileWidth;
 
     public const int WorldLimitTop = TileMapBaseY;
     public const int WorldLimitBottom = WorldLimitTop + TileMapHeight;
@@ -171,8 +91,8 @@ internal sealed unsafe partial class World
     public const int WorldWidth = 16;
     public const int WorldHeight = 8;
 
-    private const int BaseRows = 8;
-    private const int TileMapHeight = ScreenRows * TileHeight;
+    public const int BaseRows = 8;
+    private const int TileMapHeight = ScreenTileHeight * TileHeight;
     private const int TileMapBaseY = 64;
     private const int Doors = 4;
 
@@ -182,13 +102,9 @@ internal sealed unsafe partial class World
 
     private const int Rooms = 128;
     private const int UniqueRooms = 124;
-    private const int ColumnTables = 16;
     private const int ScrollSpeed = 4;
     private const int MapObjectTypes = 56;
     private const int TileTypes = 256;
-    private const int TileActions = 16;
-    private const int LoadingTileActions = 4;
-    private const int SparseAttrs = 11;
     private const int RoomHistoryLength = 6;
     private const int Modes = (int)GameMode.Max;
 
@@ -221,7 +137,7 @@ internal sealed unsafe partial class World
 
     internal enum Secret { None, FoesDoor, Ringleader, LastBoss, BlockDoor, BlockStairs, MoneyOrLife, FoesItem }
 
-    private delegate void LoadMobDelegate(ref TileMap map, int row, int col, int mobIndex);
+    private delegate void LoadMobDelegate(ref GameScreenMap map, int row, int col, int mobIndex);
     private enum PauseState { Unpaused, Paused, FillingHearts }
     private enum TileScheme { Overworld, UnderworldMain, UnderworldCellar }
     private enum UniqueRoomIds { TopRightOverworldSecret = 0x0F }
@@ -251,11 +167,12 @@ internal sealed unsafe partial class World
     private LevelInfoBlock _infoBlock;
     private TableResource<byte> _sparseRoomAttrs;
     private LevelInfoEx _extraData;
-    private TableResource<byte> _objLists;
     private ImmutableArray<string> _textTable;
     private LoadMobDelegate _loadMapObjectFunc;
     private WorldLevel _level = WorldLevel.Overworld;
     private readonly RoomHistory _roomHistory;
+    private readonly GameMap _overworldMap;
+    private readonly GameMap _currentMap;
 
     private int _rowCount;
     private int _colCount;
@@ -341,6 +258,8 @@ internal sealed unsafe partial class World
     {
         _dummyWorld = true;
         Game = game;
+        _overworldMap = new GameMap(game, "overworld", new Asset("OverworldMap.json").ReadJson<TiledMap>(), 1);
+        _currentMap = _overworldMap;
         _roomHistory = new RoomHistory(game, RoomHistoryLength);
         _statusBar = new StatusBar(this);
         Menu = new SubmenuType(game);
@@ -348,6 +267,8 @@ internal sealed unsafe partial class World
         _lastMode = GameMode.Demo;
         _curMode = GameMode.Play;
         _edgeY = 0x40;
+
+        Validate();
     }
 
     public World(Game game, PlayerProfile profile)
@@ -356,6 +277,13 @@ internal sealed unsafe partial class World
         // I'm not fond of _dummyWorld, but I want to keep Game.World and World.Profile to not be nullable
         _dummyWorld = false;
         Init(profile);
+    }
+
+    // This irl should be moved over to tests.
+    private void Validate()
+    {
+        // Ensure there's one defined for each.
+        foreach (TileAction action in Enum.GetValues<TileAction>()) GetTileActionFunction(action);
     }
 
     private void LoadOpenRoomContext()
@@ -386,9 +314,6 @@ internal sealed unsafe partial class World
 
     private void LoadMapResourcesFromDirectory(int uniqueRoomCount)
     {
-        _roomCols = ListResource<RoomCols>.LoadList(new Asset(_directory.RoomCols), uniqueRoomCount).ToArray();
-        _colTables = TableResource<byte>.Load(new Asset(_directory.ColTables));
-        _tileAttrs = ListResource<byte>.LoadList(new Asset(_directory.TileAttrs), _tileTypeCount).ToArray();
     }
 
     private void LoadOverworldContext()
@@ -396,9 +321,6 @@ internal sealed unsafe partial class World
         _prevRoomWasCellar = false;
         LoadOpenRoomContext();
         LoadMapResourcesFromDirectory(124);
-        _squareTable = ListResource<byte>.Load(new Asset("owPrimaryMobs.list"));
-        _squareTableSecondary = ListResource<byte>.Load(new Asset("owSecondaryMobs.list"));
-        _tileBehaviors = ListResource<byte>.LoadList(new Asset("owTileBehaviors.dat"), TileTypes).ToArray();
     }
 
     private void LoadUnderworldContext()
@@ -406,23 +328,12 @@ internal sealed unsafe partial class World
         _prevRoomWasCellar = false;
         LoadClosedRoomContext();
         LoadMapResourcesFromDirectory(64);
-        _squareTable = ListResource<byte>.Load(new Asset("uwPrimaryMobs.list"));
-        _tileBehaviors = ListResource<byte>.LoadList(new Asset("uwTileBehaviors.dat"), TileTypes).ToArray();
     }
 
     private void LoadCellarContext()
     {
         _prevRoomWasCellar = true;
         LoadOpenRoomContext();
-
-        _roomCols = ListResource<RoomCols>.LoadList("underworldCellarRoomCols.dat", 2).ToArray();
-        _colTables = TableResource<byte>.Load("underworldCellarCols.tab");
-
-        _tileAttrs = ListResource<byte>.LoadList("underworldCellarTileAttrs.dat", _tileTypeCount).ToArray();
-
-        _squareTable = ListResource<byte>.Load("uwCellarPrimaryMobs.list");
-        _squareTableSecondary = ListResource<byte>.Load("uwCellarSecondaryMobs.list");
-        _tileBehaviors = ListResource<byte>.LoadList("uwTileBehaviors.dat", TileTypes).ToArray();
     }
 
     private void Init(PlayerProfile profile)
@@ -476,7 +387,7 @@ internal sealed unsafe partial class World
 
     private bool IsButtonPressing(GameButton button) => Game.Input.IsButtonPressing(button);
     private bool IsAnyButtonPressing(GameButton a, GameButton b) => Game.Input.IsAnyButtonPressing(a, b);
-    private void DrawRoom() => DrawMap(CurRoomId, _curTileMapIndex, 0, 0);
+    private void DrawRoom() => DrawMap(CurRoomId, 0, 0);
     public void PauseFillHearts() => _pause = PauseState.FillingHearts;
     public void LeaveRoom(Direction dir, int roomId) => GotoLeave(dir, roomId);
     public void LeaveCellar() => GotoLeaveCellar();
@@ -578,73 +489,49 @@ internal sealed unsafe partial class World
         }
     }
 
-    private TileBehavior GetTileBehavior(int row, int col)
+    private TileBehavior GetTileBehavior(int tileY, int tileX) // Arg, these are not x/y ordered.
     {
-        return _tileMaps[_curTileMapIndex].AsBehaviors(row, col);
+        return CurrentScreen.Map.AsBehaviors(tileX, tileY);
     }
 
     private TileBehavior GetTileBehaviorXY(int x, int y)
     {
-        var col = x / TileWidth;
-        var row = (y - TileMapBaseY) / TileHeight;
+        var tileX = x / TileWidth;
+        var tileY = (y - TileMapBaseY) / TileHeight;
 
-        return GetTileBehavior(row, col);
+        return GetTileBehavior(tileY, tileX);
     }
 
-    public void SetMobXY(int x, int y, BlockObjType mobIndex)
+    public void SetMapObjectXY(int x, int y, BlockObjType mobIndex)
     {
-        var fineCol = x / TileWidth;
-        var fineRow = (y - TileMapBaseY) / TileHeight;
+        var fineTileX = x / TileWidth;
+        var fineTileY = (y - TileMapBaseY) / TileHeight;
 
-        if (fineCol is < 0 or >= ScreenColumns || fineRow is < 0 or >= ScreenRows) return;
+        if (fineTileX is < 0 or >= ScreenTileWidth || fineTileY is < 0 or >= ScreenTileHeight) return;
 
-        SetMob(fineRow, fineCol, mobIndex);
+        SetMapObject(fineTileY, fineTileX, mobIndex);
     }
 
-    private void SetMob(int row, int col, BlockObjType mobIndex)
+    private void SetMapObject(int tileY, int tileX, BlockObjType mobIndex)
     {
-        _loadMapObjectFunc(ref _tileMaps[_curTileMapIndex], row, col, (byte)mobIndex); // JOE: FIXME: BlockObjTypes
-
-        for (var r = row; r < row + 2; r++)
+        var map = CurrentScreen.Map;
+        // _loadMapObjectFunc(ref map, tileY, tileX, (byte)mobIndex); // JOE: FIXME: BlockObjTypes
+        // map.SetBlock(tileX, tileY, new TiledTile(1));
+        if (!_currentMap.TryGetBlockObjectTiles(mobIndex, out var tileObject))
         {
-            for (var c = col; c < col + 2; c++)
-            {
-                var t = _tileMaps[_curTileMapIndex].Refs(r, c);
-                _tileMaps[_curTileMapIndex].Behaviors(r, c) = _tileBehaviors[t];
-            }
-        }
-    }
-
-    public Palette GetInnerPalette()
-    {
-        return _roomAttrs[CurRoomId].GetInnerPalette();
-    }
-
-    public Cell GetRandomWaterTile()
-    {
-        var waterList = new Cell[ScreenRows * ScreenColumns];
-        var waterCount = 0;
-
-        for (var r = 0; r < ScreenRows - 1; r++)
-        {
-            for (var c = 0; c < ScreenColumns - 1; c++)
-            {
-                if (GetTileBehavior(r, c) == TileBehavior.Water
-                    && GetTileBehavior(r, c + 1) == TileBehavior.Water
-                    && GetTileBehavior(r + 1, c) == TileBehavior.Water
-                    && GetTileBehavior(r + 1, c + 1) == TileBehavior.Water)
-                {
-                    waterList[waterCount] = new Cell((byte)r, (byte)c);
-                    waterCount++;
-                }
-            }
+            throw new Exception($"Unable to locate BlockObjType {mobIndex}");
         }
 
-        if (waterCount <= 0) throw new Exception();
+        map.SetBlock(tileX, tileY, tileObject);
 
-        var waterRandom = Game.Random.Next(0, waterCount);
-        var cell = waterList[waterRandom];
-        return new Cell((byte)(cell.Row + BaseRows), cell.Col);
+        for (var currentTileY = tileY; currentTileY < tileY + 2; currentTileY++)
+        {
+            for (var currentTileX = tileX; currentTileX < tileX + 2; currentTileX++)
+            {
+                var tile = map[currentTileX, currentTileY];
+                map.Behavior(currentTileX, currentTileY) = _currentMap.GetBehavior(tile); // JOE: TODO: Map conversion. Is this right?
+            }
+        }
     }
 
     public IEnumerable<Actor> GetObjects() => _objects;
@@ -702,7 +589,7 @@ internal sealed unsafe partial class World
 
     private void InteractTile(int row, int col, TileInteraction interaction)
     {
-        if (row < 0 || col < 0 || row >= ScreenRows || col >= ScreenColumns) return;
+        if (row < 0 || col < 0 || row >= ScreenTileHeight || col >= ScreenTileWidth) return;
 
         var behavior = GetTileBehavior(row, col);
         var behaviorFunc = BehaviorFuncs[(int)behavior];
@@ -876,12 +763,12 @@ internal sealed unsafe partial class World
 
         if (pos != null && x == pos.Value.x && y == pos.Value.y)
         {
-            SetMobXY(x, y, BlockObjType.MobStairs);
+            SetMapObjectXY(x, y, BlockObjType.Stairs);
             Game.Sound.PlayEffect(SoundEffect.Secret);
         }
         else
         {
-            SetMobXY(x, y, BlockObjType.MobGround);
+            SetMapObjectXY(x, y, BlockObjType.Ground);
         }
 
         if (!GotItem())
@@ -903,7 +790,7 @@ internal sealed unsafe partial class World
         Game.Link.ObjTimer = 0xC0;
 
         ReadOnlySpan<byte> palette = [0, 0x0F, 0x10, 0x30];
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, palette);
+        Graphics.SetPaletteIndexed(Palette.SeaPal, palette);
         Graphics.UpdatePalettes();
     }
 
@@ -984,30 +871,16 @@ internal sealed unsafe partial class World
     {
         var playedSound = false;
 
-        if (IsOverworld())
+        var ambientSound = CurrentScreen.AmbientSound;
+        if (ambientSound != null)
         {
-            if (GetMode() == GameMode.Play)
+            // JOE: TODO: This does sadly limit the usage of the boss roar, and I'm not sure how it behaves in the overworld.
+            // Instead have a "killed boss" flag?
+            var isBossRoar = ambientSound.Value is SoundEffect.BossRoar1 or SoundEffect.BossRoar2 or SoundEffect.BossRoar3;
+            if (!isBossRoar || GetRoomFlags(_infoBlock.BossRoomId).ObjectCount != 0)
             {
-                var owRoomAttrs = CurrentOWRoomAttrs;
-                if (owRoomAttrs.HasAmbientSound())
-                {
-                    Game.Sound.PlayEffect(SoundEffect.Sea, true, Sound.AmbientInstance);
-                    playedSound = true;
-                }
-            }
-        }
-        else
-        {
-            if (GetRoomFlags(_infoBlock.BossRoomId).ObjectCount == 0)
-            {
-                var uwRoomAttrs = CurrentUWRoomAttrs;
-                var ambientSound = uwRoomAttrs.GetAmbientSound();
-                if (ambientSound != 0)
-                {
-                    var id = (int)SoundEffect.BossRoar1 + ambientSound - 1;
-                    Game.Sound.PlayEffect((SoundEffect)id, true, Sound.AmbientInstance);
-                    playedSound = true;
-                }
+                Game.Sound.PlayEffect(ambientSound.Value, true, Sound.AmbientInstance);
+                playedSound = true;
             }
         }
 
@@ -1022,13 +895,13 @@ internal sealed unsafe partial class World
         var owRoomAttrs = GetOWRoomAttrs(roomId);
         var index = owRoomAttrs.GetShortcutStairsIndex();
         var pos = _infoBlock.ShortcutPosition[index];
-        GetRoomCoord(pos, out var row, out var col);
-        SetMob(row * 2, col * 2, BlockObjType.MobStairs);
+        GetRoomCoord(pos, out var tileY, out var tileX);
+        SetMapObject(tileY * 2, tileX * 2, BlockObjType.Stairs);
     }
 
     private void DrawDoors(int roomId, bool above, int offsetX, int offsetY)
     {
-        var outerPalette = _roomAttrs[roomId].GetOuterPalette();
+        var outerPalette = CurrentScreen.OuterPalette;
         var baseY = above ? DoorOverlayBaseY : DoorUnderlayBaseY;
         var uwRoomAttr = GetUWRoomAttrs(roomId);
 
@@ -1192,7 +1065,6 @@ internal sealed unsafe partial class World
     public LevelInfoBlock GetLevelInfo() => _infoBlock;
     public bool IsOverworld() => _infoBlock.LevelNumber == 0;
     public bool DoesRoomSupportLadder() => FindSparseFlag(Sparse.Ladder, CurRoomId);
-    private TileAction GetTileAction(int tileRef) => TileAttr.GetAction(_tileAttrs[tileRef]);
     public bool IsUWMain(int roomId) => !IsOverworld() && (_roomAttrs[roomId].GetUniqueRoomId() < 0x3E);
     public bool IsUWMain() => IsUWMain(CurRoomId);
     private bool IsUWCellar(int roomId) => !IsOverworld() && (_roomAttrs[roomId].GetUniqueRoomId() >= 0x3E);
@@ -1393,9 +1265,9 @@ internal sealed unsafe partial class World
         return objAttr.Damage;
     }
 
-    public void LoadOverworldRoom(int x, int y) => LoadRoom(x + y * 16, _curTileMapIndex);
+    public void LoadOverworldRoom(int x, int y) => LoadRoom(x + y * 16);
 
-    private void LoadRoom(int roomId, int tileMapIndex)
+    private void LoadRoom(int roomId)
     {
         if (IsUWCellar(roomId))
         {
@@ -1407,9 +1279,8 @@ internal sealed unsafe partial class World
         }
 
         CurRoomId = roomId;
-        _curTileMapIndex = tileMapIndex;
 
-        LoadMap(roomId, tileMapIndex);
+        LoadMap(roomId);
 
         if (IsOverworld())
         {
@@ -1473,8 +1344,7 @@ internal sealed unsafe partial class World
 
     private void LoadCaveRoom(CaveType uniqueRoomId)
     {
-        _curTileMapIndex = 0;
-        LoadLayout((int)uniqueRoomId, 0, TileScheme.Overworld);
+        LoadLayout((int)uniqueRoomId); // JOE: TODO: Map rewrite. This feels super wrong.
     }
 
     private void PatchTileBehaviors()
@@ -1487,43 +1357,41 @@ internal sealed unsafe partial class World
     {
         for (var i = 0; i < count; i++)
         {
-            var row = cells[i].Row;
-            var col = cells[i].Col;
-            var behavior = (byte)((int)baseBehavior + 15 - i);
-            var map = _tileMaps[_curTileMapIndex];
-            map.Behaviors(row, col) = behavior;
-            map.Behaviors(row, col + 1) = behavior;
-            map.Behaviors(row + 1, col) = behavior;
-            map.Behaviors(row + 1, col + 1) = behavior;
+            var x = cells[i].X;
+            var y = cells[i].Y;
+            var behavior = (TileBehavior)((int)baseBehavior + 15 - i);
+            CurrentScreen.Map.SetBlockBehavior(x, y, behavior);
         }
     }
 
     private void UpdateDoorTileBehavior(int doorOrd)
     {
-        UpdateDoorTileBehavior(CurRoomId, _curTileMapIndex, doorOrd);
+        UpdateDoorTileBehavior(CurRoomId, doorOrd);
     }
 
-    private void UpdateDoorTileBehavior(int roomId, int tileMapIndex, int doorOrd)
+    private void UpdateDoorTileBehavior(int roomId, int doorOrd)
     {
-        var map = _tileMaps[tileMapIndex];
+        var map = CurrentScreen.Map;
         var dir = doorOrd.GetOrdDirection();
         var corner = _doorCorners[doorOrd];
         var type = GetDoorType(roomId, dir);
         var state = GetEffectiveDoorState(roomId, dir);
-        var behavior = (byte)(state ? _doorBehaviors[(int)type].Open : _doorBehaviors[(int)type].Closed);
+        var behavior = _doorBehaviors[(int)type].GetBehavior(state);
 
-        map.Behaviors(corner.Row, corner.Col) = behavior;
-        map.Behaviors(corner.Row, corner.Col + 1) = behavior;
-        map.Behaviors(corner.Row + 1, corner.Col) = behavior;
-        map.Behaviors(corner.Row + 1, corner.Col + 1) = behavior;
+        // map.Behaviors(corner.X, corner.Y) = behavior;
+        // map.Behaviors(corner.X + 1, corner.Y) = behavior;
+        // map.Behaviors(corner.X, corner.Y + 1) = behavior;
+        // map.Behaviors(corner.X + 1, corner.Y + 1) = behavior;
+        map.SetBlockBehavior(corner.X, corner.Y, behavior);
 
-        if ((TileBehavior)behavior == TileBehavior.Doorway)
+        if (behavior == TileBehavior.Doorway)
         {
             corner = _behindDoorCorners[doorOrd];
-            map.Behaviors(corner.Row, corner.Col) = behavior;
-            map.Behaviors(corner.Row, corner.Col + 1) = behavior;
-            map.Behaviors(corner.Row + 1, corner.Col) = behavior;
-            map.Behaviors(corner.Row + 1, corner.Col + 1) = behavior;
+            // map.Behaviors(corner.X, corner.Y) = behavior;
+            // map.Behaviors(corner.X + 1, corner.Y) = behavior;
+            // map.Behaviors(corner.X, corner.Y + 1) = behavior;
+            // map.Behaviors(corner.X + 1, corner.Y + 1) = behavior;
+            map.SetBlockBehavior(corner.X, corner.Y, behavior);
         }
     }
 
@@ -1673,7 +1541,7 @@ internal sealed unsafe partial class World
 
         if (IsUWMain(CurRoomId))
         {
-            CheckBombables();
+            CheckBombableUWWalls();
         }
 
         UpdateRupees();
@@ -1903,7 +1771,7 @@ internal sealed unsafe partial class World
             if (posAttr != null)
             {
                 GetRoomCoord(posAttr.Value.pos, out var row, out var col);
-                SetMob(row * 2, col * 2, BlockObjType.MobStairs);
+                SetMapObject(row * 2, col * 2, BlockObjType.Stairs);
                 Game.Sound.PlayEffect(SoundEffect.Secret);
             }
             return;
@@ -1930,7 +1798,7 @@ internal sealed unsafe partial class World
         _state.Play.Timer--;
     }
 
-    private void CheckBombables()
+    private void CheckBombableUWWalls()
     {
         var uwRoomAttrs = CurrentUWRoomAttrs;
 
@@ -2023,7 +1891,7 @@ internal sealed unsafe partial class World
 
     private void AddUWRoomStairs()
     {
-        SetMobXY(0xD0, 0x60, BlockObjType.MobUWStairs);
+        SetMapObjectXY(0xD0, 0x60, BlockObjType.UnderworldStairs);
     }
 
     public void KillAllObjects()
@@ -2336,7 +2204,7 @@ internal sealed unsafe partial class World
         using (var _ = Graphics.SetClip(0, TileMapBaseY + _submenuOffsetY, TileMapWidth, TileMapHeight - _submenuOffsetY))
         {
             ClearScreen();
-            DrawMap(CurRoomId, _curTileMapIndex, 0, _submenuOffsetY);
+            DrawMap(CurRoomId, 0, _submenuOffsetY);
         }
 
         if (IsUWMain(CurRoomId))
@@ -2397,99 +2265,74 @@ internal sealed unsafe partial class World
             return;
         }
 
-        var roomAttr = _roomAttrs[CurRoomId];
-        var objId = (ObjType)roomAttr.MonsterListId;
-        var monstersEnterFromEdge = false;
+        var screen = CurrentScreen;
+        var monstersEnterFromEdge = screen.MonstersEnter;
+        var monsterList = screen.Monsters;
+        var monsterCount = monsterList.Length;
 
-        if (objId is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble)
+        // JOE: TODO: Screen rewrite issue.
+        // if (objId is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble)
+        // {
+        //     MakeUnderworldPerson(objId);
+        //     return;
+        // }
+
+        // Zoras are a bit special and are never not spawned.
+        for (var i = 0; i < screen.ZoraCount; i++)
         {
-            MakeUnderworldPerson(objId);
-            return;
+            Actor.AddFromType(ObjType.Zora, Game, 0, 0);
         }
 
-        if (IsOverworld())
-        {
-            var owRoomAttrs = CurrentOWRoomAttrs;
-            monstersEnterFromEdge = owRoomAttrs.DoMonstersEnter();
-        }
+        if (monsterCount == 0) return;
 
-        var count = roomAttr.GetMonsterCount();
+        // It's kind of weird how this is handled in the actual game.
+        var firstObject = monsterList[0];
 
-        if (objId is >= ObjType.OneDodongo and < ObjType.Rock)
-        {
-            count = 1;
-        }
+        CalcObjCountToMake(ref firstObject, ref monsterCount);
 
-        CalcObjCountToMake(ref objId, ref count);
-        RoomObjCount = count;
+        RoomObjCount = monsterCount;
         var roomObj = GetObject<ItemObjActor>();
 
-        if (objId > 0 && count > 0)
+        var dirOrd = entryDir.GetOrdinal();
+        var spots = _extraData.SpawnSpot.AsSpan();
+        var spotsLen = spots.Length / 4;
+        var dirSpots = spots[(spotsLen * dirOrd)..];
+
+        var x = 0;
+        var y = 0;
+        for (var i = 0; i < monsterCount; i++)
         {
-            var isList = objId >= ObjType.Rock;
-            ReadOnlySpan<byte> list;
+            var type = monsterList[i];
 
-            if (isList)
+            if (monstersEnterFromEdge
+                && type != ObjType.Zora // JOE: TODO: Move this to an attribute on the class?
+                && type != ObjType.Armos
+                && type != ObjType.StandingFire
+                && type != ObjType.Whirlwind
+                )
             {
-                var listId = objId - ObjType.Rock;
-                list = _objLists.GetItem(listId);
+                _pendingEdgeSpawns.Add(type);
+                continue;
             }
-            else
+
+            if (!FindSpawnPos(type, dirSpots, spotsLen, ref x, ref y))
             {
-                list = Enumerable.Repeat((byte)objId, count).ToArray();
+                _log.Error($"Couldn't find spawn position for {type}.");
+                continue;
             }
 
-            var dirOrd = entryDir.GetOrdinal();
-            // var spotSeq = extraData.GetItem<SpotSeq>(Extra.SpawnSpot);
-            var spots = _extraData.SpawnSpot;
-            var spotsLen = spots.Length / 4;
-            var dirSpots = spots[(spotsLen * dirOrd)..]; // JOE: This is very sus.
-
-            var x = 0;
-            var y = 0;
-            for (var i = 0; i < count; i++)
+            var obj = Actor.AddFromType(type, Game, x, y);
+            // The NES logic would only set HoldingItem for the first object.
+            if (i == 0)
             {
-                var type = (ObjType)list[i];
+                RoomObj = obj; // JOE: I'm not sure what RoomObj is for...?
 
-                if (monstersEnterFromEdge
-                    && type != ObjType.Zora // JOE: TODO: Move this to an attribute on the class?
-                    && type != ObjType.Armos
-                    && type != ObjType.StandingFire
-                    && type != ObjType.Whirlwind
-                    )
+                if (obj.CanHoldRoomItem && roomObj != null)
                 {
-                    _pendingEdgeSpawns.Add(type);
-                    continue;
+                    roomObj.X = obj.X;
+                    roomObj.Y = obj.Y;
+                    obj.HoldingItem = roomObj;
                 }
-
-                if (!FindSpawnPos(type, dirSpots, spotsLen, ref x, ref y))
-                {
-                    _log.Error($"Couldn't find spawn position for {type}.");
-                    continue;
-                }
-
-                var obj = Actor.AddFromType(type, Game, x, y);
-                // The NES logic would only set HoldingItem for the first object.
-                if (i == 0)
-                {
-                    RoomObj = obj; // JOE: I'm not sure what this is for...?
-
-                    if (obj.CanHoldRoomItem && roomObj != null)
-                    {
-                        roomObj.X = obj.X;
-                        roomObj.Y = obj.Y;
-                        obj.HoldingItem = roomObj;
-                    }
-                }
-            }
-        }
-
-        if (IsOverworld())
-        {
-            var owRoomAttr = CurrentOWRoomAttrs;
-            if (owRoomAttr.HasZora())
-            {
-                Actor.AddFromType(ObjType.Zora, Game, 0, 0);
             }
         }
     }
@@ -2511,7 +2354,7 @@ internal sealed unsafe partial class World
         var owRoomAttrs = CurrentOWRoomAttrs;
         var caveIndex = owRoomAttrs.GetCaveId() - FirstCaveIndex;
 
-        var type = (CaveId)((int)CaveId.Cave1 + caveIndex);
+        var type = (int)CaveId.Cave1 + caveIndex;
         MakeCaveObjects(type);
     }
 
@@ -2788,28 +2631,23 @@ internal sealed unsafe partial class World
 
     private bool CalcMazeStayPut(Direction dir)
     {
-        if (!IsOverworld()) return false;
+        var maze = CurrentScreen.Maze;
+        if (maze.Length == 0) return false;
 
-        var mazeOptional = _sparseRoomAttrs.FindSparseAttr<SparseMaze>(Sparse.Maze, CurRoomId);
-        if (mazeOptional == null) return false;
-
-        var maze = mazeOptional.Value;
-
-        if (dir == maze.ExitDirection)
+        if (dir == CurrentScreen.MazeExit)
         {
             _curMazeStep = 0;
             return false;
         }
 
-        var paths = maze.Paths;
-        if (dir != paths[_curMazeStep])
+        if (dir != maze[_curMazeStep])
         {
             _curMazeStep = 0;
             return true;
         }
 
         _curMazeStep++;
-        if (_curMazeStep != paths.Length)
+        if (_curMazeStep != maze.Length)
         {
             return true;
         }
@@ -2938,13 +2776,11 @@ internal sealed unsafe partial class World
         _state.Scroll.OldRoomId = CurRoomId;
 
         var nextRoomId = _state.Scroll.NextRoomId;
-        var nextTileMapIndex = (_curTileMapIndex + 1) % 2;
-        _state.Scroll.OldTileMapIndex = _curTileMapIndex;
 
         _tempShutterRoomId = nextRoomId;
         _tempShutterDoorDir = _state.Scroll.ScrollDir.GetOppositeDirection();
 
-        LoadRoom(nextRoomId, nextTileMapIndex);
+        LoadRoom(nextRoomId);
 
         var uwRoomAttrs = GetUWRoomAttrs(nextRoomId);
         if (uwRoomAttrs.IsDark() && _darkRoomFadeStep == 0 && !Profile.PreventDarkRooms(Game))
@@ -3010,12 +2846,12 @@ internal sealed unsafe partial class World
                 var oldMapOffsetX = _state.Scroll.OffsetX + _state.Scroll.OldMapToNewMapDistX;
                 var oldMapOffsetY = _state.Scroll.OffsetY + _state.Scroll.OldMapToNewMapDistY;
 
-                DrawMap(CurRoomId, _curTileMapIndex, _state.Scroll.OffsetX, _state.Scroll.OffsetY);
-                DrawMap(_state.Scroll.OldRoomId, _state.Scroll.OldTileMapIndex, oldMapOffsetX, oldMapOffsetY);
+                DrawMap(CurRoomId, _state.Scroll.OffsetX, _state.Scroll.OffsetY);
+                DrawMap(_state.Scroll.OldRoomId, oldMapOffsetX, oldMapOffsetY);
             }
             else
             {
-                DrawMap(CurRoomId, _curTileMapIndex, 0, 0);
+                DrawMap(CurRoomId, 0, 0);
             }
         }
 
@@ -3135,7 +2971,7 @@ internal sealed unsafe partial class World
             var behavior = GetTileBehaviorXY(Game.Link.X, Game.Link.Y + 3);
             if (behavior == TileBehavior.Cave)
             {
-                Game.Link.Y += MapObjectTileHeight;
+                Game.Link.Y += BlockHeight;
                 Game.Link.Facing = Direction.Down;
 
                 _state.Enter.PlayerFraction = 0;
@@ -3161,7 +2997,7 @@ internal sealed unsafe partial class World
             var oppositeDir = _state.Enter.ScrollDir.GetOppositeDirection();
             var door = oppositeDir.GetOrdinal();
             var doorType = uwRoomAttrs.GetDoor(door);
-            var distance = doorType is DoorType.Shutter or DoorType.Bombable ? MapObjectTileWidth * 2 : MapObjectTileWidth;
+            var distance = doorType is DoorType.Shutter or DoorType.Bombable ? BlockWidth * 2 : BlockWidth;
 
             _state.Enter.TargetX = Game.Link.X;
             _state.Enter.TargetY = Game.Link.Y;
@@ -3278,13 +3114,8 @@ internal sealed unsafe partial class World
         var col = exitRPos & 0x0F;
         var row = (exitRPos >> 4) + 4;
 
-        Game.Link.X = col * MapObjectTileWidth;
-        Game.Link.Y = row * MapObjectTileHeight + 0xD;
-    }
-
-    public string GetString(StringId stringId)
-    {
-        return _textTable[(int)stringId];
+        Game.Link.X = col * BlockWidth;
+        Game.Link.Y = row * BlockHeight + 0xD;
     }
 
     private void UpdateLoadLevel()
@@ -3361,12 +3192,12 @@ internal sealed unsafe partial class World
 
             if (_infoBlock.LevelNumber == 0 && !_state.Unfurl.RestartOW)
             {
-                LoadRoom(CurRoomId, 0);
+                LoadRoom(CurRoomId);
                 SetPlayerExitPosOW(CurRoomId);
             }
             else
             {
-                LoadRoom(_infoBlock.StartRoomId, 0);
+                LoadRoom(_infoBlock.StartRoomId);
                 Game.Link.X = StartX;
                 Game.Link.Y = _infoBlock.StartY;
             }
@@ -3560,10 +3391,14 @@ internal sealed unsafe partial class World
         DrawLinkLiftingItem(ItemId.TriforcePiece);
     }
 
-    private void GotoStairs(TileBehavior behavior)
+    private void GotoStairs(TileBehavior behavior, ActionGameMapObject mapObject)
     {
+        if (mapObject == null) throw new Exception("Unable to locate stairs action object.");
+        if (mapObject.Enters == null) throw new Exception("Stairs do not target a proper location.");
+
         _state.Stairs.Substate = StairsState.Substates.Start;
         _state.Stairs.TileBehavior = behavior;
+        _state.Stairs.MapReference = mapObject.Enters;
         _state.Stairs.PlayerPriority = SpritePriority.AboveBg;
 
         _curMode = GameMode.Stairs;
@@ -3683,7 +3518,7 @@ internal sealed unsafe partial class World
         {
             var x = isLeft ? 0x30 : 0xC0;
 
-            LoadRoom(roomId, 0);
+            LoadRoom(roomId);
 
             Game.Link.X = x;
             Game.Link.Y = 0x44;
@@ -3806,7 +3641,7 @@ internal sealed unsafe partial class World
             ? uwRoomAttrs.GetLeftCellarExitRoomId()
             : uwRoomAttrs.GetRightCellarExitRoomId();
 
-        LoadRoom(nextRoomId, 0);
+        LoadRoom(nextRoomId);
 
         Game.Link.X = 0x60;
         Game.Link.Y = 0xA0;
@@ -3868,7 +3703,7 @@ internal sealed unsafe partial class World
         }
         Graphics.UpdatePalettes();
 
-        LoadRoom(CurRoomId, 0);
+        LoadRoom(CurRoomId);
         SetPlayerExitPosOW(CurRoomId);
         GotoEnter(Direction.None);
         Game.Link.Facing = Direction.Down;
@@ -4256,7 +4091,7 @@ internal sealed unsafe partial class World
         }
 
         y = 0x50 + ((int)_state.Continue.SelectedIndex * 24);
-        GlobalFunctions.DrawChar(Chars.FullHeart, 0x40, y, Palette.RedFgPalette);
+        GlobalFunctions.DrawChar(Chars.FullHeart, 0x40, y, Palette.Red);
     }
 
     private int FindCellarRoomId(int mainRoomId, out bool isLeft)
@@ -4306,188 +4141,199 @@ internal sealed unsafe partial class World
         }
     }
 
-    private static void NoneTileAction(int row, int col, TileInteraction interaction)
+    private static void NoneTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         // Nothing to do. Should never be called.
         // Debugger.Break(); // JOE: TODO: This was called. I burned myself with the red candle.
     }
 
-    private void PushTileAction(int row, int col, TileInteraction interaction)
+    private void PushTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Load) return;
 
-        var rock = new RockObj(Game, col * TileWidth, TileMapBaseY + row * TileHeight);
+        var rock = new RockObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
         SetBlockObj(rock);
     }
 
-    private void BombTileAction(int row, int col, TileInteraction interaction)
+    private void BombTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Load) return;
 
         if (GotSecret())
         {
-            SetMob(row, col, BlockObjType.MobCave);
+            SetMapObject(tileY, tileX, BlockObjType.Cave);
+            return;
         }
-        else
-        {
-            var rockWall = new RockWallActor(Game, col * TileWidth, TileMapBaseY + row * TileHeight);
-            SetBlockObj(rockWall);
-        }
+
+        var rockWall = new RockWallActor(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
+        SetBlockObj(rockWall);
     }
 
-    private void BurnTileAction(int row, int col, TileInteraction interaction)
+    private void BurnTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Load) return;
 
         if (GotSecret())
         {
-            SetMob(row, col, BlockObjType.MobStairs);
+            SetMapObject(tileY, tileX, BlockObjType.Stairs);
+            return;
         }
-        else
-        {
-            var tree = new TreeActor(Game, col * TileWidth, TileMapBaseY + row * TileHeight);
-            SetBlockObj(tree);
-        }
+
+        var tree = new TreeActor(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
+        SetBlockObj(tree);
     }
 
-    private void HeadstoneTileAction(int row, int col, TileInteraction interaction)
+    private void HeadstoneTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Load) return;
 
-        var headstone = new HeadstoneObj(Game, col * TileWidth, TileMapBaseY + row * TileHeight);
+        var headstone = new HeadstoneObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
         SetBlockObj(headstone);
     }
 
-    private void LadderTileAction(int row, int col, TileInteraction interaction)
+    private void LadderTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Touch) return;
 
-        Debug.WriteLine("Touch water: {0}, {1}", row, col);
+        Debug.WriteLine("Touch water: {0}, {1}", tileY, tileX);
     }
 
-    private void RaftTileAction(int row, int col, TileInteraction interaction)
+    private void RaftTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         // TODO: instantiate the Dock here on Load interaction, and set its position.
 
         if (interaction != TileInteraction.Cover) return;
 
-        Debug.WriteLine("Cover dock: {0}, {1}", row, col);
+        Debug.WriteLine("Cover dock: {0}, {1}", tileY, tileX);
 
         if (GetItem(ItemSlot.Raft) == 0) return;
         if (!FindSparseFlag(Sparse.Dock, CurRoomId)) return;
     }
 
-    private void CaveTileAction(int row, int col, TileInteraction interaction)
+    private void CaveTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Cover) return;
 
         if (IsOverworld())
         {
-            var behavior = GetTileBehavior(row, col);
-            GotoStairs(behavior);
+            var behavior = GetTileBehavior(tileY, tileX);
+            var stairsTo = CurrentScreen.GetActionObject(_currentMap, TileAction.Cave, tileX, tileY);
+            GotoStairs(behavior, stairsTo);
         }
 
-        Debug.WriteLine("Cover cave: {0}, {1}", row, col);
+        Debug.WriteLine("Cover cave: {0}, {1}", tileY, tileX);
     }
 
-    private void StairsTileAction(int row, int col, TileInteraction interaction)
+    private void StairsTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Cover) return;
 
         if (GetMode() == GameMode.Play)
         {
-            GotoStairs(TileBehavior.Stairs);
+            var stairsTo = CurrentScreen.GetActionObject(_currentMap, TileAction.Stairs, tileX, tileY);
+            GotoStairs(TileBehavior.Stairs, stairsTo);
         }
 
-        Debug.WriteLine("Cover stairs: {0}, {1}", row, col);
+        Debug.WriteLine("Cover stairs: {0}, {1}", tileY, tileX);
     }
 
-    public void GhostTileAction(int row, int col, TileInteraction interaction)
+    public void GhostTileAction(int tileY, int tileX, TileInteraction interaction)
     {
-        if (interaction == TileInteraction.Push) Debug.WriteLine("Push headstone: {0}, {1}", row, col);
+        if (interaction == TileInteraction.Push) Debug.WriteLine("Push headstone: {0}, {1}", tileY, tileX);
 
-        CommonMakeObjectAction(ObjType.FlyingGhini, row, col, interaction, ref _ghostCount, _ghostCells);
+        CommonMakeObjectAction(ObjType.FlyingGhini, tileY, tileX, interaction, ref _ghostCount, _ghostCells);
     }
 
-    public void ArmosTileAction(int row, int col, TileInteraction interaction)
+    public void ArmosTileAction(int tileY, int tileX, TileInteraction interaction)
     {
-        if (interaction == TileInteraction.Push) Debug.WriteLine("Push armos: {0}, {1}", row, col);
+        if (interaction == TileInteraction.Push) Debug.WriteLine("Push armos: {0}, {1}", tileY, tileX);
 
-        CommonMakeObjectAction(ObjType.Armos, row, col, interaction, ref _armosCount, _armosCells);
+        CommonMakeObjectAction(ObjType.Armos, tileY, tileX, interaction, ref _armosCount, _armosCells);
     }
 
     public void CommonMakeObjectAction(
-        ObjType type, int row, int col, TileInteraction interaction, ref int patchCount, Cell[] patchCells)
+        ObjType type, int tileY, int tileX, TileInteraction interaction, ref int patchCount, Cell[] patchCells)
     {
         switch (interaction)
         {
             case TileInteraction.Load:
                 if (patchCount < 16)
                 {
-                    patchCells[patchCount] = new Cell((byte)row, (byte)col);
+                    patchCells[patchCount] = new Cell((byte)tileY, (byte)tileX);
                     patchCount++;
                 }
                 break;
 
             case TileInteraction.Push:
-                var map = _tileMaps[_curTileMapIndex];
-                int behavior = map.Behaviors(row, col);
+                var map = CurrentScreen.Map;
+                var behavior = map.Behavior(tileX, tileY);
 
-                if (row > 0 && map.Behaviors(row - 1, col) == behavior)
+                if (tileY > 0 && map.Behavior(tileX, tileY - 1) == behavior)
                 {
-                    row--;
+                    tileY--;
                 }
-                if (col > 0 && map.Behaviors(row, col - 1) == behavior)
+                if (tileX > 0 && map.Behavior(tileX - 1, tileY) == behavior)
                 {
-                    col--;
+                    tileX--;
                 }
 
-                MakeActivatedObject(type, row, col);
+                // JOE: TODO: Screen conversion. MakeActivatedObject seems to believe these are normal x/y?
+                MakeActivatedObject(type, tileX, tileY);
                 break;
         }
     }
 
-    public void MakeActivatedObject(ObjType type, int row, int col)
+    public void MakeActivatedObject(ObjType type, int x, int y)
     {
         if (type is not (ObjType.FlyingGhini or ObjType.Armos))
         {
             throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type given to {nameof(MakeActivatedObject)}");
         }
 
-        row += BaseRows;
+        // JOE: TODO: Screen conversion. This should be BaseRows * TileHeight, no?
+        y += BaseRows;
 
-        var x = col * TileWidth;
-        var y = row * TileHeight;
+        var tileX = x * TileWidth;
+        var tileY = y * TileHeight;
 
         foreach (var obj in GetObjects<MonsterActor>())
         {
             if (obj.ObjType != type) continue;
 
-            var objCol = obj.X / TileWidth;
-            var objRow = obj.Y / TileHeight;
+            var objX = obj.X / TileWidth;
+            var objY = obj.Y / TileHeight;
 
-            if (objCol == col && objRow == row) return;
+            if (objX == x && objY == y) return;
         }
 
-        var activatedObj = Actor.AddFromType(type, Game, x, y);
+        var activatedObj = Actor.AddFromType(type, Game, tileX, tileY);
         activatedObj.ObjTimer = 0x40;
     }
 
-    public void BlockTileAction(int row, int col, TileInteraction interaction)
+    public void BlockTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Load) return;
 
-        var block = new BlockObj(Game, col * TileWidth, TileMapBaseY + row * TileHeight);
+        var block = new BlockObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
         SetBlockObj(block);
     }
 
-    public void DoorTileAction(int row, int col, TileInteraction interaction)
+    public void RecorderTileAction(int tileY, int tileX, TileInteraction interaction)
+    {
+        // JOE: TODO
+        // if (interaction != TileInteraction.Load) return;
+        //
+        // var block = new BlockObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
+        // SetBlockObj(block);
+    }
+
+    public void DoorTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction != TileInteraction.Push) return;
 
         // Based on $91D6 and old implementation Player::CheckDoor.
 
-        Debug.WriteLine("Push door: {0}, {1}", row, col);
+        Debug.WriteLine("Push door: {0}, {1}", tileY, tileX);
         var player = Player;
 
         var doorType = GetDoorType(player.MovingDirection);

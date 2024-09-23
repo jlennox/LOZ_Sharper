@@ -6,17 +6,9 @@ using z1.Render;
 
 namespace z1;
 
-internal unsafe partial class World
+internal partial class World
 {
-    private ListResource<byte> _squareTable;
-    private ListResource<byte> _squareTableSecondary;
-    private RoomCols[] _roomCols = new RoomCols[UniqueRooms];
-    private TableResource<byte> _colTables;
-    private readonly TileMap[] _tileMaps = [new(), new(), new()];
     private RoomAttrs[] _roomAttrs = new RoomAttrs[Rooms];
-    private int _curTileMapIndex;
-    private byte[] _tileAttrs = new byte[MapObjectTypes];
-    private byte[] _tileBehaviors = new byte[TileTypes];
 
     private void LoadLevel(int level)
     {
@@ -43,17 +35,16 @@ internal unsafe partial class World
             LoadUnderworldContext();
             _currentRoomMap = level < 7 ? RoomMap.UnderworldA : RoomMap.UnderworldB;
 
-            foreach (var tileMap in _tileMaps)
-            {
-                for (var x = 0; x < TileMap.Size; x++)
-                {
-                    tileMap.Refs(x) = (byte)BlockObjType.TileWallEdge;
-                }
-            }
+            // foreach (var tileMap in _tileMaps)
+            // {
+            //     for (var x = 0; x < TileMap.Size; x++)
+            //     {
+            //         tileMap.Tile(x) = (byte)BlockObjType.TileWallEdge;
+            //     }
+            // }
         }
 
         _roomAttrs = ListResource<RoomAttrs>.LoadList(new Asset(_directory.RoomAttrs), Rooms).ToArray();
-        _objLists = TableResource<byte>.Load(new Asset(_directory.ObjLists));
         _sparseRoomAttrs = TableResource<byte>.Load(new Asset(_directory.Extra1));
 
         var facing = Game.Link?.Facing ?? Direction.Up;
@@ -76,7 +67,7 @@ internal unsafe partial class World
         }
     }
 
-    private void LoadMap(int roomId, int tileMapIndex)
+    private void LoadMap(int roomId)
     {
         TileScheme tileScheme;
         var uniqueRoomId = _roomAttrs[roomId].GetUniqueRoomId();
@@ -95,18 +86,18 @@ internal unsafe partial class World
             tileScheme = TileScheme.UnderworldMain;
         }
 
-        LoadLayout(uniqueRoomId, tileMapIndex, tileScheme);
+        LoadLayout(roomId);
 
         if (tileScheme == TileScheme.UnderworldMain)
         {
             for (var i = 0; i < Doors; i++)
             {
-                UpdateDoorTileBehavior(roomId, tileMapIndex, i);
+                UpdateDoorTileBehavior(roomId, i);
             }
         }
     }
 
-    private void LoadOWMapSquare(ref TileMap map, int row, int col, int mobIndex)
+    private void LoadOWMapSquare(ref GameScreenMap map, int row, int col, int mobIndex)
     {
         // Square table:
         // - Is > $10, then refers to upper left, bottom left, upper right, bottom right.
@@ -116,44 +107,44 @@ internal unsafe partial class World
         // - Each entry is 4 bytes long. 16 entries in total, indexed by values in the primary square table that are less than 16.
         // - Bytes specify tile numbers (in pattern table 1)
 
-        var primary = _squareTable[mobIndex];
+        // var primary = _squareTable[mobIndex];
 
-        if (primary == 0xFF)
-        {
-            var index = mobIndex * 4;
-            var secondaries = _squareTableSecondary;
-            map[row, col] = secondaries[index + 0];
-            map[row, col + 1] = secondaries[index + 2];
-            map[row + 1, col] = secondaries[index + 1];
-            map[row + 1, col + 1] = secondaries[index + 3];
-        }
-        else
-        {
-            map[row, col] = primary;
-            map[row, col + 1] = (byte)(primary + 2);
-            map[row + 1, col] = (byte)(primary + 1);
-            map[row + 1, col + 1] = (byte)(primary + 3);
-        }
+        // if (primary == 0xFF)
+        // {
+        //     var index = mobIndex * 4;
+        //     var secondaries = _squareTableSecondary;
+        //     map[row, col] = secondaries[index + 0];
+        //     map[row, col + 1] = secondaries[index + 2];
+        //     map[row + 1, col] = secondaries[index + 1];
+        //     map[row + 1, col + 1] = secondaries[index + 3];
+        // }
+        // else
+        // {
+        //     map[row, col] = primary;
+        //     map[row, col + 1] = (byte)(primary + 2);
+        //     map[row + 1, col] = (byte)(primary + 1);
+        //     map[row + 1, col + 1] = (byte)(primary + 3);
+        // }
     }
 
-    private void LoadUWMapSquare(ref TileMap map, int row, int col, int mobIndex)
+    private void LoadUWMapSquare(ref GameScreenMap map, int row, int col, int mobIndex)
     {
-        var primary = _squareTable[mobIndex];
-
-        if (primary is < 0x70 or > 0xF2)
-        {
-            map[row, col] = primary;
-            map[row, col + 1] = primary;
-            map[row + 1, col] = primary;
-            map[row + 1, col + 1] = primary;
-        }
-        else
-        {
-            map[row, col] = primary;
-            map[row, col + 1] = (byte)(primary + 2);
-            map[row + 1, col] = (byte)(primary + 1);
-            map[row + 1, col + 1] = (byte)(primary + 3);
-        }
+        // var primary = _squareTable[mobIndex];
+        //
+        // if (primary is < 0x70 or > 0xF2)
+        // {
+        //     map[row, col] = primary;
+        //     map[row, col + 1] = primary;
+        //     map[row + 1, col] = primary;
+        //     map[row + 1, col + 1] = primary;
+        // }
+        // else
+        // {
+        //     map[row, col] = primary;
+        //     map[row, col + 1] = (byte)(primary + 2);
+        //     map[row + 1, col] = (byte)(primary + 1);
+        //     map[row + 1, col + 1] = (byte)(primary + 3);
+        // }
     }
 
     private readonly record struct ColumnRow(byte Desc, bool IsOverworld)
@@ -172,6 +163,7 @@ internal unsafe partial class World
         private readonly int _squareMask = IsOverworld ? OverworldSquareMask : 0x07;
 
         public byte SquareNumber => (byte)(Desc & _squareMask);
+
         public int RepeatCount
         {
             get
@@ -186,20 +178,41 @@ internal unsafe partial class World
         }
     }
 
-    private void LoadLayout(int uniqueRoomId, int tileMapIndex, TileScheme tileScheme)
+    private void LoadLayout(int roomId)
+    {
+        // Needs to be roomId! Move over to roomId object.
+        var screen = _currentMap.Screens[roomId];
+
+        foreach (var actionObject in screen.ActionMapObjects)
+        {
+            var actionFunc = GetTileActionFunction(actionObject.Action);
+            actionObject.GetScreenTileCoordinates(_currentMap, out var tileX, out var tileY);
+            actionObject.GetTileSize(_currentMap, out var tileWidth, out var tileHeight);
+            for (var y = tileY; y < tileY + tileHeight; y += 2)
+            {
+                for (var x = tileX; x < tileX + tileWidth; x += 2)
+                {
+                    actionFunc(tileY, tileX, TileInteraction.Load);
+                }
+            }
+        }
+
+        PatchTileBehaviors();
+    }
+
+    private void LoadLayoutOld(int uniqueRoomId, int tileMapIndex, TileScheme tileScheme)
     {
         var logfn = _traceLog.CreateFunctionLog();
         logfn.Write($"({uniqueRoomId}, {tileMapIndex}, {tileScheme})");
 
         var maxColumnStartOffset = (_colCount / 2 - 1) * _rowCount / 2;
 
-        var map = _tileMaps[tileMapIndex];
+        // var map = _tileMaps[tileMapIndex];
         var rowEnd = _startRow + _rowCount;
 
         var owLayoutFormat = tileScheme is TileScheme.Overworld or TileScheme.UnderworldCellar;
 
-        _loadMapObjectFunc = owLayoutFormat switch
-        {
+        _loadMapObjectFunc = owLayoutFormat switch {
             true => LoadOWMapSquare,
             _ => LoadUWMapSquare
         };
@@ -226,16 +239,16 @@ internal unsafe partial class World
             throw new Exception();
         }
 
-        var columns = _roomCols[uniqueRoomId];
+        // var columns = _roomCols[uniqueRoomId];
 
         for (var columnDescIndex = 0; columnDescIndex < _colCount / 2; columnDescIndex++)
         {
-            var columnDesc = columns.ColumnDesc[columnDescIndex];
+            // var columnDesc = columns.ColumnDesc[columnDescIndex];
 
-            var tableIndex = (byte)((columnDesc & 0xF0) >> 4);
-            var columnIndex = (byte)(columnDesc & 0x0F);
+            var tableIndex =  0; //byte)((columnDesc & 0xF0) >> 4);
+            var columnIndex = 0; //(byte)(columnDesc & 0x0F);
 
-            var columnTable = _colTables.GetItem(tableIndex);
+            ReadOnlySpan<byte> columnTable = []; // _colTables.GetItem(tableIndex);
             var columnStart = GetColumnStart(columnTable, columnIndex, maxColumnStartOffset);
             var column = _startCol + columnDescIndex * 2;
 
@@ -244,16 +257,17 @@ internal unsafe partial class World
                 var columnRow = new ColumnRow(columnTable[columnStart], owLayoutFormat);
                 var squareNumber = columnRow.SquareNumber;
 
-                _loadMapObjectFunc(ref map, rowIndex, column, squareNumber);
+                // _loadMapObjectFunc(ref map, rowIndex, column, squareNumber);
 
-                var attr = _tileAttrs[squareNumber];
+                var attr = (byte)0; // _tileAttrs[squareNumber];
                 var action = owRoomAttrs.IsInQuest(Profile.Quest) ? TileAttr.GetAction(attr) : TileAction.None;
                 TileActionDel? actionFunc = null;
 
                 if (action != TileAction.None)
                 {
-                    logfn.Write($"tileRef:{squareNumber}, attr:{attr:X2}, action:{action}, pos:{rowIndex:X2},{column:X2}");
-                    actionFunc = ActionFuncs[(int)action];
+                    logfn.Write(
+                        $"tileRef:{squareNumber}, attr:{attr:X2}, action:{action}, pos:{rowIndex:X2},{column:X2}");
+                    actionFunc = GetTileActionFunction(action);
                     actionFunc(rowIndex, column, TileInteraction.Load);
                 }
 
@@ -262,7 +276,7 @@ internal unsafe partial class World
                 var repeatCount = columnRow.RepeatCount;
                 for (var m = 0; m < repeatCount && rowIndex < rowEnd; m++)
                 {
-                    _loadMapObjectFunc(ref map, rowIndex, column, squareNumber);
+                    // _loadMapObjectFunc(ref map, rowIndex, column, squareNumber);
                     actionFunc?.Invoke(rowIndex, column, TileInteraction.Load);
                     rowIndex += 2;
                 }
@@ -276,32 +290,35 @@ internal unsafe partial class World
             {
                 for (var c = _startCol; c < _startCol + _colCount; c += 2)
                 {
-                    var tileRef = _tileMaps[_curTileMapIndex].Refs(UWBlockRow, c);
-                    if (tileRef == (byte)BlockObjType.TileBlock)
-                    {
-                        ActionFuncs[(int)TileAction.Block](UWBlockRow, c, TileInteraction.Load);
-                        break;
-                    }
+                    // var tileRef = _tileMaps[_curTileMapIndex].Tile(UWBlockRow, c);
+                    // if (tileRef == (byte)BlockObjType.TileBlock)
+                    // {
+                    //     ActionFuncs[(int)TileAction.Block](UWBlockRow, c, TileInteraction.Load);
+                    //     break;
+                    // }
                 }
             }
         }
 
-        for (var i = 0; i < ScreenRows * ScreenColumns; i++)
+        for (var i = 0; i < ScreenTileHeight * ScreenTileWidth; i++)
         {
-            var t = map.Refs(i);
-            map.Behaviors(i) = _tileBehaviors[t];
+            //  var t = map.Tile(i);
+            //  map.Behaviors(i) = _tileBehaviors[t];
         }
 
         PatchTileBehaviors();
     }
 
-    private void DrawMap(int roomId, int mapIndex, int offsetX, int offsetY)
+    // JOE: TODO: Don't keep doing the array lookup.
+    public GameScreen CurrentScreen => _currentMap.Screens[CurRoomId];
+
+    private void DrawMap(int roomId, int offsetX, int offsetY)
     {
         Graphics.Begin();
 
-        var outerPalette = _roomAttrs[roomId].GetOuterPalette();
-        var innerPalette = _roomAttrs[roomId].GetInnerPalette();
-        var map = _tileMaps[mapIndex];
+        var screen = _currentMap.Screens[roomId];
+        var outerPalette = screen.OuterPalette;
+        var innerPalette = screen.InnerPalette;
 
         if (IsUWCellar(roomId) || IsPlayingCave())
         {
@@ -310,11 +327,11 @@ internal unsafe partial class World
         }
 
         var firstRow = 0;
-        var lastRow = ScreenRows;
+        var lastRow = ScreenTileHeight;
         var tileOffsetY = offsetY;
 
         var firstCol = 0;
-        var lastCol = ScreenColumns;
+        var lastCol = ScreenTileWidth;
         var tileOffsetX = offsetX;
 
         if (offsetY < 0)
@@ -324,7 +341,7 @@ internal unsafe partial class World
         }
         else if (offsetY > 0)
         {
-            lastRow = ScreenRows - offsetY / TileHeight;
+            lastRow = ScreenTileHeight - offsetY / TileHeight;
         }
         else if (offsetX < 0)
         {
@@ -333,7 +350,7 @@ internal unsafe partial class World
         }
         else if (offsetX > 0)
         {
-            lastCol = ScreenColumns - offsetX / TileWidth;
+            lastCol = ScreenTileWidth - offsetX / TileWidth;
         }
 
         var endCol = _startCol + _colCount;
@@ -353,22 +370,18 @@ internal unsafe partial class World
 
         var backgroundSheet = IsOverworld() ? TileSheet.BackgroundOverworld : TileSheet.BackgroundUnderworld;
 
-        for (var row = firstRow; row < lastRow; row++, y += TileHeight)
+        for (var ytile = firstRow; ytile < lastRow; ytile++, y += TileHeight)
         {
-            if (row < _startRow || row >= endRow) continue;
+            if (ytile < _startRow || ytile >= endRow) continue;
 
             var x = tileOffsetX;
-            for (var column = firstCol; column < lastCol; column++, x += TileWidth)
+            for (var xtile = firstCol; xtile < lastCol; xtile++, x += TileWidth)
             {
-                if (column < _startCol || column >= endCol) continue;
+                if (xtile < _startCol || xtile >= endCol) continue;
 
-                var tileRef = map.Refs(row, column);
-                var srcX = (tileRef & 0x0F) * TileWidth;
-                var srcY = ((tileRef & 0xF0) >> 4) * TileHeight;
-
-                var palette = (row is < 4 or >= 18 || column is < 4 or >= 28) ? outerPalette : innerPalette;
-
-                Graphics.DrawTile(backgroundSheet, srcX, srcY, TileWidth, TileHeight, x, y, palette, 0);
+                var tileRef = screen.Map.Tile(xtile, ytile);
+                var palette = (ytile is < 4 or >= 18 || xtile is < 4 or >= 28) ? outerPalette : innerPalette;
+                _currentMap.DrawTile(tileRef, x, y, palette);
             }
         }
 

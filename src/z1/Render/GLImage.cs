@@ -7,6 +7,9 @@ namespace z1.Render;
 
 internal sealed unsafe class GLImage : IDisposable
 {
+    public int Width => _size.Width;
+    public int Height => _size.Height;
+
     private readonly GL _gl;
     private readonly uint _texture;
     private readonly Size _size;
@@ -54,8 +57,8 @@ internal sealed unsafe class GLImage : IDisposable
 
         // Branchless conditional swaps:
         // https://github.com/jlennox/Benchmarks/blob/main/BranchlessSwap.cs
-        var flipHor = -BitOperations.PopCount((uint)(flags & DrawingFlags.FlipHorizontal));
-        var flipVert = -BitOperations.PopCount((uint)(flags & DrawingFlags.FlipVertical));
+        var flipHor = -BitOperations.PopCount((uint)(flags & DrawingFlags.FlipX));
+        var flipVert = -BitOperations.PopCount((uint)(flags & DrawingFlags.FlipY));
 
         var tempSrcX = (flipHor & right) | (~flipHor & srcx);
         var tempRight = (flipHor & srcx) | (~flipHor & right);

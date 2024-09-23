@@ -164,13 +164,13 @@ internal sealed class StatusBar
                 col -= MiniMapColumnOffset;
                 var triforceX = MiniMapX + col * UWMapTileWidth + 2;
                 var triforceY = MiniMapY + baseY + triforceRow * UWMapTileHeight;
-                var palette = Palette.LevelFgPalette;
+                var palette = Palette.SeaPal;
 
                 if (!_world.GotItem(triforceRoomId))
                 {
                     if ((_world.Game.FrameCounter & 0x10) == 0)
                     {
-                        palette = Palette.RedFgPalette;
+                        palette = Palette.Red;
                     }
                 }
 

@@ -46,11 +46,11 @@ internal partial class World
         return nextRoomId;
     }
 
-    private static void GetRoomCoord(int position, out int row, out int col)
+    private static void GetRoomCoord(int position, out int tileY, out int tileX)
     {
-        row = position & 0x0F;
-        col = (position & 0xF0) >> 4;
-        row -= 4;
+        tileY = position & 0x0F;
+        tileX = (position & 0xF0) >> 4;
+        tileY -= 4;
     }
 
     private static Point GetRoomItemPosition(byte position)
@@ -234,6 +234,6 @@ internal partial class World
     private void SetLevelFgPalette()
     {
         var infoBlock = GetLevelInfo();
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, infoBlock.GetPalette((int)Palette.LevelFgPalette));
+        Graphics.SetPaletteIndexed(Palette.SeaPal, infoBlock.GetPalette((int)Palette.SeaPal));
     }
 }

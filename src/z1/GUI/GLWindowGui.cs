@@ -112,6 +112,7 @@ internal static class GLWindowGui
             DrawDisplayMenu(game, window);
             DrawAudioMenu(game);
             DrawEnhancementsMenu(game);
+            DrawDebugMenu(game);
             DrawWarpMenu(game);
             DrawSpawnMenu(game);
             DrawPersonMenu(game);
@@ -374,6 +375,22 @@ internal static class GLWindowGui
             if (ImGui.MenuItem("Money or life")) SpawnPerson(game, PersonType.MoneyOrLife);
             if (ImGui.MenuItem("More bombs")) SpawnPerson(game, PersonType.MoreBombs);
             if (ImGui.MenuItem("Level 9")) SpawnPerson(game, PersonType.EnterLevel9);
+
+            ImGui.EndMenu();
+        }
+    }
+
+
+    private static void DrawDebugMenu(Game game)
+    {
+#if !DEBUG
+        return;
+#endif
+
+        if (ImGui.BeginMenu("Debug"))
+        {
+            if (ImGui.MenuItem("Clear secrets")) game.GameCheats.TriggerCheat<GameCheats.ClearSecretsCheat>();
+            if (ImGui.MenuItem("Clear history")) game.GameCheats.TriggerCheat<GameCheats.ClearHistoryCheat>();
 
             ImGui.EndMenu();
         }

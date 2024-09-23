@@ -32,8 +32,6 @@ internal struct PlayCellarState
         LoadRoom,
         FadeIn,
         Walk,
-
-        MaxSubstate
     }
 
     public Substates Substate;
@@ -56,8 +54,6 @@ internal struct LeaveCellarState
 
         Wait,
         LoadOverworldRoom,
-
-        MaxSubstate
     }
 
     public Substates Substate;
@@ -75,8 +71,6 @@ internal struct PlayCaveState
         Wait,
         LoadRoom,
         Walk,
-
-        MaxSubstate
     }
 
     public Substates Substate;
@@ -96,8 +90,6 @@ internal struct ScrollState
         FadeOut,
         LoadRoom,
         Scroll,
-
-        MaxSubstate
     }
 
     public const int StateTime = 32;
@@ -113,7 +105,6 @@ internal struct ScrollState
     public int OffsetY;
     public int SpeedX;
     public int SpeedY;
-    public int OldTileMapIndex;
     public int OldRoomId;
     public int OldMapToNewMapDistX;
     public int OldMapToNewMapDistY;
@@ -138,8 +129,6 @@ internal struct EnterState
         FadeIn,
         Walk,
         WalkCave,
-
-        MaxSubstate
     }
 
     public const int StateTime = 2;
@@ -205,8 +194,6 @@ internal struct EndLevelState
         Wait2,
         Furl,
         Wait3,
-
-        MaxSubstate
     }
 
     public const int Wait1Time = 0x30;
@@ -236,8 +223,6 @@ internal struct WinGameState
         Hold3,
         NoObjects,
         Credits,
-
-        MaxSubstate
     }
 
     public enum NpcVisualState
@@ -265,8 +250,6 @@ internal struct StairsState
         Start,
         Walk,
         WalkCave,
-
-        MaxSubstate
     }
 
     public Substates Substate;
@@ -277,6 +260,7 @@ internal struct StairsState
     public int PlayerFraction;
     public TileBehavior TileBehavior;
     public SpritePriority PlayerPriority;
+    public GameMapReference MapReference;
 
     public bool HasReachedTarget(Link link) => link.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
 }
@@ -295,8 +279,6 @@ internal struct DeathState
         Spark,
         Wait2,
         GameOver,
-
-        MaxSubstate
     }
 
     public Substates Substate;
@@ -312,8 +294,6 @@ internal struct ContinueState
         Start,
         Idle,
         Chosen,
-
-        MaxSubstate,
     }
 
     public enum Indexes
@@ -356,13 +336,13 @@ internal enum LevelBlock
 internal sealed class RoomHistory
 {
     private readonly Game _game;
-    private readonly byte[] _roomHistory;
+    private readonly int[] _roomHistory;
     private int _nextRoomHistorySlot;
 
     public RoomHistory(Game game, int length)
     {
         _game = game;
-        _roomHistory = new byte[length];
+        _roomHistory = new int[length];
     }
 
     public bool IsRoomInHistory()

@@ -897,7 +897,7 @@ internal sealed class StandingFireActor : MonsterActor
 
     public override void Draw()
     {
-        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.RedFgPalette);
+        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red);
     }
 }
 
@@ -929,7 +929,7 @@ internal sealed class GuardFireActor : MonsterActor
 
     public override void Draw()
     {
-        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.RedFgPalette);
+        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red);
     }
 }
 
@@ -1156,7 +1156,7 @@ internal sealed class PondFairyActor : MonsterActor
         const float angler = -Global.TWO_PI / 85.0f;
 
         var xOffset = (16 - _animator.Animation.Width) / 2;
-        _animator.Draw(TileSheet.PlayerAndItems, PondFairyX + xOffset, PondFairyY, Palette.RedFgPalette);
+        _animator.Draw(TileSheet.PlayerAndItems, PondFairyX + xOffset, PondFairyY, Palette.Red);
 
         if (_pondFairyState != PondFairyState.Healing) return;
 
@@ -1171,7 +1171,7 @@ internal sealed class PondFairyActor : MonsterActor
             var x = (int)(Math.Cos(angle) * radius + PondFairyRingCenterX);
             var y = (int)(Math.Sin(angle) * radius + PondFairyRingCenterY);
 
-            heart.Draw(TileSheet.PlayerAndItems, x, y, Palette.RedFgPalette);
+            heart.Draw(TileSheet.PlayerAndItems, x, y, Palette.Red);
         }
     }
 }
@@ -1841,10 +1841,10 @@ internal sealed class ZoraActor : DigWanderer
             if (ObjTimer == 1)
             {
                 var player = Game.Link;
-                var cell = Game.World.GetRandomWaterTile();
+                var cell = Game.World.CurrentScreen.GetRandomWaterTile();
 
-                X = cell.Col * World.TileWidth;
-                Y = cell.Row * World.TileHeight - 3;
+                X = cell.X * World.TileWidth;
+                Y = cell.Y * World.TileHeight - 3;
 
                 Facing = player.Y >= Y ? Direction.Down : Direction.Up;
             }
@@ -2437,7 +2437,7 @@ internal sealed class KeeseActor : FlyingActor
 
     private static readonly FlyerSpec _blueKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.Blue, 0xC0);
     private static readonly FlyerSpec _redKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.Red, 0xC0);
-    private static readonly FlyerSpec _blackKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.LevelFgPalette, 0xC0);
+    private static readonly FlyerSpec _blackKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.SeaPal, 0xC0);
 
     private KeeseActor(Game game, ObjType type, FlyerSpec spec, int startSpeed, int x, int y)
         : base(game, type, spec, x, y)
@@ -4334,7 +4334,7 @@ internal sealed class AquamentusActor : MonsterActor
 
         _mouthImage = new SpriteImage(TileSheet.Boss1257, AnimationId.B1_Aquamentus_Mouth_Closed);
 
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _palette);
+        Graphics.SetPaletteIndexed(Palette.SeaPal, _palette);
         Graphics.UpdatePalettes();
     }
 
@@ -4504,7 +4504,7 @@ internal sealed class DodongoActor : WandererWalkerActor
         Animator.Time = 0;
         SetWalkAnimation();
 
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _palette);
+        Graphics.SetPaletteIndexed(Palette.SeaPal, _palette);
         Graphics.UpdatePalettes();
     }
 
@@ -4533,7 +4533,7 @@ internal sealed class DodongoActor : WandererWalkerActor
             if ((Game.FrameCounter & 2) == 0) return;
         }
 
-        Animator.Draw(TileSheet.Boss1257, X, Y, Palette.LevelFgPalette);
+        Animator.Draw(TileSheet.Boss1257, X, Y, Palette.SeaPal);
     }
 
     private void SetWalkAnimation()
@@ -5135,7 +5135,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
             Time = 0,
         };
 
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _palette);
+        Graphics.SetPaletteIndexed(Palette.SeaPal, _palette);
         Graphics.UpdatePalettes();
     }
 
@@ -5187,7 +5187,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
 
     public override void Draw()
     {
-        var pal = CalcPalette(Palette.LevelFgPalette);
+        var pal = CalcPalette(Palette.SeaPal);
 
         if (_updateBig)
         {
@@ -5273,7 +5273,7 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
 
     public override void Draw()
     {
-        var pal = CalcPalette(Palette.LevelFgPalette);
+        var pal = CalcPalette(Palette.SeaPal);
         _animator.Draw(TileSheet.Boss1257, X, Y, pal);
     }
 }

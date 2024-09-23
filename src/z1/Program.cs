@@ -1,4 +1,5 @@
 ﻿global using z1.Common;
+global using z1.Common.Data;
 
 using z1.GUI;
 
@@ -15,6 +16,8 @@ namespace z1;
 // Known tiled map issues:
 // * Q1 level 7 recorder spot isn't marked as first quest only.
 // * Somethings that shouldn't merge are still merging. Notably, overworld q6 entrance.
+// * Make recorder destinations spots on the map: ReadOnlySpan<int> teleportYs = [0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D];
+// * Add IsEntrance for main overworld spot and dungeon spots. Add EntersTo and a way to add parameters.
 
 // Milestone 1:
 // * Coming out of stairs into spiral room spawns you in a bad spot: Example in 9, up 2, left 2.

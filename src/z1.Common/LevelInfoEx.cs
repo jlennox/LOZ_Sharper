@@ -62,7 +62,7 @@ public enum CaveSpecOptions
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum CaveType { Items = 0x79, Shortcut = 0x7A, }
+public enum CaveType { None = 0, Items = 0x79, Shortcut = 0x7A, }
 
 public sealed class CaveSpec
 {

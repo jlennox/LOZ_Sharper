@@ -5,5 +5,9 @@
   <PropertyGroup>
     <Platforms>x86;x64</Platforms>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="2.88.8" />
+  </ItemGroup>
 
 </Project>

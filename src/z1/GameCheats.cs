@@ -298,12 +298,26 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class ClearHistoryCheat() : SingleWordCheat("clearhis", true)
+    public sealed class ClearHistoryCheat() : SingleWordCheat("idclearhis", true)
     {
         public override void RunPayload(Game game, string[] args)
         {
             game.World.DebugClearHistory();
             game.Toast("History cleared.");
+        }
+    }
+
+    public sealed class ClearSecretsCheat() : SingleWordCheat("idclearsec", true)
+    {
+        public override void RunPayload(Game game, string[] args)
+        {
+            foreach (var flag in game.World.Profile.RoomFlags)
+            {
+                flag.SecretState = false;
+                flag.ShortcutState = false;
+                flag.ItemState = false;
+            }
+            game.Toast("Secrets cleared.");
         }
     }
 
@@ -379,6 +393,7 @@ internal sealed class GameCheats
         new CaveSpawnCheat(),
         new GodModeCheat(),
         new ItemCheat(),
+        new ClearSecretsCheat(),
         new ClearHistoryCheat(),
         new ItemsCheat(),
         new MyPosCheat(),

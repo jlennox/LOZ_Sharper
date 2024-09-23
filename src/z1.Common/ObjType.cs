@@ -383,3 +383,75 @@ public enum SongId
 
     MAX
 }
+
+public enum BlockObjType
+{
+    Cave = 0x0C,
+    Ground = 0x0E,
+    Stairs = 0x12,
+    Rock = 0x13,
+    Headstone = 0x14,
+
+    Block = 0,
+    Tile = 1,
+    UnderworldStairs = 4,
+
+    TileRock = 0xC8,
+    TileHeadstone = 0xBC,
+    TileBlock = 0xB0,
+    TileWallEdge = 0xF6,
+}
+
+public enum TileBehavior
+{
+    None = -1,
+
+    GenericWalkable,
+    Sand,
+    SlowStairs,
+    Stairs,
+
+    Doorway,
+    Water,
+    GenericSolid,
+    Cave,
+    Ghost0,
+    Ghost1,
+    Ghost2,
+    Ghost3,
+    Ghost4,
+    Ghost5,
+    Ghost6,
+    Ghost7,
+    Ghost8,
+    Ghost9,
+    GhostA,
+    GhostB,
+    GhostC,
+    GhostD,
+    GhostE,
+    GhostF,
+    Armos0,
+    Armos1,
+    Armos2,
+    Armos3,
+    Armos4,
+    Armos5,
+    Armos6,
+    Armos7,
+    Armos8,
+    Armos9,
+    ArmosA,
+    ArmosB,
+    ArmosC,
+    ArmosD,
+    ArmosE,
+    ArmosF,
+    Door,
+    Wall,
+
+    Max,
+
+    FirstWalkable = GenericWalkable,
+    FirstSolid = Doorway,
+}

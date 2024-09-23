@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
+using z1.Common.Data;
+using z1.Render;
 
 namespace z1;
 
@@ -193,5 +195,12 @@ internal static class Extensions
         }
     }
 
-    public static Point ToPoint(this PointXY point) => new(point.X, point.Y);
+    public static Point ToPoint(this PointXY? point) => point == null ? default : new(point.X, point.Y);
+
+    public static DrawingFlags GetDrawingFlags(this TiledTile tile)
+    {
+        var a = tile.IsFlippedX ? DrawingFlags.FlipX : 0;
+        var b = tile.IsFlippedY ? DrawingFlags.FlipY : 0;
+        return a | b;
+    }
 }

@@ -47,39 +47,39 @@ internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette
         new(AnimationId.BombItem, Palette.Blue),
         new(AnimationId.SwordItem, Palette.Player),
         new(AnimationId.SwordItem, Palette.Blue),
-        new(AnimationId.MSwordItem, Palette.Red),
-        new(AnimationId.FleshItem, Palette.Red),
-        new(AnimationId.RecorderItem, Palette.Red),
+        new(AnimationId.MSwordItem, Palette.RedBackground),
+        new(AnimationId.FleshItem, Palette.RedBackground),
+        new(AnimationId.RecorderItem, Palette.RedBackground),
         new(AnimationId.CandleItem, Palette.Blue),
-        new(AnimationId.CandleItem, Palette.Red),
+        new(AnimationId.CandleItem, Palette.RedBackground),
         new(AnimationId.ArrowItem, Palette.Player),
         new(AnimationId.ArrowItem, Palette.Blue),
         new(AnimationId.BowItem, Palette.Player),
-        new(AnimationId.MKeyItem, Palette.Red),
+        new(AnimationId.MKeyItem, Palette.RedBackground),
         new(AnimationId.Raft, Palette.Player),
         new(AnimationId.Ladder, Palette.Player),
-        new(AnimationId.PowerTriforce, Palette.Red, true),
+        new(AnimationId.PowerTriforce, Palette.RedBackground, true),
         new(AnimationId.RuppeeItem, Palette.Blue),
         new(AnimationId.WandItem, Palette.Blue),
-        new(AnimationId.BookItem, Palette.Red),
+        new(AnimationId.BookItem, Palette.RedBackground),
         new(AnimationId.RingItem, Palette.Blue),
-        new(AnimationId.RingItem, Palette.Red),
-        new(AnimationId.BraceletItem, Palette.Red),
+        new(AnimationId.RingItem, Palette.RedBackground),
+        new(AnimationId.BraceletItem, Palette.RedBackground),
         new(AnimationId.MapItem, Palette.Blue),
-        new(AnimationId.Compass, Palette.Red),
-        new(AnimationId.MapItem, Palette.Red),
-        new(AnimationId.RuppeeItem, Palette.Red, true),
-        new(AnimationId.KeyItem, Palette.Red),
-        new(AnimationId.HeartContainer, Palette.Red),
-        new(AnimationId.TriforcePiece, Palette.Red, true),
+        new(AnimationId.Compass, Palette.RedBackground),
+        new(AnimationId.MapItem, Palette.RedBackground),
+        new(AnimationId.RuppeeItem, Palette.RedBackground, true),
+        new(AnimationId.KeyItem, Palette.RedBackground),
+        new(AnimationId.HeartContainer, Palette.RedBackground),
+        new(AnimationId.TriforcePiece, Palette.RedBackground, true),
         new(AnimationId.MShieldItem, Palette.Player),
         new(AnimationId.Boomerang, Palette.Player),
         new(AnimationId.Boomerang, Palette.Blue),
         new(AnimationId.BottleItem, Palette.Blue),
-        new(AnimationId.BottleItem, Palette.Red),
-        new(AnimationId.Clock, Palette.Red),
-        new(AnimationId.Heart, Palette.Red, true),
-        new(AnimationId.Fairy, Palette.Red),
+        new(AnimationId.BottleItem, Palette.RedBackground),
+        new(AnimationId.Clock, Palette.RedBackground),
+        new(AnimationId.Heart, Palette.RedBackground, true),
+        new(AnimationId.Fairy, Palette.RedBackground),
     ];
 }
 
@@ -329,7 +329,7 @@ internal static class GlobalFunctions
                 _ => Chars.EmptyHeart,
             };
 
-            DrawChar((byte)tile, x, y, Palette.RedBgPalette);
+            DrawChar((byte)tile, x, y, Palette.RedBackground);
 
             x += 8;
             if ((i % 8) == 7)
@@ -343,7 +343,7 @@ internal static class GlobalFunctions
     public static void SetPilePalette()
     {
         ReadOnlySpan<byte> palette = [0, 0x27, 0x06, 0x16];
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, palette);
+        Graphics.SetPaletteIndexed(Palette.SeaPal, palette);
     }
 
     public static void PlayItemSound(Game game, ItemId itemId)

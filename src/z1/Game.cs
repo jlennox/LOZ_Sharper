@@ -26,7 +26,7 @@ internal sealed class Game
     public Input Input { get; }
     public GameCheats GameCheats { get; }
     public GameConfiguration Configuration { get; } = SaveFolder.Configuration;
-    public Random Random { get; } = new();
+    public Random Random { get; } = new(); // Do not use for things like particle effects, this is the seedable random.
     public OnScreenDisplay OnScreenDisplay { get; } = new();
     public DebugInfo DebugInfo { get; }
     public PregameMenu Menu { get; }

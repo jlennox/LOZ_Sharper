@@ -351,7 +351,7 @@ internal sealed class EliminateMenu : Menu
         {
             y = 0x78 + (_selectedIndex - 3) * 16;
         }
-        GlobalFunctions.DrawChar(Chars.FullHeart, 0x44, y, Palette.LevelFgPalette);
+        GlobalFunctions.DrawChar(Chars.FullHeart, 0x44, y, Palette.SeaPal);
 
         Graphics.End();
     }

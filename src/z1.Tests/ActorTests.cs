@@ -47,7 +47,7 @@ internal class NumberToStringTests
 }
 
 [TestFixture]
-internal class ScreenZeldaMapObjectTests
+internal class ScreenGameMapObjectTests
 {
     [Test]
     [TestCase(null, new ObjType[] { })]
@@ -56,10 +56,29 @@ internal class ScreenZeldaMapObjectTests
     [TestCase("RedDarknut*3", new[] { ObjType.RedDarknut, ObjType.RedDarknut, ObjType.RedDarknut })]
     [TestCase("   RedDarknut  *  3  ", new[] { ObjType.RedDarknut, ObjType.RedDarknut, ObjType.RedDarknut })]
     [TestCase(" RedDarknut*3 , BlueDarknut  *  2 ", new[] { ObjType.RedDarknut, ObjType.RedDarknut, ObjType.RedDarknut, ObjType.BlueDarknut, ObjType.BlueDarknut })]
-    public void EnsureScreenZeldaMapObjectIsCreated(string? monsterList, ObjType[] expected)
+    public void EnsureScreenMapObjectIsCreated(string? monsterList, ObjType[] expected)
     {
-        var actual = ScreenZeldaMapObject.ParseMonsters(monsterList);
+        var actual = ScreenGameMapObject.ParseMonsters(monsterList, out _);
         Assert.That(actual, Is.EqualTo(expected));
+    }
+}
+
+[TestFixture]
+internal class PointsParser
+{
+    [Test]
+    public void EnsurePointListsAreParsedCorrectly()
+    {
+        foreach (var (s, expected) in new (string, Point[])[] {
+            ("(0,0)", [new Point(0, 0)]),
+            ("(0,0),(1,1)", [new Point(0, 0), new Point(1, 1)]),
+            ("(0,0), (  1  ,  1  ), (2,2)", [new Point(0, 0), new Point(1, 1), new Point(2, 2)]),
+            ("   (1,0)  , (1,6)  , (2,77)  , (3,10)   ", [new Point(1, 0), new Point(1, 6), new Point(2, 77), new Point(3, 10)]),
+        })
+        {
+            var actual = GameTileSet.ParsePointsString(s).ToArray();
+            Assert.That(actual, Is.EqualTo(expected));
+        }
     }
 }
 

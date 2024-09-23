@@ -1,0 +1,68 @@
+﻿namespace z1.Common.Data;
+
+public ref struct StringParser
+{
+    public int Index { get; set; }
+
+    public void SkipOptionalWhiteSpace(ReadOnlySpan<char> s)
+    {
+        for (; Index < s.Length && s[Index] == ' ';) Index++;
+    }
+
+    public int ExpectInt(ReadOnlySpan<char> s)
+    {
+        if (Index >= s.Length) throw new Exception($"Unexpected end of string at position in \"{s}\", expected number.");
+        var start = Index;
+        var length = 0;
+
+        if (s[Index] is '+' or '-')
+        {
+            Index++;
+            length++;
+        }
+
+        while (Index < s.Length && s[Index] is >= '0' and <= '9')
+        {
+            Index++;
+            length++;
+        }
+
+        if (length == 0) throw new Exception($"Unexpected number at position {Index} in \"{s}\"");
+        SkipOptionalWhiteSpace(s);
+        return int.Parse(s.Slice(start, length));
+    }
+
+    public void ExpectChar(ReadOnlySpan<char> s, char chr)
+    {
+        if (Index >= s.Length) throw new Exception($"Unexpected end of string at position in \"{s}\", expected character \"{chr}\".");
+        var actual = s[Index];
+        if (actual != chr) throw new Exception($"Unexpected char \"{actual}\" at position {Index} in \"{s}\"");
+        Index++;
+        SkipOptionalWhiteSpace(s);
+    }
+
+    public bool TryExpectChar(ReadOnlySpan<char> s, char chr)
+    {
+        if (Index >= s.Length) return false;
+        if (s[Index] != chr) return false;
+        Index++;
+        SkipOptionalWhiteSpace(s);
+        return true;
+    }
+
+    public ReadOnlySpan<char> ExpectWord(ReadOnlySpan<char> s)
+    {
+        if (Index >= s.Length) throw new Exception($"Unexpected end of string at position in \"{s}\", expected word.");
+        var start = Index;
+        var length = 0;
+        while (Index < s.Length && char.IsLetter(s[Index]))
+        {
+            Index++;
+            length++;
+        }
+
+        if (length == 0) throw new Exception($"Expected word at position {Index} in \"{s}\"");
+        SkipOptionalWhiteSpace(s);
+        return s.Slice(start, length);
+    }
+}

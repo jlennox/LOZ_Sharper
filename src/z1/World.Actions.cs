@@ -49,7 +49,10 @@ internal partial class World
         { ItemId.MaxBombs,       new EquipValue(ItemSlot.MaxBombs,        4) },
     }.ToImmutableDictionary();
 
-    private readonly record struct DoorStateBehaviors(TileBehavior Closed, TileBehavior Open);
+    private readonly record struct DoorStateBehaviors(TileBehavior Closed, TileBehavior Open)
+    {
+        public TileBehavior GetBehavior(bool isOpen) => isOpen ? Open : Closed;
+    }
 
     private static readonly ImmutableArray<DoorStateBehaviors> _doorBehaviors = [
         new DoorStateBehaviors(TileBehavior.Doorway, TileBehavior.Doorway),     // Open
@@ -105,22 +108,25 @@ internal partial class World
         new Cell(0x00, 0x0F)
     ];
 
-    private delegate void TileActionDel(int row, int col, TileInteraction interaction);
+    private delegate void TileActionDel(int tileY, int tileX, TileInteraction interaction);
 
-    private ImmutableArray<TileActionDel> ActionFuncs => [
-        NoneTileAction,
-        PushTileAction,
-        BombTileAction,
-        BurnTileAction,
-        HeadstoneTileAction,
-        LadderTileAction,
-        RaftTileAction,
-        CaveTileAction,
-        StairsTileAction,
-        GhostTileAction,
-        ArmosTileAction,
-        BlockTileAction
-    ];
+    private TileActionDel GetTileActionFunction(TileAction action) => action switch
+    {
+        TileAction.None => NoneTileAction,
+        TileAction.Push => PushTileAction,
+        TileAction.Bomb => BombTileAction,
+        TileAction.Burn => BurnTileAction,
+        TileAction.Headstone => HeadstoneTileAction,
+        TileAction.Ladder => LadderTileAction,
+        TileAction.Raft => RaftTileAction,
+        TileAction.Cave => CaveTileAction,
+        TileAction.Stairs => StairsTileAction,
+        TileAction.Ghost => GhostTileAction,
+        TileAction.Armos => ArmosTileAction,
+        TileAction.Block => BlockTileAction,
+        TileAction.Recorder => RecorderTileAction,
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown action type.")
+    };
 
     private ImmutableArray<TileActionDel> BehaviorFuncs => [
         NoneTileAction,

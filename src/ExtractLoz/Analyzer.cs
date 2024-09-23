@@ -16,6 +16,9 @@ namespace ExtractLoz
         public byte[] roomCols;
         public ushort[] colTablePtrs;
         public byte[] colTables;
+        public byte[][] roomCols2;
+        public TableResource<byte> Table;
+        public RoomCols[] RoomCols;
     }
 
     class Analyzer

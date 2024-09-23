@@ -31,24 +31,6 @@ internal sealed class LadderActor : Actor
     }
 }
 
-internal enum BlockObjType
-{
-    MobCave = 0x0C,
-    MobGround = 0x0E,
-    MobStairs = 0x12,
-    MobRock = 0x13,
-    MobHeadstone = 0x14,
-
-    MobBlock = 0,
-    MobTile = 1,
-    MobUWStairs = 4,
-
-    TileRock = 0xC8,
-    TileHeadstone = 0xBC,
-    TileBlock = 0xB0,
-    TileWallEdge = 0xF6,
-}
-
 internal abstract class BlockObjBase : Actor
 {
     private static readonly DebugLog _log = new(nameof(BlockObjBase));
@@ -80,7 +62,7 @@ internal abstract class BlockObjBase : Actor
     {
         if (_curUpdate == UpdateMoving)
         {
-            Graphics.DrawStripSprite16X16(_tileSheet, BlockTile, X, Y, Game.World.GetInnerPalette());
+            Graphics.DrawStripSprite16X16(_tileSheet, BlockTile, X, Y, Game.World.CurrentScreen.InnerPalette);
         }
     }
 
@@ -94,8 +76,8 @@ internal abstract class BlockObjBase : Actor
         var playerX = player.X;
         var playerY = player.Y + 3;
 
-        if (Math.Abs(playerX - X) < World.MapObjectTileWidth
-            && Math.Abs(playerY - Y) < World.MapObjectTileHeight)
+        if (Math.Abs(playerX - X) < World.BlockWidth
+            && Math.Abs(playerY - Y) < World.BlockHeight)
         {
             _log.Write(nameof(CheckCollision), $"Blocked {X:X2},{Y:X2}");
             return CollisionResponse.Blocked;
@@ -136,8 +118,8 @@ internal abstract class BlockObjBase : Actor
         var playerY = player.Y + 3;
 
         var pushed = dir.IsVertical()
-            ? X == playerX && Math.Abs(Y - playerY) <= World.MapObjectTileHeight
-            : Y == playerY && Math.Abs(X - playerX) <= World.MapObjectTileWidth;
+            ? X == playerX && Math.Abs(Y - playerY) <= World.BlockHeight
+            : Y == playerY && Math.Abs(X - playerX) <= World.BlockWidth;
 
         if (!pushed)
         {
@@ -150,13 +132,13 @@ internal abstract class BlockObjBase : Actor
         {
             TargetPos = dir switch
             {
-                Direction.Right => X + World.MapObjectTileWidth,
-                Direction.Left => X - World.MapObjectTileWidth,
-                Direction.Down => Y + World.MapObjectTileHeight,
-                Direction.Up => Y - World.MapObjectTileHeight,
+                Direction.Right => X + World.BlockWidth,
+                Direction.Left => X - World.BlockWidth,
+                Direction.Down => Y + World.BlockHeight,
+                Direction.Up => Y - World.BlockHeight,
                 _ => TargetPos
             };
-            Game.World.SetMobXY(X, Y, FloorMob1);
+            Game.World.SetMapObjectXY(X, Y, FloorMob1);
             Facing = dir;
             OrigX = X;
             OrigY = Y;
@@ -176,8 +158,8 @@ internal abstract class BlockObjBase : Actor
         if (done)
         {
             Game.World.OnPushedBlock();
-            Game.World.SetMobXY(X, Y, BlockMob);
-            Game.World.SetMobXY(OrigX, OrigY, FloorMob2);
+            Game.World.SetMapObjectXY(X, Y, BlockMob);
+            Game.World.SetMapObjectXY(OrigX, OrigY, FloorMob2);
             Delete();
         }
     }
@@ -188,9 +170,9 @@ internal sealed class RockObj : BlockObjBase
     public RockObj(Game game, int x, int y) : base(game, ObjType.Rock, WorldLevel.Overworld, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.TileRock;
-    protected override BlockObjType BlockMob => BlockObjType.MobRock;
-    protected override BlockObjType FloorMob1 => BlockObjType.MobGround;
-    protected override BlockObjType FloorMob2 => BlockObjType.MobGround;
+    protected override BlockObjType BlockMob => BlockObjType.Rock;
+    protected override BlockObjType FloorMob1 => BlockObjType.Ground;
+    protected override BlockObjType FloorMob2 => BlockObjType.Ground;
     protected override int TimerLimit => 1;
     protected override bool AllowHorizontal => false;
 }
@@ -200,9 +182,9 @@ internal sealed class HeadstoneObj : BlockObjBase
     public HeadstoneObj(Game game, int x, int y) : base(game, ObjType.Headstone, WorldLevel.Overworld, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.TileHeadstone;
-    protected override BlockObjType BlockMob => BlockObjType.MobHeadstone;
-    protected override BlockObjType FloorMob1 => BlockObjType.MobGround;
-    protected override BlockObjType FloorMob2 => BlockObjType.MobStairs;
+    protected override BlockObjType BlockMob => BlockObjType.Headstone;
+    protected override BlockObjType FloorMob1 => BlockObjType.Ground;
+    protected override BlockObjType FloorMob2 => BlockObjType.Stairs;
     protected override int TimerLimit => 1;
     protected override bool AllowHorizontal => false;
 }
@@ -212,9 +194,9 @@ internal sealed class BlockObj : BlockObjBase
     public BlockObj(Game game, int x, int y) : base(game, ObjType.Block, WorldLevel.Underworld, x, y) { }
 
     protected override byte BlockTile => (byte)BlockObjType.TileBlock;
-    protected override BlockObjType BlockMob => (byte)BlockObjType.MobBlock;
-    protected override BlockObjType FloorMob1 => BlockObjType.MobTile;
-    protected override BlockObjType FloorMob2 => BlockObjType.MobTile;
+    protected override BlockObjType BlockMob => (byte)BlockObjType.Block;
+    protected override BlockObjType FloorMob1 => BlockObjType.Tile;
+    protected override BlockObjType FloorMob2 => BlockObjType.Tile;
     protected override int TimerLimit => 17;
     protected override bool AllowHorizontal => true;
 }
@@ -315,7 +297,7 @@ internal sealed class FireActor : Actor
 
     public override void Draw()
     {
-        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.RedFgPalette);
+        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red);
     }
 }
 
@@ -338,7 +320,7 @@ internal sealed class TreeActor : Actor
             // JOE: TODO: This is repeated a lot. Make generic.
             if (Math.Abs(fire.X - X) >= 16 || Math.Abs(fire.Y - Y) >= 16) continue;
 
-            Game.World.SetMobXY(X, Y, BlockObjType.MobStairs);
+            Game.World.SetMapObjectXY(X, Y, BlockObjType.Stairs);
             Game.World.TakeSecret();
             Game.Sound.PlayEffect(SoundEffect.Secret);
             Game.World.Profile.Statistics.TreesBurned++;
@@ -426,7 +408,7 @@ internal sealed class BombActor : Actor
         if (BombState == BombState.Ticking)
         {
             var offset = (16 - _animator.Animation.Width) / 2;
-            _animator.Draw(TileSheet.PlayerAndItems, X + offset, Y, Palette.BlueFgPalette);
+            _animator.Draw(TileSheet.PlayerAndItems, X + offset, Y, Palette.Blue);
             return;
         }
 
@@ -437,7 +419,7 @@ internal sealed class BombActor : Actor
             _animator.Draw(
                 TileSheet.PlayerAndItems,
                 X + positions[i].X, Y + positions[i].Y,
-                Palette.BlueFgPalette);
+                Palette.Blue);
         }
     }
 }
@@ -459,7 +441,7 @@ internal sealed class RockWallActor : Actor
             // TODO: This is repeated a lot. Make generic.
             if (Math.Abs(bomb.X - X) >= 16 || Math.Abs(bomb.Y - Y) >= 16) continue;
 
-            Game.World.SetMobXY(X, Y, BlockObjType.MobCave);
+            Game.World.SetMapObjectXY(X, Y, BlockObjType.Cave);
             Game.World.TakeSecret();
             Game.Sound.PlayEffect(SoundEffect.Secret);
             Game.World.Profile.Statistics.OWBlocksBombed++;
@@ -621,7 +603,7 @@ internal sealed class PlayerSwordActor : Actor
         if (State is <= 0 or >= LastSwordState) return;
 
         var weaponValue = Game.World.GetItem(ItemSlot.Sword);
-        var palette = ObjType == ObjType.Rod ? Palette.BlueFgPalette : (Palette.Player + weaponValue - 1);
+        var palette = ObjType == ObjType.Rod ? Palette.Blue : (Palette.Player + weaponValue - 1);
         var xOffset = (16 - _image.Animation.Width) / 2;
         _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y, palette);
     }

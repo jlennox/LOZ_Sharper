@@ -20,8 +20,8 @@ internal static class SKBitmapExtensions
 
     public static SKBitmap Extract(this SKBitmap bitmap, int x, int y, int width, int height, SKPaint? paint = null, DrawingFlags flags = DrawingFlags.None)
     {
-        var flip = flags.HasFlag(DrawingFlags.FlipVertical);
-        var mirror = flags.HasFlag(DrawingFlags.FlipHorizontal);
+        var flip = flags.HasFlag(DrawingFlags.FlipY);
+        var mirror = flags.HasFlag(DrawingFlags.FlipX);
 
         var dest = new SKBitmap(width, height, bitmap.ColorType, SKAlphaType.Unpremul);
         using var canvas = new SKCanvas(dest);

@@ -440,7 +440,7 @@ internal sealed class GleeokActor : MonsterActor
             _necks.Add(new GleeokNeck(game, this, i));
         }
 
-        Graphics.SetPaletteIndexed(Palette.LevelFgPalette, _palette);
+        Graphics.SetPaletteIndexed(Palette.SeaPal, _palette);
         Graphics.UpdatePalettes();
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance);

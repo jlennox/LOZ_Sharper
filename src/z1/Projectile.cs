@@ -189,10 +189,10 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
                 var bottom = Y + 2 + d + yOffset;
 
                 _image.Draw(TileSheet.PlayerAndItems, left, top, palette);
-                _image.Draw(TileSheet.PlayerAndItems, right, top, palette, DrawingFlags.FlipHorizontal);
-                _image.Draw(TileSheet.PlayerAndItems, left, bottom, palette, DrawingFlags.FlipVertical);
+                _image.Draw(TileSheet.PlayerAndItems, right, top, palette, DrawingFlags.FlipX);
+                _image.Draw(TileSheet.PlayerAndItems, left, bottom, palette, DrawingFlags.FlipY);
                 _image.Draw(TileSheet.PlayerAndItems, right, bottom, palette,
-                    DrawingFlags.FlipHorizontal | DrawingFlags.FlipVertical);
+                    DrawingFlags.FlipX | DrawingFlags.FlipY);
             }
         }
     }
@@ -647,7 +647,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
             itemValue = 1;
         }
 
-        var pal = _state == BoomerangState.Unknown2 ? Palette.RedFgPalette : (Palette.Player + itemValue - 1);
+        var pal = _state == BoomerangState.Unknown2 ? Palette.Red : (Palette.Player + itemValue - 1);
         var xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
         _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal);
     }
@@ -809,7 +809,7 @@ internal sealed class ArrowProjectile : Projectile
     {
         ReadOnlySpan<int> yOffsets = [3, 3, 0, 0];
 
-        var pal = Palette.BlueFgPalette;
+        var pal = Palette.Blue;
 
         if (State != ProjectileState.Spark)
         {
@@ -820,7 +820,7 @@ internal sealed class ArrowProjectile : Projectile
             }
             else
             {
-                pal = Palette.RedFgPalette;
+                pal = Palette.Red;
             }
         }
 
