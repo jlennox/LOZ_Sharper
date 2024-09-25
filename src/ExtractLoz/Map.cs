@@ -316,7 +316,7 @@ internal sealed class MapExtractor
     public unsafe TileMap LoadLayout(
         int roomId, bool isOverworld, out ActionableTiles[] actions)
     {
-        var isCellar = _resources.IsCellarRoom2(isOverworld, roomId);
+        var isCellar = _resources.IsCellarRoom(isOverworld, roomId);
         var resources = (isCellar ? _resources.CellarResources : _resources) ?? throw new Exception();
         _colCount = resources.RoomContext.ColCount;
         _rowCount = resources.RoomContext.RowCount;
@@ -591,7 +591,7 @@ internal sealed class MapExtractor
 
     public TiledTile[] DrawMap(TileMap map, bool isOverworld, int roomId, int offsetX, int offsetY)
     {
-        var isCellar = _resources.IsCellarRoom2(isOverworld, roomId);
+        var isCellar = _resources.IsCellarRoom(isOverworld, roomId);
         var resources = (isCellar ? _resources.CellarResources : _resources) ?? throw new Exception();
 
         var roomAttrs = resources.RoomAttrs[roomId];
