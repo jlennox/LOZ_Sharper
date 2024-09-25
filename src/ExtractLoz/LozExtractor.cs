@@ -528,7 +528,7 @@ public partial class LozExtractor
     private const int UWCellarPrimarySquareTable = 0x1697C + 16;
     private const int UWCellarSecondarySquareTable = 0x169B4 + 16;
 
-    private static void ExtractUnderworldCellarMobs(Options options, BinaryReader reader)
+    private static (byte[] Primary, byte[] Secondary) ExtractUnderworldCellarMobs(Options options, BinaryReader reader)
     {
         reader.BaseStream.Position = UWCellarPrimarySquareTable;
         var primaries = reader.ReadBytes(56);
@@ -546,6 +546,8 @@ public partial class LozExtractor
         var secondaries = reader.ReadBytes(16 * 4);       // 16 squares, 4 8x8 tiles each
 
         WriteListFile(options, "uwCellarSecondaryMobs.list", secondaries);
+
+        return (primaries, secondaries);
     }
 
     private static void ExtractUnderworldCellarTilesDebug(BinaryReader reader, Bitmap bmp)
@@ -1326,7 +1328,7 @@ public partial class LozExtractor
         return options.Files["underworldTileAttrs.dat"];
     }
 
-    private static void ExtractUnderworldCellarTileAttrs(Options options)
+    private static byte[] ExtractUnderworldCellarTileAttrs(Options options)
     {
         int[] tileAttrs = new int[56];
         var tileActions = new TileAction[56];
@@ -1388,6 +1390,8 @@ public partial class LozExtractor
 
             Utility.PadStream(writer.BaseStream);
         }
+
+        return options.Files["underworldCellarTileAttrs.dat"];
     }
 
     private static ReadOnlySpan<byte> ExtractUnderworldTileBehaviors(Options options, BinaryReader reader)
@@ -1458,8 +1462,6 @@ public partial class LozExtractor
     private const int OWRoomCols = 0x15418 + 16;
     private const int OWColDir = 0x19D0F + 16;
     private const int OWColTables = 0x15BD8 + 16;
-
-
 
     private const int UWRoomCols = 0x160DE + 16;
     private const int UWColDir = 0x16704 + 16;
@@ -1534,7 +1536,7 @@ public partial class LozExtractor
     private const int UWCellarRoomCols = 0x163B4 + 16;
     private const int UWCellarColTables = 0x163D4 + 16;
 
-    private static void ExtractUnderworldCellarMap(Options options)
+    private static MapLayout ExtractUnderworldCellarMap(Options options)
     {
         byte[] roomCols = null;
         ushort[] colTablePtrs = null;
@@ -1570,6 +1572,21 @@ public partial class LozExtractor
 
             Utility.PadStream(writer.BaseStream);
         }
+
+        const int uniqueRoomCount = 2;
+
+        return new MapLayout
+        {
+            uniqueRoomCount = uniqueRoomCount,
+            columnsInRoom = 12,
+            rowsInRoom = 7,
+            owLayoutFormat = false,
+            roomCols = roomCols,
+            colTablePtrs = colTablePtrs,
+            colTables = colTables,
+            Table = TableResource<byte>.Load(options.Files[filePath]),
+            RoomCols = ListResource<RoomCols>.LoadList(options.Files["underworldCellarRoomCols.dat"], uniqueRoomCount).ToArray()
+        };
     }
 
     private static void AnalyzeUniqueLayouts(Options options)

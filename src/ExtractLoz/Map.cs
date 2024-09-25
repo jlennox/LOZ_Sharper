@@ -11,8 +11,8 @@ internal sealed class World
     public const int MobColumns = 16;
     public const int ScreenRows = 22;
     public const int ScreenColumns = 32;
-    public const int MobTileWidth = 16;
-    public const int MobTileHeight = 16;
+    public const int BlockWidth = 16;
+    public const int BlockHeight = 16;
     public const int TileWidth = 8;
     public const int TileHeight = 8;
     public const int TileMapWidth = ScreenColumns * TileWidth;
@@ -253,7 +253,9 @@ internal sealed class TileMap
 
 internal sealed class MapExtractor
 {
-    private delegate void LoadMobDelegate(ref TileMap map, int row, int col, int squareIndex);
+    private readonly MapResources _resources;
+
+    private delegate void LoadMobDelegate(ref TileMap map, MapResources resources, int row, int col, int squareIndex);
 
     public record ActionableTiles(
         int X, int Y, int Height, int Width, int QuestId, TileAction Action,
@@ -296,14 +298,6 @@ internal sealed class MapExtractor
         public ActionableTiles ExpandWidth() => this with { Width = Width + 1 };
     }
 
-    private readonly TableResource<byte> _sparseTable;
-    private readonly RoomAttr[] _roomAttributes;
-    private readonly LevelInfoBlock _infoBlock;
-    private readonly byte[] _owTable;
-    private readonly byte[] _owTable2;
-    private readonly byte[][] _roomCols;
-    private readonly byte[] _tileAttrs;
-
     private int _rowCount;
     private int _colCount;
     private int _startRow;
@@ -314,35 +308,30 @@ internal sealed class MapExtractor
     private int _marginBottom;
     private int _marginTop;
 
-    public MapExtractor(
-        TableResource<byte> sparseTable, RoomAttr[] roomAttributes, LevelInfoBlock infoBlock,
-        byte[] owTable, byte[] owTable2,
-        byte[][] roomCols, byte[] tileAttributes)
+    public MapExtractor(MapResources resources)
     {
-        _sparseTable = sparseTable;
-        _roomAttributes = roomAttributes;
-        _infoBlock = infoBlock;
-        _owTable = owTable;
-        _owTable2 = owTable2;
-        _roomCols = roomCols;
-        _tileAttrs = tileAttributes;
+        _resources = resources;
     }
 
-    public unsafe TileMap LoadLayout(int roomId, bool isOverworld, TableResource<byte> colTables, out ActionableTiles[] actions)
+    public unsafe TileMap LoadLayout(
+        int roomId, bool isOverworld, out ActionableTiles[] actions)
     {
-        if (isOverworld)
-        {
-            LoadOpenRoomContext();
-        }
-        else
-        {
-            LoadClosedRoomContext();
-        }
+        var isCellar = _resources.IsCellarRoom2(isOverworld, roomId);
+        var resources = (isCellar ? _resources.CellarResources : _resources) ?? throw new Exception();
+        _colCount = resources.RoomContext.ColCount;
+        _rowCount = resources.RoomContext.RowCount;
+        _startRow = resources.RoomContext.StartRow;
+        _startCol = resources.RoomContext.StartCol;
+        _tileTypeCount = resources.RoomContext.TileTypeCount;
+        _marginRight = resources.RoomContext.MarginRight;
+        _marginLeft = resources.RoomContext.MarginLeft;
+        _marginBottom = resources.RoomContext.MarginBottom;
+        _marginTop = resources.RoomContext.MarginTop;
 
         var tileactions = new List<ActionableTiles>();
 
-        var roomAttrs = _roomAttributes[roomId];
-        var uniqueRoomId = roomAttrs.GetUniqueRoomId();
+        var roomAttrs = resources.RoomAttrs[roomId];
+        var uniqueRoomId = roomAttrs.GetUniqueRoomId() - (isCellar ? 0x3E : 0);
 
         var maxColumnStartOffset = (_colCount / 2 - 1) * _rowCount / 2;
 
@@ -351,13 +340,10 @@ internal sealed class MapExtractor
 
         // if (_roomCols.Length != UniqueRooms) throw new Exception($"Expected {UniqueRooms}, but got {_roomCols.Length}");
 
-        LoadMobDelegate loadMobFunc = isOverworld switch
-        {
-            true => LoadOWMapSquare,
-            _ => LoadUWMapSquare
-        };
+        LoadMobDelegate loadMobFunc = isOverworld || isCellar ? LoadOWMapSquare : LoadUWMapSquare;
 
         var owRoomAttrs = new OWRoomAttr(roomAttrs);
+        var uwRoomAttrs = new UWRoomAttr(roomAttrs);
 
         static int GetColumnStart(ReadOnlySpan<byte> columnTable, int columnIndex, int maxColumnStartOffset)
         {
@@ -377,26 +363,26 @@ internal sealed class MapExtractor
             throw new Exception();
         }
 
-        var columns = _roomCols[uniqueRoomId];
+        var columns = resources.GetRoomColsArray()[uniqueRoomId];
         if (columns.Length != MobColumns) throw new Exception();
 
-        bool FindSparseFlag(Sparse attrId) => _sparseTable.FindSparseAttr<SparsePos>(attrId, roomId).HasValue;
-        SparsePos? FindSparsePos(Sparse attrId) => _sparseTable.FindSparseAttr<SparsePos>(attrId, roomId);
-        SparsePos2? FindSparsePos2(Sparse attrId) => _sparseTable.FindSparseAttr<SparsePos2>(attrId, roomId);
-        SparseRoomItem? FindSparseItem(Sparse attrId) => _sparseTable.FindSparseAttr<SparseRoomItem>(attrId, roomId);
+        bool FindSparseFlag(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos>(attrId, roomId).HasValue;
+        SparsePos? FindSparsePos(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos>(attrId, roomId);
+        SparsePos2? FindSparsePos2(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos2>(attrId, roomId);
+        SparseRoomItem? FindSparseItem(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparseRoomItem>(attrId, roomId);
 
-        var armosStairs = FindSparsePos2(Sparse.ArmosStairs);
-        var armosItem = FindSparseItem(Sparse.ArmosItem);
-        var hasDock = FindSparseFlag(Sparse.Dock);
+        var armosStairs = isOverworld ? FindSparsePos2(Sparse.ArmosStairs) : null;
+        var armosItem = isOverworld ? FindSparseItem(Sparse.ArmosItem) : null;
+        var hasDock = isOverworld ? FindSparseFlag(Sparse.Dock) : false;
         var roomItem = FindSparseItem(Sparse.Item);
-        var hasShortcutStairs = FindSparseFlag(Sparse.Shortcut);
+        var hasShortcutStairs = isOverworld ? FindSparseFlag(Sparse.Shortcut) : false;
         // var maze = _sparseTable.FindSparseAttr<SparseMaze>(Sparse.Maze, roomId);
         // SecretScroll,
         var doesRoomSupportLadder = FindSparseFlag(Sparse.Ladder);
-        var recorderPosition = FindSparsePos(Sparse.Recorder);
+        var recorderPosition = isOverworld ? FindSparsePos(Sparse.Recorder) : null; ;
         // Fairy,
         // If second quest, do this: _roomAttrs[roomId] = sparseAttr[i].attrs;
-        var roomReplacements = _sparseTable.GetItems<byte>(Sparse.RoomReplacement);
+        var roomReplacements = isOverworld ? resources.SparseTable.GetItems<byte>(Sparse.RoomReplacement) : default;
 
         var exitPos = owRoomAttrs.GetExitPosition();
         var col = exitPos & 0x0F;
@@ -417,11 +403,12 @@ internal sealed class MapExtractor
         }
 
         var shortcutStairsName = $"shortcut_stairs-{roomId}";
+        var levelInfoBlock = resources.LevelInfoBlock;
 
         if (hasShortcutStairs)
         {
             var stairsIndex = owRoomAttrs.GetShortcutStairsIndex();
-            var stairsPos = _infoBlock.ShortcutPosition[stairsIndex];
+            var stairsPos = levelInfoBlock.ShortcutPosition[stairsIndex];
             GetRoomCoord(stairsPos, out var stairsRow, out var stairsCol);
             tileactions.Add(new ActionableTiles(stairsCol * 2, stairsRow * 2, 1, 1, questId, TileAction.Stairs, caveProps, false, shortcutStairsName));
         }
@@ -453,23 +440,23 @@ internal sealed class MapExtractor
             var tableIndex = (byte)((columnDesc & 0xF0) >> 4);
             var columnIndex = (byte)(columnDesc & 0x0F);
 
-            var columnTable = colTables.GetItem(tableIndex);
+            var columnTable = resources.ColTable.GetItem(tableIndex);
             var columnStart = GetColumnStart(columnTable, columnIndex, maxColumnStartOffset);
             var column = _startCol + columnDescIndex * 2;
 
             for (var rowIndex = _startRow; rowIndex < rowEnd; columnStart++)
             {
-                var columnRow = new ColumnRow(columnTable[columnStart], isOverworld);
+                var columnRow = new ColumnRow(columnTable[columnStart], isOverworld || isCellar);
                 var tileRef = columnRow.SquareNumber;
 
-                loadMobFunc(ref map, rowIndex, column, tileRef);
+                loadMobFunc(ref map, resources, rowIndex, column, tileRef);
 
                 rowIndex += 2;
 
                 var repeatCount = columnRow.RepeatCount;
                 for (var m = 0; m < repeatCount && rowIndex < rowEnd; m++)
                 {
-                    loadMobFunc(ref map, rowIndex, column, tileRef);
+                    loadMobFunc(ref map, resources, rowIndex, column, tileRef);
                     rowIndex += 2;
                 }
             }
@@ -480,8 +467,8 @@ internal sealed class MapExtractor
             columnStart = GetColumnStart(columnTable, columnIndex, maxColumnStartOffset);
             for (var rowIndex = _startRow; rowIndex < rowEnd; columnStart++)
             {
-                var columnRow = new ColumnRow(columnTable[columnStart], isOverworld);
-                var tileRef = columnRow.SquareNumber; var attr = _tileAttrs[tileRef];
+                var columnRow = new ColumnRow(columnTable[columnStart], isOverworld || isCellar);
+                var tileRef = columnRow.SquareNumber; var attr = resources.TileAttrs[tileRef];
                 var action = TileAttr.GetAction(attr);
 
                 if (lastAction != null && lastAction.Action != action)
@@ -496,7 +483,7 @@ internal sealed class MapExtractor
                 var props = new List<TiledProperty>();
                 var caveProp = GetCaveId(action, column, rowIndex);
                 if (caveProp != null) props.AddRange(caveProp);
-                if (action == TileAction.Raft) props.Add(new TiledProperty(TiledObjectProperties.Direction, Direction.Up.ToString()));
+                if (action == TileAction.Raft && isOverworld) props.Add(new TiledProperty(TiledObjectProperties.Direction, Direction.Up.ToString()));
                 if (action == TileAction.Push && isOverworld) props.Add(new TiledProperty(TiledObjectProperties.Reveals, shortcutStairsName));
                 var newaction = new ActionableTiles(column, rowIndex, 0, 1, questId, action, props.Count == 0 ? null : props.ToArray());
 
@@ -517,7 +504,7 @@ internal sealed class MapExtractor
                 var repeatCount = columnRow.RepeatCount;
                 for (var m = 0; m < repeatCount && rowIndex < rowEnd; m++)
                 {
-                    loadMobFunc(ref map, rowIndex, column, tileRef);
+                    loadMobFunc(ref map, resources, rowIndex, column, tileRef);
                     if (action != TileAction.None)
                     {
                         lastAction = lastAction.ExpandHeight();
@@ -563,7 +550,6 @@ internal sealed class MapExtractor
 
         if (!isOverworld) // JOE: TODO: && !isCellar
         {
-            // var uwRoomAttrs = CurrentUWRoomAttrs;
             // if (uwRoomAttrs.HasBlock())
             // {
             //     for (var c = _startCol; c < _startCol + _colCount; c += 2)
@@ -605,8 +591,12 @@ internal sealed class MapExtractor
 
     public TiledTile[] DrawMap(TileMap map, bool isOverworld, int roomId, int offsetX, int offsetY)
     {
-        var outerPalette = _roomAttributes[roomId].GetOuterPalette();
-        var innerPalette = _roomAttributes[roomId].GetInnerPalette();
+        var isCellar = _resources.IsCellarRoom2(isOverworld, roomId);
+        var resources = (isCellar ? _resources.CellarResources : _resources) ?? throw new Exception();
+
+        var roomAttrs = resources.RoomAttrs[roomId];
+        var outerPalette = roomAttrs.GetOuterPalette();
+        var innerPalette = roomAttrs.GetInnerPalette();
 
         // if (IsUWCellar(roomId) || IsPlayingCave())
         // {
@@ -658,16 +648,18 @@ internal sealed class MapExtractor
 
         // var backgroundSheet = isOverworld ? TileSheet.BackgroundOverworld : TileSheet.BackgroundUnderworld;
 
+        var tileset = isOverworld ? 0 : 1;
+
         var tiles = new List<TiledTile>(lastRow * lastCol);
 
         for (var row = firstRow; row < lastRow; row++, y += TileHeight)
         {
-            if (row < _startRow || row >= endRow) continue;
+            // if (row < _startRow || row >= endRow) tiles.Add(TiledTile.Create(2, 1));
 
             var x = tileOffsetX;
             for (var column = firstCol; column < lastCol; column++, x += TileWidth)
             {
-                if (column < _startCol || column >= endCol) continue;
+                // if (column < _startCol || column >= endCol) tiles.Add(TiledTile.Create(2, 1));
 
                 var tileRef = map.Refs(row, column);
                 // var srcX = (tileRef & 0x0F) * TileWidth;
@@ -676,7 +668,7 @@ internal sealed class MapExtractor
                 // var palette = (row is < 4 or >= 18 || column is < 4 or >= 28) ? outerPalette : innerPalette;
 
                 // Graphics.DrawTile(backgroundSheet, srcX, srcY, TileWidth, TileHeight, x, y, palette, 0);
-                tiles.Add(TiledTile.Create(tileRef + 1));
+                tiles.Add(TiledTile.Create(tileRef, tileset));
             }
         }
 
@@ -686,16 +678,6 @@ internal sealed class MapExtractor
         }
 
         return tiles.ToArray();
-
-        // return new TiledLayer(ScreenColumns, ScreenRows, tiles.ToArray())
-        // {
-        //     Name = $"Room {roomId}",
-        //     Encoding = "base64",
-        //     Compression = "",
-        //     Type = TiledLayerType.TileLayer,
-        //     Visible = true,
-        //     Opacity = 1.0f,
-        // };
     }
 
     public static void GetRoomCoord(int position, out int row, out int col)
@@ -705,7 +687,7 @@ internal sealed class MapExtractor
         row -= 4;
     }
 
-    private void LoadOWMapSquare(ref TileMap map, int row, int col, int squareIndex)
+    private void LoadOWMapSquare(ref TileMap map, MapResources resources, int row, int col, int squareIndex)
     {
         // Square table:
         // - Is > $10, then refers to upper left, bottom left, upper right, bottom right.
@@ -715,12 +697,12 @@ internal sealed class MapExtractor
         // - Each entry is 4 bytes long. 16 entries in total, indexed by values in the primary square table that are less than 16.
         // - Bytes specify tile numbers (in pattern table 1)
 
-        var primary = _owTable[squareIndex];
+        var primary = resources.PrimaryMobs[squareIndex];
 
         if (primary == 0xFF)
         {
             var index = squareIndex * 4;
-            var secondaries = _owTable2;
+            var secondaries = resources.SecondaryMobs;
             map[row, col] = secondaries[index + 0];
             map[row, col + 1] = secondaries[index + 2];
             map[row + 1, col] = secondaries[index + 1];
@@ -735,9 +717,9 @@ internal sealed class MapExtractor
         }
     }
 
-    private void LoadUWMapSquare(ref TileMap map, int row, int col, int squareIndex)
+    private void LoadUWMapSquare(ref TileMap map, MapResources resources, int row, int col, int squareIndex)
     {
-        var primary = _owTable[squareIndex];
+        var primary = resources.PrimaryMobs[squareIndex];
 
         if (primary is < 0x70 or > 0xF2)
         {
@@ -753,32 +735,6 @@ internal sealed class MapExtractor
             map[row + 1, col] = (byte)(primary + 1);
             map[row + 1, col + 1] = (byte)(primary + 3);
         }
-    }
-
-    private void LoadOpenRoomContext()
-    {
-        _colCount = 32;
-        _rowCount = 22;
-        _startRow = 0;
-        _startCol = 0;
-        _tileTypeCount = 56;
-        _marginRight = OWMarginRight;
-        _marginLeft = OWMarginLeft;
-        _marginBottom = OWMarginBottom;
-        _marginTop = OWMarginTop;
-    }
-
-    private void LoadClosedRoomContext()
-    {
-        _colCount = 24;
-        _rowCount = 14;
-        _startRow = 4;
-        _startCol = 4;
-        _tileTypeCount = 9;
-        _marginRight = UWMarginRight;
-        _marginLeft = UWMarginLeft;
-        _marginBottom = UWMarginBottom;
-        _marginTop = UWMarginTop;
     }
 }
 
@@ -817,11 +773,6 @@ internal readonly record struct OWRoomAttr(RoomAttr Attrs)
         var questId = Attrs.B >> 6;
         return questId == 0 || questId == quest + 1;
     }
-
-    public int GetUniqueRoomId() => Attrs.GetUniqueRoomId();
-    public Palette GetOuterPalette() => Attrs.GetOuterPalette();
-    public Palette GetInnerPalette() => Attrs.GetInnerPalette();
-    public int GetMonsterCount() => Attrs.GetMonsterCount();
 }
 
 internal readonly record struct UWRoomAttr(RoomAttr Attrs)
@@ -832,6 +783,15 @@ internal readonly record struct UWRoomAttr(RoomAttr Attrs)
         1 => (Attrs.B >> 3) & 7,
         2 => Attrs.A & 7,
         3 => (Attrs.A >> 3) & 7,
+        _ => 1,
+    });
+
+    public DoorType GetDoor(Direction dir) => (DoorType)(dir switch
+    {
+        Direction.Right => Attrs.B & 7,
+        Direction.Left => (Attrs.B >> 3) & 7,
+        Direction.Down => Attrs.A & 7,
+        Direction.Up => (Attrs.A >> 3) & 7,
         _ => 1,
     });
 
@@ -849,11 +809,6 @@ internal readonly record struct UWRoomAttr(RoomAttr Attrs)
     public bool HasBlock() => (Attrs.D & 0x08) != 0;
     public bool IsDark() => (Attrs.D & 0x10) != 0;
     public int GetAmbientSound() => (Attrs.D >> 5) & 3;
-
-    public int GetUniqueRoomId() => Attrs.GetUniqueRoomId();
-    public Palette GetOuterPalette() => Attrs.GetOuterPalette();
-    public Palette GetInnerPalette() => Attrs.GetInnerPalette();
-    public int GetMonsterCount() => Attrs.GetMonsterCount();
 }
 
 internal enum Secret { None, FoesDoor, Ringleader, LastBoss, BlockDoor, BlockStairs, MoneyOrLife, FoesItem }
@@ -958,6 +913,24 @@ internal unsafe struct LevelInfoBlock
         }
 
         return result;
+    }
+
+    public bool FindCellarRoomIds(int mainRoomId, RoomAttr[] roomAttrs, out int left, out int right)
+    {
+        for (var i = 0; i < LevelCellarCount; i++)
+        {
+            var cellarRoomId = CellarRoomIds[i];
+            if (cellarRoomId >= 0x80) break;
+
+            var uwRoomAttrs = new UWRoomAttr(roomAttrs[cellarRoomId]);
+            left = uwRoomAttrs.GetLeftCellarExitRoomId();
+            right = uwRoomAttrs.GetRightCellarExitRoomId();
+            if (mainRoomId == left || mainRoomId == right) return true;
+        }
+
+        left = 0;
+        right = 0;
+        return false;
     }
 }
 

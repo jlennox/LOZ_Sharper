@@ -1,4 +1,6 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
 using SkiaSharp;
@@ -18,9 +20,9 @@ public interface IHasCompression
 
 public sealed class TiledMap
 {
-    public string Version { get; set; }
-    public string Type { get; set; }
-    public int CompressionLevel { get; set; }
+    public string Version { get; set; } = "1.10";
+    public string Type { get; set; } = "map";
+    public int CompressionLevel { get; set; } = -1;
     public int Width { get; set; }
     public int Height { get; set; }
     public bool Infinite { get; set; }
@@ -29,7 +31,7 @@ public sealed class TiledMap
     public int NextObjectId { get; set; }
     public string Orientation { get; set; } = "orthogonal";
     public string RenderOrder { get; set; } = "right-down";
-    public string TiledVersion { get; set; }
+    public string TiledVersion { get; set; } = "1.11.0";
     public int TileWidth { get; set; }
     public int TileHeight { get; set; }
     public TiledTileSetReference[]? TileSets { get; set; }
@@ -48,18 +50,39 @@ public enum TiledLayerType
     ImageLayer,
 }
 
+// This is done a bit differently than how Tiled normally does this.
+// Tiled calls these GIDs. GIDs are unique only to a specific map. Each map defines a series of TiledTileSetReference.
+// Say we have 2 tilesets with 256 tiles each. The first TiledTileSetReference will have a FirstGid of 1 and the second
+// will have a FirstGid of 257. The "gid" is the tile's offset in its tileset + the tileset's FirstGid. The flags are
+// then or'ed into the GID. As done in gidmapper.cpp, there does not appear to be protection against the addition
+// overflow or colliding with the flags.
+// Instead of this, we treat the tilemaps as their own bitmask on the GID, making retrieval not require traversal of the
+// TiledTileSetReference collection.
+[DebuggerDisplay("{TileSheet}/{TileId}")]
 public readonly record struct TiledTile(int Tile)
 {
+    public const int FirstGid = 1;
+
     private const int TileMask = 0x0000FFFF;
     private const int TileSheetMask = 0x00FF0000;
     private const uint FlipXFlag = 0x80000000;
     private const int FlipYFlag = 0x40000000;
+    private const int FlipAntiDiagonallyFlag = 0x20000000;
+    private const int RotateHexagonal120Flag = 0x10000000;
+
+    private static readonly int _tileSheetMaskShiftCount = BitOperations.TrailingZeroCount(TileSheetMask);
+    private static readonly int _tileSheetMaskMaxValue = (1 << BitOperations.PopCount(TileSheetMask)) - 1;
+
+    public static readonly TiledTile Empty = default;
 
     public static TiledTile Create(int tileId, bool flippedX, bool flippedY)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(tileId, nameof(tileId));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(tileId, TileMask, nameof(tileId));
+
         unchecked
         {
-            var tile = tileId;
+            var tile = tileId + FirstGid;
             if (flippedX) tile |= (int)FlipXFlag;
             if (flippedY) tile |= FlipYFlag;
             return new TiledTile(tile);
@@ -68,15 +91,22 @@ public readonly record struct TiledTile(int Tile)
 
     public static TiledTile Create(int tileId, int tileSheetId)
     {
-        var tile = tileId | (tileSheetId << 16);
+        ArgumentOutOfRangeException.ThrowIfNegative(tileId, nameof(tileId));
+        ArgumentOutOfRangeException.ThrowIfNegative(tileSheetId, nameof(tileSheetId));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(tileId, TileMask, nameof(tileId));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(tileSheetId, _tileSheetMaskMaxValue, nameof(tileSheetId));
+
+        var tile = (tileId + FirstGid) | (tileSheetId << _tileSheetMaskShiftCount);
         return new TiledTile(tile);
     }
 
     public static TiledTile Create(int tileId) => new(tileId);
 
+    public static int CreateFirstGid(int tileSheetId) => (tileSheetId << _tileSheetMaskShiftCount) + FirstGid;
+
     // 0 means empty. 1 is the first entry in the tileset.
     public int TileId => Tile & TileMask;
-    public int TileSheet => (Tile & TileSheetMask) >> 16;
+    public int TileSheet => (Tile & TileSheetMask) >> _tileSheetMaskShiftCount;
     public bool IsFlippedX => (Tile & FlipXFlag) != 0;
     public bool IsFlippedY => (Tile & FlipYFlag) != 0;
 }
@@ -88,7 +118,6 @@ public sealed class TiledLayer : IHasTiledProperties, IHasCompression
     public byte[] Data { get; set; }
     public string Compression { get; set; } = "";
     public string Encoding { get; set; } = "base64";
-    public string DrawOrder { get; set; }
     public string Name { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
@@ -123,15 +152,6 @@ public sealed class TiledLayer : IHasTiledProperties, IHasCompression
         Data = new byte[bytes.Length];
         bytes.CopyTo(Data);
     }
-
-    // [JsonIgnore]
-    // public TiledLayerType LayerType => Type switch
-    // {
-    //     "tilelayer" => TiledLayerType.TileLayer,
-    //     "objectgroup" => TiledLayerType.ObjectGroup,
-    //     "imagelayer" => TiledLayerType.ImageLayer,
-    //     _ => throw new Exception($"Unknown layer type: {Type}"),
-    // };
 }
 
 public sealed class TiledProperty
@@ -164,6 +184,11 @@ public sealed class TiledProperty
     }
 
     public TiledProperty(string name, object value) : this(name, (value ?? "").ToString()) { }
+
+    public static TiledProperty CreateArgument(string name, object value)
+    {
+        return new TiledProperty($"{TiledObjectProperties.Argument}_{name}", $"{value}");
+    }
 }
 
 // Need properties like "bomb removes"
@@ -353,11 +378,14 @@ public static class TiledObjectProperties
     // Screen
     public const string Monsters = nameof(Monsters);
     public const string MonstersEnter = nameof(MonstersEnter);
+    public const string IsEntryRoom = nameof(IsEntryRoom);
     public const string AmbientSound = nameof(AmbientSound);
     public const string Maze = nameof(Maze);
     public const string MazeExit = nameof(MazeExit);
     public const string InnerPalette = nameof(InnerPalette);
     public const string OuterPalette = nameof(OuterPalette);
+    public const string DungeonDoors = nameof(DungeonDoors);
+    public const string IsDark = nameof(IsDark);
 
     // Action
     public const string TileAction = nameof(TileAction);
@@ -366,9 +394,17 @@ public static class TiledObjectProperties
     public const string Owner = nameof(Owner);
     public const string Reveals = nameof(Reveals);
     public const string Direction = nameof(Direction); // Used by the raft. Should also have a destination screen id.
+    public const string Argument = nameof(Argument);
 
     // TileBehavior
     public const string TileBehavior = nameof(TileBehavior);
+}
+
+public static class TiledObjectArguments
+{
+    public const string CellarItem = nameof(CellarItem);
+    public const string CellarStairsLeft = nameof(CellarStairsLeft);
+    public const string CellarStairsRight = nameof(CellarStairsRight);
 }
 
 public static class TiledTileSetTileProperties

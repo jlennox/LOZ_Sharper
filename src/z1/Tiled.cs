@@ -69,7 +69,7 @@ internal sealed class GameTileSet
                 if (!first.HasOffsets)
                 {
                     if (groupEntry.Count() != 1) throw new Exception();
-                    var tile = TiledTile.Create(first.TileId + 1, tileSetId);
+                    var tile = TiledTile.Create(first.TileId, tileSetId);
                     foundBlockObjects.Add(new GameBlockObject(first.Type, tile, tile, tile, tile));
                     continue;
                 }
@@ -99,10 +99,10 @@ internal sealed class GameTileSet
 
                 foundBlockObjects.Add(new GameBlockObject(
                     first.Type,
-                    TiledTile.Create(topLeftTileId + 1, tileSetId),
-                    TiledTile.Create(topRightTileId + 1, tileSetId),
-                    TiledTile.Create(bottomLeftTileId + 1, tileSetId),
-                    TiledTile.Create(bottomRightTileId + 1, tileSetId)
+                    TiledTile.Create(topLeftTileId, tileSetId),
+                    TiledTile.Create(topRightTileId, tileSetId),
+                    TiledTile.Create(bottomLeftTileId, tileSetId),
+                    TiledTile.Create(bottomRightTileId, tileSetId)
                 ));
             }
 
