@@ -1,9 +1,12 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using SkiaSharp;
+using DDirection = z1.Common.Direction;
 
 namespace z1.Common.Data;
 
@@ -18,7 +21,7 @@ public interface IHasCompression
     string Compression { get; set; }
 }
 
-public sealed class TiledMap
+public sealed class TiledMap : IHasTiledProperties
 {
     public string Version { get; set; } = "1.10";
     public string Type { get; set; } = "map";
@@ -35,6 +38,7 @@ public sealed class TiledMap
     public int TileWidth { get; set; }
     public int TileHeight { get; set; }
     public TiledTileSetReference[]? TileSets { get; set; }
+    public TiledProperty[]? Properties { get; set; }
 }
 
 public sealed class TiledTileSetReference
@@ -184,6 +188,7 @@ public sealed class TiledProperty
     }
 
     public TiledProperty(string name, object value) : this(name, (value ?? "").ToString()) { }
+    public TiledProperty(string name, PointXY point) : this(name, $"{point.X},{point.Y}") { }
 
     public static TiledProperty CreateArgument(string name, object value)
     {
@@ -335,6 +340,12 @@ public static class TiledExtensions
         return int.TryParse(stringvalue, out value);
     }
 
+    public static int? GetIntPropertyOrNull(this IHasTiledProperties tiled, string name)
+    {
+        var stringvalue = tiled.GetProperty(name);
+        return int.TryParse(stringvalue, out var value) ? value : null;
+    }
+
     public static PointXY GetPoint(this IHasTiledProperties tiled, string name)
     {
         var stringvalue = tiled.GetProperty(name);
@@ -343,6 +354,12 @@ public static class TiledExtensions
         var index = stringvalue.IndexOf(',');
         var span = stringvalue.AsSpan();
         return new PointXY(int.Parse(span[..index]), int.Parse(span[(index + 1)..]));
+    }
+
+    public static T GetJsonProperty<T>(this IHasTiledProperties tiled, string name)
+    {
+        var stringvalue = tiled.GetProperty(name);
+        return JsonSerializer.Deserialize<T>(stringvalue);
     }
 
     public static ImmutableDictionary<string, string> GetPropertyDictionary(this IHasTiledProperties properties)
@@ -366,26 +383,83 @@ public static class TiledExtensions
     }
 }
 
+public sealed class TiledWorld : IHasTiledProperties
+{
+    public TiledWorldEntry[]? Maps { get; set; }
+    [JsonPropertyName("onlyShowAdjacentMaps")]
+    public bool OnlyShowAdjacentMaps { get; set; }
+    public string Type { get; set; } = "world";
+    public TiledProperty[]? Properties { get; set; }
+}
+
+public sealed class TiledWorldEntry
+{
+    [JsonPropertyName("fileName")]
+    public string Filename { get; set; }
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+
+    [JsonIgnore] public int Right => X + Width;
+    [JsonIgnore] public int Bottom => Y + Height;
+}
+
+public sealed class TiledProject
+{
+    public string AutomappingRulesFile { get; set; } = "";
+    public object[] Commands { get; set; } = [];
+    public int CompatibilityVersion { get; set; } = 1100;
+    public string ExtensionsPath { get; set; } = "extensions";
+    public string[] Folders { get; set; } = ["./"];
+    public TiledProperty[]? Properties { get; set; }
+    public object[] PropertyTypes { get; set; } = [];
+}
+
 public static class TiledLayerProperties
 {
     public const string QuestId = nameof(QuestId);
+}
+
+public static class TiledWorldProperties
+{
+    public const string WorldInfo = nameof(WorldInfo);
 }
 
 public static class TiledObjectProperties
 {
     public const string Type = nameof(Type);
 
-    // Screen
+    // Room
+    public const string Id = nameof(Id);
     public const string Monsters = nameof(Monsters);
-    public const string MonstersEnter = nameof(MonstersEnter);
     public const string IsEntryRoom = nameof(IsEntryRoom);
     public const string AmbientSound = nameof(AmbientSound);
+    public const string IsLadderAllowed = nameof(IsLadderAllowed);
+
+    // Overworld
+    public const string MonstersEnter = nameof(MonstersEnter);
     public const string Maze = nameof(Maze);
     public const string MazeExit = nameof(MazeExit);
     public const string InnerPalette = nameof(InnerPalette);
     public const string OuterPalette = nameof(OuterPalette);
+    public const string PlaysSecretChime = nameof(PlaysSecretChime);
+    public const string CaveId = nameof(CaveId);
+    public const string RoomItemId = nameof(RoomItemId);
+
+    // Underworld
     public const string DungeonDoors = nameof(DungeonDoors);
     public const string IsDark = nameof(IsDark);
+    public const string Secret = nameof(Secret);
+    public const string ItemId = nameof(ItemId);
+    public const string ItemPosition = nameof(ItemPosition);
+    public const string FireballLayout = nameof(FireballLayout);
+    public const string IsBossRoom = nameof(IsBossRoom);
+    public const string CellarItem = nameof(CellarItem);
+    public const string CellarStairsLeft = nameof(CellarStairsLeft);
+    public const string CellarStairsRight = nameof(CellarStairsRight);
+
+    public static readonly ImmutableArray<DDirection> DoorDirectionOrder = [DDirection.Right, DDirection.Left, DDirection.Down, DDirection.Up];
 
     // Action
     public const string TileAction = nameof(TileAction);
@@ -395,17 +469,14 @@ public static class TiledObjectProperties
     public const string Reveals = nameof(Reveals);
     public const string Direction = nameof(Direction); // Used by the raft. Should also have a destination screen id.
     public const string Argument = nameof(Argument);
+    public const string RecorderDestinationSlot = nameof(RecorderDestinationSlot); // What sequence the recorder will warp you in.
 
     // TileBehavior
     public const string TileBehavior = nameof(TileBehavior);
 }
 
 public static class TiledObjectArguments
-{
-    public const string CellarItem = nameof(CellarItem);
-    public const string CellarStairsLeft = nameof(CellarStairsLeft);
-    public const string CellarStairsRight = nameof(CellarStairsRight);
-}
+{ }
 
 public static class TiledTileSetTileProperties
 {
@@ -419,7 +490,6 @@ public static class TiledTileSetTileProperties
 public enum GameObjectLayerObjectType
 {
     Unknown,
-    Screen,
     Action,
     TileBehavior,
 }

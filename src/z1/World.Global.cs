@@ -18,32 +18,35 @@ internal partial class World
         return (row << 4) | col;
     }
 
-    private static int GetNextRoomId(int curRoomId, Direction dir)
+    private static bool TryGetNextRoom(GameRoom currentRoom, Direction direction, out GameRoom room)
     {
-        GetWorldCoord(curRoomId, out var row, out var col);
+        // GetWorldCoord(curRoomId, out var row, out var col);
 
-        switch (dir)
-        {
-            case Direction.Left:
-                if (col == 0) return curRoomId;
-                col--;
-                break;
-            case Direction.Right:
-                if (col == WorldWidth - 1) return curRoomId;
-                col++;
-                break;
-            case Direction.Up:
-                if (row == 0) return curRoomId;
-                row--;
-                break;
-            case Direction.Down:
-                if (row == WorldHeight - 1) return curRoomId;
-                row++;
-                break;
-        }
+        // switch (dir)
+        // {
+        //     case Direction.Left:
+        //         if (col == 0) return curRoomId;
+        //         col--;
+        //         break;
+        //     case Direction.Right:
+        //         if (col == WorldWidth - 1) return curRoomId;
+        //         col++;
+        //         break;
+        //     case Direction.Up:
+        //         if (row == 0) return curRoomId;
+        //         row--;
+        //         break;
+        //     case Direction.Down:
+        //         if (row == WorldHeight - 1) return curRoomId;
+        //         row++;
+        //         break;
+        // }
 
-        var nextRoomId = MakeRoomId(row, col);
-        return nextRoomId;
+        // JOE: TODO: Support screen wrapping.
+        // JOE: TODO: Error handling.
+
+        // var nextRoomId = MakeRoomId(row, col);
+        return currentRoom.Connections.TryGetValue(direction, out room);
     }
 
     private static void GetRoomCoord(int position, out int tileY, out int tileX)
@@ -225,7 +228,7 @@ internal partial class World
 
         for (var i = 2; i < Global.BackgroundPalCount; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)i, infoBlock.GetPalette(i));
+            Graphics.SetPaletteIndexed((Palette)i, infoBlock.Palettes[i]);
         }
 
         Graphics.UpdatePalettes();
@@ -234,6 +237,6 @@ internal partial class World
     private void SetLevelFgPalette()
     {
         var infoBlock = GetLevelInfo();
-        Graphics.SetPaletteIndexed(Palette.SeaPal, infoBlock.GetPalette((int)Palette.SeaPal));
+        Graphics.SetPaletteIndexed(Palette.SeaPal, infoBlock.Palettes[(int)Palette.SeaPal]);
     }
 }

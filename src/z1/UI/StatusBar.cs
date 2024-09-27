@@ -18,7 +18,7 @@ public enum StatusBarFeatures
 
 internal readonly record struct TileInst(byte Id, byte X, byte Y, byte PaletteId)
 {
-    public readonly Palette Palette => (Palette)PaletteId;
+    public Palette Palette => (Palette)PaletteId;
 }
 
 internal sealed class StatusBar
@@ -118,119 +118,82 @@ internal sealed class StatusBar
         DrawItems(baseY);
     }
 
-    private static readonly byte[] _levelStr = [0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x62, 0];
-
     private void DrawMiniMap(int baseY)
     {
-        var roomId = _world.CurRoomId;
-        var row = (roomId >> 4) & 0xF;
-        var col = roomId & 0xF;
-        var cursorX = MiniMapX;
-        var cursorY = MiniMapY + baseY;
-        var showCursor = true;
+        DrawMiniMapInner(baseY);
 
-        if (_world.IsOverworld())
+        if (_world.CurrentWorld.LevelString != null)
         {
-            DrawOWMiniMap(baseY);
-
-            cursorX += col * OWMapTileWidth;
-            cursorY += row * OWMapTileHeight;
-        }
-        else
-        {
-            var levelInfo = _world.GetLevelInfo();
-
-            _levelStr[6] = levelInfo.LevelNumber;
-            GlobalFunctions.DrawString(_levelStr, LevelNameX, baseY + LevelNameY, 0);
-            DrawUWMiniMap(baseY);
-
-            col = (col + levelInfo.DrawnMapOffset) & 0x0F;
-            col -= MiniMapColumnOffset;
-
-            cursorX += col * UWMapTileWidth + 2;
-            cursorY += row * UWMapTileHeight;
-
-            if (!_world.IsUWMain(roomId))
-            {
-                showCursor = false;
-            }
-
-            if (_features.HasFlag(StatusBarFeatures.MapCursors) && _world.HasCurrentCompass())
-            {
-                int triforceRoomId = levelInfo.TriforceRoomId;
-                var triforceRow = (triforceRoomId >> 4) & 0x0F;
-                var triforceCol = triforceRoomId & 0x0F;
-                col = (triforceCol + levelInfo.DrawnMapOffset) & 0x0F;
-                col -= MiniMapColumnOffset;
-                var triforceX = MiniMapX + col * UWMapTileWidth + 2;
-                var triforceY = MiniMapY + baseY + triforceRow * UWMapTileHeight;
-                var palette = Palette.SeaPal;
-
-                if (!_world.GotItem(triforceRoomId))
-                {
-                    if ((_world.Game.FrameCounter & 0x10) == 0)
-                    {
-                        palette = Palette.Red;
-                    }
-                }
-
-                DrawTile(0xE0, triforceX, triforceY, palette);
-            }
-        }
-
-        if (_features.HasFlag(StatusBarFeatures.MapCursors))
-        {
-            if (showCursor)
-            {
-                DrawTile(0xE0, cursorX, cursorY, Palette.Player);
-            }
+            GlobalFunctions.DrawString(_world.CurrentWorld.LevelString, LevelNameX, baseY + LevelNameY, 0);
         }
     }
 
     private static void DrawTile(int tile, int x, int y, Palette palette)
     {
-        GlobalFunctions.DrawChar((byte)tile, x, y, palette);
+        GlobalFunctions.DrawChar((byte)tile, x, y, palette, 0);
     }
 
-    private static void DrawOWMiniMap(int baseY)
+    private static void DrawTile(int tile, int x, int y, MiniMapSettings settings)
     {
-        var y = MiniMapY + baseY;
-
-        for (var i = 0; i < 4; i++)
-        {
-            var x = MiniMapX;
-            for (var j = 0; j < 8; j++)
-            {
-                DrawTile(0xF5, x, y, 0);
-                x += 8;
-            }
-            y += 8;
-        }
+        GlobalFunctions.DrawChar((byte)tile, x, y, settings.TileWidth, settings.TileHeight, settings.Palette);
     }
 
-    private unsafe void DrawUWMiniMap(int baseY)
+    private static void DrawUWTile(int tile, int x, int y, MiniMapSettings settings)
     {
-        if (!_world.HasCurrentMap()) return;
+        Graphics.DrawTile(TileSheet.Font, 0x7 * 8, 0x6 * 8, 8, 4, x, y, settings.Palette, 0);
+    }
 
-        var levelInfo = _world.GetLevelInfo();
+    private delegate void DrawMiniMapTileDelegate(int tile, int x, int y, MiniMapSettings settings);
 
-        var x = MiniMapX;
+    private readonly record struct MiniMapSettings(int Tile, DrawMiniMapTileDelegate DrawTileFn, int CursorXOffset, int TileWidth, int TileHeight, Palette Palette, bool RequiresMap)
+    {
+        public static readonly MiniMapSettings Overworld = new(0xF5, DrawTile, 0, OWMapTileWidth, OWMapTileHeight, 0, false);
+        public static readonly MiniMapSettings Underworld = new(0xF5, DrawUWTile, 2, UWMapTileWidth, UWMapTileHeight, 0, true);
+    }
 
-        for (var c = 0; c < 12; c++)
+    private void DrawMiniMapInner(int baseY)
+    {
+        var settings = _world.IsOverworld() ? MiniMapSettings.Overworld : MiniMapSettings.Underworld;
+        if (settings.RequiresMap && !_world.HasCurrentMap()) return;
+
+        const int maxMapHeight = 12;
+        const int maxMapWidth = 0x10;
+
+        var world = _world.CurrentWorld;
+        var map = world.GameWorldMap;
+        var grid = map.RoomGrid;
+
+        var showMapCursors = _features.HasFlag(StatusBarFeatures.MapCursors);
+        var showTriforce = showMapCursors && _world.HasCurrentCompass();
+
+        var y = baseY + MiniMapY;
+        var basex = MiniMapX + (maxMapWidth - map.Width) / 2 * settings.TileWidth;
+
+        for (var yi = 0; yi < map.Height; yi++, y += settings.TileHeight)
         {
-            int b = levelInfo.DrawnMap[c + MiniMapColumnOffset];
-            var y = baseY + MiniMapY;
-
-            for (var r = 0; r < 8; r++)
+            var x = basex;
+            for (var xi = 0; xi < map.Width; xi++, x += settings.TileWidth)
             {
-                if ((b & 0x80) != 0)
+                var room = grid[xi, yi];
+                if (room == null) continue;
+
+                var tile = settings.Tile;
+                settings.DrawTileFn(tile, x, y, settings);
+
+                if (showTriforce && room.IsTriforceRoom)
                 {
-                    Graphics.DrawTile(TileSheet.Font, 0x7 * 8, 0x6 * 8, 8, 4, x, y, 0, 0);
+                    var palette = (_world.Game.FrameCounter & 0x10) == 0 && room.HasTriforce
+                        ? Palette.Red
+                        : Palette.SeaPal;
+
+                    DrawTile(0xE0, x + 2, y, palette);
                 }
-                b <<= 1;
-                y += 4;
+
+                if (showMapCursors && room == _world.CurrentRoom && !room.HideMapCursor)
+                {
+                    DrawTile(0xE0, x + settings.CursorXOffset, y, Palette.Player);
+                }
             }
-            x += 8;
         }
     }
 

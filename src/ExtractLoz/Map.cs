@@ -9,16 +9,16 @@ using static World;
 internal sealed class World
 {
     public const int MobColumns = 16;
-    public const int ScreenRows = 22;
-    public const int ScreenColumns = 32;
+    public const int RoomRows = 22;
+    public const int RoomColumns = 32;
     public const int BlockWidth = 16;
     public const int BlockHeight = 16;
     public const int TileWidth = 8;
     public const int TileHeight = 8;
-    public const int TileMapWidth = ScreenColumns * TileWidth;
+    public const int TileMapWidth = RoomColumns * TileWidth;
     public const int Rooms = 128;
     public const int UniqueRooms = 124;
-    public const int TileMapHeight = ScreenRows * TileHeight;
+    public const int TileMapHeight = RoomRows * TileHeight;
     public const int TileMapBaseY = 64;
 
     public const int WorldWidth = 16;
@@ -179,24 +179,6 @@ internal unsafe struct SparseMaze
     public readonly ReadOnlySpan<Direction> Paths => new[] { (Direction)path[0], (Direction)path[1], (Direction)path[2], (Direction)path[3], };
 }
 
-[Flags]
-internal enum Direction
-{
-    None = 0,
-    Right = 1,
-    Left = 2,
-    Down = 4,
-    Up = 8,
-    DirectionMask = 0x0F,
-    ShoveMask = 0x80, // JOE: TODO: Not sure what this is.
-    FullMask = 0xFF,
-    VerticalMask = Down | Up,
-    HorizontalMask = Left | Right,
-    OppositeVerticals = VerticalMask,
-    OppositeHorizontals = HorizontalMask,
-}
-
-
 internal enum Extra
 {
     PondColors,
@@ -226,29 +208,21 @@ internal enum Sparse
 
 internal sealed class TileMap
 {
-    public const int Size = World.ScreenRows * World.ScreenColumns;
+    public const int Size = World.RoomRows * World.RoomColumns;
 
     public byte this[int row, int col]
     {
-        get => _tileRefs[row * World.ScreenColumns + col];
-        set => _tileRefs[row * World.ScreenColumns + col] = (byte)value;
+        get => _tileRefs[row * World.RoomColumns + col];
+        set => _tileRefs[row * World.RoomColumns + col] = (byte)value;
     }
 
     private readonly byte[] _tileRefs = new byte[Size];
     private readonly byte[] _tileBehaviors = new byte[Size];
 
     public ref byte Refs(int index) => ref _tileRefs[index];
-    public ref byte Refs(int row, int col) => ref _tileRefs[row * World.ScreenColumns + col];
-    public ref byte Behaviors(int row, int col) => ref _tileBehaviors[row * World.ScreenColumns + col];
+    public ref byte Refs(int row, int col) => ref _tileRefs[row * World.RoomColumns + col];
+    public ref byte Behaviors(int row, int col) => ref _tileBehaviors[row * World.RoomColumns + col];
     public ref byte Behaviors(int index) => ref _tileBehaviors[index];
-    // public TileBehavior AsBehaviors(int row, int col)
-    // {
-    //     row = Math.Max(0, Math.Min(row, World.ScreenRows - 1));
-    //     col = Math.Max(0, Math.Min(col, World.ScreenColumns - 1));
-    //
-    //     return (TileBehavior)_tileBehaviors[row * World.ScreenColumns + col];
-    // }
-
 }
 
 internal sealed class MapExtractor
@@ -296,6 +270,26 @@ internal sealed class MapExtractor
 
         public ActionableTiles ExpandHeight() => this with { Height = Height + 1 };
         public ActionableTiles ExpandWidth() => this with { Width = Width + 1 };
+
+        public TiledLayerObject CreateTiledLayerObject()
+        {
+            return new TiledLayerObject
+            {
+                // Id = screenY * World.WorldWidth + screenX,
+                X = X,
+                Y = Y,
+                Width = Width * World.BlockWidth,
+                Height = Height * World.BlockHeight,
+                Name = $"{Action}",
+                Visible = true,
+                Properties = [
+                    new TiledProperty(TiledObjectProperties.Type, GameObjectLayerObjectType.Action),
+                    new TiledProperty(TiledObjectProperties.TileAction, Action),
+                    // new TiledProperty(TiledObjectProperties.Owner, GetScreenName(screenX, screenY)),
+                    .. (Properties ?? [])
+                ],
+            };
+        }
     }
 
     private int _rowCount;
@@ -313,10 +307,10 @@ internal sealed class MapExtractor
         _resources = resources;
     }
 
-    public unsafe TileMap LoadLayout(
-        int roomId, bool isOverworld, out ActionableTiles[] actions)
+    public unsafe TileMap LoadLayout(int roomId, out ActionableTiles[] actions)
     {
-        var isCellar = _resources.IsCellarRoom(isOverworld, roomId);
+        var isOverworld = _resources.IsOverworld;
+        var isCellar = _resources.IsCellarRoom(roomId);
         var resources = (isCellar ? _resources.CellarResources : _resources) ?? throw new Exception();
         _colCount = resources.RoomContext.ColCount;
         _rowCount = resources.RoomContext.RowCount;
@@ -400,6 +394,12 @@ internal sealed class MapExtractor
         {
             var rec = recorderPosition.Value.GetRoomCoord();
             tileactions.Add(new ActionableTiles(rec.X * 2, rec.Y * 2, 1, 1, questId, TileAction.Recorder, caveProps, false));
+        }
+
+        if (roomItem != null)
+        {
+            var item = roomItem.Value;
+            tileactions.Add(new ActionableTiles(item.x * 2, item.y * 2, 1, 1, questId, TileAction.Item, caveProps, false));
         }
 
         var shortcutStairsName = $"shortcut_stairs-{roomId}";
@@ -564,7 +564,7 @@ internal sealed class MapExtractor
             // }
         }
 
-        // for (var i = 0; i < ScreenRows * ScreenColumns; i++)
+        // for (var i = 0; i < RoomRows * RoomColumns; i++)
         // {
         //     var t = map.Refs(i);
         //     map.Behaviors(i) = _tileBehaviors[t];
@@ -589,52 +589,15 @@ internal sealed class MapExtractor
 
     readonly record struct ActionableTileGrouping(int Y, int Height, TileAction Action, int PropertyHash);
 
-    public TiledTile[] DrawMap(TileMap map, bool isOverworld, int roomId, int offsetX, int offsetY)
+    public TiledTile[] DrawMap(TileMap map, int roomId)
     {
-        var isCellar = _resources.IsCellarRoom(isOverworld, roomId);
-        var resources = (isCellar ? _resources.CellarResources : _resources) ?? throw new Exception();
-
-        var roomAttrs = resources.RoomAttrs[roomId];
-        var outerPalette = roomAttrs.GetOuterPalette();
-        var innerPalette = roomAttrs.GetInnerPalette();
-
-        // if (IsUWCellar(roomId) || IsPlayingCave())
-        // {
-        //     outerPalette = (Palette)3;
-        //     innerPalette = (Palette)2;
-        // }
+        var isOverworld = _resources.IsOverworld;
 
         var firstRow = 0;
-        var lastRow = ScreenRows;
-        var tileOffsetY = offsetY;
+        var lastRow = RoomRows;
 
         var firstCol = 0;
-        var lastCol = ScreenColumns;
-        var tileOffsetX = offsetX;
-
-        if (offsetY < 0)
-        {
-            firstRow = -offsetY / TileHeight;
-            tileOffsetY = -(-offsetY % TileHeight);
-        }
-        else if (offsetY > 0)
-        {
-            lastRow = ScreenRows - offsetY / TileHeight;
-        }
-        else if (offsetX < 0)
-        {
-            firstCol = -offsetX / TileWidth;
-            tileOffsetX = -(-offsetX % TileWidth);
-        }
-        else if (offsetX > 0)
-        {
-            lastCol = ScreenColumns - offsetX / TileWidth;
-        }
-
-        var endCol = _startCol + _colCount;
-        var endRow = _startRow + _rowCount;
-
-        var y = TileMapBaseY + tileOffsetY;
+        var lastCol = RoomColumns;
 
         if (!isOverworld ) // TODO: "&& !isCellar"
         {
@@ -646,28 +609,15 @@ internal sealed class MapExtractor
             //     outerPalette, 0);
         }
 
-        // var backgroundSheet = isOverworld ? TileSheet.BackgroundOverworld : TileSheet.BackgroundUnderworld;
-
         var tileset = isOverworld ? 0 : 1;
 
         var tiles = new List<TiledTile>(lastRow * lastCol);
 
-        for (var row = firstRow; row < lastRow; row++, y += TileHeight)
+        for (var row = firstRow; row < lastRow; row++)
         {
-            // if (row < _startRow || row >= endRow) tiles.Add(TiledTile.Create(2, 1));
-
-            var x = tileOffsetX;
-            for (var column = firstCol; column < lastCol; column++, x += TileWidth)
+            for (var column = firstCol; column < lastCol; column++)
             {
-                // if (column < _startCol || column >= endCol) tiles.Add(TiledTile.Create(2, 1));
-
                 var tileRef = map.Refs(row, column);
-                // var srcX = (tileRef & 0x0F) * TileWidth;
-                // var srcY = ((tileRef & 0xF0) >> 4) * TileHeight;
-
-                // var palette = (row is < 4 or >= 18 || column is < 4 or >= 28) ? outerPalette : innerPalette;
-
-                // Graphics.DrawTile(backgroundSheet, srcX, srcY, TileWidth, TileHeight, x, y, palette, 0);
                 tiles.Add(TiledTile.Create(tileRef, tileset));
             }
         }
@@ -777,14 +727,14 @@ internal readonly record struct OWRoomAttr(RoomAttr Attrs)
 
 internal readonly record struct UWRoomAttr(RoomAttr Attrs)
 {
-    public DoorType GetDoor(int dirOrd) => (DoorType)(dirOrd switch
-    {
-        0 => Attrs.B & 7,
-        1 => (Attrs.B >> 3) & 7,
-        2 => Attrs.A & 7,
-        3 => (Attrs.A >> 3) & 7,
-        _ => 1,
-    });
+    // public DoorType GetDoor(int dirOrd) => (DoorType)(dirOrd switch
+    // {
+    //     0 => Attrs.B & 7,
+    //     1 => (Attrs.B >> 3) & 7,
+    //     2 => Attrs.A & 7,
+    //     3 => (Attrs.A >> 3) & 7,
+    //     _ => 1,
+    // });
 
     public DoorType GetDoor(Direction dir) => (DoorType)(dir switch
     {
@@ -859,47 +809,81 @@ internal unsafe struct LevelInfoBlock
     public fixed byte DarkPaletteSeq[FadeLength * FadePals * PaletteLength];
     public fixed byte DeathPaletteSeq[FadeLength * FadePals * PaletteLength];
 
-    public ReadOnlySpan<byte> GetPalette(int index)
+    public WorldInfo GetWorldInfo()
+    {
+        static byte[][][] GetTriple(Func<int, int, byte[]> func)
+        {
+            return Enumerable.Range(0, FadePals)
+                .Select(fade => Enumerable.Range(0, FadeLength)
+                    .Select(len => func(len, fade)).ToArray()).ToArray();
+        }
+
+        fixed (byte* p = DarkPaletteSeq)
+        {
+            var x = new ReadOnlySpan<byte>(p, FadeLength * FadePals * PaletteLength).ToArray();
+        }
+
+        var that = this;
+        return new WorldInfo
+        {
+            Palettes = Enumerable.Range(0, LevelPaletteCount).Select(that.GetPalette).ToArray(),
+            StartY = StartY,
+            StartRoomId = StartRoomId,
+            TriforceRoomId = TriforceRoomId,
+            BossRoomId = BossRoomId,
+            SongId = (SongId)Song,
+            LevelNumber = LevelNumber,
+            EffectiveLevelNumber = EffectiveLevelNumber,
+            DrawnMapOffset = DrawnMapOffset,
+            // CellarRoomIds = that.CellarRoomIds.ToArray(),
+            OutOfCellarPalette = GetTriple(OutOfCellarPalette),
+            InCellarPalette = GetTriple(InCellarPalette),
+            DarkPalette = GetTriple(DarkPalette),
+            DeathPalette = GetTriple(DeathPalette),
+        };
+    }
+
+    public byte[] GetPalette(int index)
     {
         fixed (byte* p = Palettes)
         {
-            return new ReadOnlySpan<byte>(p + index * PaletteLength, PaletteLength);
+            return new ReadOnlySpan<byte>(p + index * PaletteLength, PaletteLength).ToArray();
         }
     }
 
-    public ReadOnlySpan<byte> OutOfCellarPalette(int index, int fade)
+    public byte[] OutOfCellarPalette(int index, int fade)
     {
         var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
         fixed (byte* p = &OutOfCellarPaletteSeq[i])
         {
-            return new ReadOnlySpan<byte>(p, PaletteLength);
+            return new ReadOnlySpan<byte>(p, PaletteLength).ToArray();
         }
     }
 
-    public ReadOnlySpan<byte> InCellarPalette(int index, int fade)
+    public byte[] InCellarPalette(int index, int fade)
     {
         var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
         fixed (byte* p = &InCellarPaletteSeq[i])
         {
-            return new ReadOnlySpan<byte>(p, PaletteLength);
+            return new ReadOnlySpan<byte>(p, PaletteLength).ToArray();
         }
     }
 
-    public ReadOnlySpan<byte> DarkPalette(int index, int fade)
+    public byte[] DarkPalette(int index, int fade)
     {
         var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
         fixed (byte* p = &DarkPaletteSeq[i])
         {
-            return new ReadOnlySpan<byte>(p, PaletteLength);
+            return new ReadOnlySpan<byte>(p, PaletteLength).ToArray();
         }
     }
 
-    public ReadOnlySpan<byte> DeathPalette(int index, int fade)
+    public byte[] DeathPalette(int index, int fade)
     {
         var i = index * FadePals * PaletteLength + fade * PaletteLength; ;
         fixed (byte* p = &DeathPaletteSeq[i])
         {
-            return new ReadOnlySpan<byte>(p, PaletteLength);
+            return new ReadOnlySpan<byte>(p, PaletteLength).ToArray();
         }
     }
 

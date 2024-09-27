@@ -109,7 +109,7 @@ internal sealed class GameCheats
 
             // Need to be sure all the objects are flushed.
             game.World.KillAllObjects();
-            game.World.LoadOverworldRoom(x, y);
+            // JOE: TODO: MAP REWRITE game.World.LoadOverworldRoom(x, y);
             game.Toast($"Warping to room {x}x{y}");
         }
     }
@@ -151,14 +151,6 @@ internal sealed class GameCheats
         public override void RunPayload(Game game, string[] args)
         {
             var target = args[0];
-            switch (target.ToLowerInvariant())
-            {
-                case "w":
-                    game.World.ShowShortcutStairs(7 * 16 + 9);
-                    game.Toast("Warping to stairs.");
-                    return;
-            }
-
             if (!int.TryParse(target, out var levelNumber))
             {
                 game.Toast("Invalid warp coordinates. " + string.Join(", ", args));
@@ -311,7 +303,7 @@ internal sealed class GameCheats
     {
         public override void RunPayload(Game game, string[] args)
         {
-            foreach (var flag in game.World.Profile.RoomFlags)
+            foreach (var (_, flag) in game.World.Profile.RoomFlags)
             {
                 flag.SecretState = false;
                 flag.ShortcutState = false;
@@ -368,7 +360,7 @@ internal sealed class GameCheats
         {
             var room = game.World.CurrentRoom;
             var link = game.Link;
-            game.Toast($"Room: {room.X},{room.Y} ({room.X:X2},{room.Y:X2}) {game.World.CurRoomId}");
+            // game.Toast($"Room: {room.X},{room.Y} ({room.X:X2},{room.Y:X2}) {game.World.CurRoomId}");
             game.Toast($"Link: {link.X},{link.Y} ({link.X:X2},{link.Y:X2})");
         }
     }

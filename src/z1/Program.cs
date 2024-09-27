@@ -19,6 +19,8 @@ namespace z1;
 // * Make recorder destinations spots on the map: ReadOnlySpan<int> teleportYs = [0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D];
 // * Add IsEntrance for main overworld spot and dungeon spots. Add EntersTo and a way to add parameters.
 // * Move over to custom properties instead of having multiple prefixed ones.
+// * Fix _tempShutterRoomId
+// * Need to pass along entryroom start x/y's
 
 // Milestone 1:
 // * Coming out of stairs into spiral room spawns you in a bad spot: Example in 9, up 2, left 2.

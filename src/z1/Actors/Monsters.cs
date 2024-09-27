@@ -1841,7 +1841,7 @@ internal sealed class ZoraActor : DigWanderer
             if (ObjTimer == 1)
             {
                 var player = Game.Link;
-                var cell = Game.World.CurrentScreen.GetRandomWaterTile();
+                var cell = Game.World.CurrentRoom.GetRandomWaterTile();
 
                 X = cell.X * World.TileWidth;
                 Y = cell.Y * World.TileHeight - 3;

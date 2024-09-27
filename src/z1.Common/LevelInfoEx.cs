@@ -14,6 +14,27 @@ public sealed class LevelInfoEx
     public PointXY[] SpawnSpot { get; set; }
 }
 
+public sealed class WorldInfo
+{
+    public byte[][] Palettes { get; set; }
+    public byte StartY { get; set; }
+    public byte StartRoomId { get; set; }
+    public byte TriforceRoomId { get; set; }
+    public byte BossRoomId { get; set; }
+    public SongId SongId { get; set; }
+    public byte LevelNumber { get; set; }
+    public byte EffectiveLevelNumber { get; set; }
+    public byte DrawnMapOffset { get; set; }
+    // public byte[] CellarRoomIds { get; set; }
+    // public byte[] ShortcutPosition { get; set; }
+    // public byte[] DrawnMap { get; set; }
+    // public byte[] Padding { get; set; }
+    public byte[][][] OutOfCellarPalette { get; set; }
+    public byte[][][] InCellarPalette { get; set; }
+    public byte[][][] DarkPalette { get; set; }
+    public byte[][][] DeathPalette { get; set; }
+}
+
 public sealed class CavePaletteSet
 {
     public byte[] PaletteA { get; set; }

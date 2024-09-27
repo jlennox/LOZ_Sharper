@@ -70,7 +70,7 @@ internal sealed unsafe class GLImage : IDisposable
         srcy = tempSrcY;
         bottom = tempBottom;
 
-        // Really, all the rendering should be batched together. But Zelda is simple enough
+        // Really, all the rendering should be batched together. But the game is simple enough
         // that it's not really a performance concern.
         ReadOnlySpan<Point> verticies = stackalloc Point[] {
             new Point(srcx, srcy), new Point(destinationx, destinationy),
@@ -81,10 +81,15 @@ internal sealed unsafe class GLImage : IDisposable
 
         var finalPalette = palette;
 
-        if (!flags.HasFlag(DrawingFlags.NoTransparency))
+        // if (!flags.HasFlag(DrawingFlags.NoTransparency))
         {
+            // JOE: TODO: Arg. I do not know why this broke? It behaves the same in the original code, down
+            // to the exact same palette which has 00 for the alpha, but it works there.
+            var pal0 = palette[0];
             finalPalette = stackalloc SKColor[] {
-                new SKColor(0),
+                flags.HasFlag(DrawingFlags.NoTransparency)
+                    ? new SKColor(pal0.Red, pal0.Green, pal0.Blue, 0xFF)
+                    : new SKColor(0),
                 palette[1],
                 palette[2],
                 palette[3],

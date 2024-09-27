@@ -65,21 +65,20 @@ internal partial class World
         new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Doorway)         // Shutter
     ];
 
-    private static readonly ImmutableArray<Point> _doorMiddles = [
-        new Point(0xE0, 0x98),
-        new Point(0x20, 0x98),
-        new Point(0x80, 0xD0),
-        new Point(0x80, 0x60)
-    ];
+    private static readonly Dictionary<Direction, Point> _doorMiddles = new() {
+        { Direction.Right, new Point(0xE0, 0x98) },
+        { Direction.Left, new Point(0x20, 0x98) },
+        { Direction.Down, new Point(0x80, 0xD0) },
+        { Direction.Up, new Point(0x80, 0x60) },
+    };
 
-    private static readonly ImmutableArray<int> _doorSrcYs = [64, 96, 0, 32];
-
-    private static readonly ImmutableArray<Point> _doorPos = [
-        new Point(224, 136),
-        new Point(0,   136),
-        new Point(112, 208),
-        new Point(112, 64)
-    ];
+    private readonly record struct DoorPosition(int SourceY, int X, int Y);
+    private static readonly Dictionary<Direction, DoorPosition> _doorPos = new() {
+        { Direction.Right, new DoorPosition(64, 224, 136) },
+        { Direction.Left, new DoorPosition(96, 0,   136) },
+        { Direction.Down, new DoorPosition(0, 112, 208) },
+        { Direction.Up, new DoorPosition(32, 112, 64) },
+    };
 
     private readonly record struct DoorStateFaces(byte Closed, byte Open);
 
@@ -125,6 +124,10 @@ internal partial class World
         TileAction.Armos => ArmosTileAction,
         TileAction.Block => BlockTileAction,
         TileAction.Recorder => RecorderTileAction,
+
+        TileAction.RecorderDestination => NoneTileAction,
+        TileAction.Item => NoneTileAction,
+
         _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown action type.")
     };
 

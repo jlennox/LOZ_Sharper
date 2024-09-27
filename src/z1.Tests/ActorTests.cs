@@ -1,6 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using z1.Actors;
 using z1.Common;
+using z1.Common.Data;
 
 namespace z1.Tests;
 
@@ -60,6 +61,25 @@ internal class ScreenGameMapObjectTests
     {
         var actual = ScreenGameMapObject.ParseMonsters(monsterList, out _);
         Assert.That(actual, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void TryParseDungeonDoors()
+    {
+        var directions = TiledObjectProperties.DoorDirectionOrder;
+
+        foreach (var (input, expected) in new[] {
+                     ("None, None, Open, Key", new[] { DoorType.None, DoorType.None, DoorType.Open, DoorType.Key }),
+                 })
+        {
+            Assert.That(GameRoom.TryParseDungeonDoors(input, out var actual), Is.True);
+            var i = 0;
+            foreach (var dir in directions)
+            {
+                Assert.That(actual[dir], Is.EqualTo(expected[i]));
+                i++;
+            }
+        }
     }
 }
 

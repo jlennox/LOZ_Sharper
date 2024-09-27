@@ -230,7 +230,7 @@ internal sealed class Link : Actor, IThrower
 
     private TileCollision CollidesWithTileMoving(int x, int y, Direction dir)
     {
-        if (!Game.World.IsUWMain())
+        if (!Game.World.CurrentRoom.HasDungeonDoors)
         {
             return Game.World.CollidesWithTileMoving(x, y, dir, true);
         }
@@ -261,7 +261,7 @@ internal sealed class Link : Actor, IThrower
 
         if (mode != GameMode.Play) return;
 
-        if (Game.World.IsOverworld() && !Game.World.DoesRoomSupportLadder()) return;
+        if (Game.World.IsOverworld() && !Game.World.CurrentRoom.IsLadderAllowed) return;
 
         if (Game.World.DoorwayDir != Direction.None
             || Game.World.GetItem(ItemSlot.Ladder) == 0
@@ -291,7 +291,7 @@ internal sealed class Link : Actor, IThrower
     {
         if (Game.World.FromUnderground != 0 || TileOffset != 0) return;
 
-        if (Game.World.IsOverworld() && Game.World.CurRoomId == 0x22)
+        if (Game.World.IsOverworld() && false) // JOE: TODO: MAP REWRITE This appears to the level 6 entrance...? Game.World.CurRoomId == 0x22)
         {
             if ((X & 7) != 0) return;
         }
@@ -1176,7 +1176,7 @@ internal sealed class Link : Actor, IThrower
         {
             if (HitsWorldLimit())
             {
-                Game.World.LeaveRoom(Facing, Game.World.CurRoomId);
+                Game.World.LeaveRoom(Facing, Game.World.CurrentRoom);
                 dir = Direction.None;
                 StopPlayer();
             }

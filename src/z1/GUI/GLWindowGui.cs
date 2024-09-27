@@ -337,14 +337,14 @@ internal static class GLWindowGui
         static void SpawnCave(Game game, CaveId caveId)
         {
             game.World.DebugKillAllObjects();
-            game.World.MarkItem(false);
+            game.World.CurrentRoomFlags.ItemState = false;
             game.World.MakeCaveObjects(caveId);
         }
 
         static void SpawnPerson(Game game, PersonType type)
         {
             game.World.DebugKillAllObjects();
-            game.World.MarkItem(false);
+            game.World.CurrentRoomFlags.ItemState = false;
             game.World.DebugMakeUnderworldPerson(type);
         }
 

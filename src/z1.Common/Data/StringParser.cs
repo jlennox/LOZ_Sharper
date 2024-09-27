@@ -21,7 +21,7 @@ public ref struct StringParser
             length++;
         }
 
-        while (Index < s.Length && s[Index] is >= '0' and <= '9')
+        while (Index < s.Length && char.IsAsciiDigit(s[Index]))
         {
             Index++;
             length++;
@@ -50,9 +50,14 @@ public ref struct StringParser
         return true;
     }
 
-    public ReadOnlySpan<char> ExpectWord(ReadOnlySpan<char> s)
+    public bool TryExpectWord(ReadOnlySpan<char> s, out ReadOnlySpan<char> word)
     {
-        if (Index >= s.Length) throw new Exception($"Unexpected end of string at position in \"{s}\", expected word.");
+        if (Index >= s.Length)
+        {
+            word = default;
+            return false;
+        }
+
         var start = Index;
         var length = 0;
         while (Index < s.Length && char.IsLetter(s[Index]))
@@ -61,8 +66,42 @@ public ref struct StringParser
             length++;
         }
 
+        if (length == 0)
+        {
+            word = default;
+            return false;
+        }
+
+        SkipOptionalWhiteSpace(s);
+        word = s.Slice(start, length);
+        return true;
+    }
+
+
+    public ReadOnlySpan<char> ExpectWord(ReadOnlySpan<char> s)
+    {
+        if (Index >= s.Length) throw new Exception($"Unexpected end of string at position in \"{s}\", expected word.");
+        var start = Index;
+        var length = 0;
+        while (Index < s.Length && char.IsAsciiLetterOrDigit(s[Index]))
+        {
+            Index++;
+            length++;
+        }
+
         if (length == 0) throw new Exception($"Expected word at position {Index} in \"{s}\"");
         SkipOptionalWhiteSpace(s);
         return s.Slice(start, length);
+    }
+
+    public bool TryExpectEnum<T>(ReadOnlySpan<char> s, out T value) where T : struct, Enum
+    {
+        if (TryExpectWord(s, out var word) && Enum.TryParse(word, true, out value))
+        {
+            return true;
+        }
+
+        value = default;
+        return false;
     }
 }

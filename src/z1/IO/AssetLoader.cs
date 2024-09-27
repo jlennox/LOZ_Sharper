@@ -112,13 +112,20 @@ internal readonly struct AssetLoader
 
         foreach (var asset in assets)
         {
+            var keySplit = asset.Key.Split('/');
+            if (keySplit.Length > 1)
+            {
+                var subdir = Path.Combine(keySplit[..^1]);
+                Directory.CreateDirectory(Path.Combine(Directories.Assets, subdir));
+            }
+
             File.WriteAllBytes(Path.Combine(Directories.Assets, asset.Key), asset.Value);
         }
 
         // Write last because it doubles as a "finished" marker.
         AssetMetadata.Write(Directories.Assets);
 
-        // Copy the ROM incase the asset version changes.
+        // Copy the ROM in-case the asset version changes.
         var copyDestination = Path.Combine(Directories.Assets, "rom.nes");
         if (romfile != copyDestination)
         {
@@ -157,6 +164,7 @@ internal readonly struct AssetLoader
 
         assets = new Dictionary<string, byte[]>();
 
+        var directories = new Stack<string>();
         foreach (var file in Directory.GetFiles(dir, "*"))
         {
             assets[Path.GetFileName(file)] = File.ReadAllBytes(file);

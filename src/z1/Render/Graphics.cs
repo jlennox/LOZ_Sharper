@@ -316,10 +316,24 @@ internal static class Graphics
         DrawingFlags flags
     )
     {
-        Debug.Assert(sheet < TileSheet.Max);
-
         var tiles = GraphicSheets.GetImage(sheet);
         tiles.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags);
+    }
+
+    public static void DrawTile(
+        TileSheet sheet,
+        int srcX,
+        int srcY,
+        int width,
+        int height,
+        int destX,
+        int destY,
+        ReadOnlySpan<SKColor> palette,
+        DrawingFlags flags
+    )
+    {
+        var tiles = GraphicSheets.GetImage(sheet);
+        tiles.Draw(srcX, srcY, width, height, destX, destY, palette, flags);
     }
 
     public static void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette)

@@ -29,6 +29,10 @@ internal struct Point
         x = X;
         y = Y;
     }
+
+    public override bool Equals(object? obj) => obj is Point point && this == point;
+    public bool Equals(Point other) => X == other.X && Y == other.Y;
+    public override int GetHashCode() => HashCode.Combine(X, Y);
 }
 
 [DebuggerDisplay("{X},{Y}")]

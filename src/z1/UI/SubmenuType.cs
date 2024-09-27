@@ -24,7 +24,7 @@ internal sealed class SubmenuType
     private const int ActiveItemStrideX = 0x18;
     private const int ActiveItemStrideY = 0x10;
 
-    private const int ActiveMapX = 0x80;
+    private const int ActiveMapX = 80; // 0x80; // in Sharper maps can be wider, so start further left.
     private const int ActiveMapY = 0x58;
 
     private const int ItemsPerRow = 4;
@@ -523,80 +523,96 @@ internal sealed class SubmenuType
         }
     }
 
-    private static readonly ImmutableArray<byte> _topMapLine = [0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5];
-    private static readonly ImmutableArray<byte> _bottomMapLine = [0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5];
-
-    private unsafe void DrawMap(int top)
+    private static int GetDoorTileOffset(GameRoom room)
     {
-        GlobalFunctions.DrawString("map", 0x28, 0x58 + top, (Palette)1);
-        GlobalFunctions.DrawString("compass", 0x18, 0x80 + top, (Palette)1);
-        GlobalFunctions.DrawString(_topMapLine, 0x60, 0x50 + top, (Palette)1);
-        GlobalFunctions.DrawString(_bottomMapLine, 0x60, 0x98 + top, (Palette)1);
+        if (!room.HasDungeonDoors) return 0;
 
-        var y = 0x58 + top;
-        for (var r = 0; r < 8; r++, y += 8)
+        var doorSum = 0;
+        var doorBit = 8;
+        var flags = room.RoomFlags;
+        for (; doorBit != 0; doorBit >>= 1)
         {
-            var xx = 0;
-            for (var c = 0; c < 4; c++, xx += 8)
+            var direction = (Direction)doorBit;
+            if (!room.DungeonDoors.TryGetValue(direction, out var doorType)) continue;
+
+            var isLockedType = doorType is DoorType.Bombable or DoorType.Key or DoorType.Key2;
+
+            if (doorType == DoorType.Open || (isLockedType && flags.GetDoorState(direction)))
             {
-                GlobalFunctions.DrawChar(0xF5, 0x60 + xx, y, (Palette)1);
-                GlobalFunctions.DrawChar(0xF5, 0xC0 + xx, y, (Palette)1);
+                doorSum |= doorBit;
             }
         }
 
-        var levelInfo = _game.World.GetLevelInfo();
+        return doorSum;
+    }
+
+    private static readonly ImmutableArray<byte> _topMapLine = [0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5];
+    private static readonly ImmutableArray<byte> _bottomMapLine = [0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5];
+
+    private void DrawMap(int top)
+    {
+        const int mapBackGroundBaseX = 0x60;
+        const int mapBaseX = mapBackGroundBaseX;
+        const int mapBaseY = 0x58;
+        const int mapMaxWidth = 16;
+        const int mapMaxHeight = 8;
+        const int mapCellWidth = 8;
+        const int mapCellHeight = 8;
+
+        GlobalFunctions.DrawString("map", 0x28, 0x58 + top, (Palette)1);
+        GlobalFunctions.DrawString("compass", 0x18, 0x80 + top, (Palette)1);
+        GlobalFunctions.DrawString(_topMapLine, mapBackGroundBaseX, 0x50 + top, (Palette)1);
+        GlobalFunctions.DrawString(_bottomMapLine, mapBackGroundBaseX, 0x98 + top, (Palette)1);
+
+        var y = mapBaseY + top;
+        // Blank out the background.
+        for (var r = 0; r < mapMaxHeight; r++, y += mapCellHeight)
+        {
+            var xx = mapBackGroundBaseX;
+            for (var c = 0; c < mapMaxWidth; c++, xx += mapCellWidth)
+            {
+                GlobalFunctions.DrawChar(0xF5, xx, y, (Palette)1);
+            }
+        }
+
         var hasMap = _game.World.HasCurrentMap();
         var hasCompass = _game.World.HasCurrentCompass();
-        var isCellar = _game.World.IsUWCellar();
 
         if (hasMap) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Map, 0x30, 0x68 + top);
         if (hasCompass) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Compass, 0x30, 0x90 + top);
 
-        var x = ActiveMapX;
-        for (var c = 0; c < 8; c++, x += 8)
+        var map = _game.World.CurrentWorld.GameWorldMap;
+
+        const int grayColor = 0xC0;
+        ReadOnlySpan<SKColor> hasNotSeenPalette = [new SKColor(grayColor, grayColor, grayColor), new SKColor(0), new SKColor(0), new SKColor(0)];
+
+        // Align the map centered horizontally, and along the bottom vertically.
+        y = ActiveMapY + top + (mapMaxHeight - map.Height) * mapCellHeight;
+        var basex = mapBaseX + ((mapMaxWidth - map.Width) / 2) * mapCellWidth;
+
+        // Draw the map.
+        for (var mapY = 0; mapY < map.Height; mapY++, y += mapCellHeight)
         {
-            uint mapMaskByte = levelInfo.DrawnMap[c + 4];
-            y = ActiveMapY + top;
-            for (var r = 0; r < 8; r++, y += 8, mapMaskByte <<= 1)
+            var x = basex;
+            for (var mapX = 0; mapX < map.Width; mapX++, x += mapCellWidth)
             {
-                var roomId = (r << 4) | (c - levelInfo.DrawnMapOffset + 0x10 + 4) & 0xF;
-                var roomFlags = _game.World.GetRoomFlags(roomId);
-                byte  tile = 0xF5;
-                if ((mapMaskByte & 0x80) == 0x80 && roomFlags.VisitState)
+                var room = map.RoomGrid[mapX, mapY];
+                if (room == null) continue;
+                if (room.RoomFlags.VisitState)
                 {
-                    var doorSum = 0;
-                    var doorBit = 8;
-                    for (; doorBit != 0; doorBit >>= 1)
-                    {
-                        var doorType = _game.World.GetDoorType(roomId, (Direction)doorBit);
-                        if (doorType == DoorType.Open)
-                        {
-                            doorSum |= doorBit;
-                        }
-                        else if (roomFlags.GetDoorState((Direction)doorBit)
-                            && doorType is DoorType.Bombable or DoorType.Key or DoorType.Key2)
-                        {
-                            doorSum |= doorBit;
-                        }
-                    }
-                    tile = (byte)(0xD0 + doorSum);
+                    var tile = 0xD0 + GetDoorTileOffset(room);
+                    GlobalFunctions.DrawChar(tile, x, y, (Palette)1);
                 }
-                GlobalFunctions.DrawChar(tile, x, y, (Palette)1);
+                else if (hasMap)
+                {
+                    GlobalFunctions.DrawChar(0xD0, x, y, hasNotSeenPalette);
+                }
+
+                if (room == _game.World.CurrentRoom)
+                {
+                    GlobalFunctions.DrawChar(0xE0, x + 2, y + 3, Palette.Player, DrawingFlags.None);
+                }
             }
-        }
-
-        // Do not draw link's cursor when he's in the cellar of a dungeon.
-        if (!isCellar)
-        {
-            var curRoomId = _game.World.CurRoomId;
-            var playerRow = (curRoomId >> 4) & 0xF;
-            var playerCol = curRoomId & 0x0F;
-            playerCol = (playerCol + levelInfo.DrawnMapOffset) & 0x0F;
-            playerCol -= 4;
-
-            y = ActiveMapY + top + playerRow * 8 + 3;
-            x = ActiveMapX + playerCol * 8 + 2;
-            GlobalFunctions.DrawChar(0xE0, x, y, Palette.Player);
         }
     }
 }

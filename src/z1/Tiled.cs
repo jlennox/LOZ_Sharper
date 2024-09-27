@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using z1.Common.Data;
+using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography.Pkcs;
 using z1.IO;
 using z1.Render;
 
@@ -30,7 +31,8 @@ internal sealed class GameTileSet
     public GameTileSet(string name, int tileSetId, TiledTileSet tileset)
     {
         Name = name;
-        Image = Graphics.CreateImage(new Asset(tileset.Image));
+        // JOE: TODO: This `Path.GetFileName` makes me want to cry, infact, most things about how assets work now does.
+        Image = Graphics.CreateImage(new Asset(Path.GetFileName(tileset.Image)));
         Behaviors = new TileBehavior[tileset.TileCount + 1];
 
         if (tileset.Tiles != null)
@@ -132,42 +134,300 @@ internal sealed class GameTileSet
     }
 }
 
-// An entire map (overworld, a single dungeon), which is broken into screens.
-internal sealed class GameMap
+internal sealed class GameWorldMap
 {
-    public string Name { get; }
+    public bool IsValid { get; }
+    public GameRoom?[,] RoomGrid { get; }
     public int Width { get; }
     public int Height { get; }
-    public int TileWidth { get; set; }
-    public int TileHeight { get; set; }
-    public GameTileSet[] TileSets { get; } = [];
-    public GameMapTileLayer[] Layers { get; } = [];
-    public GameMapTileLayer BackgroundLayer { get; }
-    public Palette[] Palettes { get; } = [];
-    public GameMapTileLayer? PaletteLayer { get; }
-    public GameMapTileLayer? BehaviorLayer { get; }
-    public GameMapObjectLayer ObjectLayer { get; }
+    public bool DrawWithRoomConnections { get; } // JOE: TODO
 
-    // TODO: public MapType ...
-
-    public GameScreen[] Screens { get; }
-
-    public GameMap(Game game, string name, TiledMap map, int questId)
+    public GameWorldMap(GameWorld world)
     {
+        // HEY! This has a big issue of not being able to handle rooms that are not connected to the entry room.
+        // To fix this, we need to find rooms not seen, then make logical assumptions about where they go. Yay :)
+        var roomsToVisit = new Stack<(GameRoom Room, Point Position)>();
+        roomsToVisit.Push((world.EntryRoom, new Point(0, 0)));
+        var visitedRooms = new HashSet<GameRoom> { world.EntryRoom };
+        var visitedPositions = new Dictionary<Point, GameRoom>();
+        var minX = int.MaxValue;
+        var minY = int.MaxValue;
+        var maxX = int.MaxValue;
+        var maxY = int.MaxValue;
+        while (roomsToVisit.Count > 0)
+        {
+            var (room, position) = roomsToVisit.Pop();
+            visitedPositions.Add(position, room);
+
+            if (minX == int.MaxValue || position.X < minX) minX = position.X;
+            if (minY == int.MaxValue || position.Y < minY) minY = position.Y;
+            if (maxX == int.MaxValue || position.X > maxX) maxX = position.X;
+            if (maxY == int.MaxValue || position.Y > maxY) maxY = position.Y;
+
+            foreach (var (direction, nextRoom) in room.Connections)
+            {
+                if (!visitedRooms.Add(nextRoom)) continue;
+                var offset = direction.GetOffset();
+                roomsToVisit.Push((nextRoom, new Point(position.X + offset.X, position.Y + offset.Y)));
+            }
+        }
+
+        if (minX == int.MaxValue || minY == int.MaxValue || maxX == int.MaxValue || maxY == int.MaxValue)
+        {
+            IsValid = false;
+            return;
+        }
+
+        IsValid = true;
+
+        var width = maxX - minX + 1;
+        var height = maxY - minY + 1;
+
+        // This is just a sanity check. The numbers are not significant.
+        if (width > 100 || height > 100)
+        {
+            IsValid = false;
+            return;
+        }
+
+        Width = width;
+        Height = height;
+
+        var xoffset = Math.Abs(minX);
+        var yoffset = Math.Abs(minY);
+
+        var grid = new GameRoom?[width, height];
+        foreach (var (position, room) in visitedPositions)
+        {
+            ref var spot = ref grid[position.X + xoffset, position.Y + yoffset];
+            spot = room;
+        }
+
+        RoomGrid = grid;
+    }
+}
+
+// An entire map (overworld, a single dungeon), which is broken into rooms.
+[DebuggerDisplay("{Name}")]
+internal sealed class GameWorld
+{
+    public string Name { get; }
+    public GameRoom[] Rooms { get; }
+    public GameRoom EntryRoom { get; }
+    public GameRoom? BossRoom { get; }
+    public GameWorldMap GameWorldMap { get; }
+    public GameRoom[] TeleportDestinations { get; }
+    public WorldInfo Info { get; }
+    public string? LevelString { get; }
+
+    public bool IsBossAlive => BossRoom != null && BossRoom.RoomFlags.ObjectCount != 0;
+
+    public GameWorld(Game game, TiledWorld world, string filename, int questId)
+    {
+        Name = Path.GetFileNameWithoutExtension(filename);
+        if (world.Maps == null) throw new Exception($"World {Name} has no maps.");
+
+        var directory = Path.GetDirectoryName(filename);
+        Rooms = new GameRoom[world.Maps.Length];
+        var worldMaps = new (GameRoom Room, TiledWorldEntry Entry)[world.Maps.Length];
+        for (var i = 0; i < world.Maps.Length; ++i)
+        {
+            var worldEntry = world.Maps![i];
+            var asset = new Asset(directory, worldEntry.Filename);
+            var tiledmap = asset.ReadJson<TiledMap>();
+            var room = new GameRoom(game, this, worldEntry, Path.GetFileName(worldEntry.Filename), tiledmap, questId);
+            if (room.IsEntryRoom) EntryRoom = room;
+            if (room.IsBossRoom) BossRoom = room;
+            worldMaps[i] = (room, worldEntry);
+            Rooms[i] = room;
+        }
+
+        Info = world.GetJsonProperty<WorldInfo>(TiledWorldProperties.WorldInfo);
+        if (Info.LevelNumber > 0) LevelString = $"LEVEL {Info.LevelNumber}";
+
+        EntryRoom ??= Rooms[0];
+
+        TeleportDestinations = Rooms
+            .Where(t => t.RecorderDestination != null)
+            .OrderBy(t => t.RecorderDestination!.RecorderDestinationSlot)
+            .ToArray();
+
+        var orderedWorldMaps = worldMaps
+            .OrderBy(t => t.Entry.Y)
+            .ThenBy(t => t.Entry.X)
+            .ToArray();
+
+        // This can use a massive optimization.
+        for (var i = 0; i < orderedWorldMaps.Length; ++i)
+        {
+            var (room, entry) = orderedWorldMaps[i];
+            if (entry.X > 0)
+            {
+                var leftroom = orderedWorldMaps.FirstOrDefault(t => t.Entry.Right == entry.X && t.Entry.Y == entry.Y);
+                if (leftroom != default)
+                {
+                    room.Connections[Direction.Left] = leftroom.Room;
+                    leftroom.Room.Connections[Direction.Right] = room;
+                }
+            }
+
+            if (entry.Y > 0)
+            {
+                var aboveroom = orderedWorldMaps.FirstOrDefault(t => t.Entry.X == entry.X && t.Entry.Bottom == entry.Y);
+                if (aboveroom != default)
+                {
+                    room.Connections[Direction.Up] = aboveroom.Room;
+                    aboveroom.Room.Connections[Direction.Down] = room;
+                }
+            }
+        }
+
+        GameWorldMap = new GameWorldMap(this);
+    }
+
+    public static GameWorld Load(Game game, string filename, int questId)
+    {
+        return new GameWorld(game, new Asset(filename).ReadJson<TiledWorld>(), filename, questId);
+    }
+
+    public void ResetLevelKillCounts()
+    {
+        foreach (var map in Rooms) map.LevelKillCount = 0;
+    }
+
+    public GameRoom GetGameRoom(string id)
+    {
+        var room = Rooms.FirstOrDefault(t => t.Id == id);
+        if (room == null) throw new Exception($"Unable to find room \"{id}\" in world \"{Name}\"");
+        return room;
+    }
+}
+
+[DebuggerDisplay("{Id} ({Name})")]
+internal sealed class GameRoom
+{
+    public string Id { get; }
+    public TiledWorldEntry WorldEntry { get; }
+    public string Name { get; }
+    public int WorldX => WorldEntry.X; // The world position, in pixels.
+    public int WorldY => WorldEntry.Y;
+    public int Width { get; } // The width in tiles (ie, 32)
+    public int Height { get; }
+    public int TileWidth { get; set; } // The width of a tile (ie, 8)
+    public int TileHeight { get; set; }
+    public int BlockWidth { get; set; } // The width of a tile (ie, 8)
+    public int BlockHeight { get; set; }
+    private GameTileSet[] TileSets { get; } = [];
+    public GameMapTileLayer[] Layers { get; } = [];
+    private GameMapTileLayer BackgroundLayer { get; }
+    public Palette[] Palettes { get; } = []; // this is for palette overrides, not used yet.
+    private GameMapTileLayer? PaletteLayer { get; }
+    private GameMapTileLayer? BehaviorLayer { get; }
+    public GameMapObjectLayer ObjectLayer { get; }
+    public ImmutableArray<ActionGameMapObject> ActionMapObjects { get; set; }
+    public bool HasDungeonDoors { get; }
+    public Dictionary<Direction, DoorType> DungeonDoors { get; } = [];
+    public SoundEffect? AmbientSound { get; set; }
+    public ImmutableArray<MonsterEntry> Monsters { get; set; }
+    public int ZoraCount { get; set; }
+    public bool MonstersEnter { get; set; }
+    public ImmutableArray<Direction> Maze { get; set; } = [];
+    public Direction MazeExit { get; set; }
+    public Palette InnerPalette { get; }
+    public Palette OuterPalette { get; }
+    public bool IsDark { get; }
+    public bool PlaysSecretChime { get; }
+    public bool IsBossRoom { get; }
+    public bool IsEntryRoom { get; set; }
+    public ActionGameMapObject? RecorderDestination { get; }
+
+    public RoomTileMap RoomMap { get; }
+    public bool HideMapCursor { get; set; } // JOE: TODO
+    public bool IsTriforceRoom { get; set; } // JOE: TODO. "Did this room ever have a triforce."
+    public bool HasTriforce { get; set; } // JOE: TODO. "Does this room have a triforce and the player has yet to pick it up."
+
+    public Dictionary<Direction, GameRoom> Connections { get; } = [];
+    public RoomFlags RoomFlags => GetRoomFlags();
+
+    public int LevelKillCount { get; set; }
+
+    // Old zelda stuff that needs to be refactored in action objects and stuff.
+    public World.Secret Secret { get; }
+    public ItemId ItemId { get; } = ItemId.None;
+    public PointXY ItemPosition { get; }
+    public int? FireballLayout { get; }
+    public PointXY ExitPosition { get; }
+    public string? CellarStairsLeftRoomId { get; set; }
+    public string? CellarStairsRightRoomId { get; set; }
+    public CaveId? CaveId { get; set; }
+    public ItemId? RoomItemId { get; set; }
+    public bool IsLadderAllowed { get; set; }
+
+    private readonly Game _game;
+    private readonly GameWorld _world;
+    // private readonly GameMapObject[] _ownedObjects;
+    private readonly int _waterTileCount;
+
+    public GameRoom(Game game, GameWorld world, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
+    {
+        if (map.Layers == null) throw new Exception();
+        if (map.TileSets == null) throw new Exception();
+
+        _game = game;
+        _world = world;
+
+        WorldEntry = worldEntry;
         Name = name;
         Width = map.Width;
         Height = map.Height;
         TileWidth = map.TileWidth;
         TileHeight = map.TileHeight;
+        BlockWidth = map.TileWidth * 2; // This assumption will break at some point.
+        BlockHeight = map.TileHeight * 2; // This assumption will break at some point.
+
+        RoomMap = new RoomTileMap(Width, Height);
+
+        Id = map.GetProperty(TiledObjectProperties.Id) ?? throw new Exception("Room has no room id.");
+        AmbientSound = map.GetNullableEnumProperty<SoundEffect>(TiledObjectProperties.AmbientSound);
+        Monsters = MonsterEntry.ParseMonsters(map.GetProperty(TiledObjectProperties.Monsters), out var zoraCount);
+        ZoraCount = zoraCount;
+        MonstersEnter = map.GetBooleanProperty(TiledObjectProperties.MonstersEnter);
+        Maze = map.GetEnumArray<Direction>(TiledObjectProperties.Maze).ToImmutableArray();
+        MazeExit = map.GetEnumProperty<Direction>(TiledObjectProperties.MazeExit);
+        InnerPalette = map.GetEnumProperty<Palette>(TiledObjectProperties.InnerPalette);
+        OuterPalette = map.GetEnumProperty<Palette>(TiledObjectProperties.OuterPalette);
+        IsDark = map.GetBooleanProperty(TiledObjectProperties.IsDark);
+        PlaysSecretChime = map.GetBooleanProperty(TiledObjectProperties.PlaysSecretChime);
+        IsBossRoom = map.GetBooleanProperty(TiledObjectProperties.IsBossRoom);
+        IsEntryRoom = map.GetBooleanProperty(TiledObjectProperties.IsEntryRoom);
+        CaveId = map.GetNullableEnumProperty<CaveId>(TiledObjectProperties.CaveId);
+
+        var dungeonDoors = map.GetProperty(TiledObjectProperties.DungeonDoors);
+        if (TryParseDungeonDoors(dungeonDoors, out var doors))
+        {
+            HasDungeonDoors = true;
+            DungeonDoors = doors;
+        }
+
+        Secret = map.GetEnumProperty(TiledObjectProperties.Secret, World.Secret.None);
+        ItemId = map.GetEnumProperty(TiledObjectProperties.ItemId, ItemId.None);
+        ItemPosition = map.GetPoint(TiledObjectProperties.ItemPosition);
+        FireballLayout = map.GetIntPropertyOrNull(TiledObjectProperties.FireballLayout);
+        ExitPosition = map.GetPoint(TiledObjectProperties.ExitPosition);
+        CellarStairsLeftRoomId = map.GetProperty(TiledObjectProperties.CellarStairsLeft);
+        CellarStairsRightRoomId = map.GetProperty(TiledObjectProperties.CellarStairsRight);
+        RoomItemId = map.GetEnumProperty(TiledObjectProperties.RoomItemId, ItemId.None);
+        IsLadderAllowed = map.GetBooleanProperty(TiledObjectProperties.IsLadderAllowed);
 
         // Stores the entire map's worth of behaviors merged from all sources, with coinciding indexes to the tiles.
         var behaviors = new TileBehavior[Width * Height];
         Palettes = new Palette[Width * Height];
 
-        if (map.Layers == null) throw new Exception();
-        if (map.TileSets == null) throw new Exception();
-
         // Setup tilesets
+        // JOE: TODO: MAP REWRITE
+        // This is several tears of bad. For every map, of which many are loaded at once, predominately the same
+        // graphics are sent over to the GPU again and again. This needs to be managed by the world, but id mappings
+        // must remain local to the map. Also, fix this "Maps/" literal crap.
         TileSets = new GameTileSet[map.TileSets.Length];
         for (var i = 0; i < map.TileSets.Length; i++)
         {
@@ -175,7 +435,7 @@ internal sealed class GameMap
             var tileset = map.TileSets[i];
             var filename = Path.GetFileName(tileset.Source);
             var tilesetName = Path.GetFileNameWithoutExtension(filename);
-            var source = new Asset(filename);
+            var source = new Asset("Maps/" + filename);
             TileSets[i] = new GameTileSet(tilesetName, i, source.ReadJson<TiledTileSet>());
         }
 
@@ -208,7 +468,8 @@ internal sealed class GameMap
         }
 
         Layers = layers.ToArray();
-        ObjectLayer = new GameMapObjectLayer(objectLayers.SelectMany(t => t.Objects ?? []));
+        ObjectLayer = new GameMapObjectLayer(this, objectLayers.SelectMany(t => t.Objects ?? []));
+        ActionMapObjects = ObjectLayer.Objects.OfType<ActionGameMapObject>().ToImmutableArray();
 
         BackgroundLayer ??= Layers.FirstOrDefault()
             ?? throw new Exception($"Unable to find background layer for map {name}");
@@ -242,47 +503,73 @@ internal sealed class GameMap
             }
         }
 
-        var objectsByOwner = ObjectLayer.Objects
-            .Where(t => !string.IsNullOrWhiteSpace(t.OwnerName))
-            .GroupBy(t => t.OwnerName)
-            .ToDictionary(t => t.Key, t => t.ToArray());
-
-        // JOE: TODO: Pre-count most of the things so you can preallocate arrays instead of using lists.
-        // Setup screens
-        var screens = new List<GameScreen>(World.WorldWidth * World.WorldHeight);
-        foreach (var obj in ObjectLayer.Objects)
+        var backgroundTiles = new ReadOnlySpan<TiledTile>(BackgroundLayer.Tiles);
+        var behaviorsSpan = new ReadOnlySpan<TileBehavior>(behaviors);
+        for (var mapY = 0; mapY < Height; mapY++)
         {
-            if (obj is not ScreenGameMapObject screenObject) continue;
+            var rowStartIndex = mapY * Width;
+            var tilerow = backgroundTiles.Slice(rowStartIndex, Width);
+            var behaviorrow = behaviorsSpan.Slice(rowStartIndex, Width);
 
-            var startX = obj.MapX / TileWidth;
-            var startY = obj.MapY / TileHeight;
-            var endX = (obj.MapX + obj.Width - 1) / TileWidth;
-            var endY = (obj.MapY + obj.Height - 1) / TileHeight;
-            var width = endX - startX + 1;
-            var height = endY - startY + 1;
-
-            var owned = screenObject.Name != null && objectsByOwner.TryGetValue(screenObject.Name, out var o) ? o : [];
-            var screen = new GameScreen(game, screenObject, owned, startX, startY, width, height);
-
-            var backgroundTiles = new ReadOnlySpan<TiledTile>(BackgroundLayer.Tiles);
-            var behaviorsSpan = new ReadOnlySpan<TileBehavior>(behaviors);
-            for (var y = 0; y < height; y++)
-            {
-                var rowStartIndex = (startY + y) * Width + startX;
-                var tilerow = backgroundTiles.Slice(rowStartIndex, width);
-                var behaviorrow = behaviorsSpan.Slice(rowStartIndex, width);
-
-                tilerow.CopyTo(screen.Map.Tiles.AsSpan(y * width, width));
-                behaviorrow.CopyTo(screen.Map.Behaviors.AsSpan(y * width, width));
-            }
-
-            screens.Add(screen);
+            tilerow.CopyTo(RoomMap.Tiles.AsSpan(mapY * Width, Width));
+            behaviorrow.CopyTo(RoomMap.Behaviors.AsSpan(mapY * Width, Width));
         }
 
-        Screens = screens
-            .OrderBy(t => t.TileY)
-            .ThenBy(t => t.TileX)
-            .ToArray();
+        _waterTileCount = CountWaterTiles();
+
+        if (TryGetActionObject(TileAction.RecorderDestination, out var recorderDestination))
+        {
+            RecorderDestination = recorderDestination;
+        }
+    }
+
+    public RoomFlags GetRoomFlags()
+    {
+        var dict = new RoomDirectory(_world.Name, Id);
+        if (!_game.World.Profile.RoomFlags.TryGetValue(dict, out var flags))
+        {
+            flags = new RoomFlags
+            {
+                RoomPath = dict.ToString()
+            };
+            _game.World.Profile.RoomFlags[dict] = flags;
+        }
+
+        return flags;
+    }
+
+    private int CountWaterTiles()
+    {
+        var waterCount = 0;
+        for (var tileY = 0; tileY < Height - 1; tileY++)
+        {
+            for (var tileX = 0; tileX < Width - 1; tileX++)
+            {
+                if (!RoomMap.CheckBlockBehavior(tileX, tileY, TileBehavior.Water)) continue;
+                waterCount++;
+            }
+        }
+
+        return waterCount;
+    }
+
+    public Cell GetRandomWaterTile()
+    {
+        if (_waterTileCount == 0) throw new Exception($"No water found for Zora's in map \"{Name}\"");
+
+        var waterCount = 0;
+        var randomCell = _game.Random.Next(0, _waterTileCount);
+        for (var tileY = 0; tileY < Height - 1; tileY++)
+        {
+            for (var tileX = 0; tileX < Width - 1; tileX++)
+            {
+                if (!RoomMap.CheckBlockBehavior(tileX, tileY, TileBehavior.Water)) continue;
+                if (waterCount == randomCell) return new Cell((byte)(tileY + World.BaseRows), (byte)tileX);
+                waterCount++;
+            }
+        }
+
+        throw new Exception("Unreachable code.");
     }
 
     public TileBehavior GetBehavior(TiledTile tile)
@@ -353,6 +640,75 @@ internal sealed class GameMap
             }
         }
     }
+
+    public IEnumerable<GameMapObject> GetObjects(int tileX, int tileY)
+    {
+        foreach (var obj in ObjectLayer.Objects)
+        {
+            obj.GetScreenTileCoordinates(out var objectTileX, out var objectTileY);
+
+            if (tileX < objectTileX || tileX >= objectTileX + obj.Width / TileWidth) continue;
+            if (tileY < objectTileY || tileY >= objectTileY + obj.Height / TileHeight) continue;
+            yield return obj;
+        }
+    }
+
+    public bool TryGetActionObject(TileAction action, out ActionGameMapObject actionObject)
+    {
+        actionObject = default;
+        foreach (var obj in ActionMapObjects)
+        {
+            if (obj.Action != action) continue;
+            actionObject = obj;
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryGetActionObject(TileAction action, int tileX, int tileY, out ActionGameMapObject actionObject)
+    {
+        actionObject = default;
+        foreach (var obj in GetObjects(tileX, tileY))
+        {
+            if (obj is not ActionGameMapObject currentObject) continue;
+            if (currentObject.Action != action) continue;
+            actionObject = currentObject;
+            return true;
+        }
+
+        return false;
+    }
+
+    public ActionGameMapObject GetActionObject(TileAction action, int tileX, int tileY)
+    {
+        if (TryGetActionObject(action, tileX, tileY, out var actionObject)) return actionObject;
+
+        throw new Exception($"No object of type {action} found at {tileX}, {tileY}");
+    }
+
+    internal static bool TryParseDungeonDoors(string? s, [MaybeNullWhen(false)] out Dictionary<Direction, DoorType> doors)
+    {
+        doors = null;
+
+        if (s == null) return false;
+        var parser = new StringParser();
+
+        doors = new Dictionary<Direction, DoorType>();
+        var directions = TiledObjectProperties.DoorDirectionOrder;
+        for (var i = 0; i < directions.Length; i++)
+        {
+            if (!parser.TryExpectEnum<DoorType>(s, out var doorType)) return false;
+            doors[directions[i]] = doorType;
+
+            if (i < directions.Length - 1)
+            {
+                if (!parser.TryExpectChar(s, ',')) return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 internal sealed class GameMapTileLayer
@@ -374,158 +730,47 @@ internal readonly record struct GameObjectLayerObject(
     GameObjectLayerObjectType Type,
     ImmutableDictionary<string, string> Properties);
 
-[DebuggerDisplay("{Name} ({MapX}, {MapY})")]
+[DebuggerDisplay("{Name} ({X}, {Y})")]
 internal abstract class GameMapObject
 {
+    private readonly GameRoom _room;
     public string Name { get; }
-    public int MapX { get; }
-    public int MapY { get; }
+    public int X { get; }
+    public int Y { get; }
     public int Width { get; }
     public int Height { get; }
     // public GameObjectLayerObjectType Type { get; }
     public string OwnerName { get; }
-    public GameScreen? Owner { get; set; }
     public ImmutableDictionary<string, string> Properties { get; }
 
-    protected GameMapObject(TiledLayerObject layerObject)
+    protected GameMapObject(GameRoom room, TiledLayerObject layerObject)
     {
+        _room = room;
         Name = layerObject.Name;
-        MapX = layerObject.X;
-        MapY = layerObject.Y;
+        X = layerObject.X;
+        Y = layerObject.Y;
         Width = layerObject.Width;
         Height = layerObject.Height;
         OwnerName = layerObject.GetProperty(TiledObjectProperties.Owner) ?? "";
         Properties = layerObject.GetPropertyDictionary();
     }
 
-    public void GetScreenTileCoordinates(GameMap map, out int tileX, out int tileY)
+    public void GetScreenTileCoordinates(out int tileX, out int tileY)
     {
-        if (Owner == null) throw new Exception($"Can not get screen coordinates of unknowned object \"{Name}\"");
-
-        var objtilex = MapX / map.TileWidth;
-        var objtiley = MapY / map.TileHeight;
-        tileX = objtilex - Owner.TileX;
-        tileY = objtiley - Owner.TileY;
+        var objtilex = X / _room.TileWidth;
+        var objtiley = Y / _room.TileHeight;
+        tileX = objtilex;
+        tileY = objtiley;
     }
 
-    public void GetTileSize(GameMap map, out int tileWidth, out int tileHeight)
+    public void GetTileSize(out int tileWidth, out int tileHeight)
     {
-        tileWidth = Width / (map.TileWidth);
-        tileHeight = Height / (map.TileHeight );
+        tileWidth = Width / (_room.TileWidth);
+        tileHeight = Height / (_room.TileHeight );
     }
 }
 
-[DebuggerDisplay("{Name}")]
-internal sealed class GameScreen
-{
-    public GameScreenMap Map { get; }
-    public SoundEffect? AmbientSound => _mapObject.AmbientSound;
-    public ImmutableArray<ObjType> Monsters => _mapObject.Monsters;
-    public string Name => _mapObject.Name;
-    public int ZoraCount => _mapObject.ZoraCount;
-    public bool MonstersEnter => _mapObject.MonstersEnter;
-    public ImmutableArray<Direction> Maze => _mapObject.Maze;
-    public Direction MazeExit => _mapObject.MazeExit;
-    public ImmutableArray<ActionGameMapObject> ActionMapObjects { get; set; }
-    public int TileX { get; }
-    public int TileY { get; }
-    public int ScreenTileWidth { get; }
-    public int ScreenTileHeight { get; }
-    public Palette InnerPalette => _mapObject.InnerPalette;
-    public Palette OuterPalette => _mapObject.OuterPalette;
-
-    private readonly Game _game;
-    private readonly ScreenGameMapObject _mapObject;
-    private readonly GameMapObject[] _ownedObjects;
-    private readonly int _waterTileCount;
-
-    public GameScreen(
-        Game game, ScreenGameMapObject mapObject, GameMapObject[] ownedObjects,
-        int tileX, int tileY, int screenTileWidth, int screenTileHeight)
-    {
-        _game = game;
-        _mapObject = mapObject;
-        _ownedObjects = ownedObjects;
-        Map = new GameScreenMap(screenTileWidth, screenTileHeight);
-        ActionMapObjects = ownedObjects.OfType<ActionGameMapObject>().ToImmutableArray();
-        TileX = tileX;
-        TileY = tileY;
-        ScreenTileWidth = screenTileWidth;
-        ScreenTileHeight = screenTileHeight;
-        _waterTileCount = CountWaterTiles();
-
-        foreach (var obj in ActionMapObjects) obj.Owner = this;
-    }
-
-    private int CountWaterTiles()
-    {
-        var waterCount = 0;
-        for (var tileY = 0; tileY < ScreenTileHeight - 1; tileY++)
-        {
-            for (var tileX = 0; tileX < ScreenTileWidth - 1; tileX++)
-            {
-                if (!Map.CheckBlockBehavior(tileX, tileY, TileBehavior.Water)) continue;
-                waterCount++;
-            }
-        }
-
-        return waterCount;
-    }
-
-    public IEnumerable<GameMapObject> GetObjects(GameMap map, int tileX, int tileY)
-    {
-        foreach (var obj in _ownedObjects)
-        {
-            obj.GetScreenTileCoordinates(map, out var objectTileX, out var objectTileY);
-
-            if (tileX < objectTileX || tileX >= objectTileX + obj.Width / map.TileWidth) continue;
-            if (tileY < objectTileY || tileY >= objectTileY + obj.Height / map.TileHeight) continue;
-            yield return obj;
-        }
-    }
-
-    public bool TryGetActionObject(GameMap map, TileAction action, int tileX, int tileY, out ActionGameMapObject actionObject)
-    {
-        actionObject = default;
-        foreach (var obj in GetObjects(map, tileX, tileY))
-        {
-            if (obj is not ActionGameMapObject currentObject) continue;
-            if (currentObject.Action != action) continue;
-            actionObject = currentObject;
-            return true;
-        }
-
-        return false;
-    }
-
-    public ActionGameMapObject GetActionObject(GameMap map, TileAction action, int tileX, int tileY)
-    {
-        if (TryGetActionObject(map, action, tileX, tileY, out var actionObject)) return actionObject;
-
-        throw new Exception($"No object of type {action} found at {tileX}, {tileY}");
-    }
-
-    public Cell GetRandomWaterTile()
-    {
-        if (_waterTileCount == 0) throw new Exception($"No water found for Zora's in map \"{Name}\"");
-
-        var waterCount = 0;
-        var randomCell = _game.Random.Next(0, _waterTileCount);
-        for (var tileY = 0; tileY < ScreenTileHeight - 1; tileY++)
-        {
-            for (var tileX = 0; tileX < ScreenTileWidth - 1; tileX++)
-            {
-                if (!Map.CheckBlockBehavior(tileX, tileY, TileBehavior.Water)) continue;
-                if (waterCount == randomCell) return new Cell((byte)(tileY + World.BaseRows), (byte)tileX);
-                waterCount++;
-            }
-        }
-
-        throw new Exception("Unreachable code.");
-    }
-}
-
-internal sealed class GameScreenMap
+internal sealed class RoomTileMap
 {
     public int Width { get; }
     public int Height { get; }
@@ -539,7 +784,7 @@ internal sealed class GameScreenMap
         set => Tiles[y * Width + x] = value;
     }
 
-    public GameScreenMap(int width, int height)
+    public RoomTileMap(int width, int height)
     {
         Width = width;
         Height = height;
@@ -609,19 +854,30 @@ internal sealed class GameMapReference
 [DebuggerDisplay("{Name} ({Action})")]
 internal sealed class ActionGameMapObject : GameMapObject
 {
+    private readonly GameRoom _room;
+
     public TileAction Action { get; set; }
     public GameMapReference? Enters { get; set; }
     public Point ExitPosition { get; set; }
     // The Name of the object which this reveals. Used by overworld push blocks that reveal the shortcut stairs.
     public string? Reveals { get; set; }
+    public int? RecorderDestinationSlot { get; set; }
+    public ItemId? ItemId { get; set; }
 
-    public ActionGameMapObject(TiledLayerObject layerObject) : base(layerObject)
+    public ActionGameMapObject(GameRoom room, TiledLayerObject layerObject) : base(room, layerObject)
     {
+        _room = room;
         Action = layerObject.GetEnumProperty<TileAction>(TiledObjectProperties.TileAction);
         var enters = layerObject.GetProperty(TiledObjectProperties.Enters);
         Enters = enters == null ? null : new GameMapReference(this, enters);
         ExitPosition = layerObject.GetPoint(TiledObjectProperties.ExitPosition).ToPoint();
         Reveals = layerObject.GetProperty(TiledObjectProperties.Reveals);
+        ItemId = layerObject.GetNullableEnumProperty<ItemId>(TiledObjectProperties.ItemId);
+
+        if (layerObject.TryGetIntProperty(TiledObjectProperties.RecorderDestinationSlot, out var slot))
+        {
+            RecorderDestinationSlot = slot;
+        }
     }
 }
 
@@ -630,13 +886,11 @@ internal sealed class TileBehaviorGameMapObject : GameMapObject
 {
     public TileBehavior TileBehavior { get; set; }
 
-    public TileBehaviorGameMapObject(TiledLayerObject layerObject) : base(layerObject)
+    public TileBehaviorGameMapObject(GameRoom room, TiledLayerObject layerObject) : base(room, layerObject)
     {
         TileBehavior = layerObject.GetEnumProperty<TileBehavior>(TiledObjectProperties.TileBehavior);
     }
 }
-
-internal readonly record struct MonsterEntry(ObjType ObjType, int X, int Y);
 
 internal sealed class ScreenGameMapObject : GameMapObject
 {
@@ -652,7 +906,7 @@ internal sealed class ScreenGameMapObject : GameMapObject
     [ThreadStatic]
     private static List<ObjType>? _temporaryList;
 
-    public ScreenGameMapObject(TiledLayerObject layerObject) : base(layerObject)
+    public ScreenGameMapObject(GameRoom room, TiledLayerObject layerObject) : base(room, layerObject)
     {
         AmbientSound = layerObject.GetNullableEnumProperty<SoundEffect>(TiledObjectProperties.AmbientSound);
         Monsters = ParseMonsters(layerObject.GetProperty(TiledObjectProperties.Monsters), out var zoraCount);
@@ -708,19 +962,20 @@ internal sealed class ScreenGameMapObject : GameMapObject
 
 internal sealed class GameMapObjectLayer
 {
+    private readonly GameRoom _room;
     public GameMapObject[] Objects { get; } = [];
 
-    public GameMapObjectLayer(IEnumerable<TiledLayerObject> objects)
+    public GameMapObjectLayer(GameRoom room, IEnumerable<TiledLayerObject> objects)
     {
+        _room = room;
         var list = new List<GameMapObject>(500);
         foreach (var obj in objects)
         {
             var type = obj.GetEnumProperty<GameObjectLayerObjectType>(TiledObjectProperties.Type);
             list.Add(type switch
             {
-                GameObjectLayerObjectType.Screen => new ScreenGameMapObject(obj),
-                GameObjectLayerObjectType.Action => new ActionGameMapObject(obj),
-                GameObjectLayerObjectType.TileBehavior => new TileBehaviorGameMapObject(obj),
+                GameObjectLayerObjectType.Action => new ActionGameMapObject(room, obj),
+                GameObjectLayerObjectType.TileBehavior => new TileBehaviorGameMapObject(room, obj),
                 _ => throw new Exception(),
             });
         }

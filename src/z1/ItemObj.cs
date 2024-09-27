@@ -62,7 +62,7 @@ internal abstract class BlockObjBase : Actor
     {
         if (_curUpdate == UpdateMoving)
         {
-            Graphics.DrawStripSprite16X16(_tileSheet, BlockTile, X, Y, Game.World.CurrentScreen.InnerPalette);
+            Graphics.DrawStripSprite16X16(_tileSheet, BlockTile, X, Y, Game.World.CurrentRoom.InnerPalette);
         }
     }
 
@@ -321,7 +321,7 @@ internal sealed class TreeActor : Actor
             if (Math.Abs(fire.X - X) >= 16 || Math.Abs(fire.Y - Y) >= 16) continue;
 
             Game.World.SetMapObjectXY(X, Y, BlockObjType.Stairs);
-            Game.World.TakeSecret();
+            Game.World.CurrentRoomFlags.SecretState = true;
             Game.Sound.PlayEffect(SoundEffect.Secret);
             Game.World.Profile.Statistics.TreesBurned++;
             Delete();
@@ -442,7 +442,7 @@ internal sealed class RockWallActor : Actor
             if (Math.Abs(bomb.X - X) >= 16 || Math.Abs(bomb.Y - Y) >= 16) continue;
 
             Game.World.SetMapObjectXY(X, Y, BlockObjType.Cave);
-            Game.World.TakeSecret();
+            Game.World.CurrentRoomFlags.SecretState = true;
             Game.Sound.PlayEffect(SoundEffect.Secret);
             Game.World.Profile.Statistics.OWBlocksBombed++;
             Delete();
@@ -679,7 +679,7 @@ internal sealed class ItemObjActor : Actor
         {
             if (_isRoomItem)
             {
-                Game.World.MarkItem();
+                Game.World.CurrentRoomFlags.ItemState = true;
             }
 
             Delete();
@@ -698,7 +698,7 @@ internal sealed class ItemObjActor : Actor
                     Game.World.EndLevel();
                     Game.AutoSave();
                 }
-                else if (Game.World.IsUWCellar())
+                else if (!Game.World.IsOverworld() && !Game.World.CurrentRoom.HasDungeonDoors) // JOE: TODO: Arg, this check is all wrong.
                 {
                     Game.World.LiftItem(_itemId);
                     Game.Sound.PushSong(SongId.ItemLift);
@@ -719,7 +719,7 @@ internal sealed class ItemObjActor : Actor
 
 internal sealed class WhirlwindActor : Actor
 {
-    private byte _prevRoomId;
+    private GameRoom _prevRoom;
     private readonly SpriteAnimator _animator;
 
     public WhirlwindActor(Game game, int x, int y)
@@ -734,9 +734,9 @@ internal sealed class WhirlwindActor : Actor
         };
     }
 
-    public void SetTeleportPrevRoomId(byte roomId)
+    public void SetTeleportPrevRoomId(GameRoom room)
     {
-        _prevRoomId = roomId;
+        _prevRoom = room;
     }
 
     public override void Update()
@@ -779,7 +779,7 @@ internal sealed class WhirlwindActor : Actor
             Delete();
             if (Game.World.WhirlwindTeleporting != 0)
             {
-                Game.World.LeaveRoom(Direction.Right, _prevRoomId);
+                Game.World.LeaveRoom(Direction.Right, _prevRoom);
             }
         }
 
@@ -815,7 +815,7 @@ internal sealed class DockActor : Actor
         switch (_state)
         {
             case 0:
-                var x = Game.World.CurRoomId == 0x55 ? 0x80 : 0x60;
+                var x = 0x60; // JOE: TODO: MAP REWRITE Game.World.CurRoomId == 0x55 ? 0x80 : 0x60; // I think this is level 6 entrance? This check happens elsewhere.
                 if (x != player.X) return;
 
                 X = x;
@@ -858,7 +858,7 @@ internal sealed class DockActor : Actor
 
                 if (player.Y == 0x3D)
                 {
-                    Game.World.LeaveRoom(player.Facing, Game.World.CurRoomId);
+                    Game.World.LeaveRoom(player.Facing, Game.World.CurrentRoom);
                     player.SetState(PlayerState.Idle);
                     _state = 0;
                 }

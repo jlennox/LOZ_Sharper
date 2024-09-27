@@ -3,6 +3,7 @@ using System.Diagnostics;
 using z1.Actors;
 using z1.Render;
 using z1.IO;
+using SkiaSharp;
 
 namespace z1;
 
@@ -220,6 +221,22 @@ internal static class GlobalFunctions
 
     public static void DrawChar(Chars ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency) => DrawChar((byte)ch, x, y, palette, flags);
     public static void DrawChar(int ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
+    {
+        var srcX = (ch % 16) * 8;
+        var srcY = (ch / 16) * 8;
+
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags);
+    }
+
+    public static void DrawChar(int ch, int x, int y, int width, int height, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
+    {
+        var srcX = (ch % 16) * 8;
+        var srcY = (ch / 16) * 8;
+
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, width, height, x, y, palette, flags);
+    }
+
+    public static void DrawChar(int ch, int x, int y, ReadOnlySpan<SKColor> palette, DrawingFlags flags = DrawingFlags.NoTransparency)
     {
         var srcX = (ch % 16) * 8;
         var srcY = (ch / 16) * 8;

@@ -82,6 +82,14 @@ internal static class Extensions
         return 0;
     }
 
+    public static Point GetOffset(this Direction direction) => direction switch {
+        Direction.Left => new(-1, 0),
+        Direction.Right => new(1, 0),
+        Direction.Up => new(0, -1),
+        Direction.Down => new(0, 1),
+        _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "Invalid direction."),
+    };
+
     public static Direction GetDirection8(this int ord) => _allDirs()[ord];
     public static Direction GetDirection8(this uint ord) => _allDirs()[(int)ord];
 

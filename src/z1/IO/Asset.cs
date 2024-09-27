@@ -31,6 +31,9 @@ internal readonly struct Asset
         }
     }
 
+    public Asset(string? patha, string pathb) : this(patha != null ? $"{patha}/{pathb}" : pathb) { }
+    public Asset(string patha, string pathb, string pathc) : this($"{patha}/{pathb}/{pathc}") { }
+
     public static void Initialize()
     {
         foreach (var kv in AssetLoader.Initialize())

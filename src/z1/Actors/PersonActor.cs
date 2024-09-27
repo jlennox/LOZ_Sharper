@@ -74,9 +74,9 @@ internal sealed class PersonActor : Actor
         };
 
         // Room has been previously paid for. Clear it out.
-        if (Game.World.GotItem())
+        if (Game.World.CurrentRoomFlags.ItemState)
         {
-            MarkItem();
+            Game.World.CurrentRoomFlags.ItemState = true;
             return;
         }
 
@@ -87,7 +87,7 @@ internal sealed class PersonActor : Actor
             var item = game.World.GetItem(checkItem);
             if (item >= checkAmount)
             {
-                MarkItem();
+                Game.World.CurrentRoomFlags.ItemState = true;
                 return;
             }
         }
@@ -99,7 +99,7 @@ internal sealed class PersonActor : Actor
             if (checkItem == ItemSlot.Rupees)
             {
                 game.World.PostRupeeLoss(checkAmount);
-                MarkItem();
+                Game.World.CurrentRoomFlags.ItemState = true;
                 return;
             }
 
@@ -142,7 +142,7 @@ internal sealed class PersonActor : Actor
 
     private void MarkItem()
     {
-        Game.World.MarkItem();
+        Game.World.Game.World.CurrentRoomFlags.ItemState = true;
         if (_spec.DoesControlsBlockingWall) Game.World.SetPersonWallY(0);
         if (_spec.DoesControlsShutters) Game.World.OpenShutters();
         Delete();
@@ -188,7 +188,7 @@ internal sealed class PersonActor : Actor
             {
                 case PersonType.DoorRepair:
                     Game.World.PostRupeeLoss(20);
-                    Game.World.MarkItem();
+                    Game.World.Game.World.CurrentRoomFlags.ItemState = true;
                     break;
 
                 case PersonType.Grumble:
@@ -275,7 +275,7 @@ internal sealed class PersonActor : Actor
 
         if (!_spec.ShowNumbers)
         {
-            Game.World.MarkItem();
+            Game.World.Game.World.CurrentRoomFlags.ItemState = true;
         }
 
         if (HandlePickUpHint(item))
@@ -411,7 +411,7 @@ internal sealed class PersonActor : Actor
         //         return;
         //     }
         //
-        //     Game.World.MarkItem();
+        //     Game.World.Game.World.CurrentRoomFlags.ItemState = true;
         //     Game.World.OpenShutters();
         //
         //     _showNumbers = false;
@@ -424,7 +424,7 @@ internal sealed class PersonActor : Actor
         var amount = item.Cost;
 
         Game.World.PostRupeeWin(amount);
-        Game.World.MarkItem();
+        Game.World.Game.World.CurrentRoomFlags.ItemState = true;
         _spec.ClearOptions(CaveSpecOptions.PickUp);
         _showNumbers = true;
     }
@@ -465,7 +465,7 @@ internal sealed class PersonActor : Actor
 
         if (ObjType == ObjType.Grumble)
         {
-            Game.World.MarkItem();
+            Game.World.Game.World.CurrentRoomFlags.ItemState = true;
             Game.World.SetItem(ItemSlot.Food, 0);
             Game.World.SetPersonWallY(0);
 
@@ -519,7 +519,7 @@ internal sealed class PersonActor : Actor
         // JOE: I made a lot of sus changes here.
         for (var j = 0; j < rooms.Length; j++)
         {
-            if (rooms[j] == Game.World.CurRoomId)
+            if (rooms[j] == Game.World.CurrentRoom)
             {
                 var index = j + 1 + stairsIndex;
                 if (index >= rooms.Length)
@@ -532,7 +532,7 @@ internal sealed class PersonActor : Actor
             }
         }
 
-        throw new Exception($"CheckStairsHit: Unable to locate {Game.World.CurRoomId} in {string.Join(", ", rooms.ToArray())}");
+        throw new Exception($"CheckStairsHit: Unable to locate {Game.World.CurrentRoom.Name} in "); // {string.Join(", ", rooms.ToArray())}");
     }
 
     public override void Draw()

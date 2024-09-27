@@ -24,7 +24,7 @@ internal sealed class DebugInfo
         if (_configuration.RoomId)
         {
             var room = _game.World.CurrentRoom;
-            _sb.Add($"r:{room.X},{room.Y} ({_game.World.CurRoomId})");
+            // _sb.Add($"r:{room.X},{room.Y} ({_game.World.CurRoomId})");
         }
 
         if (_configuration.ActiveShots) _sb.Add($"shots:{_game.World.ActiveShots}");

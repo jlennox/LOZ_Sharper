@@ -1,24 +1,17 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using z1.Actors;
 using z1.IO;
 using z1.Render;
+using z1.UI;
 
 namespace z1;
 
-internal enum RoomMap
-{
-    Overworld,
-    UnderworldA,
-    UnderworldB,
-}
-
 internal sealed class RoomFlags
 {
-    public RoomMap RoomMap { get; set; }
-    public int RoomX { get; set; }
-    public int RoomY { get; set; }
+    public string RoomPath { get; set; }
     public bool ItemState { get; set; }
     public bool ShortcutState { get; set; } // Overworld
     public bool SecretState { get; set; } // Overworld
@@ -115,6 +108,46 @@ internal sealed class DungeonItems
     public bool Set(ItemId item) => Items[item] = true;
 }
 
+[JsonConverter(typeof(Converter))]
+internal sealed record RoomDirectory(string WorldName, string RoomName)
+{
+    public override string ToString() => $"{WorldName}/{RoomName}";
+
+    public class Converter : JsonConverter<RoomDirectory>
+    {
+        private static string GetJsonString(RoomDirectory directory)
+        {
+            return directory.ToString();
+        }
+
+        private static RoomDirectory ParseJsonString(string json)
+        {
+            var parts = json.Split('/');
+            return new RoomDirectory(parts[0], parts[1]);
+        }
+
+        public override RoomDirectory Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            return ParseJsonString(reader.GetString());
+        }
+
+        public override void Write(Utf8JsonWriter writer, RoomDirectory value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(GetJsonString(value));
+        }
+
+        public override RoomDirectory ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            return ParseJsonString(reader.GetString());
+        }
+
+        public override void WriteAsPropertyName(Utf8JsonWriter writer, RoomDirectory value, JsonSerializerOptions options)
+        {
+            writer.WritePropertyName(GetJsonString(value));
+        }
+    }
+}
+
 [DebuggerDisplay("{Name} ({Hearts})")]
 internal sealed class PlayerProfile
 {
@@ -140,7 +173,7 @@ internal sealed class PlayerProfile
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
     public PlayerStatistics Statistics { get; set; }
-    public List<RoomFlags> RoomFlags { get; set; }
+    public Dictionary<RoomDirectory, RoomFlags> RoomFlags { get; set; }
     public Dictionary<int, DungeonItems> DungeonItems { get; set; }
 
     public PlayerProfile()
@@ -177,28 +210,6 @@ internal sealed class PlayerProfile
         }
 
         Statistics.Initialize();
-    }
-
-    public RoomFlags GetRoomFlags(RoomMap map, int roomId)
-    {
-        var x = roomId % World.WorldWidth;
-        var y = roomId / World.WorldWidth;
-        return GetRoomFlags(map, x, y);
-    }
-
-    public RoomFlags GetRoomFlags(RoomMap map, int x, int y)
-    {
-        // Allow screen wrapping.
-        x %= World.WorldWidth;
-        y %= World.WorldHeight;
-        var room = RoomFlags.FirstOrDefault(rf => rf.RoomMap == map && rf.RoomX == x && rf.RoomY == y);
-        if (room == null)
-        {
-            room = new RoomFlags { RoomMap = map, RoomX = x, RoomY = y };
-            RoomFlags.Add(room);
-        }
-
-        return room;
     }
 
     public DungeonItems GetDungeonItems(int dungeon)

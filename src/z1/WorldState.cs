@@ -98,14 +98,14 @@ internal struct ScrollState
     /// <summary>How long before the screen begins the scroll animation.</summary>
     public int Timer;
     public Direction ScrollDir;
-    public int NextRoomId;
-    public int CurRoomId;
+    public GameRoom NextRoom;
+    public GameRoom CurrentRoom;
 
     public int OffsetX;
     public int OffsetY;
     public int SpeedX;
     public int SpeedY;
-    public int OldRoomId;
+    public GameRoom OldRoom;
     public int OldMapToNewMapDistX;
     public int OldMapToNewMapDistY;
 }
@@ -116,7 +116,7 @@ internal struct LeaveState
 
     public int Timer;
     public Direction ScrollDir;
-    public int CurRoomId;
+    public GameRoom CurrentRoom;
 }
 
 [DebuggerDisplay("{Substate}")]
@@ -336,20 +336,20 @@ internal enum LevelBlock
 internal sealed class RoomHistory
 {
     private readonly Game _game;
-    private readonly int[] _roomHistory;
+    private readonly GameRoom[] _roomHistory;
     private int _nextRoomHistorySlot;
 
     public RoomHistory(Game game, int length)
     {
         _game = game;
-        _roomHistory = new int[length];
+        _roomHistory = new GameRoom[length];
     }
 
     public bool IsRoomInHistory()
     {
         for (var i = 0; i < _roomHistory.Length; i++)
         {
-            if (_roomHistory[i] == _game.World.CurRoomId) return true;
+            if (_roomHistory[i] == _game.World.CurrentRoom) return true;
         }
         return false;
     }
@@ -360,12 +360,12 @@ internal sealed class RoomHistory
 
         for (; i < _roomHistory.Length; i++)
         {
-            if (_roomHistory[i] == _game.World.CurRoomId) break;
+            if (_roomHistory[i] == _game.World.CurrentRoom) break;
         }
 
         if (i == _roomHistory.Length)
         {
-            _roomHistory[_nextRoomHistorySlot] = (byte)_game.World.CurRoomId;
+            _roomHistory[_nextRoomHistorySlot] = _game.World.CurrentRoom;
             _nextRoomHistorySlot++;
             if (_nextRoomHistorySlot >= _roomHistory.Length)
             {

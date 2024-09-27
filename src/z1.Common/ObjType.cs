@@ -1,4 +1,8 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Collections.Immutable;
+using System.Drawing;
+using System.Text;
+using System.Text.Json.Serialization;
+using z1.Common.Data;
 
 namespace z1.Common;
 
@@ -363,6 +367,8 @@ public enum TileAction
     Armos,
     Block,
     Recorder,
+    RecorderDestination,
+    Item,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -454,4 +460,89 @@ public enum TileBehavior
 
     FirstWalkable = GenericWalkable,
     FirstSolid = Doorway,
+}
+
+[Flags]
+public enum Direction
+{
+    None = 0,
+    Right = 1,
+    Left = 2,
+    Down = 4,
+    Up = 8,
+    DirectionMask = 0x0F,
+    ShoveMask = 0x80, // JOE: TODO: Not sure what this is.
+    FullMask = 0xFF,
+    VerticalMask = Down | Up,
+    HorizontalMask = Left | Right,
+    OppositeVerticals = VerticalMask,
+    OppositeHorizontals = HorizontalMask,
+}
+
+public readonly record struct MonsterEntry(ObjType ObjType, int Count = 1, Point? Point = null)
+{
+    [ThreadStatic]
+    private static List<MonsterEntry>? _temporaryList;
+
+    public static ImmutableArray<MonsterEntry> ParseMonsters(string? monsterList, out int zoraCount)
+    {
+        zoraCount = 0;
+        if (string.IsNullOrEmpty(monsterList)) return [];
+
+        var parser = new StringParser();
+        var list = _temporaryList ??= [];
+        list.Clear();
+
+        var monsterListSpan = monsterList.AsSpan();
+        for (; parser.Index < monsterListSpan.Length;)
+        {
+            parser.SkipOptionalWhiteSpace(monsterListSpan);
+            var monsterName = parser.ExpectWord(monsterListSpan);
+            var count = parser.TryExpectChar(monsterListSpan, '*')
+                ? parser.ExpectInt(monsterListSpan)
+                : 1;
+
+            if (!Enum.TryParse<ObjType>(monsterName, true, out var type))
+            {
+                throw new Exception($"Unknown monster type: {monsterName}");
+            }
+
+            if (type == ObjType.Zora)
+            {
+                zoraCount += count;
+            }
+            else
+            {
+                for (var j = 0; j < count; j++) list.Add(new MonsterEntry(type));
+            }
+
+            if (!parser.TryExpectChar(monsterListSpan, ',')) break;
+        }
+
+        return list.ToImmutableArray();
+    }
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+
+        sb.Append(ObjType.ToString());
+
+        if (Point != null)
+        {
+            sb.Append("[X=");
+            sb.Append(Point.Value.X);
+            sb.Append(",Y=");
+            sb.Append(Point.Value.Y);
+            sb.Append(']');
+        }
+
+        if (Count > 1)
+        {
+            sb.Append('*');
+            sb.Append(Count);
+        }
+
+        return sb.ToString();
+    }
 }
