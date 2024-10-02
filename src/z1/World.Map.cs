@@ -46,9 +46,9 @@ internal partial class World
         // _roomAttrs = ListResource<RoomAttrs>.LoadList(new Asset(_directory.RoomAttrs), Rooms).ToArray();
         // _sparseRoomAttrs = TableResource<byte>.Load(new Asset(_directory.Extra1));
 
-        var facing = Game.Link?.Facing ?? Direction.Up;
+        var facing = Game.Player?.Facing ?? Direction.Up;
 
-        Game.Link = new Link(Game, facing);
+        Game.Player = new Link(Game, facing);
 
         // Replace room attributes, if in second quest.
 

@@ -123,7 +123,7 @@ internal sealed class InteractiveGameObjectActor : Actor
         if (Game.World.GetItem(ItemSlot.Raft) == 0) return false;
         if (_raftDirection == null && !Game.World.Player.DoesCover(this)) return false;
 
-        var player = Game.Link;
+        var player = Game.Player;
 
         switch (_raftDirection)
         {

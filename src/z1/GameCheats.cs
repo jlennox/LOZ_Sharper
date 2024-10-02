@@ -368,7 +368,7 @@ internal sealed class GameCheats
         public override void RunPayload(Game game, string[] args)
         {
             var room = game.World.CurrentRoom;
-            var link = game.Link;
+            var link = game.Player;
             // game.Toast($"Room: {room.X},{room.Y} ({room.X:X2},{room.Y:X2}) {game.World.CurRoomId}");
             game.Toast($"Link: {link.X},{link.Y} ({link.X:X2},{link.Y:X2})");
         }

@@ -9,8 +9,8 @@ internal abstract class MonsterActor : Actor
 
     protected Direction GetXDirToPlayer(int x) => Game.World.GetObservedPlayerPos().X < x ? Direction.Left : Direction.Right;
     protected Direction GetYDirToPlayer(int y) => Game.World.GetObservedPlayerPos().Y < y ? Direction.Up : Direction.Down;
-    protected Direction GetXDirToTruePlayer(int x) => Game.Link.X < x ? Direction.Left : Direction.Right;
-    protected Direction GetYDirToTruePlayer(int y) => Game.Link.Y < y ? Direction.Up : Direction.Down;
+    protected Direction GetXDirToTruePlayer(int x) => Game.Player.X < x ? Direction.Left : Direction.Right;
+    protected Direction GetYDirToTruePlayer(int y) => Game.Player.Y < y ? Direction.Up : Direction.Down;
 
     private Direction GetDir8ToPlayer(int x, int y)
     {

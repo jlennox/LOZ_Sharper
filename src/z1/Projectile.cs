@@ -79,7 +79,7 @@ internal abstract class Projectile : Actor, IProjectile
             {
                 TileOffset = 0;
                 State = ProjectileState.Bounce;
-                _bounceDir = Game.Link.Facing;
+                _bounceDir = Game.Player.Facing;
             }
         }
     }
@@ -332,8 +332,8 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         base.Y = (int)_y;
 
         _state = FireballState.Initializing;
-        var xDist = Game.Link.X - x;
-        var yDist = Game.Link.Y - y;
+        var xDist = Game.Player.X - x;
+        var yDist = Game.Player.Y - y;
 
         var sector = new PointF(xDist, yDist).Rotate(Global.PI_OVER_16).GetSector16();
         var angle = Global.PI_OVER_8 * sector;

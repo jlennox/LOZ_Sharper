@@ -123,7 +123,7 @@ internal sealed unsafe partial class World
     private static readonly DebugLog _log = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
 
     public Game Game { get; }
-    public Link Player => Game.Link;
+    public Link Player => Game.Player;
     public SubmenuType Menu;
     public int RoomObjCount;           // 34E
     public Actor? RoomObj;              // 35F
@@ -331,7 +331,7 @@ internal sealed unsafe partial class World
                 if (mode != GameMode.Unfurl)
                 {
                     OnLeavePlay();
-                    Game.Link?.Stop();
+                    Game.Player?.Stop();
                 }
             }
 
@@ -444,7 +444,7 @@ internal sealed unsafe partial class World
         {
             ReadOnlySpan<byte> teleportRoomIds = [0x36, 0x3B, 0x73, 0x44, 0x0A, 0x21, 0x41, 0x6C];
 
-            var whirlwind = new WhirlwindActor(Game, 0, Game.Link.Y);
+            var whirlwind = new WhirlwindActor(Game, 0, Game.Player.Y);
             AddObject(whirlwind);
 
             _summonedWhirlwind = true;
@@ -749,8 +749,8 @@ internal sealed unsafe partial class World
     public void OnTouchedPowerTriforce()
     {
         _powerTriforceFanfare = true;
-        Game.Link.SetState(PlayerState.Paused);
-        Game.Link.ObjTimer = 0xC0;
+        Game.Player.SetState(PlayerState.Paused);
+        Game.Player.ObjTimer = 0xC0;
 
         ReadOnlySpan<byte> palette = [0, 0x0F, 0x10, 0x30];
         Graphics.SetPaletteIndexed(Palette.SeaPal, palette);
@@ -761,10 +761,10 @@ internal sealed unsafe partial class World
     {
         if (!_powerTriforceFanfare) return;
 
-        if (Game.Link.ObjTimer == 0)
+        if (Game.Player.ObjTimer == 0)
         {
             _powerTriforceFanfare = false;
-            Game.Link.SetState(PlayerState.Idle);
+            Game.Player.SetState(PlayerState.Idle);
             AddItem(ItemId.PowerTriforce);
             GlobalFunctions.SetPilePalette();
             Graphics.UpdatePalettes();
@@ -772,7 +772,7 @@ internal sealed unsafe partial class World
         }
         else
         {
-            var timer = Game.Link.ObjTimer;
+            var timer = Game.Player.ObjTimer;
             if ((timer & 4) > 0)
             {
                 SetFlashPalette();
@@ -1018,7 +1018,7 @@ internal sealed unsafe partial class World
 
     public Actor DebugSpawnItem(ItemId itemId)
     {
-        var item = GlobalFunctions.MakeItem(Game, itemId, Game.Link.X, Game.Link.Y - TileHeight, false);
+        var item = GlobalFunctions.MakeItem(Game, itemId, Game.Player.X, Game.Player.Y - TileHeight, false);
         AddObject(item);
         return item;
     }
@@ -1054,7 +1054,7 @@ internal sealed unsafe partial class World
         _state.Play.LiftItemTimer = Game.Cheats.SpeedUp ? (byte)1 : timer;
         _state.Play.LiftItemId = itemId;
 
-        Game.Link.SetState(PlayerState.Paused);
+        Game.Player.SetState(PlayerState.Paused);
     }
 
     public bool IsLiftingItem()
@@ -1358,7 +1358,7 @@ internal sealed unsafe partial class World
         InitObjectTimers();
         InitStunTimers();
         InitPlaceholderTypes();
-        MakeObjects(Game.Link.Facing);
+        MakeObjects(Game.Player.Facing);
         MakeWhirlwind();
         _roomHistory.AddRoomToHistory();
 
@@ -1455,8 +1455,8 @@ internal sealed unsafe partial class World
         UpdateRupees();
         UpdateLiftItem();
 
-        Game.Link.DecInvincibleTimer();
-        Game.Link.Update();
+        Game.Player.DecInvincibleTimer();
+        Game.Player.Update();
 
         // The player's update might have changed the world's State.
         if (!IsPlaying()) return;
@@ -1642,7 +1642,7 @@ internal sealed unsafe partial class World
 
     private byte GetNextTeleportingRoomIndex()
     {
-        var facing = Game.Link.Facing;
+        var facing = Game.Player.Facing;
         var growing = facing is Direction.Up or Direction.Right;
 
         var pieces = GetItem(ItemSlot.TriforcePieces);
@@ -1761,7 +1761,7 @@ internal sealed unsafe partial class World
         {
             if (!CalcHasLivingObjects())
             {
-                Game.Link.ClearParalized();
+                Game.Player.ClearParalized();
                 _roomAllDead = true;
             }
         }
@@ -1976,8 +1976,8 @@ internal sealed unsafe partial class World
 
         if (!_giveFakePlayerPos)
         {
-            _fakePlayerPos.X = Game.Link.X;
-            _fakePlayerPos.Y = Game.Link.Y;
+            _fakePlayerPos.X = Game.Player.X;
+            _fakePlayerPos.Y = Game.Player.Y;
         }
 
         // ORIGINAL: This happens after player items update and before the rest of objects update.
@@ -1989,7 +1989,7 @@ internal sealed unsafe partial class World
         _giveFakePlayerPos = !_giveFakePlayerPos;
         if (_giveFakePlayerPos)
         {
-            if (_fakePlayerPos.X == Game.Link.X)
+            if (_fakePlayerPos.X == Game.Player.X)
             {
                 _fakePlayerPos.X ^= 0xFF;
                 _fakePlayerPos.Y ^= 0xFF;
@@ -2045,11 +2045,11 @@ internal sealed unsafe partial class World
         if (_state.Play.LiftItemTimer == 0)
         {
             _state.Play.LiftItemId = 0;
-            Game.Link.SetState(PlayerState.Idle);
+            Game.Player.SetState(PlayerState.Idle);
         }
         else
         {
-            Game.Link.SetState(PlayerState.Paused);
+            Game.Player.SetState(PlayerState.Paused);
         }
     }
 
@@ -2075,7 +2075,7 @@ internal sealed unsafe partial class World
         }
         else
         {
-            Game.Link.Draw();
+            Game.Player.Draw();
         }
 
         objOverPlayer?.DecoratedDraw();
@@ -2126,9 +2126,9 @@ internal sealed unsafe partial class World
     {
         var animIndex = itemId == ItemId.TriforcePiece ? AnimationId.LinkLiftHeavy : AnimationId.LinkLiftLight;
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, animIndex);
-        image.Draw(TileSheet.PlayerAndItems, Game.Link.X, Game.Link.Y, Palette.Player);
+        image.Draw(TileSheet.PlayerAndItems, Game.Player.X, Game.Player.Y, Palette.Player);
 
-        GlobalFunctions.DrawItem(Game, itemId, Game.Link.X, Game.Link.Y - 0x10, 0);
+        GlobalFunctions.DrawItem(Game, itemId, Game.Player.X, Game.Player.Y - 0x10, 0);
     }
 
     private void MakeObjects(Direction entryDir)
@@ -2323,9 +2323,9 @@ internal sealed unsafe partial class World
             var whirlwind = new WhirlwindActor(Game, 0, y);
             AddObject(whirlwind);
 
-            Game.Link.SetState(PlayerState.Paused);
-            Game.Link.X = whirlwind.X;
-            Game.Link.Y = 0xF8;
+            Game.Player.SetState(PlayerState.Paused);
+            Game.Player.X = whirlwind.X;
+            Game.Player.Y = 0xF8;
         }
     }
 
@@ -2333,8 +2333,8 @@ internal sealed unsafe partial class World
     {
         var objAttrs = GetObjectAttribute(type);
 
-        var playerX = Game.Link.X;
-        var playerY = Game.Link.Y;
+        var playerX = Game.Player.X;
+        var playerY = Game.Player.Y;
         var noWorldCollision = !objAttrs.HasWorldCollision;
 
         for (var i = 0; i < len; i++)
@@ -2392,8 +2392,8 @@ internal sealed unsafe partial class World
         _edgeX = x;
         _edgeY = y;
         const int linkBoundary = 0x22;
-        if (Math.Abs(Game.Link.X - x) >= linkBoundary
-            || Math.Abs(Game.Link.Y - y) >= linkBoundary)
+        if (Math.Abs(Game.Player.X - x) >= linkBoundary
+            || Math.Abs(Game.Player.Y - y) >= linkBoundary)
         {
             // Bring them in from the edge of the screen if link isn't too close.
             var obj = Actor.AddFromType(placeholder, Game, x, y - 3);
@@ -2707,14 +2707,14 @@ internal sealed unsafe partial class World
         var playerLimits = Link.PlayerLimits;
         if (_state.Scroll.SpeedX != 0)
         {
-            Game.Link.X = Math.Clamp(Game.Link.X + _state.Scroll.SpeedX, playerLimits[1], playerLimits[0]);
+            Game.Player.X = Math.Clamp(Game.Player.X + _state.Scroll.SpeedX, playerLimits[1], playerLimits[0]);
         }
         else
         {
-            Game.Link.Y = Math.Clamp(Game.Link.Y + _state.Scroll.SpeedY, playerLimits[3], playerLimits[2]);
+            Game.Player.Y = Math.Clamp(Game.Player.Y + _state.Scroll.SpeedY, playerLimits[3], playerLimits[2]);
         }
 
-        Game.Link.Animator.Advance();
+        Game.Player.Animator.Advance();
     }
 
     private void DrawScroll()
@@ -2739,7 +2739,7 @@ internal sealed unsafe partial class World
 
         if (IsOverworld())
         {
-            Game.Link.Draw();
+            Game.Player.Draw();
         }
     }
 
@@ -2762,19 +2762,19 @@ internal sealed unsafe partial class World
     private void UpdateLeave()
     {
         var playerLimits = Link.PlayerLimits;
-        var dirOrd = Game.Link.Facing.GetOrdinal();
-        var coord = Game.Link.Facing.IsVertical() ? Game.Link.Y : Game.Link.X;
+        var dirOrd = Game.Player.Facing.GetOrdinal();
+        var coord = Game.Player.Facing.IsVertical() ? Game.Player.Y : Game.Player.X;
 
         if (coord != playerLimits[dirOrd])
         {
-            Game.Link.MoveLinear(_state.Leave.ScrollDir, Link.WalkSpeed);
-            Game.Link.Animator.Advance();
+            Game.Player.MoveLinear(_state.Leave.ScrollDir, Link.WalkSpeed);
+            Game.Player.Animator.Advance();
             return;
         }
 
         if (_state.Leave.Timer == 0)
         {
-            Game.Link.Animator.AdvanceFrame();
+            Game.Player.Animator.AdvanceFrame();
             GotoScroll(_state.Leave.ScrollDir, _state.Leave.CurrentRoom);
             return;
         }
@@ -2806,12 +2806,12 @@ internal sealed unsafe partial class World
         var carry = fraction >> 8;
         fraction &= 0xFF;
 
-        var x = Game.Link.X;
-        var y = Game.Link.Y;
+        var x = Game.Player.X;
+        var y = Game.Player.Y;
         Actor.MoveSimple(ref x, ref y, dir, carry);
 
-        Game.Link.X = x;
-        Game.Link.Y = y;
+        Game.Player.X = x;
+        Game.Player.Y = y;
     }
 
     private void UpdateEnter()
@@ -2839,7 +2839,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        Game.Link.Animator.Advance();
+        Game.Player.Animator.Advance();
     }
 
     private void UpdateEnter_Start()
@@ -2849,18 +2849,18 @@ internal sealed unsafe partial class World
 
         if (IsOverworld())
         {
-            var behavior = GetTileBehaviorXY(Game.Link.X, Game.Link.Y + 3);
+            var behavior = GetTileBehaviorXY(Game.Player.X, Game.Player.Y + 3);
             if (behavior == TileBehavior.Cave)
             {
-                Game.Link.Y += BlockHeight;
-                Game.Link.Facing = Direction.Down;
+                Game.Player.Y += BlockHeight;
+                Game.Player.Facing = Direction.Down;
 
                 _state.Enter.PlayerFraction = 0;
                 _state.Enter.PlayerSpeed = 0x40;
                 _state.Enter.PlayerPriority = SpritePriority.BelowBg;
                 _state.Enter.ScrollDir = Direction.Up;
-                _state.Enter.TargetX = Game.Link.X;
-                _state.Enter.TargetY = Game.Link.Y - (Game.Cheats.SpeedUp ? 0 : 0x10);
+                _state.Enter.TargetX = Game.Player.X;
+                _state.Enter.TargetY = Game.Player.Y - (Game.Cheats.SpeedUp ? 0 : 0x10);
                 _state.Enter.Substate = EnterState.Substates.WalkCave;
 
                 Game.Sound.StopAll();
@@ -2878,8 +2878,8 @@ internal sealed unsafe partial class World
             var doorType = CurrentRoom.DungeonDoors[oppositeDir];
             var distance = doorType is DoorType.Shutter or DoorType.Bombable ? BlockWidth * 2 : BlockWidth;
 
-            _state.Enter.TargetX = Game.Link.X;
-            _state.Enter.TargetY = Game.Link.Y;
+            _state.Enter.TargetX = Game.Player.X;
+            _state.Enter.TargetY = Game.Player.Y;
             Actor.MoveSimple(
                 ref _state.Enter.TargetX,
                 ref _state.Enter.TargetY,
@@ -2896,7 +2896,7 @@ internal sealed unsafe partial class World
                 _state.Enter.Substate = EnterState.Substates.Walk;
             }
 
-            Game.Link.Facing = _state.Enter.ScrollDir;
+            Game.Player.Facing = _state.Enter.ScrollDir;
         }
         else
         {
@@ -2944,19 +2944,19 @@ internal sealed unsafe partial class World
 
     private void UpdateEnter_Walk()
     {
-        if (_state.Enter.HasReachedTarget(Game.Link))
+        if (_state.Enter.HasReachedTarget(Game.Player))
         {
             _state.Enter.GotoPlay = true;
         }
         else
         {
-            Game.Link.MoveLinear(_state.Enter.ScrollDir, _state.Enter.PlayerSpeed);
+            Game.Player.MoveLinear(_state.Enter.ScrollDir, _state.Enter.PlayerSpeed);
         }
     }
 
     private void UpdateEnter_WalkCave()
     {
-        if (_state.Enter.HasReachedTarget(Game.Link))
+        if (_state.Enter.HasReachedTarget(Game.Player))
         {
             _state.Enter.GotoPlay = true;
         }
@@ -2989,8 +2989,8 @@ internal sealed unsafe partial class World
     {
         if (room.ExitPosition != null) // JOE: TODO: MAP REWRITE. This check might not be right.
         {
-            Game.Link.X = room.ExitPosition.X;
-            Game.Link.Y = room.ExitPosition.Y;
+            Game.Player.X = room.ExitPosition.X;
+            Game.Player.Y = room.ExitPosition.Y;
         }
     }
 
@@ -3077,8 +3077,8 @@ internal sealed unsafe partial class World
             else
             {
                 LoadRoom(CurrentWorld.EntryRoom);
-                Game.Link.X = StartX;
-                Game.Link.Y = CurrentWorld.Info.StartY;
+                Game.Player.X = StartX;
+                Game.Player.Y = CurrentWorld.Info.StartY;
             }
 
             for (var i = 0; i < LevelInfoBlock.LevelPaletteCount; i++)
@@ -3294,10 +3294,10 @@ internal sealed unsafe partial class World
 
                 if (_state.Stairs.TileBehavior == TileBehavior.Cave)
                 {
-                    Game.Link.Facing = Direction.Up;
+                    Game.Player.Facing = Direction.Up;
 
-                    _state.Stairs.TargetX = Game.Link.X;
-                    _state.Stairs.TargetY = Game.Link.Y + (Game.Cheats.SpeedUp ? 0 : 0x10);
+                    _state.Stairs.TargetX = Game.Player.X;
+                    _state.Stairs.TargetY = Game.Player.Y + (Game.Cheats.SpeedUp ? 0 : 0x10);
                     _state.Stairs.ScrollDir = Direction.Down;
                     _state.Stairs.PlayerSpeed = 0x40;
                     _state.Stairs.PlayerFraction = 0;
@@ -3312,7 +3312,7 @@ internal sealed unsafe partial class World
                 break;
 
             case StairsState.Substates.Walk when IsOverworld():
-            case StairsState.Substates.WalkCave when _state.Stairs.HasReachedTarget(Game.Link):
+            case StairsState.Substates.WalkCave when _state.Stairs.HasReachedTarget(Game.Player):
                 var cave = _state.Stairs.Entrance;
                 _log.Write($"CaveType: {cave}");
 
@@ -3334,7 +3334,7 @@ internal sealed unsafe partial class World
 
             case StairsState.Substates.WalkCave:
                 MovePlayer(_state.Stairs.ScrollDir, _state.Stairs.PlayerSpeed, ref _state.Stairs.PlayerFraction);
-                Game.Link.Animator.Advance();
+                Game.Player.Animator.Advance();
                 break;
         }
     }
@@ -3415,9 +3415,9 @@ internal sealed unsafe partial class World
 
         LoadRoom(room);
 
-        Game.Link.X = x;
-        Game.Link.Y = 0x44;
-        Game.Link.Facing = Direction.Down;
+        Game.Player.X = x;
+        Game.Player.Y = 0x44;
+        Game.Player.Facing = Direction.Down;
 
         _state.PlayCellar.TargetY = 0x60;
         _state.PlayCellar.Substate = PlayCellarState.Substates.FadeIn;
@@ -3454,16 +3454,16 @@ internal sealed unsafe partial class World
     {
         _state.PlayCellar.PlayerPriority = SpritePriority.AboveBg;
 
-        _traceLog.Write($"UpdatePlayCellar_Walk: Game.Link.Y >= _state.PlayCellar.TargetY {Game.Link.Y} >= {_state.PlayCellar.TargetY}");
-        if (Game.Link.Y >= _state.PlayCellar.TargetY)
+        _traceLog.Write($"UpdatePlayCellar_Walk: Game.Link.Y >= _state.PlayCellar.TargetY {Game.Player.Y} >= {_state.PlayCellar.TargetY}");
+        if (Game.Player.Y >= _state.PlayCellar.TargetY)
         {
             FromUnderground = 1;
             GotoPlay(RoomType.Cellar);
         }
         else
         {
-            Game.Link.MoveLinear(Direction.Down, Link.WalkSpeed);
-            Game.Link.Animator.Advance();
+            Game.Player.MoveLinear(Direction.Down, Link.WalkSpeed);
+            Game.Player.Animator.Advance();
         }
     }
 
@@ -3526,7 +3526,7 @@ internal sealed unsafe partial class World
 
     private void UpdateLeaveCellar_LoadRoom()
     {
-        var nextRoomId = Game.Link.X < 0x80
+        var nextRoomId = Game.Player.X < 0x80
             ? CurrentRoom.CellarStairsLeftRoomId
             : CurrentRoom.CellarStairsRightRoomId;
 
@@ -3537,9 +3537,9 @@ internal sealed unsafe partial class World
 
         LoadRoom(CurrentWorld.GetGameRoom(nextRoomId));
 
-        Game.Link.X = 0x60;
-        Game.Link.Y = 0xA0;
-        Game.Link.Facing = Direction.Down;
+        Game.Player.X = 0x60;
+        Game.Player.Y = 0xA0;
+        Game.Player.Facing = Direction.Down;
 
         _state.LeaveCellar.Substate = LeaveCellarState.Substates.FadeIn;
         _state.LeaveCellar.FadeTimer = 35;
@@ -3600,7 +3600,7 @@ internal sealed unsafe partial class World
         LoadRoom(CurrentRoom);
         SetPlayerExitPosOW(CurrentRoom);
         GotoEnter(Direction.None);
-        Game.Link.Facing = Direction.Down;
+        Game.Player.Facing = Direction.Down;
     }
 
     private void DrawLeaveCellar()
@@ -3678,16 +3678,16 @@ internal sealed unsafe partial class World
 
     private void UpdatePlayCave_Walk()
     {
-        _traceLog.Write($"UpdatePlayCave_Walk: Game.Link.Y <= _state.PlayCave.TargetY {Game.Link.Y} <= {_state.PlayCave.TargetY}");
-        if (Game.Link.Y <= _state.PlayCave.TargetY)
+        _traceLog.Write($"UpdatePlayCave_Walk: Game.Link.Y <= _state.PlayCave.TargetY {Game.Player.Y} <= {_state.PlayCave.TargetY}");
+        if (Game.Player.Y <= _state.PlayCave.TargetY)
         {
             FromUnderground = 1;
             GotoPlay(RoomType.Cave);
             return;
         }
 
-        Game.Link.MoveLinear(Direction.Up, Link.WalkSpeed);
-        Game.Link.Animator.Advance();
+        Game.Player.MoveLinear(Direction.Up, Link.WalkSpeed);
+        Game.Player.Animator.Advance();
     }
 
     private void DrawPlayCave()
@@ -3728,7 +3728,7 @@ internal sealed unsafe partial class World
 
     private void UpdateDie_Start()
     {
-        Game.Link.InvincibilityTimer = 0x10;
+        Game.Player.InvincibilityTimer = 0x10;
         _state.Death.Timer = 0x20;
         _state.Death.Substate = DeathState.Substates.Flash;
         Game.Sound.StopEffects();
@@ -3737,7 +3737,7 @@ internal sealed unsafe partial class World
 
     private void UpdateDie_Flash()
     {
-        Game.Link.DecInvincibleTimer();
+        Game.Player.DecInvincibleTimer();
 
         if (_state.Death.Timer == 0)
         {
@@ -3783,7 +3783,7 @@ internal sealed unsafe partial class World
                 ReadOnlySpan<Direction> dirs = [Direction.Down, Direction.Left, Direction.Up, Direction.Right];
 
                 var dir = dirs[_state.Death.Step & 3];
-                Game.Link.Facing = dir;
+                Game.Player.Facing = dir;
             }
         }
     }
@@ -3871,7 +3871,7 @@ internal sealed unsafe partial class World
             {
                 DrawRoomNoObjects(SpritePriority.None);
             }
-            var player = Game.Link;
+            var player = Game.Player;
 
             if (_state.Death.Substate == DeathState.Substates.Spark && _state.Death.Step > 0)
             {
@@ -3879,7 +3879,7 @@ internal sealed unsafe partial class World
             }
             else if (_state.Death.Substate <= DeathState.Substates.Spark)
             {
-                Game.Link.Draw();
+                Game.Player.Draw();
             }
             return;
         }
@@ -3943,7 +3943,7 @@ internal sealed unsafe partial class World
                     case ContinueState.Indexes.Continue:
                         // So, that the OW song is played in the Enter mode.
                         FromUnderground = 2;
-                        Game.Link.Initialize();
+                        Game.Player.Initialize();
                         Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHeartCount);
                         Unpause(); // It's easy for select+start to also pause the game, and that's confusing.
                         GotoUnfurl(true);
@@ -4020,14 +4020,14 @@ internal sealed unsafe partial class World
 
         if (playerPriority == SpritePriority.BelowBg)
         {
-            Game.Link.Draw();
+            Game.Player.Draw();
         }
 
         DrawRoom();
 
         if (playerPriority == SpritePriority.AboveBg)
         {
-            Game.Link.Draw();
+            Game.Player.Draw();
         }
 
         // if (IsUWMain(CurrentRoom))

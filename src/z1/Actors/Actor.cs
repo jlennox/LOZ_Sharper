@@ -589,7 +589,7 @@ internal abstract class Actor
         var sword = Game.World.GetObject<PlayerSwordActor>();
         if (sword == null || sword.State != 1) return;
 
-        var player = Game.Link;
+        var player = Game.Player;
 
         var box = player.Facing.IsVertical() ? new Point(0xC, 0x10) : new Point(0x10, 0xC);
         var context = new CollisionContext(sword, DamageType.Sword, 0, Point.Empty);
@@ -665,7 +665,7 @@ internal abstract class Actor
 
     protected bool CheckCollisionNoShove(CollisionContext context, Point box)
     {
-        var player = Game.Link;
+        var player = Game.Player;
         var weaponCenter = player.Facing.IsVertical() ? new Point(6, 8) : new Point(8, 6);
 
         return CheckCollisionCustomNoShove(context, box, weaponCenter);
@@ -860,7 +860,7 @@ internal abstract class Actor
             return;
         }
 
-        var player = Game.Link;
+        var player = Game.Player;
         if (player.InvincibilityTimer != 0) return;
 
         var useY = player.TileOffset == 0 ? context.Distance.Y >= 4 : player.Facing.IsVertical();
@@ -919,7 +919,7 @@ internal abstract class Actor
         // The original resets [$C] and [6] here. [6] gets the result of DoObjectsCollide.
         // [$C] takes on the same values as [6], so I don't know why it was needed.
 
-        var player = Game.Link;
+        var player = Game.Player;
 
         if (IsStunned || player.StunTimer != 0 || player.InvincibilityTimer != 0)
         {
@@ -931,7 +931,7 @@ internal abstract class Actor
 
     protected PlayerCollision CheckPlayerCollisionDirect()
     {
-        var player = Game.Link;
+        var player = Game.Player;
         var fnlog = _log.CreateFunctionLog();
 
         if (player.GetState() == PlayerState.Paused || player.IsParalyzed)

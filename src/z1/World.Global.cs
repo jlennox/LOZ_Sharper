@@ -143,7 +143,7 @@ internal partial class World
         }
 
         // ORIGINAL: Here the player isn't part of the array, but in the original it's the first element.
-        Game.Link.DecrementObjectTimer();
+        Game.Player.DecrementObjectTimer();
     }
 
     private void InitStunTimers()
@@ -170,7 +170,7 @@ internal partial class World
         foreach (var obj in _objects) obj.DecrementStunTimer();
 
         // ORIGINAL: Here the player isn't part of the array, but in the original it's the first element.
-        Game.Link.DecrementStunTimer();
+        Game.Player.DecrementStunTimer();
     }
 
     private void InitPlaceholderTypes()

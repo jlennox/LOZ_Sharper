@@ -205,7 +205,7 @@ internal partial class World
             if (IsButtonPressing(GameButton.Start))
             {
                 _credits = null;
-                Game.Link = null;
+                Game.Player = null;
                 DeleteObjects();
                 _submenuOffsetY = 0;
                 _statusBarVisible = false;
@@ -262,7 +262,7 @@ internal partial class World
                 DrawRoomNoObjects(SpritePriority.None);
             }
 
-            Game.Link.Draw();
+            Game.Player.Draw();
             DrawObjects(out _);
         }
         else
@@ -273,7 +273,7 @@ internal partial class World
             {
                 case WinGameState.NpcVisualState.Stand:
                     zelda.Draw();
-                    Game.Link.Draw();
+                    Game.Player.Draw();
                     break;
 
                 case WinGameState.NpcVisualState.Lift:

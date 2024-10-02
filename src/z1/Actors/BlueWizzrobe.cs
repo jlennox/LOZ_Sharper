@@ -128,7 +128,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         if (FlashTimer != 0) return;
         if ((Game.FrameCounter % 0x20) != 0) return;
 
-        var player = Game.Link;
+        var player = Game.Player;
         Direction dir;
 
         if ((player.Y & 0xF0) != (Y & 0xF0))

@@ -486,8 +486,8 @@ internal sealed class GanonActor : BlueWizzrobeBase
             Time = 0,
         };
 
-        Game.Link.SetState(PlayerState.Paused);
-        Game.Link.ObjTimer = 0x40;
+        Game.Player.SetState(PlayerState.Paused);
+        Game.Player.ObjTimer = 0x40;
         ObjTimer = 0;
 
         SetBossPalette(_ganonNormalPalette);
@@ -549,9 +549,9 @@ internal sealed class GanonActor : BlueWizzrobeBase
     {
         Game.World.LiftItem(ItemId.TriforcePiece, 0);
 
-        if (Game.Link.ObjTimer != 0)
+        if (Game.Player.ObjTimer != 0)
         {
-            if (Game.Link.ObjTimer == 1)
+            if (Game.Player.ObjTimer == 1)
             {
                 Game.Sound.PlayEffect(SoundEffect.BossHit);
                 Game.Sound.PlaySong(SongId.Ganon, SongStream.MainSong, false);
@@ -566,7 +566,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
             if (Game.World.GetFadeStep() == 0)
             {
                 _state = GanonState.HoldLight;
-                Game.Link.ObjTimer = 0xC0;
+                Game.Player.ObjTimer = 0xC0;
             }
             _visual = Visual.Ganon;
         }
@@ -576,9 +576,9 @@ internal sealed class GanonActor : BlueWizzrobeBase
     {
         Game.World.LiftItem(ItemId.TriforcePiece, 0);
 
-        if (Game.Link.ObjTimer == 0)
+        if (Game.Player.ObjTimer == 0)
         {
-            Game.Link.SetState(PlayerState.Idle);
+            Game.Player.SetState(PlayerState.Idle);
             Game.World.LiftItem(ItemId.None);
             Game.Sound.PlaySong(SongId.Level9, SongStream.MainSong, true);
             Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance);
@@ -663,7 +663,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
     private void CheckCollision()
     {
-        var player = Game.Link;
+        var player = Game.Player;
 
         if (player.InvincibilityTimer == 0)
         {
@@ -837,7 +837,7 @@ internal sealed class ZeldaActor : MonsterActor
 
     public override void Update()
     {
-        var player = Game.Link;
+        var player = Game.Player;
 
         if (_state == 0)
         {
@@ -957,7 +957,7 @@ internal sealed class RupeeStashActor : MonsterActor
 
     public override void Update()
     {
-        var player = Game.Link;
+        var player = Game.Player;
         var distanceX = Math.Abs(player.X - X);
         var distanceY = Math.Abs(player.Y - Y);
 
@@ -1017,7 +1017,7 @@ internal sealed class FairyActor : FlyingActor
         UpdateStateAndMove();
 
         ReadOnlySpan<Actor> canPickupFairy = [
-            Game.Link,
+            Game.Player,
             .. Game.World.GetObjects<BoomerangProjectile>(static t => t.IsPlayerWeapon)
         ];
 
@@ -1094,7 +1094,7 @@ internal sealed class PondFairyActor : MonsterActor
 
     private void UpdateIdle()
     {
-        var player = Game.Link;
+        var player = Game.Player;
         var playerX = player.X;
         var playerY = player.Y;
 
@@ -1144,7 +1144,7 @@ internal sealed class PondFairyActor : MonsterActor
         else if (_heartState[7] != 0)
         {
             _pondFairyState = PondFairyState.Healed;
-            var player = Game.Link;
+            var player = Game.Player;
             player.SetState(PlayerState.Idle);
             Game.World.SwordBlocked = false;
         }
@@ -1472,7 +1472,7 @@ internal sealed class ZolActor : WandererWalkerActor
 
             const uint alignedY = 0xD;
 
-            var player = Game.Link;
+            var player = Game.Player;
             uint dirMask = 0;
 
             if ((Y & 0x0F) == alignedY)
@@ -1684,7 +1684,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
 
     public override void Update()
     {
-        var player = Game.Link;
+        var player = Game.Player;
 
         // Player is not being held.
         if (_framesHeld == 0)
@@ -1840,7 +1840,7 @@ internal sealed class ZoraActor : DigWanderer
         {
             if (ObjTimer == 1)
             {
-                var player = Game.Link;
+                var player = Game.Player;
                 var cell = Game.World.CurrentRoom.GetRandomWaterTile();
 
                 X = cell.X * World.TileWidth;
@@ -2048,7 +2048,7 @@ internal sealed class RedLeeverActor : Actor
 
     private bool TargetPlayer()
     {
-        var player = Game.Link;
+        var player = Game.Player;
         var x = player.X;
         var y = player.Y;
 
@@ -3362,7 +3362,7 @@ internal sealed class TrapActor : MonsterActor
 
     private void UpdateIdle()
     {
-        var player = Game.Link;
+        var player = Game.Player;
         var playerX = player.X;
         var playerY = player.Y;
         var dir = Direction.None;
@@ -3517,7 +3517,7 @@ internal sealed class RopeActor : MonsterActor
     {
         if (_speed != RopeNormalSpeed || TileOffset != 0) return;
 
-        var player = Game.Link;
+        var player = Game.Player;
 
         var xDist = Math.Abs(player.X - X);
         if (xDist < 8)
@@ -3851,7 +3851,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
     {
         if (_stateTimer == 0xFF)
         {
-            var player = Game.Link;
+            var player = Game.Player;
 
             var r = Game.Random.Next(16);
             var dirOrd = r % 4;
@@ -4150,7 +4150,7 @@ internal sealed class WallmasterActor : MonsterActor
         int playerOrthoCoord, int playerCoord, Direction dir,
         int baseDirIndex, int leastCoord, ref int orthoCoord, ref int coordIndex)
     {
-        var player = Game.Link;
+        var player = Game.Player;
         var offset = 0x24;
 
         _dirIndex = baseDirIndex;
@@ -4206,7 +4206,7 @@ internal sealed class WallmasterActor : MonsterActor
     {
         if (Game.World.GetObjectTimer(World.ObjectTimer.Monster1) != 0) return;
 
-        var player = Game.Link;
+        var player = Game.Player;
 
         if (player.GetState() == PlayerState.Paused) return;
 
@@ -4254,7 +4254,7 @@ internal sealed class WallmasterActor : MonsterActor
 
     private void UpdateMoving()
     {
-        var player = Game.Link;
+        var player = Game.Player;
 
         if (ShoveDirection != 0)
         {
@@ -5657,7 +5657,7 @@ internal static class Statues
         // var slot = game.World.FindEmptyMonsterSlot();
         // if (slot < ObjectSlot.Monster1 + 5) return;
 
-        var player = game.Link;
+        var player = game.Player;
         var statueCount = _statueCounts[pattern];
 
         for (var i = 0; i < statueCount; i++)

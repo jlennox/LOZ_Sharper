@@ -15,7 +15,7 @@ internal sealed class LadderActor : Actor
     public LadderActor(Game game, int x, int y)
         : base(game, ObjType.Ladder, x, y)
     {
-        Facing = Game.Link.Facing;
+        Facing = Game.Player.Facing;
         Decoration = 0;
 
         _image = new SpriteImage(TileSheet.PlayerAndItems, AnimationId.Ladder);
@@ -70,7 +70,7 @@ internal abstract class BlockObjBase : Actor
     {
         if (_curUpdate != UpdateMoving) return CollisionResponse.Unknown;
 
-        var player = Game.Link;
+        var player = Game.Player;
         if (player == null) return CollisionResponse.Unknown;
 
         var playerX = player.X;
@@ -103,7 +103,7 @@ internal abstract class BlockObjBase : Actor
             if (Game.World.HasLivingObjects()) return;
         }
 
-        var player = Game.Link;
+        var player = Game.Player;
         if (player == null) return;
 
         var dir = player.MovingDirection;
@@ -274,7 +274,7 @@ internal sealed class FireActor : Actor
     // F8D9
     private void CheckCollisionWithPlayer()
     {
-        var player = Game.Link;
+        var player = Game.Player;
 
         if (player.InvincibilityTimer == 0)
         {
@@ -352,7 +352,7 @@ internal sealed class BombActor : Actor
         : base(game, ObjType.Bomb, x, y)
     {
         _owner = owner;
-        Facing = Game.Link.Facing;
+        Facing = Game.Player.Facing;
         Decoration = 0;
         _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.BombItem)
         {
@@ -504,7 +504,7 @@ internal sealed class PlayerSwordActor : Actor
 
     private void Put()
     {
-        var player = Game.Link;
+        var player = Game.Player;
         var facingDir = player.Facing;
         X = player.X;
         Y = player.Y;
@@ -656,7 +656,7 @@ internal sealed class ItemObjActor : Actor
 
         var touchedItem = false;
 
-        if (TouchesObject(Game.Link))
+        if (TouchesObject(Game.Player))
         {
             touchedItem = true;
         }
@@ -742,7 +742,7 @@ internal sealed class WhirlwindActor : Actor
     {
         X += 2;
 
-        var player = Game.Link;
+        var player = Game.Player;
 
         if (player.GetState() != PlayerState.Paused || Game.World.WhirlwindTeleporting == 0)
         {
@@ -809,7 +809,7 @@ internal sealed class DockActor : Actor
     {
         if (Game.World.GetItem(ItemSlot.Raft) == 0) return;
 
-        var player = Game.Link;
+        var player = Game.Player;
 
         switch (_state)
         {

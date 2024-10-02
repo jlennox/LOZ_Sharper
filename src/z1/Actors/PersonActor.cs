@@ -136,7 +136,7 @@ internal sealed class PersonActor : Actor
 
         if (_state == PersonState.Idle)
         {
-            Game.Link.SetState(PlayerState.Paused);
+            Game.Player.SetState(PlayerState.Paused);
         }
     }
 
@@ -200,7 +200,7 @@ internal sealed class PersonActor : Actor
                     break;
             }
 
-            var player = Game.Link;
+            var player = Game.Player;
             if (player.GetState() == PlayerState.Paused)
             {
                 player.SetState(PlayerState.Idle);
@@ -213,7 +213,7 @@ internal sealed class PersonActor : Actor
         if (_spec.Items == null) return;
         if (!_spec.IsPay) return;
 
-        var player = Game.Link;
+        var player = Game.Player;
 
         for (var i = 0; i < _spec.Items.Length; i++)
         {
@@ -499,10 +499,10 @@ internal sealed class PersonActor : Actor
     {
         ReadOnlySpan<byte> stairsXs = [0x50, 0x80, 0xB0];
 
-        if (Game.Link.Y != 0x9D) return;
+        if (Game.Player.Y != 0x9D) return;
 
         var rooms = Game.World.GetShortcutRooms();
-        var playerX = Game.Link.X;
+        var playerX = Game.Player.X;
         var stairsIndex = -1;
 
         for (var i = 0; i < stairsXs.Length; i++)
