@@ -598,14 +598,17 @@ internal sealed class SubmenuType
             {
                 var room = map.RoomGrid[mapX, mapY];
                 if (room == null) continue;
-                if (room.RoomFlags.VisitState)
+                if (!room.HiddenFromMap)
                 {
-                    var tile = 0xD0 + GetDoorTileOffset(room);
-                    GlobalFunctions.DrawChar(tile, x, y, (Palette)1);
-                }
-                else if (hasMap)
-                {
-                    GlobalFunctions.DrawChar(0xD0, x, y, hasNotSeenPalette);
+                    if (room.RoomFlags.VisitState)
+                    {
+                        var tile = 0xD0 + GetDoorTileOffset(room);
+                        GlobalFunctions.DrawChar(tile, x, y, (Palette)1);
+                    }
+                    else if (hasMap)
+                    {
+                        GlobalFunctions.DrawChar(0xD0, x, y, hasNotSeenPalette);
+                    }
                 }
 
                 if (room == _game.World.CurrentRoom)

@@ -7,6 +7,9 @@ public static class Filenames
 
     public const string Font = "font.png";
     public const string FontAddendum = "font-addendum.png";
+
+    public static string FormatLevelWorld(int quest, int level) => $"Level{quest:D2}_{level:D2}.world";
+    public static string FormatLevelAnyQuest(int level) => $"Level{{QuestId}}_{level:D2}.world";
 }
 
 public sealed class LevelDirectory

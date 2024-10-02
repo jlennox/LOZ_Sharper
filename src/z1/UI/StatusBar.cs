@@ -1,5 +1,7 @@
 ﻿using System.Collections.Immutable;
+using System.ComponentModel.DataAnnotations;
 using SkiaSharp;
+using z1.IO;
 using z1.Render;
 
 namespace z1.UI;
@@ -43,9 +45,9 @@ internal sealed class StatusBar
     public const int HeartsX = 0xB8;
     public const int HeartsY = 0x30;
 
-    public const int Tile_FullHeart = 0xF2;
-    public const int Tile_HalfHeart = 0x65;
-    public const int Tile_EmptyHeart = 0x66;
+    public const int TileFullHeart = 0xF2;
+    public const int TileHalfHeart = 0x65;
+    public const int TileEmptyHeart = 0x66;
 
     private static readonly ImmutableArray<TileInst> _uiTiles = [
         new(0xF7, 88, 24, 1),
@@ -156,8 +158,9 @@ internal sealed class StatusBar
         var settings = _world.IsOverworld() ? MiniMapSettings.Overworld : MiniMapSettings.Underworld;
         if (settings.RequiresMap && !_world.HasCurrentMap()) return;
 
-        const int maxMapHeight = 12;
-        const int maxMapWidth = 0x10;
+        const int maxMapHeight = 8;
+        // I hate this :)
+        var maxMapWidth = (0x10 * OWMapTileWidth) / settings.TileWidth;
 
         var world = _world.CurrentWorld;
         var map = world.GameWorldMap;
@@ -166,8 +169,14 @@ internal sealed class StatusBar
         var showMapCursors = _features.HasFlag(StatusBarFeatures.MapCursors);
         var showTriforce = showMapCursors && _world.HasCurrentCompass();
 
-        var y = baseY + MiniMapY;
-        var basex = MiniMapX + (maxMapWidth - map.Width) / 2 * settings.TileWidth;
+        var y = baseY + MiniMapY + (maxMapHeight - map.Height) * settings.TileHeight; // bottom align
+        var basex = MiniMapX + (maxMapWidth - map.Width) / 2 * settings.TileWidth; // center align
+
+        // var yoff = (maxMapHeight - map.Height);
+        // var xoff = (maxMapWidth - map.Width) / 2;
+        //
+        // var infblock = _world._infoBlock;
+        // var drawnMap = infblock.DrawnMap;
 
         for (var yi = 0; yi < map.Height; yi++, y += settings.TileHeight)
         {
@@ -177,19 +186,26 @@ internal sealed class StatusBar
                 var room = grid[xi, yi];
                 if (room == null) continue;
 
-                var tile = settings.Tile;
-                settings.DrawTileFn(tile, x, y, settings);
-
-                if (showTriforce && room.IsTriforceRoom)
+                // int b = drawnMap[xi + MiniMapColumnOffset + xoff] << (yi + yoff);
+                //if ((b & 0x80) != 0)
+                // We still want to display the player's cursor in room's hidden from the map.
+                if (!room.HiddenFromMap)
                 {
-                    var palette = (_world.Game.FrameCounter & 0x10) == 0 && room.HasTriforce
-                        ? Palette.Red
-                        : Palette.SeaPal;
+                    var tile = settings.Tile;
+                    settings.DrawTileFn(tile, x, y, settings);
 
-                    DrawTile(0xE0, x + 2, y, palette);
+                    // If this looks wrong, it's likely related to MiniMapColumnOffset.
+                    if (showTriforce && room.IsTriforceRoom)
+                    {
+                        var palette = (_world.Game.FrameCounter & 0x10) == 0 && room.HasTriforce
+                            ? Palette.Red
+                            : Palette.SeaPal;
+
+                        DrawTile(0xE0, x + 2, y, palette);
+                    }
                 }
 
-                if (showMapCursors && room == _world.CurrentRoom && !room.HideMapCursor)
+                if (showMapCursors && room == _world.CurrentRoom && !room.HidePlayerMapCursor)
                 {
                     DrawTile(0xE0, x + settings.CursorXOffset, y, Palette.Player);
                 }
@@ -221,7 +237,7 @@ internal sealed class StatusBar
         {
             if (_world.GetItem(ItemSlot.MagicKey) != 0)
             {
-                var xa = new byte[] { (byte)Chars.X, 0x0A };
+                ReadOnlySpan<byte> xa = [(byte)Chars.X, 0x0A];
                 GlobalFunctions.DrawString(xa, CountersX, 0x28 + baseY, 0);
             }
             else

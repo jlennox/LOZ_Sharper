@@ -75,20 +75,15 @@ internal sealed unsafe partial class World
 
     public const int BaseRows = 8;
     private const int TileMapHeight = ScreenTileHeight * TileHeight;
-    private const int TileMapBaseY = 64;
+    public const int TileMapBaseY = 0x40;
     private const int Doors = 4;
 
     private const int StartX = 0x78;
     private const int FirstCaveIndex = 0x10;
     private const int TriforcePieceX = 0x78;
 
-    private const int Rooms = 128;
-    private const int UniqueRooms = 124;
     private const int ScrollSpeed = 4;
-    private const int MapObjectTypes = 56;
-    private const int TileTypes = 256;
     private const int RoomHistoryLength = 6;
-    private const int Modes = (int)GameMode.Max;
 
     private const int OWMarginRight = 0xE0;
     private const int OWMarginLeft = 0x10;
@@ -144,7 +139,7 @@ internal sealed unsafe partial class World
     public PlayerProfile Profile { get; private set; }
 
     private LevelDirectory _directory;
-    private LevelInfoBlock _infoBlock;
+    public LevelInfoBlock _infoBlock;
     private TableResource<byte> _sparseRoomAttrs;
     private LevelInfoEx _extraData;
     private ImmutableArray<string> _textTable;
@@ -255,7 +250,7 @@ internal sealed unsafe partial class World
     private void Validate()
     {
         // Ensure there's one defined for each.
-        foreach (TileAction action in Enum.GetValues<TileAction>()) GetTileActionFunction(action);
+        foreach (var action in Enum.GetValues<TileAction>()) GetTileActionFunction(action);
     }
 
     private void LoadOpenRoomContext()
@@ -388,7 +383,7 @@ internal sealed unsafe partial class World
     public void SetLadder(LadderActor ladder) => AddOnlyObjectOfType(ladder);
     public void RemoveLadder() => RemoveObject<LadderActor>();
 
-    private void PerformAction(ActionGameMapObject action)
+    private void PerformAction(InteractiveGameObject action)
     {
         // TODO
     }
@@ -406,14 +401,14 @@ internal sealed unsafe partial class World
 
         if (IsPlaying() && _state.Play.RoomType == RoomType.Regular)
         {
-            if (CurrentRoom.TryGetActionObject(TileAction.Recorder, out var actionObject))
-            {
-                PerformAction(actionObject); //  MakeFluteSecret();
-            }
-            else
-            {
-                SummonWhirlwind();
-            }
+            // JOE: TODO: OBJECT REWRITE if (CurrentRoom.TryGetActionObject(TileAction.Recorder, out var actionObject))
+            // JOE: TODO: OBJECT REWRITE {
+            // JOE: TODO: OBJECT REWRITE     PerformAction(actionObject); //  MakeFluteSecret();
+            // JOE: TODO: OBJECT REWRITE }
+            // JOE: TODO: OBJECT REWRITE else
+            // JOE: TODO: OBJECT REWRITE {
+            // JOE: TODO: OBJECT REWRITE     SummonWhirlwind();
+            // JOE: TODO: OBJECT REWRITE }
             // ReadOnlySpan<byte> roomIds = [0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72];
             //
             // var i = roomIds.IndexOf((byte)CurrentRoom);
@@ -836,7 +831,7 @@ internal sealed unsafe partial class World
     {
         var playedSound = false;
 
-        var ambientSound = CurrentRoom.AmbientSound;
+        var ambientSound = CurrentRoom.RoomInformation.AmbientSound;
         if (ambientSound != null)
         {
             // JOE: TODO: This does sadly limit the usage of the boss roar, and I'm not sure how it behaves in the overworld.
@@ -867,7 +862,7 @@ internal sealed unsafe partial class World
     {
         if (!room.HasDungeonDoors) return;
 
-        var outerPalette = CurrentRoom.OuterPalette;
+        var outerPalette = CurrentRoom.RoomInformation.OuterPalette;
         var baseY = above ? DoorOverlayBaseY : DoorUnderlayBaseY;
         var flags = CurrentRoom.RoomFlags;
 
@@ -942,7 +937,7 @@ internal sealed unsafe partial class World
 
     public void AddItem(ItemId itemId, int? amount = null)
     {
-        if ((int)itemId >= (int)ItemId.None) return;
+        if ((int)itemId >= (int)ItemId.MAX) return;
 
         GlobalFunctions.PlayItemSound(Game, itemId);
         var profile = Profile;
@@ -1180,10 +1175,6 @@ internal sealed unsafe partial class World
         return true;
     }
 
-    private bool FindSparseFlag(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos>(attrId, roomId).HasValue;
-    private SparsePos? FindSparsePos(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos>(attrId, roomId);
-    private SparsePos2? FindSparsePos2(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparsePos2>(attrId, roomId);
-    private SparseRoomItem? FindSparseItem(Sparse attrId, int roomId) => _sparseRoomAttrs.FindSparseAttr<SparseRoomItem>(attrId, roomId);
     public ObjectAttribute GetObjectAttribute(ObjType type)
     {
         if (!_extraData.ObjectAttribute.TryGetValue(type, out var objAttr))
@@ -1211,15 +1202,6 @@ internal sealed unsafe partial class World
 
     private void LoadRoom(GameRoom room)
     {
-        // if (IsUWCellar(roomId))
-        // {
-        //     LoadCellarContext();
-        // }
-        // else if (_prevRoomWasCellar)
-        // {
-        //     LoadUnderworldContext();
-        // }
-
         CurrentRoom = room;
 
         LoadMap(room);
@@ -1236,13 +1218,13 @@ internal sealed unsafe partial class World
 
             if (!CurrentRoom.RoomFlags.ItemState)
             {
-                if (CurrentRoom.TryGetActionObject(TileAction.Item, out var itemObject))
-                {
-                    itemObject.GetScreenTileCoordinates(out var tileX, out var tileY);
-                    var itemId = itemObject.ItemId ?? throw new Exception($"Item object at {tileX},{tileY} has no item ID in \"{room.Id}\" in world \"{CurrentWorld.Name}\"");
-                    var itemObj = new ItemObjActor(Game, itemId, true, tileX, tileY);
-                    AddOnlyObjectOfType(itemObj);
-                }
+                // JOE: TODO: OBJECT REWRITE if (CurrentRoom.TryGetActionObject(TileAction.Item, out var itemObject))
+                // JOE: TODO: OBJECT REWRITE {
+                // JOE: TODO: OBJECT REWRITE     itemObject.GetScreenTileCoordinates(out var tileX, out var tileY);
+                // JOE: TODO: OBJECT REWRITE     var itemId = itemObject.ItemId ?? throw new Exception($"Item object at {tileX},{tileY} has no item ID in \"{room.Id}\" in world \"{CurrentWorld.Name}\"");
+                // JOE: TODO: OBJECT REWRITE     var itemObj = new ItemObjActor(Game, itemId, true, tileX, tileY);
+                // JOE: TODO: OBJECT REWRITE     AddOnlyObjectOfType(itemObj);
+                // JOE: TODO: OBJECT REWRITE }
             }
         }
         else
@@ -1319,19 +1301,11 @@ internal sealed unsafe partial class World
         var effectiveDoorState = GetEffectiveDoorState(room, doorDir);
         var behavior = _doorBehaviors[(int)type].GetBehavior(effectiveDoorState);
 
-        // map.Behaviors(corner.X, corner.Y) = behavior;
-        // map.Behaviors(corner.X + 1, corner.Y) = behavior;
-        // map.Behaviors(corner.X, corner.Y + 1) = behavior;
-        // map.Behaviors(corner.X + 1, corner.Y + 1) = behavior;
         map.SetBlockBehavior(corner.X, corner.Y, behavior);
 
         if (behavior == TileBehavior.Doorway)
         {
             corner = _behindDoorCorners[doorOrd];
-            // map.Behaviors(corner.X, corner.Y) = behavior;
-            // map.Behaviors(corner.X + 1, corner.Y) = behavior;
-            // map.Behaviors(corner.X, corner.Y + 1) = behavior;
-            // map.Behaviors(corner.X + 1, corner.Y + 1) = behavior;
             map.SetBlockBehavior(corner.X, corner.Y, behavior);
         }
     }
@@ -1367,11 +1341,11 @@ internal sealed unsafe partial class World
         _state.Play.LiftItemId = 0;
         _state.Play.PersonWallY = 0;
 
-        if (CurrentRoom.TryGetActionObject(TileAction.Raft, out _)) // JOE: TODO: Map rewrite. I think this needs more work.
-        {
-            var dock = new DockActor(Game, 0, 0);
-            AddObject(dock);
-        }
+        // if (CurrentRoom.Raft != null) // JOE: TODO: Map rewrite. I think this needs more work.
+        // {
+        //     var dock = new DockActor(Game, 0, 0);
+        //     AddObject(dock);
+        // }
 
         // Set the level's level foreground palette before making objects,
         // so that if we make a boss, we won't override a palette that it might set.
@@ -1707,12 +1681,12 @@ internal sealed unsafe partial class World
         if (_state.Play.Timer == 0)
         {
             _state.Play.AnimatingRoomColors = false;
-            if (CurrentRoom.TryGetActionObject(TileAction.Recorder, out var recorderObject))
-            {
-                recorderObject.GetScreenTileCoordinates(out var x, out var y);
-                SetMapObject(y, x, BlockObjType.Stairs);
-                Game.Sound.PlayEffect(SoundEffect.Secret);
-            }
+            // JOE: TODO: OBJECT REWRITE if (CurrentRoom.TryGetActionObject(TileAction.Recorder, out var recorderObject))
+            // JOE: TODO: OBJECT REWRITE {
+            // JOE: TODO: OBJECT REWRITE     recorderObject.GetScreenTileCoordinates(out var x, out var y);
+            // JOE: TODO: OBJECT REWRITE     SetMapObject(y, x, BlockObjType.Stairs);
+            // JOE: TODO: OBJECT REWRITE     Game.Sound.PlayEffect(SoundEffect.Secret);
+            // JOE: TODO: OBJECT REWRITE }
             return;
         }
 
@@ -2106,10 +2080,7 @@ internal sealed unsafe partial class World
 
         objOverPlayer?.DecoratedDraw();
 
-        // if (IsUWMain(CurrentRoom))
-        {
-            DrawDoors(CurrentRoom, true, 0, 0);
-        }
+        DrawDoors(CurrentRoom, true, 0, 0);
     }
 
     private void DrawSubmenu()
@@ -2120,11 +2091,7 @@ internal sealed unsafe partial class World
             DrawMap(CurrentRoom, 0, _submenuOffsetY);
         }
 
-        // if (IsUWMain(CurrentRoom))
-        {
-            DrawDoors(CurrentRoom, true, 0, _submenuOffsetY);
-        }
-
+        DrawDoors(CurrentRoom, true, 0, _submenuOffsetY);
         Menu.Draw(_submenuOffsetY);
     }
 
@@ -2166,11 +2133,11 @@ internal sealed unsafe partial class World
 
     private void MakeObjects(Direction entryDir)
     {
-        // if (IsUWCellar(CurrentRoom))
-        // {
-        //     MakeCellarObjects();
-        //     return;
-        // }
+        // JOE: TODO: MAP REWRITE if (IsUWCellar(CurrentRoom))
+        // JOE: TODO: MAP REWRITE {
+        // JOE: TODO: MAP REWRITE     MakeCellarObjects();
+        // JOE: TODO: MAP REWRITE     return;
+        // JOE: TODO: MAP REWRITE }
 
         if (_state.Play.RoomType == RoomType.Cave)
         {
@@ -2182,12 +2149,11 @@ internal sealed unsafe partial class World
         var monsterList = CurrentRoom.Monsters;
         var monsterCount = monsterList.Length;
 
-        // JOE: TODO: Screen rewrite issue.
-        // if (objId is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble)
-        // {
-        //     MakeUnderworldPerson(objId);
-        //     return;
-        // }
+        // JOE: TODO: MAP REWRITE if (objId is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble)
+        // JOE: TODO: MAP REWRITE {
+        // JOE: TODO: MAP REWRITE     MakeUnderworldPerson(objId);
+        // JOE: TODO: MAP REWRITE     return;
+        // JOE: TODO: MAP REWRITE }
 
         // Zoras are a bit special and are never not spawned.
         for (var i = 0; i < CurrentRoom.ZoraCount; i++)
@@ -2263,10 +2229,10 @@ internal sealed unsafe partial class World
 
     private void MakeCaveObjects()
     {
-        var caveIndex = CurrentRoom.CaveId.Value - FirstCaveIndex;
-
-        var type = (int)CaveId.Cave1 + caveIndex;
-        MakeCaveObjects(type);
+        // JOE: TODO: MAP REWRITE var caveIndex = CurrentRoom.CaveId.Value - FirstCaveIndex;
+        // JOE: TODO: MAP REWRITE
+        // JOE: TODO: MAP REWRITE var type = (int)CaveId.Cave1 + caveIndex;
+        // JOE: TODO: MAP REWRITE MakeCaveObjects(type);
     }
 
     public void MakeCaveObjects(CaveId caveId)
@@ -2542,22 +2508,22 @@ internal sealed unsafe partial class World
     private bool CalcMazeStayPut(Direction dir)
     {
         var maze = CurrentRoom.Maze;
-        if (maze.Length == 0) return false;
+        if (maze == null) return false;
 
-        if (dir == CurrentRoom.MazeExit)
+        if (dir == maze.ExitDirection)
         {
             _curMazeStep = 0;
             return false;
         }
 
-        if (dir != maze[_curMazeStep])
+        if (dir != maze.Path[_curMazeStep])
         {
             _curMazeStep = 0;
             return true;
         }
 
         _curMazeStep++;
-        if (_curMazeStep != maze.Length)
+        if (_curMazeStep != maze.Path.Length)
         {
             return true;
         }
@@ -2699,7 +2665,7 @@ internal sealed unsafe partial class World
 
         LoadRoom(nextRoom);
 
-        if (CurrentRoom.IsDark && _darkRoomFadeStep == 0 && !Profile.PreventDarkRooms(Game))
+        if (CurrentRoom.RoomInformation.IsDark && _darkRoomFadeStep == 0 && !Profile.PreventDarkRooms(Game))
         {
             _state.Scroll.Substate = ScrollState.Substates.FadeOut;
             _state.Scroll.Timer = Game.Cheats.SpeedUp ? 1 : 9;
@@ -2719,10 +2685,10 @@ internal sealed unsafe partial class World
             return;
         }
 
-        if (_state.Scroll.OffsetX == 0 && _state.Scroll.OffsetY == 0)
+        if (_state.Scroll is { OffsetX: 0, OffsetY: 0 })
         {
             GotoEnter(_state.Scroll.ScrollDir);
-            if (IsOverworld() && _state.Scroll.NextRoom.PlaysSecretChime)
+            if (_state.Scroll.NextRoom.RoomInformation.PlaysSecretChime)
             {
                 Game.Sound.PlayEffect(SoundEffect.Secret);
             }
@@ -2920,7 +2886,7 @@ internal sealed unsafe partial class World
                 _state.Enter.ScrollDir,
                 distance);
 
-            if (!CurrentRoom.IsDark && _darkRoomFadeStep > 0)
+            if (!CurrentRoom.RoomInformation.IsDark && _darkRoomFadeStep > 0)
             {
                 _state.Enter.Substate = EnterState.Substates.FadeIn;
                 _state.Enter.Timer = 9;
@@ -3304,15 +3270,15 @@ internal sealed unsafe partial class World
         DrawLinkLiftingItem(ItemId.TriforcePiece);
     }
 
-    private void GotoStairs(TileBehavior behavior, ActionGameMapObject mapObject)
+    public void GotoStairs(TileBehavior behavior, Entrance cave)
     {
-        if (mapObject == null) throw new Exception("Unable to locate stairs action object.");
-        if (mapObject.Enters == null) throw new Exception("Stairs do not target a proper location.");
+       if (cave == null) throw new Exception("Unable to locate stairs action object.");
+       if (cave.Destination == null) throw new Exception("Stairs do not target a proper location.");
 
-        _state.Stairs.Substate = StairsState.Substates.Start;
-        _state.Stairs.TileBehavior = behavior;
-        _state.Stairs.MapReference = mapObject.Enters;
-        _state.Stairs.PlayerPriority = SpritePriority.AboveBg;
+       _state.Stairs.Substate = StairsState.Substates.Start;
+       _state.Stairs.TileBehavior = behavior;
+       _state.Stairs.Entrance = cave;
+       _state.Stairs.PlayerPriority = SpritePriority.AboveBg;
 
         _curMode = GameMode.Stairs;
     }
@@ -3347,17 +3313,19 @@ internal sealed unsafe partial class World
 
             case StairsState.Substates.Walk when IsOverworld():
             case StairsState.Substates.WalkCave when _state.Stairs.HasReachedTarget(Game.Link):
-                var cave = CurrentRoom.CaveId ?? throw new Exception($"Missing cave id for room \"{CurrentRoom.Id}\" in world \"{CurrentWorld.Name}\".");
+                var cave = _state.Stairs.Entrance;
                 _log.Write($"CaveType: {cave}");
 
-                if ((int)cave <= 9)
-                {
-                    GotoLoadLevel((int)cave);
-                }
-                else
-                {
-                    GotoPlayCave(cave);
-                }
+                LoadCave(cave);
+
+                // if ((int)cave <= 9)
+                // {
+                //     GotoLoadLevel((int)cave);
+                // }
+                // else
+                // {
+                //     GotoPlayCave(cave);
+                // }
                 break;
 
             case StairsState.Substates.Walk:
@@ -3367,6 +3335,17 @@ internal sealed unsafe partial class World
             case StairsState.Substates.WalkCave:
                 MovePlayer(_state.Stairs.ScrollDir, _state.Stairs.PlayerSpeed, ref _state.Stairs.PlayerFraction);
                 Game.Link.Animator.Advance();
+                break;
+        }
+    }
+
+    private void LoadCave(Entrance cave)
+    {
+        switch (cave.DestinationType)
+        {
+            case EntranceType.Level:
+                if (!cave.TryGetLevelNumber(out var levelNumber)) throw new Exception();
+                GotoLoadLevel(levelNumber);
                 break;
         }
     }
@@ -3426,25 +3405,24 @@ internal sealed unsafe partial class World
     {
         var room = FindCellarRoomId(CurrentRoom, out var isLeft);
 
-        if (room != null)
-        {
-            var x = isLeft ? 0x30 : 0xC0;
-
-            LoadRoom(room);
-
-            Game.Link.X = x;
-            Game.Link.Y = 0x44;
-            Game.Link.Facing = Direction.Down;
-
-            _state.PlayCellar.TargetY = 0x60;
-            _state.PlayCellar.Substate = PlayCellarState.Substates.FadeIn;
-            _state.PlayCellar.FadeTimer = 35;
-            _state.PlayCellar.FadeStep = 3;
-        }
-        else
+        if (room == null)
         {
             GotoPlay();
+            return;
         }
+
+        var x = isLeft ? 0x30 : 0xC0;
+
+        LoadRoom(room);
+
+        Game.Link.X = x;
+        Game.Link.Y = 0x44;
+        Game.Link.Facing = Direction.Down;
+
+        _state.PlayCellar.TargetY = 0x60;
+        _state.PlayCellar.Substate = PlayCellarState.Substates.FadeIn;
+        _state.PlayCellar.FadeTimer = 35;
+        _state.PlayCellar.FadeStep = 3;
     }
 
     private void UpdatePlayCellar_FadeIn()
@@ -3742,7 +3720,7 @@ internal sealed unsafe partial class World
         if (_state.Death.Timer > 0)
         {
             _state.Death.Timer--;
-            // JOE: Original does not return here.
+            // JOE: C++ does not return here.
         }
 
         DeathFuncs[(int)_state.Death.Substate]();
@@ -3845,24 +3823,26 @@ internal sealed unsafe partial class World
 
     private void UpdateDie_Spark()
     {
-        if (_state.Death.Timer == 0)
+        if (_state.Death.Timer != 0) return;
+
+        switch (_state.Death.Step)
         {
-            if (_state.Death.Step == 0)
-            {
+            case 0:
                 _state.Death.Timer = 10;
                 Game.Sound.PlayEffect(SoundEffect.Character);
-            }
-            else if (_state.Death.Step == 1)
-            {
+                break;
+
+            case 1:
                 _state.Death.Timer = 4;
-            }
-            else
-            {
+                break;
+
+            default:
                 _state.Death.Substate = DeathState.Substates.Wait2;
                 _state.Death.Timer = 46;
-            }
-            _state.Death.Step++;
+                break;
         }
+
+        _state.Death.Step++;
     }
 
     private void UpdateDie_Wait2()
@@ -4133,8 +4113,8 @@ internal sealed unsafe partial class World
         if (IsOverworld())
         {
             var behavior = GetTileBehavior(tileY, tileX);
-            var stairsTo = CurrentRoom.GetActionObject(TileAction.Cave, tileX, tileY);
-            GotoStairs(behavior, stairsTo);
+            // JOE: TODO: OBJECT REWRITE var stairsTo = CurrentRoom.GetActionObject(TileAction.Cave, tileX, tileY);
+            // JOE: TODO: OBJECT REWRITE GotoStairs(behavior, stairsTo);
         }
 
         Debug.WriteLine("Cover cave: {0}, {1}", tileY, tileX);
@@ -4146,8 +4126,8 @@ internal sealed unsafe partial class World
 
         if (GetMode() == GameMode.Play)
         {
-            var stairsTo = CurrentRoom.GetActionObject(TileAction.Stairs, tileX, tileY);
-            GotoStairs(TileBehavior.Stairs, stairsTo);
+            // JOE: TODO: OBJECT REWRITEvar stairsTo = CurrentRoom.GetActionObject(TileAction.Stairs, tileX, tileY);
+            // JOE: TODO: OBJECT REWRITEGotoStairs(TileBehavior.Stairs, stairsTo);
         }
 
         Debug.WriteLine("Cover stairs: {0}, {1}", tileY, tileX);
@@ -4237,10 +4217,10 @@ internal sealed unsafe partial class World
     public void RecorderTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         // JOE: TODO
-        // if (interaction != TileInteraction.Load) return;
-        //
-        // var block = new BlockObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
-        // SetBlockObj(block);
+        if (interaction != TileInteraction.Load) return;
+
+        var block = new BlockObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
+        SetBlockObj(block);
     }
 
     public void DoorTileAction(int tileY, int tileX, TileInteraction interaction)

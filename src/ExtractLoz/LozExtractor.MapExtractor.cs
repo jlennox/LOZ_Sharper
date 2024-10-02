@@ -1,5 +1,6 @@
-﻿using System.Drawing;
-using System.Text;
+﻿using System.Diagnostics;
+using System.Drawing;
+using System.Reflection;
 using System.Text.Json;
 using static ExtractLoz.MapExtractor;
 #pragma warning disable CA1416
@@ -23,7 +24,8 @@ internal record MapResources(
     bool IsOverworld,
     RoomContext RoomContext, RoomCols[] RoomCols, TableResource<byte> ColTable, byte[] TileAttrs,
     TableResource<byte> ObjectList, byte[] PrimaryMobs, byte[]? SecondaryMobs, byte[] TileBehaviors,
-    RoomAttr[] RoomAttrs, TableResource<byte> SparseTable, LevelInfoBlock LevelInfoBlock, MapResources? CellarResources)
+    RoomAttr[] RoomAttrs, TableResource<byte> SparseTable, LevelInfoBlock LevelInfoBlock, MapResources? CellarResources,
+    CaveSpec[]? CaveSpecs)
 {
     public byte[][] GetRoomColsArray() => RoomCols.Select(t => t.Get()).ToArray();
     public RoomAttr GetRoomAttr(Point point) => RoomAttrs[point.Y * World.WorldWidth + point.X];
@@ -68,7 +70,17 @@ public unsafe partial class LozExtractor
 
         MakeTiledTileSets(options, overworldResources, underworldResources);
 
-        options.AddJson("Maps/Project.tiled-project", new TiledProject(), _tiledJsonOptions);
+        var types = AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(static a => a.GetTypes())
+            .Where(static t => t.GetCustomAttribute<TiledClass>() != null)
+            .ToArray();
+
+        var propertyTypes = TiledProjectCustomProperty.From(types).ToArray();
+
+        options.AddJson("Maps/Project.tiled-project", new TiledProject
+        {
+            PropertyTypes = propertyTypes
+        }, _tiledJsonOptionsProject);
     }
 
     private static MapResources ExtractOverworldTiledMaps(Options options)
@@ -82,6 +94,7 @@ public unsafe partial class LozExtractor
         var sparseTable = ExtractOverworldMapSparseAttrs(options);
         var (primaries, secondaries) = ExtractOverworldMobs(options, reader);
         var levelInfo = ExtractOverworldInfo(options);
+        var levelInfoEx = ExtractOverworldInfoEx(options);
 
         var resources = new MapResources(
             IsOverworld: true,
@@ -96,7 +109,8 @@ public unsafe partial class LozExtractor
             RoomAttrs: roomAttributes,
             SparseTable: sparseTable,
             LevelInfoBlock: levelInfo,
-            CellarResources: null);
+            CellarResources: null,
+            CaveSpecs: levelInfoEx.CaveSpec);
 
         ExtractTiledMap(options, resources, "Overworld");
 
@@ -128,7 +142,8 @@ public unsafe partial class LozExtractor
             RoomAttrs: roomAttributes[0].RoomAttributes,
             SparseTable: sparseTable,
             LevelInfoBlock: levelInfo.First().Value,
-            CellarResources: null);
+            CellarResources: null,
+            CaveSpecs: null);
 
         var cellarTileAttributes = ExtractUnderworldCellarTileAttrs(options);
         var (cellarPrimaries, cellarSecondaries) = ExtractUnderworldCellarMobs(options, reader);
@@ -171,6 +186,7 @@ public unsafe partial class LozExtractor
         return resources;
     }
 
+    [DebuggerDisplay("{RoomId.Id} ({RoomId.X},{RoomId.Y})")]
     private readonly record struct RoomEntry(RoomId RoomId, TiledTile[] Tiles, ActionableTiles[] Actions);
 
     private static void ExtractTiledMap(Options options, MapResources resources, string name)
@@ -223,12 +239,6 @@ public unsafe partial class LozExtractor
                     nextRooms.Push(nextRoom);
                 }
             }
-
-            // These are for cropping... which I don't believe is worth while?
-            // var leftMostRoom = visitedRooms.Min(t => t.X);
-            // var rightMostRoom = visitedRooms.Max(t => t.X);
-            // var topMostRoom = visitedRooms.Min(t => t.Y);
-            // var bottomMostRoom = visitedRooms.Max(t => t.Y);
         }
 
         // Draw each map into allExtractedScreens and store the Actions.
@@ -252,9 +262,13 @@ public unsafe partial class LozExtractor
             }
         }
 
-        static TiledProperty[] GetRoomProperties(MapResources resources, RoomId roomId)
+        var minroomX = allExtractedRooms.Where(t => t != null).Min(t => t.Value.RoomId.X);
+        var maxroomX = allExtractedRooms.Where(t => t != null).Max(t => t.Value.RoomId.X);
+
+        static TiledProperty[] GetRoomProperties(MapResources resources, RoomId roomId, int minroomX, int maxroomX)
         {
             var properties = new List<TiledProperty>();
+            var levelBlock = resources.LevelInfoBlock;
             var startRoomId = resources.LevelInfoBlock.StartRoomId;
             var roomAttr = resources.RoomAttrs[roomId.Id];
             var owRoomAttrs = new OWRoomAttr(roomAttr);
@@ -262,12 +276,12 @@ public unsafe partial class LozExtractor
             var isCellar = resources.IsCellarRoom(roomId);
 
             properties.Add(new TiledProperty(TiledObjectProperties.Id, roomId.GetGameRoomId()));
-            properties.AddIf(roomId.Id == startRoomId, new TiledProperty(TiledObjectProperties.IsEntryRoom, true));
+            // properties.AddIf(roomId.Id == startRoomId, new TiledProperty(TiledObjectProperties.IsEntryRoom, true));
 
             if (resources.IsOverworld)
             {
                 properties.AddIf(owRoomAttrs.DoMonstersEnter(), new TiledProperty(TiledObjectProperties.MonstersEnter, true));
-                properties.AddIf(owRoomAttrs.HasAmbientSound(), new TiledProperty(TiledObjectProperties.AmbientSound, SoundEffect.Sea));
+                // properties.AddIf(owRoomAttrs.HasAmbientSound(), new TiledProperty(TiledObjectProperties.AmbientSound, SoundEffect.Sea));
 
                 var exitPos = owRoomAttrs.GetExitPosition();
                 if (exitPos != 0)
@@ -275,27 +289,29 @@ public unsafe partial class LozExtractor
                     var col = exitPos & 0x0F;
                     var row = (exitPos >> 4) + 4;
                     var point = new PointXY(col * World.BlockWidth, row * World.BlockHeight + 0x0D);
-                    properties.Add(new TiledProperty(TiledObjectProperties.ExitPosition, point));
+                    // properties.Add(new TiledProperty(TiledObjectProperties.ExitPosition, point));
                 }
 
                 var maze = resources.SparseTable.FindSparseAttr<SparseMaze>(Sparse.Maze, roomId.Id);
                 if (maze != null)
                 {
-                    var mazeString = string.Join(", ", maze.Value.Paths.ToArray().Select(t => t.ToString()));
-                    properties.Add(new TiledProperty(TiledObjectProperties.Maze, mazeString));
-                    properties.Add(new TiledProperty(TiledObjectProperties.MazeExit, maze.Value.ExitDirection));
+                    properties.Add(TiledProperty.ForClass(TiledObjectProperties.Maze, new MazeRoom
+                    {
+                        Path = maze.Value.Paths.ToArray(),
+                        ExitDirection = maze.Value.ExitDirection,
+                    }));
                 }
 
                 // TopRightOverworldSecret
-                if (roomAttr.GetUniqueRoomId() == 0x0F)
-                {
-                    properties.Add(new TiledProperty(TiledObjectProperties.PlaysSecretChime, true));
-                }
-
-                if (resources.FindSparseFlag(roomId, Sparse.Ladder))
-                {
-                    properties.Add(new TiledProperty(TiledObjectProperties.IsLadderAllowed, true));
-                }
+                // if (roomAttr.GetUniqueRoomId() == 0x0F)
+                // {
+                //     properties.Add(new TiledProperty(TiledObjectProperties.PlaysSecretChime, true));
+                // }
+                //
+                // if (resources.FindSparseFlag(roomId, Sparse.Ladder))
+                // {
+                //     properties.Add(new TiledProperty(TiledObjectProperties.IsLadderAllowed, true));
+                // }
             }
 
             if (!resources.IsOverworld && !isCellar)
@@ -314,14 +330,14 @@ public unsafe partial class LozExtractor
                     .Select(t => t.ToString())
                     .ToArray();
                 properties.Add(new TiledProperty(TiledObjectProperties.DungeonDoors, string.Join(", ", doors)));
-                properties.AddIf(uwRoomAttrs.IsDark(), new TiledProperty(TiledObjectProperties.IsDark, true));
+                // properties.AddIf(uwRoomAttrs.IsDark(), new TiledProperty(TiledObjectProperties.IsDark, true));
 
-                var ambientSound = uwRoomAttrs.GetAmbientSound();
-                if (ambientSound != 0)
-                {
-                    var soundId = SoundEffect.BossRoar1 + ambientSound - 1;
-                    properties.Add(new TiledProperty(TiledObjectProperties.AmbientSound, soundId));
-                }
+                // var ambientSound = uwRoomAttrs.GetAmbientSound();
+                // if (ambientSound != 0)
+                // {
+                //     var soundId = SoundEffect.BossRoar1 + ambientSound - 1;
+                //     properties.Add(new TiledProperty(TiledObjectProperties.AmbientSound, soundId));
+                // }
 
                 var secret = uwRoomAttrs.GetSecret();
                 if (secret != Secret.None)
@@ -346,20 +362,41 @@ public unsafe partial class LozExtractor
                     properties.Add(new TiledProperty(TiledObjectProperties.FireballLayout, fireballLayoutIndex));
                 }
 
-                if (resources.LevelInfoBlock.BossRoomId == roomId.Id)
-                {
-                    properties.Add(new TiledProperty(TiledObjectProperties.IsBossRoom, true));
-                }
-
-                if (resources.FindSparseFlag(roomId, Sparse.Ladder))
-                {
-                    properties.Add(new TiledProperty(TiledObjectProperties.IsLadderAllowed, true));
-                }
+                // if (resources.LevelInfoBlock.BossRoomId == roomId.Id)
+                // {
+                //     properties.Add(new TiledProperty(TiledObjectProperties.IsBossRoom, true));
+                // }
+                //
+                // if (resources.FindSparseFlag(roomId, Sparse.Ladder))
+                // {
+                //     properties.Add(new TiledProperty(TiledObjectProperties.IsLadderAllowed, true));
+                // }
 
                 var caveId = owRoomAttrs.GetCaveId();
                 if (caveId != 0)
                 {
-                    properties.Add(new TiledProperty(TiledObjectProperties.CaveId, caveId));
+                    // properties.Add(new TiledProperty(TiledObjectProperties.CaveId, caveId));
+                }
+
+                // if (levelBlock.LevelNumber == 2 && roomId.X == 0xd && roomId.Y == 0)
+                // {
+                //     Debugger.Break();
+                // }
+
+                // if (levelBlock.LevelNumber == 9) Debugger.Break();
+
+                // We need to do the math to figure out where this room would be drawn in the x/y space
+                // of the minimap. So we need to "center" this map.
+                const int miniMapWidth = 8;
+                const int drawnMapXOffset = 4; // a fixed offset.
+                var xoff = (miniMapWidth - (maxroomX - minroomX + 1)) / 2;
+                var currentroomX = roomId.X - minroomX;
+                var drawnmapX = currentroomX + xoff + drawnMapXOffset;
+                var mapMaskByte = levelBlock.DrawnMap[drawnmapX] << roomId.Y;
+
+                if ((mapMaskByte & 0x80) != 0x80)
+                {
+                    properties.Add(new TiledProperty(TiledObjectProperties.HiddenFromMap, true));
                 }
             }
 
@@ -384,8 +421,32 @@ public unsafe partial class LozExtractor
                 }
             }
 
-            properties.Add(new TiledProperty(TiledObjectProperties.InnerPalette, innerPalette));
-            properties.Add(new TiledProperty(TiledObjectProperties.OuterPalette, outerPalette));
+            SoundEffect? ambientSound = null;
+            if (resources.IsOverworld && owRoomAttrs.HasAmbientSound())
+            {
+                ambientSound = SoundEffect.Sea;
+            }
+            else if (!resources.IsOverworld)
+            {
+                var ambientSoundInt = uwRoomAttrs.GetAmbientSound();
+                if (ambientSoundInt != 0)
+                {
+                    ambientSound = SoundEffect.BossRoar1 + ambientSoundInt - 1;
+                }
+            }
+
+            properties.Add(TiledProperty.ForClass(TiledObjectProperties.RoomInformation, new RoomInformation
+            {
+                InnerPalette = innerPalette,
+                OuterPalette = outerPalette,
+                IsBossRoom = !resources.IsOverworld && resources.LevelInfoBlock.BossRoomId == roomId.Id,
+                IsLadderAllowed = resources.FindSparseFlag(roomId, Sparse.Ladder),
+                IsEntryRoom = roomId.Id == startRoomId,
+                AmbientSound = ambientSound,
+                IsDark = uwRoomAttrs.IsDark(),
+                PlaysSecretChime = resources.IsOverworld && roomAttr.GetUniqueRoomId() == 0x0F,
+            }));
+
             return properties.ToArray();
         }
 
@@ -478,7 +539,7 @@ public unsafe partial class LozExtractor
                 TileHeight = 8,
                 Layers = [backgroundLayer, .. objectLayers],
                 TileSets = tilesets,
-                Properties = GetRoomProperties(resources, room.RoomId),
+                Properties = GetRoomProperties(resources, room.RoomId, minroomX, maxroomX),
             };
 
             var filename = $"{name}/Map-{room.RoomId.X:D2}-{room.RoomId.Y:D2}.json";
@@ -504,7 +565,8 @@ public unsafe partial class LozExtractor
 
         options.AddJson($"Maps/{name}.world", world, _tiledJsonOptions);
 
-        // if (!isOverworld && !options.Files.ContainsKey("CellarMap.json"))
+
+        // if (!isOverworld && !options.Files.ContainsKey("Map/Common.world"))
         // {
         //     var cellarRoomIds = new[] { new RoomId(4), new RoomId(7) };
         //
@@ -685,7 +747,7 @@ public unsafe partial class LozExtractor
 
         AddTileMap(
             "../overworldTiles.png", owTileBehaviors,
-            [BlockObjType.Cave, BlockObjType.Ground, BlockObjType.Stairs, BlockObjType.Rock, BlockObjType.Headstone],
+            [BlockObjType.Cave, BlockObjType.Ground, BlockObjType.Stairs, BlockObjType.Rock, BlockObjType.Headstone, BlockObjType.Dock],
             [/*BlockObjType.TileRock, BlockObjType.TileHeadstone*/]);
         AddTileMap(
             "../underworldTiles.png", uwTileBehaviors,
@@ -793,9 +855,10 @@ public unsafe partial class LozExtractor
         return !string.IsNullOrWhiteSpace(monsterString);
     }
 
-    private static readonly JsonSerializerOptions _tiledJsonOptions = MakeTiledConverter();
+    private static readonly JsonSerializerOptions _tiledJsonOptions = MakeTiledConverter(false);
+    private static readonly JsonSerializerOptions _tiledJsonOptionsProject = MakeTiledConverter(true);
 
-    private static JsonSerializerOptions MakeTiledConverter()
+    private static JsonSerializerOptions MakeTiledConverter(bool isProject)
     {
         var jsonOptions = new JsonSerializerOptions
         {
@@ -803,6 +866,7 @@ public unsafe partial class LozExtractor
             WriteIndented = true,
         };
         jsonOptions.Converters.Add(new LowerCaseEnumConverterFactory());
+        jsonOptions.Converters.Add(new TiledProperty.Converter(!isProject));
         return jsonOptions;
     }
 }
@@ -825,6 +889,7 @@ internal static class Extensions
     }
 }
 
+[DebuggerDisplay("{Id} ({X},{Y})")]
 internal readonly struct RoomId
 {
     public int Id { get; }

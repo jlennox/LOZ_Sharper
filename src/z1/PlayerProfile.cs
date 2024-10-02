@@ -2,17 +2,22 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Silk.NET.Direct3D11;
 using z1.Actors;
 using z1.IO;
 using z1.Render;
-using z1.UI;
 
 namespace z1;
 
+internal sealed class ObjectState
+{
+    public bool HasInteracted { get; set; }
+    public bool ItemGot { get; set; }
+}
+
 internal sealed class RoomFlags
 {
-    public string RoomPath { get; set; }
-    public bool ItemState { get; set; }
+    public bool ItemState { get; set; } // true if item has been picked up.
     public bool ShortcutState { get; set; } // Overworld
     public bool SecretState { get; set; } // Overworld
     public bool VisitState { get; set; } // Underworld
@@ -20,6 +25,17 @@ internal sealed class RoomFlags
     public bool GetDoorState(Direction dir) => DoorState.TryGetValue(dir, out var state) && state;
     public bool SetDoorState(Direction dir) => DoorState[dir] = true;
     public int ObjectCount { get; set; }
+    public Dictionary<string, ObjectState> ObjectState { get; set; } = [];
+
+    public ObjectState GetObjectState(string id)
+    {
+        if (!ObjectState.TryGetValue(id, out var state))
+        {
+            state = new ObjectState();
+            ObjectState[id] = state;
+        }
+        return state;
+    }
 }
 
 internal sealed class PlayerProfiles : IInitializable
@@ -46,13 +62,20 @@ internal sealed class PlayerProfiles : IInitializable
     }
 }
 
+internal sealed class ObjectStatistics
+{
+    public long Kills { get; set; }
+    public long Seen { get; set; } // TODO
+    public long DamageTaken { get; set; }
+    public long DamageDone { get; set; } // TODO
+}
+
 internal sealed class PlayerStatistics
 {
     public int Version { get; set; }
-    public Dictionary<ObjType, long> Kills { get; set; }
     public Dictionary<ItemSlot, long> ItemUses { get; set; }
     public Dictionary<DamageType, long> DamageDone { get; set; }
-    public Dictionary<ObjType, long> DamageTaken { get; set; }
+    public Dictionary<ObjType, ObjectStatistics> ObjectStatistics { get; set; }
     public int SaveCount { get; set; } // TODO
     public int CheatCount { get; set; } // TODO
     public int UWWallsBombed { get; set; }
@@ -63,16 +86,25 @@ internal sealed class PlayerStatistics
 
     public void Initialize()
     {
-        Kills ??= new();
         DamageDone ??= new();
         ItemUses ??= new();
-        DamageTaken ??= new();
+        ObjectStatistics ??= new();
     }
 
-    public void AddKill(ObjType type)
+    public ObjectStatistics GetObjectStatistics(ObjType type)
     {
-        var count = Kills.GetValueOrDefault(type) + 1;
-        Kills[type] = count;
+        if (!ObjectStatistics.TryGetValue(type, out var stats))
+        {
+            stats = new ObjectStatistics();
+            ObjectStatistics[type] = stats;
+        }
+
+        return stats;
+    }
+
+    public ObjectStatistics GetObjectStatistics(Actor actor)
+    {
+        return GetObjectStatistics(actor.GetRootOwner().ObjType);
     }
 
     public void AddItemUse(ItemSlot slot)
@@ -85,13 +117,6 @@ internal sealed class PlayerStatistics
     {
         var count = DamageDone.GetValueOrDefault(context.DamageType) + context.Damage;
         DamageDone[context.DamageType] = count;
-    }
-
-    public void TakeDamage(Actor actor, int amount)
-    {
-        // PersonEnd = FlyingRock
-        var count = DamageTaken.GetValueOrDefault(actor.ObjType) + amount;
-        DamageTaken[actor.ObjType] = count;
     }
 }
 
@@ -122,8 +147,12 @@ internal sealed record RoomDirectory(string WorldName, string RoomName)
 
         private static RoomDirectory ParseJsonString(string json)
         {
-            var parts = json.Split('/');
-            return new RoomDirectory(parts[0], parts[1]);
+            var parser = new StringParser();
+            var span = json.AsSpan();
+            var world = parser.ReadUntil(span, '/').ToString();
+            parser.ExpectChar(span, '/');
+            var room = parser.ReadRemaining(span).ToString();
+            return new RoomDirectory(world, room);
         }
 
         public override RoomDirectory Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -173,7 +202,7 @@ internal sealed class PlayerProfile
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
     public PlayerStatistics Statistics { get; set; }
-    public Dictionary<RoomDirectory, RoomFlags> RoomFlags { get; set; }
+    public Dictionary<string, Dictionary<string, RoomFlags>> RoomFlags { get; set; }
     public Dictionary<int, DungeonItems> DungeonItems { get; set; }
 
     public PlayerProfile()
@@ -210,6 +239,29 @@ internal sealed class PlayerProfile
         }
 
         Statistics.Initialize();
+    }
+
+    public RoomFlags GetRoomFlags(GameWorld world, GameRoom room)
+    {
+        if (!RoomFlags.TryGetValue(world.Id, out var worldFlags))
+        {
+            worldFlags = new Dictionary<string, RoomFlags>();
+            RoomFlags[world.Name] = worldFlags;
+        }
+
+        if (!worldFlags.TryGetValue(room.Id, out var roomFlags))
+        {
+            roomFlags = new RoomFlags();
+            worldFlags[room.Name] = roomFlags;
+        }
+
+        return roomFlags;
+    }
+
+    public ObjectState GetObjectFlags(GameWorld world, GameRoom room, InteractiveGameObject obj)
+    {
+        var roomflags = GetRoomFlags(world, room);
+        return roomflags.GetObjectState(obj.Id);
     }
 
     public DungeonItems GetDungeonItems(int dungeon)
@@ -269,7 +321,7 @@ internal sealed class PlayerProfile
 
 internal static class PlayerProfileExtensions
 {
-    public static bool IsActive([MaybeNullWhen(false)] this PlayerProfile? profile) => profile != null && !string.IsNullOrEmpty(profile.Name);
+    public static bool IsActive([MaybeNullWhen(false)] this PlayerProfile profile) => profile != null && !string.IsNullOrEmpty(profile.Name);
 
     public static int GetIndex(this List<PlayerProfile> profiles, int page, int index)
     {

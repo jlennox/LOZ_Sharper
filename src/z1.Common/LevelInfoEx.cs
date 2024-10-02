@@ -1,8 +1,12 @@
 ﻿using System.Text.Json.Serialization;
+using z1.Common.Data;
 
 namespace z1.Common;
 
-public record PointXY(int X, int Y);
+public record PointXY(int X, int Y)
+{
+    public PointXY() : this(0, 0) { }
+}
 
 public sealed class LevelInfoEx
 {
@@ -23,8 +27,8 @@ public sealed class WorldInfo
     public byte BossRoomId { get; set; }
     public SongId SongId { get; set; }
     public byte LevelNumber { get; set; }
-    public byte EffectiveLevelNumber { get; set; }
-    public byte DrawnMapOffset { get; set; }
+    // public byte EffectiveLevelNumber { get; set; }
+    // public byte DrawnMapOffset { get; set; }
     // public byte[] CellarRoomIds { get; set; }
     // public byte[] ShortcutPosition { get; set; }
     // public byte[] DrawnMap { get; set; }
@@ -64,7 +68,9 @@ public sealed class ObjectAttribute
 }
 
 [Flags]
-[JsonConverter(typeof(JsonStringEnumConverter))]
+// [JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(TiledJsonSelectableEnumConverter<CaveSpecOptions>))]
+[TiledSelectableEnum]
 public enum CaveSpecOptions
 {
     None = 0,
@@ -88,26 +94,29 @@ public enum CaveType { None = 0, Items = 0x79, Shortcut = 0x7A, }
 public sealed class CaveSpec
 {
     public CaveDwellerType DwellerType { get; set; }
+    [TiledIgnore]
     public CaveId? CaveId { get; set; }
     public CaveType CaveType { get; set; }
     public PersonType PersonType { get; set; }
+    [JsonConverter(typeof(TiledJsonSelectableEnumConverter<CaveSpecOptions>))]
     public CaveSpecOptions Options { get; set; }
     public string Text { get; set; }
     public ItemId? RequiresItem { get; set; }
+    [TiledIgnore, JsonIgnore]
     public CaveShopItem[]? Items { get; set; }
     public ItemSlot? EntranceCheckItem { get; set; }
     public int? EntranceCheckAmount { get; set; }
 
-    [JsonIgnore] public bool ShowNegative => HasOption(CaveSpecOptions.ShowNegative);
-    [JsonIgnore] public bool ShowNumbers => HasOption(CaveSpecOptions.ShowNumbers);
-    [JsonIgnore] public bool ShowItems => HasOption(CaveSpecOptions.ShowItems);
-    [JsonIgnore] public bool IsSpecial => HasOption(CaveSpecOptions.Special);
-    [JsonIgnore] public bool IsPay => HasOption(CaveSpecOptions.Pay);
-    [JsonIgnore] public bool IsPickUp => HasOption(CaveSpecOptions.PickUp);
-    [JsonIgnore] public bool DoesControlsShutters => HasOption(CaveSpecOptions.ControlsShutters);
-    [JsonIgnore] public bool DoesControlsBlockingWall => HasOption(CaveSpecOptions.ControlsBlockingWall);
-    [JsonIgnore] public bool HasEntranceCheck => HasOption(CaveSpecOptions.EntranceCheck);
-    [JsonIgnore] public bool HasEntranceCost => HasOption(CaveSpecOptions.EntranceCost);
+    [TiledIgnore, JsonIgnore] public bool ShowNegative => HasOption(CaveSpecOptions.ShowNegative);
+    [TiledIgnore, JsonIgnore] public bool ShowNumbers => HasOption(CaveSpecOptions.ShowNumbers);
+    [TiledIgnore, JsonIgnore] public bool ShowItems => HasOption(CaveSpecOptions.ShowItems);
+    [TiledIgnore, JsonIgnore] public bool IsSpecial => HasOption(CaveSpecOptions.Special);
+    [TiledIgnore, JsonIgnore] public bool IsPay => HasOption(CaveSpecOptions.Pay);
+    [TiledIgnore, JsonIgnore] public bool IsPickUp => HasOption(CaveSpecOptions.PickUp);
+    [TiledIgnore, JsonIgnore] public bool DoesControlsShutters => HasOption(CaveSpecOptions.ControlsShutters);
+    [TiledIgnore, JsonIgnore] public bool DoesControlsBlockingWall => HasOption(CaveSpecOptions.ControlsBlockingWall);
+    [TiledIgnore, JsonIgnore] public bool HasEntranceCheck => HasOption(CaveSpecOptions.EntranceCheck);
+    [TiledIgnore, JsonIgnore] public bool HasEntranceCost => HasOption(CaveSpecOptions.EntranceCost);
 
     public CaveSpec Clone()
     {
@@ -124,7 +133,9 @@ public sealed class CaveSpec
 }
 
 [Flags]
-[JsonConverter(typeof(JsonStringEnumConverter))]
+// [JsonConverter(typeof(JsonStringEnumConverter))]
+[TiledSelectableEnum]
+[JsonConverter(typeof(TiledJsonSelectableEnumConverter<CaveShopItemOptions>))]
 public enum CaveShopItemOptions
 {
     None = 0,
@@ -138,8 +149,10 @@ public enum CaveShopItemOptions
     Gambling = 1 << 4,
 }
 
+[TiledClass]
 public sealed class CaveShopItem
 {
+    [JsonConverter(typeof(TiledJsonSelectableEnumConverter<CaveShopItemOptions>))]
     public CaveShopItemOptions Options { get; set; }
     public ItemId ItemId { get; set; }
     public int ItemAmount { get; set; }

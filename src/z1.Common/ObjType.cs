@@ -38,7 +38,7 @@ public enum ObjType
     PolsVoice,
     LikeLike,
     LittleDigdogger,
-    Unknown1__,
+    [TiledIgnore] Unknown1__,
     Peahat,
     BlueKeese,
     RedKeese,
@@ -54,7 +54,7 @@ public enum ObjType
     PatraChild2,
     Wallmaster,
     Rope,
-    Unknown5__,
+    [TiledIgnore] Unknown5__,
     Stalfos,
     Bubble1,
     Bubble2,
@@ -89,35 +89,35 @@ public enum ObjType
     Trap,
     TrapSet4,
 
-    Person1,
-    Person2,
-    Person3,
-    Person4,
-    Person5,
-    Person6,
-    Person7,
-    Person8,
+    [TiledIgnore] Person1,
+    [TiledIgnore] Person2,
+    [TiledIgnore] Person3,
+    [TiledIgnore] Person4,
+    [TiledIgnore] Person5,
+    [TiledIgnore] Person6,
+    [TiledIgnore] Person7,
+    [TiledIgnore] Person8,
 
-    FlyingRock,
-    Unknown54__,
-    Fireball,
-    Fireball2,
-    PlayerSwordShot,
+    [TiledIgnore] FlyingRock,
+    [TiledIgnore] Unknown54__,
+    [TiledIgnore] Fireball,
+    [TiledIgnore] Fireball2,
+    [TiledIgnore] PlayerSwordShot,
 
     OldMan,
     OldWoman,
     Merchant,
     FriendlyMoblin,
 
-    MagicWave = OldMan,
-    MagicWave2 = OldWoman,
-    Arrow = FriendlyMoblin,
+    [TiledIgnore] MagicWave = OldMan,
+    [TiledIgnore] MagicWave2 = OldWoman,
+    [TiledIgnore] Arrow = FriendlyMoblin,
 
-    Boomerang,
-    DeadDummy,
-    FluteSecret,
-    Ladder,
-    Item,
+    [TiledIgnore] Boomerang,
+    [TiledIgnore] DeadDummy,
+    [TiledIgnore] FluteSecret,
+    [TiledIgnore] Ladder,
+    [TiledIgnore] Item,
 
     Dock,
     Rock,
@@ -125,42 +125,42 @@ public enum ObjType
     Tree,
     Headstone,
 
-    Unknown66__,
-    Unknown67__,
+    [TiledIgnore] Unknown66__,
+    [TiledIgnore] Unknown67__,
     Block,
-    Unknown69__,
+    [TiledIgnore] Unknown69__,
 
-    Cave1,
-    Cave2,
-    Cave3WhiteSword,
-    Cave4MagicSword,
-    Cave5Shortcut,
-    Cave6,
-    Cave7,
-    Cave8,
-    Cave9,
-    Cave10,
-    Cave11MedicineShop,
-    Cave12LostHillsHint,
-    Cave13LostWoodsHint,
-    Cave14,
-    Cave15,
-    Cave16,
-    Cave17,
-    Cave18,
-    Cave19,
-    Cave20,
+    [TiledIgnore] Cave1,
+    [TiledIgnore] Cave2,
+    [TiledIgnore] Cave3WhiteSword,
+    [TiledIgnore] Cave4MagicSword,
+    [TiledIgnore] Cave5Shortcut,
+    [TiledIgnore] Cave6,
+    [TiledIgnore] Cave7,
+    [TiledIgnore] Cave8,
+    [TiledIgnore] Cave9,
+    [TiledIgnore] Cave10,
+    [TiledIgnore] Cave11MedicineShop,
+    [TiledIgnore] Cave12LostHillsHint,
+    [TiledIgnore] Cave13LostWoodsHint,
+    [TiledIgnore] Cave14,
+    [TiledIgnore] Cave15,
+    [TiledIgnore] Cave16,
+    [TiledIgnore] Cave17,
+    [TiledIgnore] Cave18,
+    [TiledIgnore] Cave19,
+    [TiledIgnore] Cave20,
 
-    Bomb,
-    PlayerSword,
-    Fire,
-    Rod,
-    Food,
+    [TiledIgnore] Bomb,
+    [TiledIgnore] PlayerSword,
+    [TiledIgnore] Fire,
+    [TiledIgnore] Rod,
+    [TiledIgnore] Food,
 
-    Player,
+    [TiledIgnore] Player,
 
-    PersonEnd = Person8 + 1,
-    PersonTypes = PersonEnd - Person1,
+    [TiledIgnore] PersonEnd = Person8 + 1,
+    [TiledIgnore] PersonTypes = PersonEnd - Person1,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -212,6 +212,7 @@ public enum CaveDwellerType
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ItemId
 {
+    None = -1,
     Bomb,
     WoodSword,
     WhiteSword,
@@ -253,8 +254,7 @@ public enum ItemId
     // New
     MaxBombs,
 
-    MAX = 0x3F,
-    None = MAX
+    [TiledIgnore] MAX = 0x3F,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -290,15 +290,15 @@ public enum ItemSlot
     MagicKey,
     Bracelet,
     Letter,
-    Compass, // unused but need to keep for the index values.
-    Map, // unused but need to keep for the index values.
-    Compass9, // unused but need to keep for the index values.
-    Map9, // unused but need to keep for the index values.
+    [TiledIgnore] Compass, // unused but need to keep for the index values.
+    [TiledIgnore] Map, // unused but need to keep for the index values.
+    [TiledIgnore] Compass9, // unused but need to keep for the index values.
+    [TiledIgnore] Map9, // unused but need to keep for the index values.
     Clock,
     Rupees,
     Keys,
     HeartContainers,
-    PartialHeart_Unused,
+    [TiledIgnore] PartialHeart_Unused,
     TriforcePieces,
     PowerTriforce,
     Boomerang,
@@ -348,7 +348,7 @@ public enum SoundEffect
     PutBomb,
     LowHp,
 
-    MAX
+    [TiledIgnore] MAX
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -387,11 +387,12 @@ public enum SongId
     Recorder,
     Zelda,
 
-    MAX
+    [TiledIgnore] MAX
 }
 
 public enum BlockObjType
 {
+    Dock = 0x0B,
     Cave = 0x0C,
     Ground = 0x0E,
     Stairs = 0x12,
@@ -463,6 +464,7 @@ public enum TileBehavior
 }
 
 [Flags]
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum Direction
 {
     None = 0,
@@ -470,13 +472,13 @@ public enum Direction
     Left = 2,
     Down = 4,
     Up = 8,
-    DirectionMask = 0x0F,
-    ShoveMask = 0x80, // JOE: TODO: Not sure what this is.
-    FullMask = 0xFF,
-    VerticalMask = Down | Up,
-    HorizontalMask = Left | Right,
-    OppositeVerticals = VerticalMask,
-    OppositeHorizontals = HorizontalMask,
+    [TiledIgnore] DirectionMask = 0x0F,
+    [TiledIgnore] ShoveMask = 0x80, // JOE: TODO: Not sure what this is.
+    [TiledIgnore] FullMask = 0xFF,
+    [TiledIgnore] VerticalMask = Down | Up,
+    [TiledIgnore] HorizontalMask = Left | Right,
+    [TiledIgnore] OppositeVerticals = VerticalMask,
+    [TiledIgnore] OppositeHorizontals = HorizontalMask,
 }
 
 public readonly record struct MonsterEntry(ObjType ObjType, int Count = 1, Point? Point = null)

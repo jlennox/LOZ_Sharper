@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
-using z1.Common.Data;
 using z1.Render;
 
 namespace z1;
@@ -83,10 +82,10 @@ internal static class Extensions
     }
 
     public static Point GetOffset(this Direction direction) => direction switch {
-        Direction.Left => new(-1, 0),
-        Direction.Right => new(1, 0),
-        Direction.Up => new(0, -1),
-        Direction.Down => new(0, 1),
+        Direction.Left => new Point(-1, 0),
+        Direction.Right => new Point(1, 0),
+        Direction.Up => new Point(0, -1),
+        Direction.Down => new Point(0, 1),
         _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "Invalid direction."),
     };
 
@@ -181,10 +180,6 @@ internal static class Extensions
         }
         return (char)key;
     }
-
-    public static bool IEquals(this string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
-    public static bool IStartsWith(this string? a, string? b) => a?.StartsWith(b ?? "", StringComparison.OrdinalIgnoreCase) ?? false;
-    public static bool IContains(this string? a, string? b) => a?.Contains(b ?? "", StringComparison.OrdinalIgnoreCase) ?? false;
 
     public static System.Drawing.Rectangle GetRect(this IWindow window)
     {

@@ -68,7 +68,13 @@ internal readonly struct Asset
     public byte[] ReadAllBytes() => _assetData;
     public MemoryStream GetStream() => new(_assetData);
     public SKBitmap DecodeSKBitmap() => SKBitmap.Decode(_assetData);
-    public T ReadJson<T>() => JsonSerializer.Deserialize<T>(_assetData, _jsonDeserializerOptions);
+    public T ReadJson<T>()
+    {
+#if DEBUG
+        var text = Encoding.UTF8.GetString(_assetData);
+#endif
+        return JsonSerializer.Deserialize<T>(_assetData, _jsonDeserializerOptions);
+    }
 
     public SKBitmap DecodeSKBitmapTileData()
     {

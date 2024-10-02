@@ -727,7 +727,7 @@ internal sealed class Link : Actor, IThrower
         damage >>= ringValue;
 
         Game.World.ResetKilledObjectCount();
-        Game.World.Profile.Statistics.TakeDamage(collider, damage);
+        collider.ObjectStatistics.DamageTaken += damage;
 
         if (Game.World.Profile.Hearts <= damage)
         {

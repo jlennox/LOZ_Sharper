@@ -160,10 +160,10 @@ internal struct SparsePos2
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal struct SparseRoomItem
 {
-    public readonly byte roomId;
-    public readonly byte x;
-    public readonly byte y;
-    public readonly byte itemId;
+    public byte roomId;
+    public byte x;
+    public byte y;
+    public byte itemId;
 
     public readonly ItemId AsItemId => (ItemId)itemId;
 }
@@ -232,10 +232,10 @@ internal sealed class MapExtractor
     private delegate void LoadMobDelegate(ref TileMap map, MapResources resources, int row, int col, int squareIndex);
 
     public record ActionableTiles(
-        int X, int Y, int Height, int Width, int QuestId, TileAction Action,
-        TiledProperty[]? Properties = null, bool Visible = true, string Name = null)
+        int TileX, int TileY, int Height, int Width, int QuestId, TileAction Action,
+        TiledProperty[]? Properties = null)
     {
-        public int Right => X + Width * 2;
+        public int BlockRight => TileX + Width * 2;
 
         public bool CanRepeat(ActionableTiles other)
         {
@@ -276,15 +276,15 @@ internal sealed class MapExtractor
             return new TiledLayerObject
             {
                 // Id = screenY * World.WorldWidth + screenX,
-                X = X,
-                Y = Y,
+                X = TileX * World.TileWidth,
+                Y = TileY * World.TileHeight,
                 Width = Width * World.BlockWidth,
                 Height = Height * World.BlockHeight,
                 Name = $"{Action}",
                 Visible = true,
                 Properties = [
-                    new TiledProperty(TiledObjectProperties.Type, GameObjectLayerObjectType.Action),
-                    new TiledProperty(TiledObjectProperties.TileAction, Action),
+                    // new TiledProperty(TiledObjectProperties.Type, GameObjectLayerObjectType.Interactive),
+                    // new TiledProperty(TiledObjectProperties.TileAction, Action),
                     // new TiledProperty(TiledObjectProperties.Owner, GetScreenName(screenX, screenY)),
                     .. (Properties ?? [])
                 ],
@@ -307,7 +307,7 @@ internal sealed class MapExtractor
         _resources = resources;
     }
 
-    public unsafe TileMap LoadLayout(int roomId, out ActionableTiles[] actions)
+    public unsafe TileMap LoadLayout(RoomId roomId, out ActionableTiles[] actions)
     {
         var isOverworld = _resources.IsOverworld;
         var isCellar = _resources.IsCellarRoom(roomId);
@@ -324,7 +324,7 @@ internal sealed class MapExtractor
 
         var tileactions = new List<ActionableTiles>();
 
-        var roomAttrs = resources.RoomAttrs[roomId];
+        var roomAttrs = resources.RoomAttrs[roomId.Id];
         var uniqueRoomId = roomAttrs.GetUniqueRoomId() - (isCellar ? 0x3E : 0);
 
         var maxColumnStartOffset = (_colCount / 2 - 1) * _rowCount / 2;
@@ -360,10 +360,10 @@ internal sealed class MapExtractor
         var columns = resources.GetRoomColsArray()[uniqueRoomId];
         if (columns.Length != MobColumns) throw new Exception();
 
-        bool FindSparseFlag(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos>(attrId, roomId).HasValue;
-        SparsePos? FindSparsePos(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos>(attrId, roomId);
-        SparsePos2? FindSparsePos2(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos2>(attrId, roomId);
-        SparseRoomItem? FindSparseItem(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparseRoomItem>(attrId, roomId);
+        bool FindSparseFlag(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos>(attrId, roomId.Id).HasValue;
+        SparsePos? FindSparsePos(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos>(attrId, roomId.Id);
+        SparsePos2? FindSparsePos2(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparsePos2>(attrId, roomId.Id);
+        SparseRoomItem? FindSparseItem(Sparse attrId) => resources.SparseTable.FindSparseAttr<SparseRoomItem>(attrId, roomId.Id);
 
         var armosStairs = isOverworld ? FindSparsePos2(Sparse.ArmosStairs) : null;
         var armosItem = isOverworld ? FindSparseItem(Sparse.ArmosItem) : null;
@@ -379,27 +379,49 @@ internal sealed class MapExtractor
         var roomReplacements = isOverworld ? resources.SparseTable.GetItems<byte>(Sparse.RoomReplacement) : default;
 
         var exitPos = owRoomAttrs.GetExitPosition();
-        var col = exitPos & 0x0F;
-        var row = (exitPos >> 4) + 4;
+        var exitColumnX = exitPos & 0x0F;
+        var exitRowY = (exitPos >> 4) + 4;
 
         var caveId = owRoomAttrs.GetCaveId();
         var questId = owRoomAttrs.QuestNumber();
-        var caveName = (int)caveId <= 9 ? $"Level_{caveId}" : $"Cave_{caveId - 0x0F}";
-        var caveProps = new[] {
-            new TiledProperty(TiledObjectProperties.Enters, caveName),
-            new TiledProperty(TiledObjectProperties.ExitPosition, $"{col},{row}"),
+        var caveName = (int)caveId < 9 ? ((int)caveId).ToString() : $"Cave_{(caveId - 0x0F)}";
+        var caveSpec = !resources.IsOverworld || (int)caveId < 9
+            ? null
+            : resources?.CaveSpecs.FirstOrDefault(t => (t.CaveId - CaveId.Cave1) == (int)caveId - 0x10);
+
+        var caveEntrance = new Entrance
+        {
+            DestinationType = EntranceType.Level,
+            Destination = caveName,
+            ExitPosition = new PointXY(exitColumnX, exitRowY),
+            Cave = caveSpec,
         };
+
+        void AddInteraction(int tileX, int tileY, TileAction action, InteractableBlock block)
+        {
+            block.CaveItems = block.Entrance?.Cave?.Items;
+            var serialized = TiledPropertySerializer<InteractableBlock>.Serialize(block);
+            tileactions.Add(new ActionableTiles(tileX, tileY, 1, 1, questId, action, serialized));
+        }
 
         if (recorderPosition != null)
         {
             var rec = recorderPosition.Value.GetRoomCoord();
-            tileactions.Add(new ActionableTiles(rec.X * 2, rec.Y * 2, 1, 1, questId, TileAction.Recorder, caveProps, false));
+            AddInteraction(rec.X * 2, rec.Y * 2, TileAction.Recorder, new InteractableBlock
+            {
+                Interaction = Interaction.Recorder,
+                Entrance = caveEntrance,
+            });
         }
 
         if (roomItem != null)
         {
             var item = roomItem.Value;
-            tileactions.Add(new ActionableTiles(item.x * 2, item.y * 2, 1, 1, questId, TileAction.Item, caveProps, false));
+            AddInteraction(item.x / 8, item.y / 8, TileAction.Item, new InteractableBlock
+            {
+                Interaction = Interaction.None,
+                Item = new RoomItem { Item = item.AsItemId }
+            });
         }
 
         var shortcutStairsName = $"shortcut_stairs-{roomId}";
@@ -407,30 +429,25 @@ internal sealed class MapExtractor
 
         if (hasShortcutStairs)
         {
+            // Underworld only?
             var stairsIndex = owRoomAttrs.GetShortcutStairsIndex();
             var stairsPos = levelInfoBlock.ShortcutPosition[stairsIndex];
             GetRoomCoord(stairsPos, out var stairsRow, out var stairsCol);
-            tileactions.Add(new ActionableTiles(stairsCol * 2, stairsRow * 2, 1, 1, questId, TileAction.Stairs, caveProps, false, shortcutStairsName));
+            // JOE: TODO:  tileactions.Add(new ActionableTiles(stairsCol * 2, stairsRow * 2, 1, 1, questId, TileAction.Stairs, caveProps, false, shortcutStairsName));
+            AddInteraction(stairsCol * 2, stairsRow * 2, TileAction.Cave, new InteractableBlock
+            {
+                Interaction = Interaction.None,
+                Entrance = caveEntrance,
+            });
         }
 
-        TiledProperty[]? GetCaveId(TileAction action, int x, int y)
+        if (!resources.IsOverworld && resources.LevelInfoBlock.TriforceRoomId == roomId.Id)
         {
-            if (action == TileAction.Armos)
+            AddInteraction(RoomColumns / 2 - 1, RoomRows / 2 - 1, TileAction.Item, new InteractableBlock
             {
-                if (armosStairs.HasValue && armosStairs.Value.x / 16 == x && armosStairs.Value.y / 16 == y)
-                {
-                    return caveProps;
-                }
-            }
-
-            if (action is TileAction.Bomb or TileAction.Burn
-                or TileAction.Headstone or TileAction.Cave
-                or TileAction.Stairs)
-            {
-                return caveProps;
-            }
-
-            return null;
+                Interaction = Interaction.None,
+                Item = new RoomItem { Item = ItemId.TriforcePiece }
+            });
         }
 
         for (var columnDescIndex = 0; columnDescIndex < _colCount / 2; columnDescIndex++)
@@ -465,7 +482,7 @@ internal sealed class MapExtractor
 
             // This gives us vertical strips for repeated actions.
             columnStart = GetColumnStart(columnTable, columnIndex, maxColumnStartOffset);
-            for (var rowIndex = _startRow; rowIndex < rowEnd; columnStart++)
+            for (var rowIndexY = _startRow; rowIndexY < rowEnd; columnStart++)
             {
                 var columnRow = new ColumnRow(columnTable[columnStart], isOverworld || isCellar);
                 var tileRef = columnRow.SquareNumber; var attr = resources.TileAttrs[tileRef];
@@ -480,36 +497,114 @@ internal sealed class MapExtractor
                     lastAction = null;
                 }
 
-                var props = new List<TiledProperty>();
-                var caveProp = GetCaveId(action, column, rowIndex);
-                if (caveProp != null) props.AddRange(caveProp);
-                if (action == TileAction.Raft && isOverworld) props.Add(new TiledProperty(TiledObjectProperties.Direction, Direction.Up.ToString()));
-                if (action == TileAction.Push && isOverworld) props.Add(new TiledProperty(TiledObjectProperties.Reveals, shortcutStairsName));
-                var newaction = new ActionableTiles(column, rowIndex, 0, 1, questId, action, props.Count == 0 ? null : props.ToArray());
-
-                if (lastAction != null && !lastAction.CanRepeat(newaction))
+                if (isOverworld)
                 {
-                    if (lastAction.Action != TileAction.None)
+                    if (action == TileAction.Raft)
                     {
-                        tileactions.Add(lastAction);
+                        AddInteraction(column, rowIndexY, TileAction.Raft, new InteractableBlock
+                        {
+                            Interaction = Interaction.None,
+                            Raft = new Raft
+                            {
+                                Direction = Direction.Up
+                            },
+                            Repeatable = true,
+                        });
                     }
-                    lastAction = newaction;
+
+                    if (action == TileAction.Push)
+                    {
+                        AddInteraction(column, rowIndexY, action, new InteractableBlock
+                        {
+                            Interaction = Interaction.Push,
+                            Repeatable = true,
+                            Reveals = shortcutStairsName
+                        });
+                    }
                 }
 
-                lastAction ??= newaction;
-                lastAction = lastAction.ExpandHeight();
+                var lookup = new Dictionary<TileAction, Interaction>
+                {
+                    { TileAction.Cave, Interaction.None },
+                    { TileAction.Bomb, Interaction.Bomb },
+                    { TileAction.Burn, Interaction.Burn },
+                    { TileAction.Recorder, Interaction.Recorder },
+                    { TileAction.Ghost, Interaction.Touch },
+                    { TileAction.Armos, Interaction.Touch },
+                    { TileAction.Headstone, Interaction.Push },
+                    { TileAction.Block, Interaction.Push },
+                };
 
-                rowIndex += 2;
+                if (lookup.TryGetValue(action, out var interactionType))
+                {
+                    var interaction = new InteractableBlock
+                    {
+                        Interaction = interactionType,
+                    };
+
+                    var isArmosStairs = armosStairs != null && action == TileAction.Armos;
+                    if (isArmosStairs)
+                    {
+                        var blockx = armosStairs.Value.x / 16;
+                        var blocky = armosStairs.Value.x / 16;
+                        isArmosStairs = blockx == column && blocky == rowIndexY;
+                    }
+
+                    // TODO: Underworld TileAction.Block is different.
+
+                    if (action is TileAction.Cave or TileAction.Bomb or TileAction.Burn or TileAction.Headstone or TileAction.Block || isArmosStairs)
+                    {
+                        interaction.Entrance = caveEntrance;
+                    }
+
+                    if (action is TileAction.Cave or TileAction.Bomb or TileAction.Burn or TileAction.Recorder)
+                    {
+                        interaction.Persisted = true;
+                    }
+
+                    if (action is TileAction.Headstone)
+                    {
+                        interaction.Repeatable = true;
+                    }
+
+                    switch (action)
+                    {
+                        case TileAction.Armos:
+                            interaction.SpawnedType = ObjType.Armos;
+                            break;
+
+                        case TileAction.Ghost:
+                            interaction.SpawnedType = ObjType.FlyingGhini;
+                            interaction.Repeatable = true;
+                            break;
+                    }
+
+                    AddInteraction(column, rowIndexY, action, interaction);
+                }
+
+                // if (lastAction != null && !lastAction.CanRepeat(newaction))
+                // {
+                //     if (lastAction.Action != TileAction.None)
+                //     {
+                //          tileactions.Add(lastAction);
+                //     }
+                //     lastAction = newaction;
+                // }
+                //
+                // lastAction ??= newaction;
+                // lastAction = lastAction.ExpandHeight();
+
+                rowIndexY += 2;
 
                 var repeatCount = columnRow.RepeatCount;
-                for (var m = 0; m < repeatCount && rowIndex < rowEnd; m++)
+                for (var m = 0; m < repeatCount && rowIndexY < rowEnd; m++)
                 {
-                    loadMobFunc(ref map, resources, rowIndex, column, tileRef);
-                    if (action != TileAction.None)
-                    {
-                        lastAction = lastAction.ExpandHeight();
-                    }
-                    rowIndex += 2;
+                    loadMobFunc(ref map, resources, rowIndexY, column, tileRef);
+                    // if (action != TileAction.None)
+                    // {
+                    //     lastAction = lastAction.ExpandHeight();
+                    // }
+                    rowIndexY += 2;
                 }
             }
 
@@ -519,34 +614,36 @@ internal sealed class MapExtractor
             }
         }
 
+        // This is now disabled because rectification doesn't matter so much when tiles aren't being marked used for ladders.
+        //
         // This is then a pretty basic rectification of those repeated strips.
         // The white sword cave screen is an example of a screen it's not the best.
         // It could be 2 rectangles instead of 3.
-        var toremove = new HashSet<ActionableTiles>();
-        var grouped = tileactions
-            .GroupBy(t => new ActionableTileGrouping(t.Y, t.Height, t.Action, t.HashProperties()))
-            .ToArray();
-
-        foreach (var actionGroup in grouped)
-        {
-            var ordered = actionGroup.OrderBy(t => t.X).ToArray();
-            var last = ordered[0];
-            foreach (var action in ordered.Skip(1))
-            {
-                if (action.X == last.Right)
-                {
-                    toremove.Add(last);
-                    toremove.Add(action);
-                    last = last.ExpandWidth();
-                    tileactions.Add(last);
-                    continue;
-                }
-
-                last = action;
-            }
-        }
-
-        tileactions.RemoveAll(toremove.Contains);
+        // var toremove = new HashSet<ActionableTiles>();
+        // var grouped = tileactions
+        //     .GroupBy(t => new ActionableTileGrouping(t.Y, t.Height, t.Action, t.HashProperties()))
+        //     .ToArray();
+        //
+        // foreach (var actionGroup in grouped)
+        // {
+        //     var ordered = actionGroup.OrderBy(t => t.X).ToArray();
+        //     var last = ordered[0];
+        //     foreach (var action in ordered.Skip(1))
+        //     {
+        //         if (action.X == last.Right)
+        //         {
+        //             toremove.Add(last);
+        //             toremove.Add(action);
+        //             last = last.ExpandWidth();
+        //             tileactions.Add(last);
+        //             continue;
+        //         }
+        //
+        //         last = action;
+        //     }
+        // }
+        //
+        // tileactions.RemoveAll(toremove.Contains);
 
         if (!isOverworld) // JOE: TODO: && !isCellar
         {
@@ -572,9 +669,10 @@ internal sealed class MapExtractor
 
         // PatchTileBehaviors();
 
+        // I now think it's correcter to just use the room flag and then allow it to be negated on a tile by tile basis.
+        tileactions = tileactions.Where(t => t.Action != TileAction.Ladder).ToList();
         if (isOverworld && !doesRoomSupportLadder)
         {
-            tileactions = tileactions.Where(t => t.Action != TileAction.Ladder).ToList();
         }
 
         if (!isOverworld || !hasDock)
@@ -586,8 +684,6 @@ internal sealed class MapExtractor
 
         return map;
     }
-
-    readonly record struct ActionableTileGrouping(int Y, int Height, TileAction Action, int PropertyHash);
 
     public TiledTile[] DrawMap(TileMap map, int roomId)
     {
@@ -637,7 +733,7 @@ internal sealed class MapExtractor
         row -= 4;
     }
 
-    private void LoadOWMapSquare(ref TileMap map, MapResources resources, int row, int col, int squareIndex)
+    private static void LoadOWMapSquare(ref TileMap map, MapResources resources, int row, int col, int squareIndex)
     {
         // Square table:
         // - Is > $10, then refers to upper left, bottom left, upper right, bottom right.
@@ -667,7 +763,7 @@ internal sealed class MapExtractor
         }
     }
 
-    private void LoadUWMapSquare(ref TileMap map, MapResources resources, int row, int col, int squareIndex)
+    private static void LoadUWMapSquare(ref TileMap map, MapResources resources, int row, int col, int squareIndex)
     {
         var primary = resources.PrimaryMobs[squareIndex];
 
@@ -727,15 +823,6 @@ internal readonly record struct OWRoomAttr(RoomAttr Attrs)
 
 internal readonly record struct UWRoomAttr(RoomAttr Attrs)
 {
-    // public DoorType GetDoor(int dirOrd) => (DoorType)(dirOrd switch
-    // {
-    //     0 => Attrs.B & 7,
-    //     1 => (Attrs.B >> 3) & 7,
-    //     2 => Attrs.A & 7,
-    //     3 => (Attrs.A >> 3) & 7,
-    //     _ => 1,
-    // });
-
     public DoorType GetDoor(Direction dir) => (DoorType)(dir switch
     {
         Direction.Right => Attrs.B & 7,
@@ -818,11 +905,6 @@ internal unsafe struct LevelInfoBlock
                     .Select(len => func(len, fade)).ToArray()).ToArray();
         }
 
-        fixed (byte* p = DarkPaletteSeq)
-        {
-            var x = new ReadOnlySpan<byte>(p, FadeLength * FadePals * PaletteLength).ToArray();
-        }
-
         var that = this;
         return new WorldInfo
         {
@@ -833,8 +915,8 @@ internal unsafe struct LevelInfoBlock
             BossRoomId = BossRoomId,
             SongId = (SongId)Song,
             LevelNumber = LevelNumber,
-            EffectiveLevelNumber = EffectiveLevelNumber,
-            DrawnMapOffset = DrawnMapOffset,
+            // EffectiveLevelNumber = EffectiveLevelNumber,
+            // DrawnMapOffset = DrawnMapOffset,
             // CellarRoomIds = that.CellarRoomIds.ToArray(),
             OutOfCellarPalette = GetTriple(OutOfCellarPalette),
             InCellarPalette = GetTriple(InCellarPalette),

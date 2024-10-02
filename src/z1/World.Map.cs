@@ -1,4 +1,5 @@
 ﻿using z1.Actors;
+using z1.Common.IO;
 using z1.IO;
 using z1.Render;
 
@@ -13,6 +14,7 @@ internal partial class World
             : $"Level{Profile.Quest:D2}_{level:D2}.world"; // JOE: TODO: Make this logic generic.
 
         CurrentWorld = new GameWorld(Game, new Asset($"Maps/{levelDirName}").ReadJson<TiledWorld>(), $"Maps/{levelDirName}", Profile.Quest);
+        // _directory = new Asset($"levelDir_{Profile.Quest}_{level}.json").ReadJson<LevelDirectory>();
         // _infoBlock = ListResource<LevelInfoBlock>.LoadSingle(_directory.LevelInfoBlock);
 
         _tempShutterRoom = null;
@@ -66,23 +68,6 @@ internal partial class World
 
     private void LoadMap(GameRoom room)
     {
-        // TileScheme tileScheme;
-        // var uniqueRoomId = _roomAttrs[roomId].GetUniqueRoomId();
-        //
-        // if (IsOverworld())
-        // {
-        //     tileScheme = TileScheme.Overworld;
-        // }
-        // else if (uniqueRoomId >= 0x3E)
-        // {
-        //     tileScheme = TileScheme.UnderworldCellar;
-        //     uniqueRoomId -= 0x3E;
-        // }
-        // else
-        // {
-        //     tileScheme = TileScheme.UnderworldMain;
-        // }
-
         LoadLayout(room);
 
         if (room.HasDungeonDoors)
@@ -94,101 +79,21 @@ internal partial class World
         }
     }
 
-    private void LoadOWMapSquare(ref RoomTileMap map, int row, int col, int mobIndex)
-    {
-        // Square table:
-        // - Is > $10, then refers to upper left, bottom left, upper right, bottom right.
-        // - Is <= $10, then refers to secondary table, which are the reused squares.
-
-        // Secondary square table:
-        // - Each entry is 4 bytes long. 16 entries in total, indexed by values in the primary square table that are less than 16.
-        // - Bytes specify tile numbers (in pattern table 1)
-
-        // var primary = _squareTable[mobIndex];
-
-        // if (primary == 0xFF)
-        // {
-        //     var index = mobIndex * 4;
-        //     var secondaries = _squareTableSecondary;
-        //     map[row, col] = secondaries[index + 0];
-        //     map[row, col + 1] = secondaries[index + 2];
-        //     map[row + 1, col] = secondaries[index + 1];
-        //     map[row + 1, col + 1] = secondaries[index + 3];
-        // }
-        // else
-        // {
-        //     map[row, col] = primary;
-        //     map[row, col + 1] = (byte)(primary + 2);
-        //     map[row + 1, col] = (byte)(primary + 1);
-        //     map[row + 1, col + 1] = (byte)(primary + 3);
-        // }
-    }
-
-    private void LoadUWMapSquare(ref RoomTileMap map, int row, int col, int mobIndex)
-    {
-        // var primary = _squareTable[mobIndex];
-        //
-        // if (primary is < 0x70 or > 0xF2)
-        // {
-        //     map[row, col] = primary;
-        //     map[row, col + 1] = primary;
-        //     map[row + 1, col] = primary;
-        //     map[row + 1, col + 1] = primary;
-        // }
-        // else
-        // {
-        //     map[row, col] = primary;
-        //     map[row, col + 1] = (byte)(primary + 2);
-        //     map[row + 1, col] = (byte)(primary + 1);
-        //     map[row + 1, col + 1] = (byte)(primary + 3);
-        // }
-    }
-
-    private readonly record struct ColumnRow(byte Desc, bool IsOverworld)
-    {
-        // The contents of columnTable for the overworld:
-        //  7 6 5 4 3 2 1 0
-        //  | | |---------| Square number
-        //  | |             Duplicated, takes up two rows.
-        //  |               Individual column is starting, first column.
-        private const byte OverworldSquareMask = 0x3F;
-        private const byte OverworldDuplicatedMask = 0x40;
-        private const byte ColumnStartMask = 0x80;
-
-        public static bool IsColumnStart(byte desc) => (desc & ColumnStartMask) != 0;
-
-        private readonly int _squareMask = IsOverworld ? OverworldSquareMask : 0x07;
-
-        public byte SquareNumber => (byte)(Desc & _squareMask);
-
-        public int RepeatCount
-        {
-            get
-            {
-                if (IsOverworld)
-                {
-                    return (Desc & OverworldDuplicatedMask) != 0 ? 1 : 0;
-                }
-
-                return (Desc >> 4) & 0x7;
-            }
-        }
-    }
-
     private void LoadLayout(GameRoom room)
     {
-        foreach (var actionObject in room.ActionMapObjects)
+        foreach (var actionObject in room.InteractiveGameObjects)
         {
-            var actionFunc = GetTileActionFunction(actionObject.Action);
-            actionObject.GetScreenTileCoordinates(out var tileX, out var tileY);
-            actionObject.GetTileSize(out var tileWidth, out var tileHeight);
-            for (var y = tileY; y < tileY + tileHeight; y += 2)
-            {
-                for (var x = tileX; x < tileX + tileWidth; x += 2)
-                {
-                    actionFunc(tileY, tileX, TileInteraction.Load);
-                }
-            }
+            _objects.Add(new InteractiveGameObjectActor(Game, actionObject));
+            // JOE: TODO: OBJECT REWRITE var actionFunc = GetTileActionFunction(actionObject.Action);
+            // JOE: TODO: OBJECT REWRITE actionObject.GetScreenTileCoordinates(out var tileX, out var tileY);
+            // JOE: TODO: OBJECT REWRITE actionObject.GetTileSize(out var tileWidth, out var tileHeight);
+            // JOE: TODO: OBJECT REWRITE for (var y = tileY; y < tileY + tileHeight; y += 2)
+            // JOE: TODO: OBJECT REWRITE {
+            // JOE: TODO: OBJECT REWRITE     for (var x = tileX; x < tileX + tileWidth; x += 2)
+            // JOE: TODO: OBJECT REWRITE     {
+            // JOE: TODO: OBJECT REWRITE         actionFunc(tileY, tileX, TileInteraction.Load);
+            // JOE: TODO: OBJECT REWRITE     }
+            // JOE: TODO: OBJECT REWRITE }
         }
 
         PatchTileBehaviors();
@@ -198,8 +103,8 @@ internal partial class World
     {
         Graphics.Begin();
 
-        var outerPalette = room.OuterPalette;
-        var innerPalette = room.InnerPalette;
+        var outerPalette = room.RoomInformation.OuterPalette;
+        var innerPalette = room.RoomInformation.InnerPalette;
 
         var firstRow = 0;
         var lastRow = ScreenTileHeight;

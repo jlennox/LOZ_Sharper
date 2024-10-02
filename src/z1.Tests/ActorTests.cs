@@ -1,4 +1,7 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Collections.Immutable;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using z1.Actors;
 using z1.Common;
 using z1.Common.Data;
@@ -59,8 +62,9 @@ internal class ScreenGameMapObjectTests
     [TestCase(" RedDarknut*3 , BlueDarknut  *  2 ", new[] { ObjType.RedDarknut, ObjType.RedDarknut, ObjType.RedDarknut, ObjType.BlueDarknut, ObjType.BlueDarknut })]
     public void EnsureScreenMapObjectIsCreated(string? monsterList, ObjType[] expected)
     {
-        var actual = ScreenGameMapObject.ParseMonsters(monsterList, out _);
-        Assert.That(actual, Is.EqualTo(expected));
+        var actual = MonsterEntry.ParseMonsters(monsterList, out _);
+        var expectedcollection = expected.Select(t => new MonsterEntry(t)).ToImmutableArray();
+        Assert.That(actual, Is.EqualTo(expectedcollection));
     }
 
     [Test]
@@ -126,5 +130,49 @@ public class OffsetExtractor
             var value = match.Groups[2].Value;
             offsets[name] = new Offset { Name = name, Value = Convert.ToInt32(value, 16) };
         }
+    }
+}
+
+public class WhateverPoint
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+}
+
+public class SimpleClass
+{
+    public string? One { get; set; }
+    public string Two { get; set; }
+    public int Three { get; set; }
+    public bool Four { get; set; }
+    public WhateverPoint Point { get; set; }
+}
+
+[TestFixture]
+public class TiledPropertyTests
+{
+    [Test]
+    public void Test()
+    {
+        var simpleClass = new SimpleClass
+        {
+            One = "hello",
+            Two = "world",
+            Three = 123,
+            Four = true,
+            Point = new WhateverPoint { X = 1, Y = 2 }
+        };
+
+        var classProp = TiledProperty.ForClass(nameof(TiledPropertyTests), simpleClass);
+        var jsoned = JsonSerializer.Serialize(classProp);
+        var backagain = JsonSerializer.Deserialize<TiledProperty>(jsoned);
+        var actual = (SimpleClass)backagain.ClassValue;
+        var expected = simpleClass;
+        Assert.That(actual.One, Is.EqualTo(expected.One));
+        Assert.That(actual.Two, Is.EqualTo(expected.Two));
+        Assert.That(actual.Three, Is.EqualTo(expected.Three));
+        Assert.That(actual.Four, Is.EqualTo(expected.Four));
+        Assert.That(actual.Point.X, Is.EqualTo(expected.Point.X));
+        Assert.That(actual.Point.Y, Is.EqualTo(expected.Point.Y));
     }
 }

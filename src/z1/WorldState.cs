@@ -260,7 +260,7 @@ internal struct StairsState
     public int PlayerFraction;
     public TileBehavior TileBehavior;
     public SpritePriority PlayerPriority;
-    public GameMapReference MapReference;
+    public Entrance Entrance;
 
     public bool HasReachedTarget(Link link) => link.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
 }

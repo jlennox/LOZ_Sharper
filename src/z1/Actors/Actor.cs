@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using z1.IO;
 using z1.Render;
 
@@ -69,6 +70,7 @@ internal abstract class Actor
 
     public ObjType ObjType { get; }
     public ObjectAttribute Attributes => Game.World.GetObjectAttribute(ObjType);
+    public Actor? Owner { get; protected set; }
 
     protected bool IsStunned => _isStunned();
 
@@ -211,6 +213,47 @@ internal abstract class Actor
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid type."),
         };
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsWithinDistance(Actor otherActor, int distance)
+    {
+        // return Math.Abs(otherActor.X - X) < distance && Math.Abs(otherActor.Y - Y) < distance;
+        var dx = otherActor.X - X;
+        var dy = otherActor.Y - Y;
+        return dx * dx + dy * dy < distance * distance;
+    }
+
+    public bool DoesCover(Actor caveActor)
+    {
+        // NOTE: This check is because level 6 is double wide. We need to pass width and height into this.
+        if (Game.World.IsOverworld() && false) // JOE: TODO: MAP REWRITE This appears to the level 6 entrance...? Game.World.CurRoomId == 0x22)
+        {
+            if ((X & 7) != 0) return false;
+        }
+        else
+        {
+            if ((X & 0x0F) != 0) return false;
+        }
+
+        if ((Y & 0x0F) != 0x0D) return false;
+
+        var fineCol = X / World.TileWidth;
+        var fineCol2 = caveActor.X / World.TileWidth;
+        if (fineCol != fineCol2) return false;
+
+        var fineRow = (Y + 3 - 0x40) / World.TileHeight;
+        var fineRow2 = (caveActor.Y + 3 - 0x40) / World.TileHeight;
+        return fineRow == fineRow2;
+    }
+
+    public Actor GetRootOwner()
+    {
+        var cur = this;
+        for (; cur.Owner != null; cur = cur.Owner) { }
+        return cur;
+    }
+
+    public ObjectStatistics ObjectStatistics => Game.World.Profile.Statistics.GetObjectStatistics(this);
 
     public static void MoveSimple(ref int x, ref int y, Direction dir, int speed)
     {
@@ -757,7 +800,7 @@ internal abstract class Actor
         ShoveDistance = 0;
         InvincibilityTimer = 0;
 
-        Game.World.Profile.Statistics.AddKill(ObjType);
+        ObjectStatistics.Kills++;
     }
 
     protected void PlayParrySoundIfSupported(DamageType damageType)

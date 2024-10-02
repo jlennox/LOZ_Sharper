@@ -62,7 +62,7 @@ internal abstract class BlockObjBase : Actor
     {
         if (_curUpdate == UpdateMoving)
         {
-            Graphics.DrawStripSprite16X16(_tileSheet, BlockTile, X, Y, Game.World.CurrentRoom.InnerPalette);
+            Graphics.DrawStripSprite16X16(_tileSheet, BlockTile, X, Y, Game.World.CurrentRoom.RoomInformation.InnerPalette);
         }
     }
 
@@ -142,7 +142,7 @@ internal abstract class BlockObjBase : Actor
             Facing = dir;
             OrigX = X;
             OrigY = Y;
-            _log.Write(nameof(CheckCollision), $"Moving {X:X2},{Y:X2} TargetPos:{TargetPos}, dir:{dir}");
+            _log.Write(nameof(UpdateIdle), $"Moving {X:X2},{Y:X2} TargetPos:{TargetPos}, dir:{dir}");
             _curUpdate = UpdateMoving;
         }
     }
@@ -311,8 +311,7 @@ internal sealed class TreeActor : Actor
 
     public override void Update()
     {
-        var fires = Game.World.GetObjects<FireActor>();
-        foreach (var fire in fires)
+        foreach (var fire in Game.World.GetObjects<FireActor>())
         {
             if (fire.IsDeleted) continue;
             if (fire.State != FireState.Standing || fire.ObjTimer != 2) continue;
@@ -795,7 +794,7 @@ internal sealed class WhirlwindActor : Actor
 
 internal sealed class DockActor : Actor
 {
-    private int _state;
+    private Direction? _state;
     private readonly SpriteImage _raftImage;
 
     public DockActor(Game game, int x, int y)
@@ -814,7 +813,8 @@ internal sealed class DockActor : Actor
 
         switch (_state)
         {
-            case 0:
+            case null:
+                // The upper right raft area is closer to the left edge, 0x60, level 4's is 0x80.
                 var x = 0x60; // JOE: TODO: MAP REWRITE Game.World.CurRoomId == 0x55 ? 0x80 : 0x60; // I think this is level 6 entrance? This check happens elsewhere.
                 if (x != player.X) return;
 
@@ -822,21 +822,19 @@ internal sealed class DockActor : Actor
 
                 switch (player.Y)
                 {
-                    case 0x3D: _state = 1; break;
-                    case 0x7D: _state = 2; break;
+                    case 0x3D: _state = Direction.Down; break;
+                    case 0x7D: _state = Direction.Up; break;
                     default: return;
                 }
 
                 Y = player.Y + 6;
 
-                ReadOnlySpan<Direction> facings = [Direction.None, Direction.Down, Direction.Up];
-
                 player.SetState(PlayerState.Paused);
-                player.Facing = facings[_state];
+                player.Facing = _state.Value;
                 Game.Sound.PlayEffect(SoundEffect.Secret);
                 break;
 
-            case 1:
+            case Direction.Down:
                 // $8FB0
                 Y++;
                 player.Y++;
@@ -852,7 +850,7 @@ internal sealed class DockActor : Actor
                 player.Animator.Advance();
                 break;
 
-            case 2:
+            case Direction.Up:
                 Y--;
                 player.Y--;
 

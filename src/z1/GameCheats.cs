@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Remoting;
 using System.Text;
 using System.Text.RegularExpressions;
 using Silk.NET.Input;
@@ -303,11 +304,19 @@ internal sealed class GameCheats
     {
         public override void RunPayload(Game game, string[] args)
         {
-            foreach (var (_, flag) in game.World.Profile.RoomFlags)
+            foreach (var (_, world) in game.World.Profile.RoomFlags)
             {
-                flag.SecretState = false;
-                flag.ShortcutState = false;
-                flag.ItemState = false;
+                foreach (var (_, flag) in world)
+                {
+                    flag.SecretState = false;
+                    flag.ShortcutState = false;
+                    flag.ItemState = false;
+                    foreach (var (_, obj) in flag.ObjectState)
+                    {
+                        obj.HasInteracted = false;
+                        obj.ItemGot = false;
+                    }
+                }
             }
             game.Toast("Secrets cleared.");
         }
@@ -336,7 +345,7 @@ internal sealed class GameCheats
             game.World.AddItem(ItemId.MagicSword);
             game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
-            game.World.PostRupeeWin(0xFF);
+            // game.World.PostRupeeWin(0xFF); // listening to this gets annoying.
             profile.Items[ItemSlot.Bombs] = 98;
             profile.Items[ItemSlot.Keys] = 98;
             profile.Items[ItemSlot.HeartContainers] = 16;

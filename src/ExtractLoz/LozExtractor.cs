@@ -1059,9 +1059,7 @@ public partial class LozExtractor
                 return true;
 
             default:
-                if (t < 0x89)
-                    return true;
-                return false;
+                return t < 0x89;
         }
     }
 
@@ -1085,7 +1083,9 @@ public partial class LozExtractor
             default:
                 if (t >= 0x5 && t <= 0x9
                     || t >= 0x15 && t <= 0x18)
+                {
                     return TileAction.Ladder;
+                }
                 return TileAction.None;
         }
     }
