@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Numerics;
 using System.Reflection;
@@ -64,7 +63,7 @@ public enum TiledLayerType
     ImageLayer,
 }
 
-// This is done a bit differently than how Tiled normally does this.
+// This is done a bit differently than how Tiled normally does.
 // Tiled calls these GIDs. GIDs are unique only to a specific map. Each map defines a series of TiledTileSetReference.
 // Say we have 2 tilesets with 256 tiles each. The first TiledTileSetReference will have a FirstGid of 1 and the second
 // will have a FirstGid of 257. The "gid" is the tile's offset in its tileset + the tileset's FirstGid. The flags are
@@ -733,7 +732,7 @@ public sealed class TiledProjectCustomProperty
     private static TiledProjectCustomProperty FromEnum(Type type, int id)
     {
         var names = Enum.GetNames(type)
-            .Where(name => !type.GetField(name)
+            .Where(name => !(type.GetField(name) ?? throw new Exception())
                 .GetCustomAttributes(typeof(TiledIgnoreAttribute), false)
                 .Any())
             .ToArray();
@@ -756,6 +755,15 @@ public sealed class TiledProjectCustomProperty
             .Where(t => t.GetCustomAttribute<TiledIgnoreAttribute>() == null)
             .ToArray();
 
+        static TiledProperty CreateTiledProperty(string name, TiledPropertyType type)
+        {
+            return new TiledProperty
+            {
+                Name = name,
+                Type = type,
+            };
+        }
+
         var members = new TiledProperty[properties.Length];
         // var instance = Activator.CreateInstance(type);
         var nestedTypeList = new List<Type>();
@@ -769,9 +777,9 @@ public sealed class TiledProjectCustomProperty
             }
             members[i] = innerType switch
             {
-                _ when innerType == typeof(int) => new TiledProperty { Name = property.Name, Type = TiledPropertyType.Int },
-                _ when innerType == typeof(bool) => new TiledProperty { Name = property.Name, Type = TiledPropertyType.Bool },
-                _ when innerType == typeof(string) => new TiledProperty { Name = property.Name, Type = TiledPropertyType.String },
+                _ when innerType == typeof(int) => CreateTiledProperty(property.Name, TiledPropertyType.Int),
+                _ when innerType == typeof(bool) => CreateTiledProperty(property.Name, TiledPropertyType.Bool),
+                _ when innerType == typeof(string) => CreateTiledProperty(property.Name, TiledPropertyType.String),
                 _ when innerType.IsEnum => new TiledProperty
                 {
                     Name = property.Name,
@@ -871,7 +879,7 @@ public static class TiledPropertySerializer<T>
 
         static object? DeserializeProperty(Type type, string name, TiledProperty? tiledProperty)
         {
-            var innerType = type.GetInnerType();
+            var innerType = type.GetInnerType(out _, out var isNullable);
 
             if (innerType.IsClass)
             {
@@ -881,6 +889,7 @@ public static class TiledPropertySerializer<T>
             if (tiledProperty == null || tiledProperty.Value == null
                 || (string.IsNullOrWhiteSpace(tiledProperty.Value) && innerType != typeof(string)))
             {
+                if (isNullable) return null;
                 if (innerType == typeof(int)) return 0;
                 if (innerType == typeof(bool)) return false;
                 if (innerType == typeof(string)) return null;
@@ -934,10 +943,6 @@ public static class TiledPropertySerializer<T>
                 }
                 prop.SetValue(obj, array);
                 continue;
-            }
-
-            if (propertyName == "SpawnedType")
-            {
             }
 
             var propertyValue = source.GetPropertyEntry(propertyName);

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using z1.IO;
 using z1.Render;
@@ -19,6 +20,7 @@ internal enum DamageType
     Fire = 0x20,
 }
 
+[DebuggerDisplay("{ObjType} ({X},{Y})")]
 internal abstract class Actor
 {
     private static readonly DebugLog _log = new(nameof(Actor));
@@ -217,14 +219,45 @@ internal abstract class Actor
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsWithinDistance(Actor otherActor, int distance)
     {
-        // return Math.Abs(otherActor.X - X) < distance && Math.Abs(otherActor.Y - Y) < distance;
         var dx = otherActor.X - X;
         var dy = otherActor.Y - Y;
         return dx * dx + dy * dy < distance * distance;
     }
 
-    public bool DoesCover(Actor caveActor)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsWithinDistance(int x, int y, int distance)
     {
+        var dx = x - X;
+        var dy = y - Y;
+        return dx * dx + dy * dy < distance * distance;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsWithinBoundsInclusive(int x, int y, int width, int height)
+    {
+        var dx = Math.Abs(x - X);
+        if (dx > width) return false;
+
+        var dy = Math.Abs(y - Y);
+        if (dy > height) return false;
+
+        return true;
+    }
+
+    public bool IsMovingToward(Actor movingActor, Direction direction)
+    {
+        if (direction.HasFlag(Direction.Right)) return X > movingActor.X;
+        if (direction.HasFlag(Direction.Left)) return X < movingActor.X;
+        if (direction.HasFlag(Direction.Down)) return Y > movingActor.Y;
+        if (direction.HasFlag(Direction.Up)) return Y < movingActor.Y;
+        return false;
+    }
+
+    public bool DoesCover(Actor actorBeingCovered) => DoesCover(actorBeingCovered.X, actorBeingCovered.Y);
+    public bool DoesCover(int x, int y)
+    {
+        // JOE: TODO: Should this be logically identical to PlayerCoversTile?
+
         // NOTE: This check is because level 6 is double wide. We need to pass width and height into this.
         if (Game.World.IsOverworld() && false) // JOE: TODO: MAP REWRITE This appears to the level 6 entrance...? Game.World.CurRoomId == 0x22)
         {
@@ -238,13 +271,14 @@ internal abstract class Actor
         if ((Y & 0x0F) != 0x0D) return false;
 
         var fineCol = X / World.TileWidth;
-        var fineCol2 = caveActor.X / World.TileWidth;
+        var fineCol2 = x / World.TileWidth;
         if (fineCol != fineCol2) return false;
 
         var fineRow = (Y + 3 - 0x40) / World.TileHeight;
-        var fineRow2 = (caveActor.Y + 3 - 0x40) / World.TileHeight;
+        var fineRow2 = (y + 3 - 0x40) / World.TileHeight;
         return fineRow == fineRow2;
     }
+
 
     public Actor GetRootOwner()
     {
@@ -1261,7 +1295,7 @@ internal abstract class Actor
         MoveDirection(speed, dir);
     }
 
-    protected void MoveDirection(int speed, Direction dir)
+    public void MoveDirection(int speed, Direction dir)
     {
         var align = IsPlayer ? 8 : 0x10;
         MoveWhole(speed, dir, align);

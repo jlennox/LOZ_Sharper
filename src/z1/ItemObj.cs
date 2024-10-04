@@ -31,14 +31,94 @@ internal sealed class LadderActor : Actor
     }
 }
 
+internal class BlockActor : Actor
+{
+    public bool EnableDraw { get; set; }
+
+    private readonly TileType _tile;
+    private readonly int _width;
+    private readonly int _height;
+    private readonly TileSheet _tileSheet;
+
+    public BlockActor(
+        Game game, ObjType type, TileType tile, int x, int y,
+        int width = World.BlockWidth, int height = World.BlockHeight)
+        : base(game, type, x, y)
+    {
+        Decoration = 0;
+        _tile = tile;
+        _width = width;
+        _height = height;
+        _tileSheet = game.World.CurrentWorld.GetBackgroundTileSheet();
+    }
+
+    public CollisionResponse CheckCollision(Link player)
+    {
+        var playerX = player.X;
+        var playerY = player.Y + 3;
+
+        if (!IsMovingToward(player, player.Facing)) return CollisionResponse.Unknown;
+
+        if (Math.Abs(playerX - X) < _width && Math.Abs(playerY - Y) < _height)
+        {
+            return CollisionResponse.Blocked;
+        }
+
+        return CollisionResponse.Unknown;
+    }
+
+    public override void Update() { }
+
+    public override void Draw()
+    {
+        if (!EnableDraw) return;
+
+        Graphics.DrawStripSprite16X16(_tileSheet, _tile, X, Y, Game.World.CurrentRoom.RoomInformation.InnerPalette);
+    }
+}
+
+internal class MovingBlockActor : BlockActor
+{
+    public bool HasFinishedMoving { get; set; }
+
+    public event Action<MovingBlockActor>? OnFinishedMoving;
+
+    private readonly Point _moveTo;
+    private bool _triggerEvent;
+
+    public MovingBlockActor(
+        Game game, ObjType type, TileType tile, Point moveTo, int x, int y,
+        int width = World.BlockWidth, int height = World.BlockHeight)
+        : base(game, type, tile, x, y, width, height)
+    {
+        Decoration = 0;
+        _moveTo = moveTo;
+    }
+
+    public override void Update()
+    {
+        MoveDirection(0x20, Facing);
+
+        HasFinishedMoving = Facing.IsHorizontal()
+            ? X == _moveTo.X
+            : Y == _moveTo.Y;
+
+        if (!_triggerEvent && HasFinishedMoving)
+        {
+            _triggerEvent = true;
+            OnFinishedMoving?.Invoke(this);
+        }
+    }
+}
+
 internal abstract class BlockObjBase : Actor
 {
     private static readonly DebugLog _log = new(nameof(BlockObjBase));
 
-    public int Timer;
-    public int TargetPos;
-    public int OrigX;
-    public int OrigY;
+    private int _timer;
+    private int _targetPos;
+    private int _origX;
+    private int _origY;
 
     private Action? _curUpdate;
     private readonly TileSheet _tileSheet;
@@ -51,10 +131,10 @@ internal abstract class BlockObjBase : Actor
         _tileSheet = level.GetBackgroundTileSheet();
     }
 
-    protected abstract byte BlockTile { get; }
-    protected abstract BlockObjType BlockMob { get; }
-    protected abstract BlockObjType FloorMob1 { get; }
-    protected abstract BlockObjType FloorMob2 { get; }
+    protected abstract TileType Block { get; }
+    protected abstract BlockType BlockMob { get; }
+    protected abstract BlockType FloorMob1 { get; }
+    protected abstract BlockType FloorMob2 { get; }
     protected abstract int TimerLimit { get; }
     protected abstract bool AllowHorizontal { get; }
 
@@ -62,7 +142,7 @@ internal abstract class BlockObjBase : Actor
     {
         if (_curUpdate == UpdateMoving)
         {
-            Graphics.DrawStripSprite16X16(_tileSheet, BlockTile, X, Y, Game.World.CurrentRoom.RoomInformation.InnerPalette);
+            Graphics.DrawStripSprite16X16(_tileSheet, Block, X, Y, Game.World.CurrentRoom.RoomInformation.InnerPalette);
         }
     }
 
@@ -110,7 +190,7 @@ internal abstract class BlockObjBase : Actor
 
         if (!AllowHorizontal && dir.IsHorizontal())
         {
-            Timer = 0;
+            _timer = 0;
             return;
         }
 
@@ -123,26 +203,26 @@ internal abstract class BlockObjBase : Actor
 
         if (!pushed)
         {
-            Timer = 0;
+            _timer = 0;
             return;
         }
 
-        Timer++;
-        if (Timer == TimerLimit)
+        _timer++;
+        if (_timer == TimerLimit)
         {
-            TargetPos = dir switch
+            _targetPos = dir switch
             {
                 Direction.Right => X + World.BlockWidth,
                 Direction.Left => X - World.BlockWidth,
                 Direction.Down => Y + World.BlockHeight,
                 Direction.Up => Y - World.BlockHeight,
-                _ => TargetPos
+                _ => _targetPos
             };
             Game.World.SetMapObjectXY(X, Y, FloorMob1);
             Facing = dir;
-            OrigX = X;
-            OrigY = Y;
-            _log.Write(nameof(UpdateIdle), $"Moving {X:X2},{Y:X2} TargetPos:{TargetPos}, dir:{dir}");
+            _origX = X;
+            _origY = Y;
+            _log.Write(nameof(UpdateIdle), $"Moving {X:X2},{Y:X2} TargetPos:{_targetPos}, dir:{dir}");
             _curUpdate = UpdateMoving;
         }
     }
@@ -151,7 +231,7 @@ internal abstract class BlockObjBase : Actor
     {
         MoveDirection(0x20, Facing);
 
-        var done = Facing.IsHorizontal() ? X == TargetPos : Y == TargetPos;
+        var done = Facing.IsHorizontal() ? X == _targetPos : Y == _targetPos;
 
         _log.Write(nameof(UpdateMoving), $"{X:X2},{Y:X2} done:{done}");
 
@@ -159,7 +239,7 @@ internal abstract class BlockObjBase : Actor
         {
             Game.World.OnPushedBlock();
             Game.World.SetMapObjectXY(X, Y, BlockMob);
-            Game.World.SetMapObjectXY(OrigX, OrigY, FloorMob2);
+            Game.World.SetMapObjectXY(_origX, _origY, FloorMob2);
             Delete();
         }
     }
@@ -169,10 +249,10 @@ internal sealed class RockObj : BlockObjBase
 {
     public RockObj(Game game, int x, int y) : base(game, ObjType.Rock, WorldLevel.Overworld, x, y) { }
 
-    protected override byte BlockTile => (byte)BlockObjType.TileRock;
-    protected override BlockObjType BlockMob => BlockObjType.Rock;
-    protected override BlockObjType FloorMob1 => BlockObjType.Ground;
-    protected override BlockObjType FloorMob2 => BlockObjType.Ground;
+    protected override TileType Block => TileType.Rock;
+    protected override BlockType BlockMob => BlockType.Rock;
+    protected override BlockType FloorMob1 => BlockType.Ground;
+    protected override BlockType FloorMob2 => BlockType.Ground;
     protected override int TimerLimit => 1;
     protected override bool AllowHorizontal => false;
 }
@@ -181,10 +261,10 @@ internal sealed class HeadstoneObj : BlockObjBase
 {
     public HeadstoneObj(Game game, int x, int y) : base(game, ObjType.Headstone, WorldLevel.Overworld, x, y) { }
 
-    protected override byte BlockTile => (byte)BlockObjType.TileHeadstone;
-    protected override BlockObjType BlockMob => BlockObjType.Headstone;
-    protected override BlockObjType FloorMob1 => BlockObjType.Ground;
-    protected override BlockObjType FloorMob2 => BlockObjType.Stairs;
+    protected override TileType Block => TileType.Headstone;
+    protected override BlockType BlockMob => BlockType.Headstone;
+    protected override BlockType FloorMob1 => BlockType.Ground;
+    protected override BlockType FloorMob2 => BlockType.Stairs;
     protected override int TimerLimit => 1;
     protected override bool AllowHorizontal => false;
 }
@@ -193,10 +273,10 @@ internal sealed class BlockObj : BlockObjBase
 {
     public BlockObj(Game game, int x, int y) : base(game, ObjType.Block, WorldLevel.Underworld, x, y) { }
 
-    protected override byte BlockTile => (byte)BlockObjType.TileBlock;
-    protected override BlockObjType BlockMob => (byte)BlockObjType.Block;
-    protected override BlockObjType FloorMob1 => BlockObjType.Tile;
-    protected override BlockObjType FloorMob2 => BlockObjType.Tile;
+    protected override TileType Block => TileType.Block;
+    protected override BlockType BlockMob => (byte)BlockType.Block;
+    protected override BlockType FloorMob1 => BlockType.Tile;
+    protected override BlockType FloorMob2 => BlockType.Tile;
     protected override int TimerLimit => 17;
     protected override bool AllowHorizontal => true;
 }
@@ -319,7 +399,7 @@ internal sealed class TreeActor : Actor
             // JOE: TODO: This is repeated a lot. Make generic.
             if (Math.Abs(fire.X - X) >= 16 || Math.Abs(fire.Y - Y) >= 16) continue;
 
-            Game.World.SetMapObjectXY(X, Y, BlockObjType.Stairs);
+            Game.World.SetMapObjectXY(X, Y, BlockType.Stairs);
             Game.World.CurrentRoomFlags.SecretState = true;
             Game.Sound.PlayEffect(SoundEffect.Secret);
             Game.World.Profile.Statistics.TreesBurned++;
@@ -440,7 +520,7 @@ internal sealed class RockWallActor : Actor
             // TODO: This is repeated a lot. Make generic.
             if (Math.Abs(bomb.X - X) >= 16 || Math.Abs(bomb.Y - Y) >= 16) continue;
 
-            Game.World.SetMapObjectXY(X, Y, BlockObjType.Cave);
+            Game.World.SetMapObjectXY(X, Y, BlockType.Cave);
             Game.World.CurrentRoomFlags.SecretState = true;
             Game.Sound.PlayEffect(SoundEffect.Secret);
             Game.World.Profile.Statistics.OWBlocksBombed++;
@@ -614,6 +694,8 @@ internal sealed class ItemObjActor : Actor
     private readonly bool _isRoomItem;
     private int _timer;
 
+    public event Action<ItemObjActor>? OnTouched;
+
     public ItemObjActor(Game game, ItemId itemId, bool isRoomItem, int x, int y)
         : base(game, ObjType.Item, x, y)
     {
@@ -676,10 +758,7 @@ internal sealed class ItemObjActor : Actor
 
         if (touchedItem)
         {
-            if (_isRoomItem)
-            {
-                Game.World.CurrentRoomFlags.ItemState = true;
-            }
+            OnTouched?.Invoke(this);
 
             Delete();
 

@@ -351,21 +351,20 @@ public enum SoundEffect
     [TiledIgnore] MAX
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TileAction
 {
     None,
     Push,
     Bomb,
     Burn,
-    Headstone,
+    PushHeadstone,
     Ladder,
     Raft,
     Cave,
     Stairs,
     Ghost,
     Armos,
-    Block,
+    PushBlock,
     Recorder,
     RecorderDestination,
     Item,
@@ -390,7 +389,8 @@ public enum SongId
     [TiledIgnore] MAX
 }
 
-public enum BlockObjType
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum BlockType
 {
     Dock = 0x0B,
     Cave = 0x0C,
@@ -402,11 +402,16 @@ public enum BlockObjType
     Block = 0,
     Tile = 1,
     UnderworldStairs = 4,
+}
 
-    TileRock = 0xC8,
-    TileHeadstone = 0xBC,
-    TileBlock = 0xB0,
-    TileWallEdge = 0xF6,
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum TileType
+{
+    Ground = 0x0E,
+    Rock = 0xC8,
+    Headstone = 0xBC,
+    Block = 0xB0,
+    WallEdge = 0xF6,
 }
 
 public enum TileBehavior

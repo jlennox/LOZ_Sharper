@@ -110,7 +110,7 @@ internal sealed class GameCheats
 
             // Need to be sure all the objects are flushed.
             game.World.KillAllObjects();
-            // JOE: TODO: MAP REWRITE game.World.LoadOverworldRoom(x, y);
+            game.World.LoadOverworldRoom(x, y);
             game.Toast($"Warping to room {x}x{y}");
         }
     }

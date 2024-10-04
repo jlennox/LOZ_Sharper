@@ -221,6 +221,8 @@ internal sealed unsafe partial class World
 
     private readonly bool _dummyWorld;
 
+    public Rectangle PlayAreaRect { get; set; }
+
     public World(Game game)
     {
         _dummyWorld = true;
@@ -236,6 +238,8 @@ internal sealed unsafe partial class World
         _edgeY = 0x40;
 
         Validate();
+
+        PlayAreaRect = new Rectangle(0, TileMapBaseY, ScreenTileWidth * TileWidth, TileMapHeight);
     }
 
     public World(Game game, PlayerProfile profile)
@@ -482,7 +486,9 @@ internal sealed unsafe partial class World
         return GetTileBehavior(tileY, tileX);
     }
 
-    public void SetMapObjectXY(int x, int y, BlockObjType mobIndex)
+    public void SetMapObjectXY(int x, int y, TileType mobIndex) => SetMapObjectXY(x, y, (BlockType)mobIndex);
+
+    public void SetMapObjectXY(int x, int y, BlockType mobIndex)
     {
         var fineTileX = x / TileWidth;
         var fineTileY = (y - TileMapBaseY) / TileHeight;
@@ -492,7 +498,7 @@ internal sealed unsafe partial class World
         SetMapObject(fineTileY, fineTileX, mobIndex);
     }
 
-    private void SetMapObject(int tileY, int tileX, BlockObjType mobIndex)
+    private void SetMapObject(int tileY, int tileX, BlockType mobIndex)
     {
         var map = CurrentRoom.RoomMap;
         // _loadMapObjectFunc(ref map, tileY, tileX, (byte)mobIndex); // JOE: FIXME: BlockObjTypes
@@ -1198,7 +1204,7 @@ internal sealed unsafe partial class World
         return objAttr.Damage;
     }
 
-    // public void LoadOverworldRoom(int x, int y) => LoadRoom(x + y * 16);
+    public void LoadOverworldRoom(int x, int y) => LoadRoom(CurrentWorld.GameWorldMap.RoomGrid[x, y] ?? throw new Exception("Invalid room coordinates."));
 
     private void LoadRoom(GameRoom room)
     {
@@ -1800,7 +1806,7 @@ internal sealed unsafe partial class World
 
     private void AddUWRoomStairs()
     {
-        SetMapObjectXY(0xD0, 0x60, BlockObjType.UnderworldStairs);
+        SetMapObjectXY(0xD0, 0x60, BlockType.UnderworldStairs);
     }
 
     public void KillAllObjects()
@@ -1817,10 +1823,11 @@ internal sealed unsafe partial class World
 
     public void DebugKillAllObjects()
     {
-        foreach (var monster in GetObjects())
+        foreach (var monster in _objects)
         {
             monster.Delete();
         }
+        _objects.Clear();
     }
 
     private void UpdateStatues()
@@ -4056,7 +4063,7 @@ internal sealed unsafe partial class World
 
         if (CurrentRoom.RoomFlags.SecretState)
         {
-            SetMapObject(tileY, tileX, BlockObjType.Cave);
+            SetMapObject(tileY, tileX, BlockType.Cave);
             return;
         }
 
@@ -4070,7 +4077,7 @@ internal sealed unsafe partial class World
 
         if (CurrentRoom.RoomFlags.SecretState)
         {
-            SetMapObject(tileY, tileX, BlockObjType.Stairs);
+            SetMapObject(tileY, tileX, BlockType.Stairs);
             return;
         }
 
@@ -4137,14 +4144,14 @@ internal sealed unsafe partial class World
     {
         if (interaction == TileInteraction.Push) Debug.WriteLine("Push headstone: {0}, {1}", tileY, tileX);
 
-        CommonMakeObjectAction(ObjType.FlyingGhini, tileY, tileX, interaction, ref _ghostCount, _ghostCells);
+        // CommonMakeObjectAction(ObjType.FlyingGhini, tileY, tileX, interaction, ref _ghostCount, _ghostCells);
     }
 
     public void ArmosTileAction(int tileY, int tileX, TileInteraction interaction)
     {
         if (interaction == TileInteraction.Push) Debug.WriteLine("Push armos: {0}, {1}", tileY, tileX);
 
-        CommonMakeObjectAction(ObjType.Armos, tileY, tileX, interaction, ref _armosCount, _armosCells);
+        // CommonMakeObjectAction(ObjType.Armos, tileY, tileX, interaction, ref _armosCount, _armosCells);
     }
 
     public void CommonMakeObjectAction(
@@ -4179,18 +4186,34 @@ internal sealed unsafe partial class World
         }
     }
 
-    public void MakeActivatedObject(ObjType type, int x, int y)
+    public void CommonMakeObjectAction(ObjType type, int tileX, int tileY)
+    {
+        var map = CurrentRoom.RoomMap;
+        var behavior = map.Behavior(tileX, tileY);
+
+        if (tileY > 0 && map.Behavior(tileX, tileY - 1) == behavior)
+        {
+            tileY--;
+        }
+        if (tileX > 0 && map.Behavior(tileX - 1, tileY) == behavior)
+        {
+            tileX--;
+        }
+
+        MakeActivatedObject(type, tileX, tileY);
+    }
+
+    public void MakeActivatedObject(ObjType type, int tileX, int tileY)
     {
         if (type is not (ObjType.FlyingGhini or ObjType.Armos))
         {
             throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type given to {nameof(MakeActivatedObject)}");
         }
 
-        // JOE: TODO: Screen conversion. This should be BaseRows * TileHeight, no?
-        y += BaseRows;
+        tileY += BaseRows;
 
-        var tileX = x * TileWidth;
-        var tileY = y * TileHeight;
+        var x = tileX * TileWidth;
+        var y = tileY * TileHeight;
 
         foreach (var obj in GetObjects<MonsterActor>())
         {
@@ -4202,7 +4225,7 @@ internal sealed unsafe partial class World
             if (objX == x && objY == y) return;
         }
 
-        var activatedObj = Actor.AddFromType(type, Game, tileX, tileY);
+        var activatedObj = Actor.AddFromType(type, Game, x, y);
         activatedObj.ObjTimer = 0x40;
     }
 

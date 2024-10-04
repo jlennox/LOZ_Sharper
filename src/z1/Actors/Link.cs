@@ -228,7 +228,7 @@ internal sealed class Link : Actor, IThrower
         return collision1;
     }
 
-    private TileCollision CollidesWithTileMoving(int x, int y, Direction dir)
+    public TileCollision CollidesWithTileMoving(int x, int y, Direction dir)
     {
         if (!Game.World.CurrentRoom.HasDungeonDoors)
         {
@@ -1124,9 +1124,9 @@ internal sealed class Link : Actor, IThrower
     {
         if (Game.Cheats.NoClip) return dir;
 
-        foreach (var block in Game.World.GetObjects<BlockObjBase>())
+        foreach (var block in Game.World.GetObjects<BlockActor>())
         {
-            if (block.CheckCollision() == CollisionResponse.Blocked)
+            if (block.CheckCollision(this) == CollisionResponse.Blocked)
             {
                 _movementTraceLog.Write($"StopAtBlock: {block}");
                 return Direction.None;
@@ -1202,7 +1202,7 @@ internal sealed class Link : Actor, IThrower
     }
 
     // $01:A223
-    private void PushOWTile(TileCollision collision )
+    private void PushOWTile(TileCollision collision)
     {
         if (TileOffset != 0 || Moving == 0) return;
 

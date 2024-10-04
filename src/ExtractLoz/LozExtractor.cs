@@ -1076,7 +1076,7 @@ public partial class LozExtractor
             case 0x26: return TileAction.Push;
             case 0x27: return TileAction.Bomb;
             case 0x28: return TileAction.Burn;
-            case 0x29: return TileAction.Headstone;
+            case 0x29: return TileAction.PushHeadstone;
             case 0x2A: return TileAction.Armos;
             case 0x2B: return TileAction.Armos;
             case 0x2C: return TileAction.Armos;

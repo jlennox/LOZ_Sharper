@@ -232,10 +232,10 @@ internal static class GLWindowGui
             ImGui.Separator();
             if (ImGui.MenuItem("Boulder")) Spawn(game, ObjType.Boulder);
             if (ImGui.MenuItem("Boulders")) Spawn(game, ObjType.Boulders);
-            if (ImGui.MenuItem("Merchant")) Spawn(game, ObjType.Merchant);
-            if (ImGui.MenuItem("Moblin (Friendly)")) Spawn(game, ObjType.FriendlyMoblin);
-            if (ImGui.MenuItem("OldMan")) Spawn(game, ObjType.OldMan);
-            if (ImGui.MenuItem("OldWoman")) Spawn(game, ObjType.OldWoman);
+            // if (ImGui.MenuItem("Merchant")) Spawn(game, ObjType.Merchant);
+            // if (ImGui.MenuItem("Moblin (Friendly)")) Spawn(game, ObjType.FriendlyMoblin);
+            // if (ImGui.MenuItem("OldMan")) Spawn(game, ObjType.OldMan);
+            // if (ImGui.MenuItem("OldWoman")) Spawn(game, ObjType.OldWoman);
             if (ImGui.MenuItem("PondFairy")) Spawn(game, ObjType.PondFairy);
             if (ImGui.MenuItem("Whirlwind")) Spawn(game, ObjType.Whirlwind);
 
@@ -312,6 +312,12 @@ internal static class GLWindowGui
             game.World.GotoLoadLevel(levelNumber);
         }
 
+        static void WarpOW(Game game, int x, int y)
+        {
+            game.World.KillAllObjects();
+            game.World.LoadOverworldRoom(x, y);
+        }
+
         if (ImGui.BeginMenu("Warp"))
         {
             if (ImGui.MenuItem("Level 1")) Warp(game, 1);
@@ -323,6 +329,16 @@ internal static class GLWindowGui
             if (ImGui.MenuItem("Level 7")) Warp(game, 7);
             if (ImGui.MenuItem("Level 8")) Warp(game, 8);
             if (ImGui.MenuItem("Level 9")) Warp(game, 9);
+
+            if (game.World.IsOverworld())
+            {
+                ImGui.Separator();
+                if (ImGui.MenuItem("Raft")) WarpOW(game, 5, 5);
+                if (ImGui.MenuItem("Ghost")) WarpOW(game, 1, 2);
+                if (ImGui.MenuItem("Level 6 Entrance")) WarpOW(game, 2, 2);
+                if (ImGui.MenuItem("Armos / Bracelet")) WarpOW(game, 4, 2);
+                if (ImGui.MenuItem("Ladder / Heart")) WarpOW(game, 15, 5);
+            }
 
             ImGui.EndMenu();
         }

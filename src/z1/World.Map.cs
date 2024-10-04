@@ -68,6 +68,7 @@ internal partial class World
 
     private void LoadMap(GameRoom room)
     {
+        room.Reset();
         LoadLayout(room);
 
         if (room.HasDungeonDoors)

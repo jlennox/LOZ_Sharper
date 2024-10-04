@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
 #pragma warning disable CA1416
 
 namespace ExtractLoz;
@@ -137,13 +138,13 @@ internal readonly struct TableResource<T>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal struct SparsePos
 {
-    public byte roomId;
-    public byte pos;
+    public byte RoomId;
+    public byte Pos;
 
     public Point GetRoomCoord()
     {
-        var row = pos & 0x0F;
-        var col = (pos & 0xF0) >> 4;
+        var row = Pos & 0x0F;
+        var col = (Pos & 0xF0) >> 4;
         row -= 4;
         return new Point(col, row);
     }
@@ -152,31 +153,31 @@ internal struct SparsePos
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal struct SparsePos2
 {
-    public byte roomId;
-    public byte x;
-    public byte y;
+    public byte RoomId;
+    public byte X;
+    public byte Y;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal struct SparseRoomItem
 {
-    public byte roomId;
-    public byte x;
-    public byte y;
-    public byte itemId;
+    public byte RoomId;
+    public byte X;
+    public byte Y;
+    public byte ItemId;
 
-    public readonly ItemId AsItemId => (ItemId)itemId;
+    public readonly ItemId AsItemId => (ItemId)ItemId;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal unsafe struct SparseMaze
 {
-    public readonly byte roomId;
-    public readonly byte exitDir;
-    public fixed byte path[4];
+    public readonly byte RoomId;
+    public readonly byte ExitDir;
+    public fixed byte Path[4];
 
-    public readonly Direction ExitDirection => (Direction)exitDir;
-    public readonly ReadOnlySpan<Direction> Paths => new[] { (Direction)path[0], (Direction)path[1], (Direction)path[2], (Direction)path[3], };
+    public readonly Direction ExitDirection => (Direction)ExitDir;
+    public readonly ReadOnlySpan<Direction> Paths => new[] { (Direction)Path[0], (Direction)Path[1], (Direction)Path[2], (Direction)Path[3], };
 }
 
 internal enum Extra
@@ -395,7 +396,14 @@ internal sealed class MapExtractor
             Destination = caveName,
             ExitPosition = new PointXY(exitColumnX, exitRowY),
             Cave = caveSpec,
+            BlockType = BlockType.Stairs,
         };
+
+        Entrance EntranceWith(BlockType type)
+        {
+            caveEntrance.BlockType = type;
+            return caveEntrance;
+        }
 
         void AddInteraction(int tileX, int tileY, TileAction action, InteractableBlock block)
         {
@@ -417,14 +425,14 @@ internal sealed class MapExtractor
         if (roomItem != null)
         {
             var item = roomItem.Value;
-            AddInteraction(item.x / 8, item.y / 8, TileAction.Item, new InteractableBlock
+            AddInteraction(item.X / 8, item.Y / 8, TileAction.Item, new InteractableBlock
             {
                 Interaction = Interaction.None,
                 Item = new RoomItem { Item = item.AsItemId }
             });
         }
 
-        var shortcutStairsName = $"shortcut_stairs-{roomId}";
+        var shortcutStairsName = "shortcut stairs";
         var levelInfoBlock = resources.LevelInfoBlock;
 
         if (hasShortcutStairs)
@@ -437,7 +445,7 @@ internal sealed class MapExtractor
             AddInteraction(stairsCol * 2, stairsRow * 2, TileAction.Cave, new InteractableBlock
             {
                 Interaction = Interaction.None,
-                Entrance = caveEntrance,
+                Entrance = EntranceWith(BlockType.Cave),
             });
         }
 
@@ -504,22 +512,25 @@ internal sealed class MapExtractor
                         AddInteraction(column, rowIndexY, TileAction.Raft, new InteractableBlock
                         {
                             Interaction = Interaction.None,
-                            Raft = new Raft
-                            {
-                                Direction = Direction.Up
-                            },
+                            Raft = new Raft(Direction.Up),
                             Repeatable = true,
+                            ItemRequirement = new InteractionItemRequirement(ItemSlot.Raft, 1)
                         });
                     }
 
-                    if (action == TileAction.Push)
+                    if (action is TileAction.Push or TileAction.PushBlock)
                     {
-                        AddInteraction(column, rowIndexY, action, new InteractableBlock
-                        {
-                            Interaction = Interaction.Push,
-                            Repeatable = true,
-                            Reveals = shortcutStairsName
-                        });
+                        // var requirement = resources.IsOverworld
+                        //     ? new InteractionItemRequirement(ItemSlot.Bracelet, 1)
+                        //     : null;
+                        //
+                        // AddInteraction(column, rowIndexY, action, new InteractableBlock
+                        // {
+                        //     Interaction = resources.IsOverworld ? Interaction.PushVertical : Interaction.Push,
+                        //     Repeatable = true,
+                        //     Reveals = shortcutStairsName,
+                        //     ItemRequirement = requirement,
+                        // });
                     }
                 }
 
@@ -530,9 +541,10 @@ internal sealed class MapExtractor
                     { TileAction.Burn, Interaction.Burn },
                     { TileAction.Recorder, Interaction.Recorder },
                     { TileAction.Ghost, Interaction.Touch },
-                    { TileAction.Armos, Interaction.Touch },
-                    { TileAction.Headstone, Interaction.Push },
-                    { TileAction.Block, Interaction.Push },
+                    { TileAction.Armos, Interaction.TouchOnce },
+                    { TileAction.PushHeadstone, Interaction.Push },
+                    { TileAction.Push, Interaction.PushVertical },
+                    { TileAction.PushBlock, Interaction.Push },
                 };
 
                 if (lookup.TryGetValue(action, out var interactionType))
@@ -545,30 +557,34 @@ internal sealed class MapExtractor
                     var isArmosStairs = armosStairs != null && action == TileAction.Armos;
                     if (isArmosStairs)
                     {
-                        var blockx = armosStairs.Value.x / 16;
-                        var blocky = armosStairs.Value.x / 16;
-                        isArmosStairs = blockx == column && blocky == rowIndexY;
+                        if (armosStairs.Value.X == 176)
+                        {
+                        }
+                        var tilex = armosStairs.Value.X / World.TileWidth;
+                        var tiley = (armosStairs.Value.Y - World.TileMapBaseY) / World.TileHeight;
+                        isArmosStairs = tilex == column && tiley == rowIndexY;
                     }
 
                     // TODO: Underworld TileAction.Block is different.
-
-                    if (action is TileAction.Cave or TileAction.Bomb or TileAction.Burn or TileAction.Headstone or TileAction.Block || isArmosStairs)
+                    if (action is TileAction.Burn or TileAction.PushHeadstone)
                     {
-                        interaction.Entrance = caveEntrance;
+                        interaction.Entrance = EntranceWith(BlockType.Stairs);
                     }
-
-                    if (action is TileAction.Cave or TileAction.Bomb or TileAction.Burn or TileAction.Recorder)
+                    else if (action is TileAction.Cave or TileAction.Bomb || isArmosStairs)
                     {
-                        interaction.Persisted = true;
-                    }
-
-                    if (action is TileAction.Headstone)
-                    {
-                        interaction.Repeatable = true;
+                        interaction.Entrance = EntranceWith(BlockType.Cave);
                     }
 
                     switch (action)
                     {
+                        case TileAction.Cave or TileAction.Bomb or TileAction.Burn:
+                            interaction.Persisted = true;
+                            break;
+
+                        case TileAction.PushHeadstone:
+                            interaction.ApparanceBlock = TileType.Headstone;
+                            break;
+
                         case TileAction.Armos:
                             interaction.SpawnedType = ObjType.Armos;
                             break;
@@ -576,6 +592,22 @@ internal sealed class MapExtractor
                         case TileAction.Ghost:
                             interaction.SpawnedType = ObjType.FlyingGhini;
                             interaction.Repeatable = true;
+                            break;
+
+                        case TileAction.Push:
+                            interaction.ApparanceBlock = TileType.Rock;
+                            interaction.ItemRequirement = new InteractionItemRequirement(ItemSlot.Bracelet, 1);
+                            interaction.Reveals = shortcutStairsName;
+                            break;
+
+                        case TileAction.PushBlock:
+                            interaction.Requirements |= InteractionRequirements.AllEnemiesDefeated;
+                            interaction.ApparanceBlock = TileType.Block;
+                            switch (uwRoomAttrs.GetSecret())
+                            {
+                                case Secret.BlockDoor: interaction.Effect = InteractionEffect.OpenShutterDoors; break;
+                                case Secret.BlockStairs: interaction.Reveals = shortcutStairsName; break;
+                            }
                             break;
                     }
 

@@ -16,9 +16,9 @@ internal enum GameTileLayerType
 }
 
 // This current system of doing this is allocation heavy and not very versatile. It should be made to be flexible.
-internal readonly record struct GameBlockObjectEntry(BlockObjType Type, int TileId, bool HasOffsets, int XTileOffset, int YTileOffset);
+internal readonly record struct GameBlockObjectEntry(BlockType Type, int TileId, bool HasOffsets, int XTileOffset, int YTileOffset);
 // GameBlockObject's are 2x2's of tiles that are interactable in the game world. Push blocks, bombable caves, etc.
-internal readonly record struct GameBlockObject(BlockObjType Type, TiledTile TopLeft, TiledTile TopRight, TiledTile BottomLeft, TiledTile BottomRight);
+internal readonly record struct GameBlockObject(BlockType Type, TiledTile TopLeft, TiledTile TopRight, TiledTile BottomLeft, TiledTile BottomRight);
 
 [DebuggerDisplay("{Name}")]
 internal sealed class GameTileSet
@@ -46,7 +46,7 @@ internal sealed class GameTileSet
                     TiledTileSetTileProperties.Behavior,
                     TiledTileSetTileProperties.DefaultTileBehavior);
 
-                var blockObectName = tile.GetNullableEnumProperty<BlockObjType>(TiledTileSetTileProperties.Object);
+                var blockObectName = tile.GetNullableEnumProperty<BlockType>(TiledTileSetTileProperties.Object);
                 if (blockObectName != null)
                 {
                     if (tile.TryGetProperty(TiledTileSetTileProperties.ObjectOffsets, out var offsetsString))
@@ -222,6 +222,7 @@ internal sealed class GameWorld
     public string? LevelString { get; }
 
     public bool IsBossAlive => BossRoom != null && BossRoom.RoomFlags.ObjectCount != 0;
+    public bool IsOverworld => Name == "Overworld"; // JOE: TODO: This aint great.
 
     public GameWorld(Game game, TiledWorld world, string filename, int questId)
     {
@@ -360,6 +361,7 @@ internal sealed class GameRoom
     public RecorderDestination? RecorderDestination { get; }
 
     public RoomTileMap RoomMap { get; }
+    public RoomTileMap _unmodifiedRoomMap { get; }
     public bool HidePlayerMapCursor { get; set; }
     public bool HiddenFromMap { get; set; }
     public bool IsTriforceRoom { get; set; }
@@ -537,8 +539,15 @@ internal sealed class GameRoom
         }
 
         _waterTileCount = CountWaterTiles();
+        _unmodifiedRoomMap = RoomMap.Clone();
 
         IsTriforceRoom = InteractiveGameObjects.Any(t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
+    }
+
+    public void Reset()
+    {
+        // The room map is edited at playtime. Any persisted changes need to be re-applied as the room loads.
+        _unmodifiedRoomMap.CopyTo(RoomMap);
     }
 
     public RoomFlags GetRoomFlags()
@@ -585,7 +594,7 @@ internal sealed class GameRoom
         return TileSets[tile.TileSheet].Behaviors[tile.TileId];
     }
 
-    public bool TryGetBlockObjectTiles(BlockObjType blockObjectType, out GameBlockObject blockObject)
+    public bool TryGetBlockObjectTiles(BlockType blockObjectType, out GameBlockObject blockObject)
     {
         foreach (var tileset in TileSets)
         {
@@ -821,6 +830,19 @@ internal sealed class RoomTileMap
         var size = width * height;
         Tiles = new TiledTile[size];
         Behaviors = new TileBehavior[size];
+    }
+
+    public RoomTileMap Clone()
+    {
+        var clone = new RoomTileMap(Width, Height);
+        CopyTo(clone);
+        return clone;
+    }
+
+    public void CopyTo(RoomTileMap clone)
+    {
+        Tiles.CopyTo((Span<TiledTile>)clone.Tiles);
+        Behaviors.CopyTo((Span<TileBehavior>)clone.Behaviors);
     }
 
     public ref TiledTile Tile(int index) => ref Tiles[index];

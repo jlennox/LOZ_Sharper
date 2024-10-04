@@ -445,6 +445,7 @@ public unsafe partial class LozExtractor
                 AmbientSound = ambientSound,
                 IsDark = uwRoomAttrs.IsDark(),
                 PlaysSecretChime = resources.IsOverworld && roomAttr.GetUniqueRoomId() == 0x0F,
+                FloorTile = resources.IsOverworld ? TileType.Ground : TileType.Block
             }));
 
             return properties.ToArray();
@@ -465,10 +466,7 @@ public unsafe partial class LozExtractor
 
         foreach (var roomEntry in allExtractedRooms)
         {
-            if (roomEntry == null)
-            {
-                continue;
-            }
+            if (roomEntry == null) continue;
 
             var room = roomEntry.Value;
 
@@ -619,8 +617,8 @@ public unsafe partial class LozExtractor
         void AddTileMap(
             string imageFilename,
             ReadOnlySpan<byte> tileBehavior,
-            ReadOnlySpan<BlockObjType> objectTypes,
-            ReadOnlySpan<BlockObjType> tiles)
+            ReadOnlySpan<BlockType> objectTypes,
+            ReadOnlySpan<TileType> tiles)
         {
             var tileSet = new TiledTileSet(imageFilename, options.Files[Path.GetFileName(imageFilename)], World.TileWidth, World.TileHeight)
             {
@@ -639,7 +637,7 @@ public unsafe partial class LozExtractor
                 };
             }
 
-            void AddProps(TiledTileSetTile tile, BlockObjType obj, int x, int y)
+            void AddProps(TiledTileSetTile tile, BlockType obj, int x, int y)
             {
                 var newprops = new List<TiledProperty>();
                 if (!offsets.TryGetValue(tile, out var points))
@@ -650,14 +648,18 @@ public unsafe partial class LozExtractor
 
                 points.Add(new Point(x, y));
 
-                if (string.IsNullOrEmpty(tile.GetProperty(TiledTileSetTileProperties.Object))) newprops.Add(new TiledProperty(TiledTileSetTileProperties.Object, obj.ToString()));
+                if (string.IsNullOrEmpty(tile.GetProperty(TiledTileSetTileProperties.Object)))
+                {
+                    newprops.Add(new TiledProperty(TiledTileSetTileProperties.Object, obj.ToString()));
+                }
+
                 tile.Properties = [
                     .. newprops,
                     .. (tile.Properties ?? [])
                 ];
             }
 
-            void SetTile(int a, int b, int c, int d, BlockObjType obj)
+            void SetTile(int a, int b, int c, int d, BlockType obj)
             {
                 AddProps(tileSet.Tiles[a], obj, 0, 0);
                 AddProps(tileSet.Tiles[b], obj, 1, 0);
@@ -725,7 +727,7 @@ public unsafe partial class LozExtractor
                     var tileY = srcY / World.TileHeight;
 
                     var index = tileY * (tileSet.ImageWidth / tileSet.TileWidth) + tileX;
-                    AddProps(tileSet.Tiles[index], tile, offsetsX[i], offsetsY[i]);
+                    AddProps(tileSet.Tiles[index], (BlockType)tile, offsetsX[i], offsetsY[i]);
                 }
             }
 
@@ -747,12 +749,13 @@ public unsafe partial class LozExtractor
 
         AddTileMap(
             "../overworldTiles.png", owTileBehaviors,
-            [BlockObjType.Cave, BlockObjType.Ground, BlockObjType.Stairs, BlockObjType.Rock, BlockObjType.Headstone, BlockObjType.Dock],
-            [/*BlockObjType.TileRock, BlockObjType.TileHeadstone*/]);
+            [BlockType.Cave, BlockType.Ground, BlockType.Stairs, BlockType.Rock, BlockType.Headstone, BlockType.Dock],
+            [/*TileType.TileRock, TileType.TileHeadstone*/]);
+
         AddTileMap(
             "../underworldTiles.png", uwTileBehaviors,
-            [BlockObjType.Block, BlockObjType.Tile, BlockObjType.UnderworldStairs],
-            [/*BlockObjType.TileBlock, */BlockObjType.TileWallEdge]);
+            [BlockType.Block, BlockType.Tile, BlockType.UnderworldStairs],
+            [/*BlockObjType.TileBlock, */TileType.WallEdge]);
     }
 
     private static MapLayout ExtractOverworldMap(Options options)

@@ -2,7 +2,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Silk.NET.Direct3D11;
 using z1.Actors;
 using z1.IO;
 using z1.Render;

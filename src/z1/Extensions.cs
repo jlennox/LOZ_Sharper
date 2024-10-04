@@ -37,7 +37,8 @@ internal static class Extensions
 
     public static Direction GetOppositeDirection(this Direction direction)
     {
-        return direction switch {
+        return direction switch
+        {
             Direction.Left => Direction.Right,
             Direction.Right => Direction.Left,
             Direction.Up => Direction.Down,
@@ -81,13 +82,14 @@ internal static class Extensions
         return 0;
     }
 
-    public static Point GetOffset(this Direction direction) => direction switch {
-        Direction.Left => new Point(-1, 0),
-        Direction.Right => new Point(1, 0),
-        Direction.Up => new Point(0, -1),
-        Direction.Down => new Point(0, 1),
-        _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "Invalid direction."),
-    };
+    public static Point GetOffset(this Direction direction)
+    {
+        if (direction.HasFlag(Direction.Right)) return new Point(1, 0);
+        if (direction.HasFlag(Direction.Left)) return new Point(-1, 0);
+        if (direction.HasFlag(Direction.Down)) return new Point(0, 1);
+        if (direction.HasFlag(Direction.Up)) return new Point(0, -1);
+        return new Point(0, 0);
+    }
 
     public static Direction GetDirection8(this int ord) => _allDirs()[ord];
     public static Direction GetDirection8(this uint ord) => _allDirs()[(int)ord];

@@ -36,6 +36,15 @@ internal static class WorldLevelExtensions
             _ => throw new ArgumentOutOfRangeException(nameof(level), level, $"Invalid {nameof(WorldLevel)} for {nameof(WalkerActor)}."),
         };
     }
+
+    public static TileSheet GetBackgroundTileSheet(this GameWorld world)
+    {
+        return world.IsOverworld switch
+        {
+            true => TileSheet.BackgroundOverworld,
+            false => TileSheet.BackgroundUnderworld,
+        };
+    }
 }
 
 internal readonly record struct WalkerSpec(

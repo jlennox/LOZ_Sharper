@@ -84,7 +84,7 @@ public enum GameObjectLayerObjectType
 
 [TiledClass]
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum Interaction { Unknown, None, Bomb, Burn, Push, Recorder, Touch, Cover }
+public enum Interaction { Unknown, None, Bomb, Burn, Push, PushVertical, Recorder, Touch, TouchOnce, Cover }
 
 [TiledClass]
 public sealed class MazeRoom
@@ -115,6 +115,7 @@ public sealed class Entrance
     public string Destination { get; set; }
     public PointXY ExitPosition { get; set; }
     public CaveSpec? Cave { get; set; }
+    public BlockType BlockType { get; set; }
 
     public bool TryGetLevelNumber(out int levelNumber)
     {
@@ -132,45 +133,50 @@ public static class CaveExntranceEx
     }
 }
 
+public sealed class InteractionItemRequirement
+{
+    public ItemSlot ItemSlot { get; set; }
+    // Item needs to be "at least" this level. IE, if set to 1 and they have level 2, it still triggers.
+    public int ItemLevel { get; set; }
+
+    public InteractionItemRequirement() { }
+    public InteractionItemRequirement(ItemSlot itemSlot, int itemLevel)
+    {
+        ItemSlot = itemSlot;
+        ItemLevel = itemLevel;
+    }
+}
+
+[Flags]
+[JsonConverter(typeof(TiledJsonSelectableEnumConverter<InteractionRequirements>))]
+[TiledSelectableEnum]
+public enum InteractionRequirements { None, AllEnemiesDefeated }
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum InteractionEffect { None, OpenShutterDoors }
+
 public sealed class InteractableBlock : IInteractable
 {
     public Interaction Interaction { get; set; }
+    public InteractionItemRequirement? ItemRequirement { get; set; }
+    public InteractionRequirements Requirements { get; set; }
     public RoomItem? Item { get; set; }
+    public TileType? ApparanceBlock { get; set; }
     public Entrance? Entrance { get; set; }
-    public CaveShopItem[]? CaveItems { get; set; } // These are here so that we can have an array.
+    public InteractionEffect Effect { get; set; }
+    public CaveShopItem[]? CaveItems { get; set; } // These are root level so that we can have an array via multiple properties.
     public ObjType? SpawnedType { get; set; }
     public Raft? Raft { get; set; }
     public bool Repeatable { get; set; }
     public bool Persisted { get; set; }
     public string? Reveals { get; set; }
 }
-// public sealed class InteractableBlock : IInteractable
-// {
-//     public Interaction Interaction { get; set; }
-//     public RoomItem? RoomItem { get; set; }
-//     public Entrance? Entrance { get; set; }
-//     public ObjType? SpawnedType { get; set; }
-//     public Raft? Raft { get; set; }
-//     public bool Repeatable { get; set; }
-//     public bool Persisted { get; set; }
-//     public string? Reveals { get; set; }
-// }
-
-// Interaction causes SpawnedType to spawn. RemoveSpawner is used to remove the spawner after the object is spawned.
-[TiledClass]
-public sealed class Spawner : IInteractable
-{
-    public Interaction Interaction { get; set; }
-    public RoomItem? Item { get; set; }
-    public Entrance? Entrance { get; set; }
-    public ObjType SpawnedType { get; set; }
-    public bool RemoveSpawner { get; set; }
-}
 
 [TiledClass]
 public sealed class RoomItem
 {
     public ItemId Item { get; set; }
+    public bool IsRoomItem { get; set; }
 }
 
 [TiledClass]
@@ -185,6 +191,8 @@ public sealed class RoomInformation
     public bool IsBossRoom { get; set; }
     public bool IsLadderAllowed { get; set; }
     public bool IsDark { get; set; }
+    // Only used when something is destroyed or moved.
+    public TileType FloorTile { get; set; }
 }
 
 [TiledClass]
@@ -192,6 +200,12 @@ public sealed class Raft
 {
     public Direction Direction { get; set; }
     public string? Destination { get; set; }
+
+    public Raft() { }
+    public Raft(Direction direction)
+    {
+        Direction = direction;
+    }
 }
 
 [TiledClass]

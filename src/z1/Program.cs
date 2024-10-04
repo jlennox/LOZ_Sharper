@@ -12,6 +12,8 @@ namespace z1;
 // * Refactor out ActiveShots.
 // * Make replay engine?
 // * Figure out where to define what song is playing.
+// * Crashes when you die.
+// * Refactor game-space to be 0,0, not 0,status bar height.
 
 // Known tiled map issues:
 // * Q1 level 7 recorder spot isn't marked as first quest only.
@@ -21,6 +23,7 @@ namespace z1;
 // * Move over to custom properties instead of having multiple prefixed ones.
 // * Fix _tempShutterRoomId
 // * Need to pass along entryroom start x/y's
+// * Codify the starting location used by UpdateUnfurl.
 
 // Milestone 1:
 // * Coming out of stairs into spiral room spawns you in a bad spot: Example in 9, up 2, left 2.

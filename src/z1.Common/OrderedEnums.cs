@@ -14,7 +14,7 @@ public static class OrderedEnums
     {
     };
 
-    public static readonly Dictionary<int, BlockObjType> BlockObjType = new()
+    public static readonly Dictionary<int, BlockType> BlockObjType = new()
     {
     };
 

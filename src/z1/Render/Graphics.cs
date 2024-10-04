@@ -336,6 +336,16 @@ internal static class Graphics
         tiles.Draw(srcX, srcY, width, height, destX, destY, palette, flags);
     }
 
+    public static void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette)
+    {
+        DrawStripSprite16X16(sheet, (int)firstTile, destX, destY, palette);
+    }
+
+    public static void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette)
+    {
+        DrawStripSprite16X16(sheet, (int)firstTile, destX, destY, palette);
+    }
+
     public static void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette)
     {
         ReadOnlySpan<byte> offsetsX = [0, 0, 8, 8];

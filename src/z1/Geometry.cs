@@ -21,6 +21,8 @@ internal struct Point
 
     public static Point Add(Point pt, Size sz) => new(unchecked(pt.X + sz.Width), unchecked(pt.Y + sz.Height));
     public static Point operator +(Point pt, Size sz) => Add(pt, sz);
+    public static Point Add(Point pt, Point sz) => new(unchecked(pt.X + sz.X), unchecked(pt.Y + sz.Y));
+    public static Point operator +(Point pt, Point sz) => Add(pt, sz);
     public static bool operator ==(Point left, Point right) => left.X == right.X && left.Y == right.Y;
     public static bool operator !=(Point left, Point right) => !(left == right);
 
@@ -60,6 +62,8 @@ internal struct Rectangle
     public int Width;
     public int Height;
 
+    public int Top => Y;
+    public int Left => X;
     public int Right => X + Width;
     public int Bottom => Y + Height;
 
