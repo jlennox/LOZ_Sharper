@@ -143,7 +143,7 @@ internal struct EnterState
     public SpritePriority PlayerPriority;
     public bool GotoPlay;
 
-    public bool HasReachedTarget(Link link) => link.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
+    public bool HasReachedTarget(Player player) => player.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
 }
 
 [DebuggerDisplay("{Substate}")]
@@ -262,7 +262,7 @@ internal struct StairsState
     public SpritePriority PlayerPriority;
     public Entrance Entrance;
 
-    public bool HasReachedTarget(Link link) => link.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
+    public bool HasReachedTarget(Player player) => player.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
 }
 
 [DebuggerDisplay("{Substate}")]
@@ -275,7 +275,7 @@ internal struct DeathState
         Wait1,
         Turn,
         Fade,
-        GrayLink,
+        GrayPlayer,
         Spark,
         Wait2,
         GameOver,

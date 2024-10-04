@@ -9,7 +9,7 @@ internal sealed class Game
 {
     private static readonly DebugLog _log = new(nameof(Game));
 
-    public Link Player;
+    public Player Player;
 
     public readonly Sound Sound;
 

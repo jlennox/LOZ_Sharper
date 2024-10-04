@@ -52,7 +52,7 @@ internal class BlockActor : Actor
         _tileSheet = game.World.CurrentWorld.GetBackgroundTileSheet();
     }
 
-    public CollisionResponse CheckCollision(Link player)
+    public CollisionResponse CheckCollision(Player player)
     {
         var playerX = player.X;
         var playerY = player.Y + 3;
@@ -563,9 +563,9 @@ internal sealed class PlayerSwordActor : Actor
     public int State;
     private int _timer;
     private readonly SpriteImage _image = new();
-    private readonly Link _owner;
+    private readonly Player _owner;
 
-    public PlayerSwordActor(Game game, ObjType type, Link owner)
+    public PlayerSwordActor(Game game, ObjType type, Player owner)
         : base(game, type)
     {
         if (type is not (ObjType.PlayerSword or ObjType.Rod))
@@ -579,8 +579,8 @@ internal sealed class PlayerSwordActor : Actor
         Decoration = 0;
     }
 
-    public static PlayerSwordActor MakeSword(Game game, Link owner) => new(game, ObjType.PlayerSword, owner);
-    public static PlayerSwordActor MakeRod(Game game, Link owner) => new(game, ObjType.Rod, owner);
+    public static PlayerSwordActor MakeSword(Game game, Player owner) => new(game, ObjType.PlayerSword, owner);
+    public static PlayerSwordActor MakeRod(Game game, Player owner) => new(game, ObjType.Rod, owner);
 
     private void Put()
     {

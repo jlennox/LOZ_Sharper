@@ -25,10 +25,10 @@ internal sealed class TextBox
     }
 
     public TextBox(Game game, byte[] text, int delay)
-        : this(game, ZeldaString.FromBytes(text), delay)
+        : this(game, GameString.FromBytes(text), delay)
     {
         _game = game;
-        _text = ZeldaString.FromBytes(text);
+        _text = GameString.FromBytes(text);
         _charDelay = Game.Cheats.SpeedUp ? 1 : delay;
         if (_charDelay < 1) _charDelay = 1;
     }
@@ -53,7 +53,7 @@ internal sealed class TextBox
 
     public void Reset(byte[] text)
     {
-        Reset(ZeldaString.FromBytes(text));
+        Reset(GameString.FromBytes(text));
     }
 
     public bool IsDone() => !_drawingDialog;

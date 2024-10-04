@@ -808,29 +808,29 @@ internal sealed class GanonActor : BlueWizzrobeBase
     }
 }
 
-internal sealed class ZeldaActor : MonsterActor
+internal sealed class PrincessActor : MonsterActor
 {
-    private const int ZeldaX = 0x78;
-    private const int ZeldaLineX1 = 0x70;
-    private const int ZeldaLineX2 = 0x80;
-    private const int ZeldaY = 0x88;
-    private const int ZeldaLineY = 0x95;
+    private const int PrincessX = 0x78;
+    private const int PrincessY = 0x88;
+    private const int PrincessLineX1 = 0x70;
+    private const int PrincessLineX2 = 0x80;
+    private const int PrincessLineY = 0x95;
 
-    private const int LinkX = 0x88;
-    private const int LinkY = ZeldaY;
+    private const int PlayerX = 0x88;
+    private const int PlayerY = PrincessY;
 
     public override bool IsReoccuring => false;
 
     private int _state;
     private readonly SpriteImage _image;
 
-    private ZeldaActor(Game game, int x = ZeldaX, int y = ZeldaY)
-        : base(game, ObjType.Zelda, x, y)
+    private PrincessActor(Game game, int x = PrincessX, int y = PrincessY)
+        : base(game, ObjType.Princess, x, y)
     {
-        _image = new SpriteImage(TileSheet.Boss9, AnimationId.B3_Zelda_Stand);
+        _image = new SpriteImage(TileSheet.Boss9, AnimationId.B3_Princess_Stand);
     }
 
-    public static ZeldaActor Make(Game game)
+    public static PrincessActor Make(Game game)
     {
         ReadOnlySpan<byte> xs = [0x60, 0x70, 0x80, 0x90];
         ReadOnlySpan<byte> ys = [0xB5, 0x9D, 0x9D, 0xB5];
@@ -841,7 +841,7 @@ internal sealed class ZeldaActor : MonsterActor
             game.World.AddObject(fire);
         }
 
-        return new ZeldaActor(game);
+        return new PrincessActor(game);
     }
 
     public override void Update()
@@ -853,16 +853,16 @@ internal sealed class ZeldaActor : MonsterActor
             var playerX = player.X;
             var playerY = player.Y;
 
-            if (playerX >= ZeldaLineX1
-                && playerX <= ZeldaLineX2
-                && playerY <= ZeldaLineY)
+            if (playerX >= PrincessLineX1
+                && playerX <= PrincessLineX2
+                && playerY <= PrincessLineY)
             {
                 _state = 1;
                 player.SetState(PlayerState.Paused);
-                player.X = LinkX;
-                player.Y = LinkY;
+                player.X = PlayerX;
+                player.Y = PlayerY;
                 player.Facing = Direction.Left;
-                Game.Sound.PlaySong(SongId.Zelda, SongStream.MainSong, false);
+                Game.Sound.PlaySong(SongId.Princess, SongStream.MainSong, false);
                 ObjTimer = 0x80;
             }
         }

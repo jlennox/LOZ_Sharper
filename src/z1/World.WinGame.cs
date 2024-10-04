@@ -267,18 +267,18 @@ internal partial class World
         }
         else
         {
-            var zelda = GetObject<ZeldaActor>() ?? throw new Exception();
+            var princess = GetObject<PrincessActor>() ?? throw new Exception();
 
             switch (_state.WinGame.NpcVisual)
             {
                 case WinGameState.NpcVisualState.Stand:
-                    zelda.Draw();
+                    princess.Draw();
                     Game.Player.Draw();
                     break;
 
                 case WinGameState.NpcVisualState.Lift:
-                    DrawZeldaLiftingTriforce(zelda.X, zelda.Y);
-                    DrawLinkLiftingItem(ItemId.TriforcePiece);
+                    DrawPrincessLiftingTriforce(princess.X, princess.Y);
+                    DrawPlayerLiftingItem(ItemId.TriforcePiece);
                     break;
             }
 

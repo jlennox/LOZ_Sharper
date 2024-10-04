@@ -180,7 +180,7 @@ internal sealed class Input
 
     private bool SetLetter(char letter)
     {
-        if (ZeldaString.ByteFromChar(letter) == 0) return false;
+        if (GameString.ByteFromChar(letter) == 0) return false;
         _inputState.Characters.Add(letter);
         return true;
     }

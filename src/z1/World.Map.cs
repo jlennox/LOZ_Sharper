@@ -48,7 +48,7 @@ internal partial class World
 
         var facing = Game.Player?.Facing ?? Direction.Up;
 
-        Game.Player = new Link(Game, facing);
+        Game.Player = new Player(Game, facing);
 
         // Replace room attributes, if in second quest.
 

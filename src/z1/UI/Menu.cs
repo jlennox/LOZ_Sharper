@@ -19,7 +19,7 @@ internal abstract class Menu
         }
 
         profile.SetPlayerColor();
-        var player = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.LinkWalk_NoShield_Down);
+        var player = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.PlayerWalk_NoShield_Down);
         player.Draw(TileSheet.PlayerAndItems, x, y, Palette.Player);
     }
 }

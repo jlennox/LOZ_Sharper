@@ -275,7 +275,7 @@ internal partial class World
         UpdateDie_Wait1,
         UpdateDie_Turn,
         UpdateDie_Fade,
-        UpdateDie_GrayLink,
+        UpdateDie_GrayPlayer,
         UpdateDie_Spark,
         UpdateDie_Wait2,
         UpdateDie_GameOver

@@ -113,13 +113,13 @@ internal static class Extensions
         return type is ObjType.BlueFastOctorock or ObjType.BlueSlowOctorock or ObjType.BlueMoblin or ObjType.BlueLynel;
     }
 
-    public static bool HasReachedPoint(this Point link, int targetX, int targetY, Direction direction)
+    public static bool HasReachedPoint(this Point player, int targetX, int targetY, Direction direction)
     {
         return direction switch {
-            Direction.Left => link.X <= targetX && link.Y == targetY,
-            Direction.Right => link.X >= targetX && link.Y == targetY,
-            Direction.Up => link.Y <= targetY && link.X == targetX,
-            Direction.Down => link.Y >= targetY && link.X == targetX,
+            Direction.Left => player.X <= targetX && player.Y == targetY,
+            Direction.Right => player.X >= targetX && player.Y == targetY,
+            Direction.Up => player.Y <= targetY && player.X == targetX,
+            Direction.Down => player.Y >= targetY && player.X == targetX,
             _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "Invalid direction."),
         };
     }

@@ -34,12 +34,12 @@ namespace z1;
 //     - This is Moving state issue: I can't push the push block in the room with the red ring. Everything is normal again on renter...
 //   - Blue wizzrobes still faze through the floor/ceiling.
 //   - Baubles are acting awful? They're moving through the pushblock and
-//     they're able to shove link hard enough to go through it.
+//     they're able to shove Player hard enough to go through it.
 // * Name entry can go on forever, and can't be backed over. Add backspace support. It skips initial spaces?
 // * Too many wallmasters can make it out. I think?
 //   - And stopwatch doesn't stop them from appearing.
 // * Do second quest skeletons fire swords?
-// * Add cheat to unparalyze link incase someone gets stuck.
+// * Add cheat to unparalyze Player incase someone gets stuck.
 
 // Minor:
 // * Vire keese seem to spawn too close together. -- but the assembly seems to check out.

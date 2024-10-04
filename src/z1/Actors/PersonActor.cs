@@ -261,7 +261,7 @@ internal sealed class PersonActor : Actor
             else
             {
                 var newValue = actual - item.Cost;
-                // This is to emulate the zombie link game behavior.
+                // This is to emulate the zombie player game behavior.
                 if (item.Costing == ItemSlot.HeartContainers && newValue <= PlayerProfile.DefaultHeartCount)
                 {
                     Game.World.Profile.Hearts = 0;
@@ -393,7 +393,7 @@ internal sealed class PersonActor : Actor
         //         var profile = Game.World.Profile;
         //         if (profile.Items[ItemSlot.HeartContainers] <= PlayerProfile.DefaultHeartCount)
         //         {
-        //             // This is to emulate the zombie link game behavior.
+        //             // This is to emulate the zombie player game behavior.
         //             profile.Hearts = 0;
         //         }
         //         else

@@ -445,7 +445,7 @@ public partial class LozExtractor
                         {
                             // str[findEnd] = (byte)(chr & 0x3F);
                             str = str[..(findEnd + 1)];
-                            _gameStrings.Add(ZeldaString.FromBytes(str));
+                            _gameStrings.Add(GameString.FromBytes(str));
                             break;
                         }
                     }

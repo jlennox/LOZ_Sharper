@@ -1,20 +1,19 @@
 ﻿using System.Collections.Immutable;
 using z1.IO;
 using z1.Render;
-using LinkState = z1.Actors.Link.LinkState;
 
 namespace z1.Actors;
 
 internal enum PlayerState { Idle, Wielding, Paused }
 
-internal static class LinkStateExtensions
+internal static class PlayerStateExtensions
 {
     // (_state & 0xC0) == 0x40;
-    public static bool IsPaused(this LinkState state) => (state & LinkState.PausedMask) == LinkState.Paused;
-    public static bool IsAttacking(this LinkState state) => (int)(state & LinkState.AttackMask) is 0x10 or 0x20;
+    public static bool IsPaused(this Player.PlayerState state) => (state & Player.PlayerState.PausedMask) == Player.PlayerState.Paused;
+    public static bool IsAttacking(this Player.PlayerState state) => (int)(state & Player.PlayerState.AttackMask) is 0x10 or 0x20;
 }
 
-internal sealed class LinkParalyzedTokenSource
+internal sealed class PlayerParalyzedTokenSource
 {
     private long _idCounter = 0;
     private readonly HashSet<long> _activeIds = new();
@@ -24,10 +23,10 @@ internal sealed class LinkParalyzedTokenSource
     public sealed class Token : IDisposable
     {
         private readonly long _id;
-        private readonly LinkParalyzedTokenSource _source;
+        private readonly PlayerParalyzedTokenSource _source;
         private bool _isDisposed;
 
-        public Token(long id, LinkParalyzedTokenSource source)
+        public Token(long id, PlayerParalyzedTokenSource source)
         {
             _id = id;
             _source = source;
@@ -54,7 +53,7 @@ internal sealed class LinkParalyzedTokenSource
     }
 }
 
-internal sealed class Link : Actor, IThrower
+internal sealed class Player : Actor, IThrower
 {
     public const int WalkSpeed = 0x60;
     public const int StairsSpeed = 0x30;
@@ -62,7 +61,7 @@ internal sealed class Link : Actor, IThrower
     private const int WalkDurationFrames = 12;
 
     [Flags]
-    internal enum LinkState
+    internal enum PlayerState
     {
         AttackMask = 0x30,
 
@@ -72,14 +71,14 @@ internal sealed class Link : Actor, IThrower
 
     public static ReadOnlySpan<byte> PlayerLimits => [0xF0, 0x00, 0xDD, 0x3D];
 
-    private static readonly DebugLog _movementTraceLog = new(nameof(Link), "MovementTrace", DebugLogDestination.None);
+    private static readonly DebugLog _movementTraceLog = new(nameof(Player), "MovementTrace", DebugLogDestination.None);
 
     public override bool IsPlayer => true;
 
-    private readonly LinkParalyzedTokenSource _paralyzedTokenSource = new();
+    private readonly PlayerParalyzedTokenSource _paralyzedTokenSource = new();
     public bool IsParalyzed => _paralyzedTokenSource.IsParalyzed;
 
-    private int _state; // JOE: TODO: Enumify this as using LinkState.
+    private int _state; // JOE: TODO: Enumify this as using PlayerState.
     private byte _speed;
     private TileBehavior _tileBehavior;
     private byte _animTimer;
@@ -89,7 +88,7 @@ internal sealed class Link : Actor, IThrower
 
     public readonly SpriteAnimator Animator;
 
-    public Link(Game game, Direction facing = Direction.Up)
+    public Player(Game game, Direction facing = Direction.Up)
         : base(game, ObjType.Player)
     {
         Animator = new SpriteAnimator
@@ -112,7 +111,7 @@ internal sealed class Link : Actor, IThrower
     }
 
     public void ClearParalized() => _paralyzedTokenSource.Clear();
-    public LinkParalyzedTokenSource.Token Paralyze() => _paralyzedTokenSource.Create();
+    public PlayerParalyzedTokenSource.Token Paralyze() => _paralyzedTokenSource.Create();
 
     public void DecInvincibleTimer()
     {
@@ -603,30 +602,30 @@ internal sealed class Link : Actor, IThrower
     }
 
     private static readonly ImmutableArray<AnimationId> _thrustAnimMap = [
-        AnimationId.LinkThrust_Right,
-        AnimationId.LinkThrust_Left,
-        AnimationId.LinkThrust_Down,
-        AnimationId.LinkThrust_Up
+        AnimationId.PlayerThrust_Right,
+        AnimationId.PlayerThrust_Left,
+        AnimationId.PlayerThrust_Down,
+        AnimationId.PlayerThrust_Up
     ];
 
     private static readonly ImmutableArray<ImmutableArray<AnimationId>> _animMap = [
         [
-            AnimationId.LinkWalk_NoShield_Right,
-            AnimationId.LinkWalk_NoShield_Left,
-            AnimationId.LinkWalk_NoShield_Down,
-            AnimationId.LinkWalk_NoShield_Up
+            AnimationId.PlayerWalk_NoShield_Right,
+            AnimationId.PlayerWalk_NoShield_Left,
+            AnimationId.PlayerWalk_NoShield_Down,
+            AnimationId.PlayerWalk_NoShield_Up
         ],
         [
-            AnimationId.LinkWalk_LittleShield_Right,
-            AnimationId.LinkWalk_LittleShield_Left,
-            AnimationId.LinkWalk_LittleShield_Down,
-            AnimationId.LinkWalk_LittleShield_Up
+            AnimationId.PlayerWalk_LittleShield_Right,
+            AnimationId.PlayerWalk_LittleShield_Left,
+            AnimationId.PlayerWalk_LittleShield_Down,
+            AnimationId.PlayerWalk_LittleShield_Up
         ],
         [
-            AnimationId.LinkWalk_BigShield_Right,
-            AnimationId.LinkWalk_BigShield_Left,
-            AnimationId.LinkWalk_BigShield_Down,
-            AnimationId.LinkWalk_BigShield_Up
+            AnimationId.PlayerWalk_BigShield_Right,
+            AnimationId.PlayerWalk_BigShield_Left,
+            AnimationId.PlayerWalk_BigShield_Down,
+            AnimationId.PlayerWalk_BigShield_Up
         ]
     ];
 
@@ -652,18 +651,18 @@ internal sealed class Link : Actor, IThrower
         Animator.Draw(TileSheet.PlayerAndItems, X, y, palette);
     }
 
-    public PlayerState GetState()
+    public Actors.PlayerState GetState()
     {
-        if ((_state & 0xC0) == 0x40) return PlayerState.Paused;
-        if ((_state & 0xF0) != 0) return PlayerState.Wielding;
-        return PlayerState.Idle;
+        if ((_state & 0xC0) == 0x40) return Actors.PlayerState.Paused;
+        if ((_state & 0xF0) != 0) return Actors.PlayerState.Wielding;
+        return Actors.PlayerState.Idle;
     }
 
-    public void SetState(PlayerState state)
+    public void SetState(Actors.PlayerState state)
     {
         _state = state switch {
-            PlayerState.Paused => 0x40,
-            PlayerState.Idle => 0,
+            Actors.PlayerState.Paused => 0x40,
+            Actors.PlayerState.Idle => 0,
             _ => _state
         };
     }

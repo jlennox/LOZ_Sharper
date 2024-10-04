@@ -68,7 +68,7 @@ public enum ObjType
     RedGohma,
     RupieStash,
     Grumble,
-    Zelda,
+    Princess,
     Digdogger1,
     Digdogger2,
     RedLamnola,
@@ -384,7 +384,7 @@ public enum SongId
     GameOver,
     Death,
     Recorder,
-    Zelda,
+    Princess,
 
     [TiledIgnore] MAX
 }

@@ -20,7 +20,7 @@ public enum Chars
     Plus = 0x64,
 }
 
-public static class ZeldaString
+public static class GameString
 {
     public static unsafe string FromBytes(byte[] bytes)
     {

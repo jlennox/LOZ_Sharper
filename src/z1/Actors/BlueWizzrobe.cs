@@ -147,7 +147,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         Shoot(ObjType.MagicWave, X, Y, Facing);
     }
 
-    // L_BlueWizzrobe_TurnTowardLinkIfNeeded
+    // L_BlueWizzrobe_TurnTowardPlayerIfNeeded
     protected void TurnIfNeeded()
     {
         if ((TurnTimer & 0x3F) == 0)
@@ -156,7 +156,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
         }
     }
 
-    // BlueWizzrobe_TurnTowardLink
+    // BlueWizzrobe_TurnTowardPlayer
     private void Turn()
     {
         var dir = (TurnTimer & 0x40) != 0

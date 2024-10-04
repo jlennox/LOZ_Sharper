@@ -294,7 +294,7 @@ internal static class GLWindowGui
             ImGui.Separator();
             if (ImGui.MenuItem("Ganon")) Spawn(game, ObjType.Ganon);
             if (ImGui.MenuItem("GuardFire")) Spawn(game, ObjType.GuardFire);
-            if (ImGui.MenuItem("Zelda")) Spawn(game, ObjType.Zelda);
+            if (ImGui.MenuItem("Princess")) Spawn(game, ObjType.Princess);
 
             ImGui.EndMenu();
         }

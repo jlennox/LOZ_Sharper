@@ -91,7 +91,7 @@ internal sealed class CreditsType
     {
         var profile = _game.World.Profile;
         // JOE: TODO: I think you messed this up.
-        _playerLine ??= ZeldaString.EnumerateText($"{ZeldaString.FromBytes(line.Text)} {profile.Name} {profile.Deaths}").ToArray();
+        _playerLine ??= GameString.EnumerateText($"{GameString.FromBytes(line.Text)} {profile.Name} {profile.Deaths}").ToArray();
         return _playerLine;
     }
 

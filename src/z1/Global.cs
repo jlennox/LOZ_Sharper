@@ -268,7 +268,7 @@ internal static class GlobalFunctions
     {
         if (str == null) return;
 
-        foreach (var t in ZeldaString.EnumerateText(str))
+        foreach (var t in GameString.EnumerateText(str))
         {
             DrawChar(t, x, y, palette, flags);
             x += 8;
@@ -277,7 +277,7 @@ internal static class GlobalFunctions
 
     public static void DrawChar(char c, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
     {
-        var t = ZeldaString.ByteFromChar(c);
+        var t = GameString.ByteFromChar(c);
         DrawChar(t, x, y, palette, flags);
     }
 

@@ -123,7 +123,7 @@ internal sealed unsafe partial class World
     private static readonly DebugLog _log = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
 
     public Game Game { get; }
-    public Link Player => Game.Player;
+    public Player Player => Game.Player;
     public SubmenuType Menu;
     public int RoomObjCount;           // 34E
     public Actor? RoomObj;              // 35F
@@ -135,7 +135,7 @@ internal sealed unsafe partial class World
     public int ActiveShots;        // 34C
     public int RecorderUsed;       // 51B
     public bool CandleUsed;         // 513
-    // JOE: NOTE: Ultimately this (and others, like CandleUsed) needs to be owned by Link so that multiple Links are possible.
+    // JOE: NOTE: Ultimately this (and others, like CandleUsed) needs to be owned by Player so that multiple Players are possible.
     public PlayerProfile Profile { get; private set; }
 
     private LevelDirectory _directory;
@@ -208,7 +208,7 @@ internal sealed unsafe partial class World
     private Direction _triggeredDoorDir;   // 55
 
     // JOE: TODO: ActiveShots doesn't need to be reference counted anymore and should be based on the object table.
-    // Though note that ones owned by Link should be excluded.
+    // Though note that ones owned by Player should be excluded.
     private bool _triggerShutters;    // 4CE
     private bool _summonedWhirlwind;  // 508
     private bool _powerTriforceFanfare;   // 509
@@ -2078,7 +2078,7 @@ internal sealed unsafe partial class World
 
         if (IsLiftingItem())
         {
-            DrawLinkLiftingItem(_state.Play.LiftItemId);
+            DrawPlayerLiftingItem(_state.Play.LiftItemId);
         }
         else
         {
@@ -2121,17 +2121,17 @@ internal sealed unsafe partial class World
         }
     }
 
-    private void DrawZeldaLiftingTriforce(int x, int y)
+    private void DrawPrincessLiftingTriforce(int x, int y)
     {
-        var image = Graphics.GetSpriteImage(TileSheet.Boss9, AnimationId.B3_Zelda_Lift);
+        var image = Graphics.GetSpriteImage(TileSheet.Boss9, AnimationId.B3_Princess_Lift);
         image.Draw(TileSheet.Boss9, x, y, Palette.Player);
 
         GlobalFunctions.DrawItem(Game, ItemId.TriforcePiece, x, y - 0x10, 0);
     }
 
-    private void DrawLinkLiftingItem(ItemId itemId)
+    private void DrawPlayerLiftingItem(ItemId itemId)
     {
-        var animIndex = itemId == ItemId.TriforcePiece ? AnimationId.LinkLiftHeavy : AnimationId.LinkLiftLight;
+        var animIndex = itemId == ItemId.TriforcePiece ? AnimationId.PlayerLiftHeavy : AnimationId.PlayerLiftLight;
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, animIndex);
         image.Draw(TileSheet.PlayerAndItems, Game.Player.X, Game.Player.Y, Palette.Player);
 
@@ -2398,11 +2398,11 @@ internal sealed unsafe partial class World
 
         _edgeX = x;
         _edgeY = y;
-        const int linkBoundary = 0x22;
-        if (Math.Abs(Game.Player.X - x) >= linkBoundary
-            || Math.Abs(Game.Player.Y - y) >= linkBoundary)
+        const int playerBoundary = 0x22;
+        if (Math.Abs(Game.Player.X - x) >= playerBoundary
+            || Math.Abs(Game.Player.Y - y) >= playerBoundary)
         {
-            // Bring them in from the edge of the screen if link isn't too close.
+            // Bring them in from the edge of the screen if player isn't too close.
             var obj = Actor.AddFromType(placeholder, Game, x, y - 3);
             obj.Decoration = 0;
             return true;
@@ -2711,7 +2711,7 @@ internal sealed unsafe partial class World
         _state.Scroll.OffsetY += _state.Scroll.SpeedY;
 
         // JOE: TODO: Does this prevent screen wrapping?
-        var playerLimits = Link.PlayerLimits;
+        var playerLimits = Player.PlayerLimits;
         if (_state.Scroll.SpeedX != 0)
         {
             Game.Player.X = Math.Clamp(Game.Player.X + _state.Scroll.SpeedX, playerLimits[1], playerLimits[0]);
@@ -2768,13 +2768,13 @@ internal sealed unsafe partial class World
 
     private void UpdateLeave()
     {
-        var playerLimits = Link.PlayerLimits;
+        var playerLimits = Player.PlayerLimits;
         var dirOrd = Game.Player.Facing.GetOrdinal();
         var coord = Game.Player.Facing.IsVertical() ? Game.Player.Y : Game.Player.X;
 
         if (coord != playerLimits[dirOrd])
         {
-            Game.Player.MoveLinear(_state.Leave.ScrollDir, Link.WalkSpeed);
+            Game.Player.MoveLinear(_state.Leave.ScrollDir, Player.WalkSpeed);
             Game.Player.Animator.Advance();
             return;
         }
@@ -2801,7 +2801,7 @@ internal sealed unsafe partial class World
         _state.Enter.ScrollDir = dir;
         _state.Enter.Timer = 0;
         _state.Enter.PlayerPriority = SpritePriority.AboveBg;
-        _state.Enter.PlayerSpeed = Link.WalkSpeed;
+        _state.Enter.PlayerSpeed = Player.WalkSpeed;
         _state.Enter.GotoPlay = false;
         Unpause();
         _curMode = GameMode.Enter;
@@ -3274,7 +3274,7 @@ internal sealed unsafe partial class World
             DrawRoomNoObjects(SpritePriority.None);
         }
 
-        DrawLinkLiftingItem(ItemId.TriforcePiece);
+        DrawPlayerLiftingItem(ItemId.TriforcePiece);
     }
 
     public void GotoStairs(TileBehavior behavior, Entrance cave)
@@ -3461,7 +3461,7 @@ internal sealed unsafe partial class World
     {
         _state.PlayCellar.PlayerPriority = SpritePriority.AboveBg;
 
-        _traceLog.Write($"UpdatePlayCellar_Walk: Game.Link.Y >= _state.PlayCellar.TargetY {Game.Player.Y} >= {_state.PlayCellar.TargetY}");
+        _traceLog.Write($"UpdatePlayCellar_Walk: Game.Player.Y >= _state.PlayCellar.TargetY {Game.Player.Y} >= {_state.PlayCellar.TargetY}");
         if (Game.Player.Y >= _state.PlayCellar.TargetY)
         {
             FromUnderground = 1;
@@ -3469,7 +3469,7 @@ internal sealed unsafe partial class World
         }
         else
         {
-            Game.Player.MoveLinear(Direction.Down, Link.WalkSpeed);
+            Game.Player.MoveLinear(Direction.Down, Player.WalkSpeed);
             Game.Player.Animator.Advance();
         }
     }
@@ -3672,9 +3672,9 @@ internal sealed unsafe partial class World
         // JOE: TODO: MAP REWRITE _state.PlayCave.Substate = PlayCaveState.Substates.Walk;
         // JOE: TODO: MAP REWRITE _state.PlayCave.TargetY = 0xD5;
         // JOE: TODO: MAP REWRITE
-        // JOE: TODO: MAP REWRITE Game.Link.X = 0x70;
-        // JOE: TODO: MAP REWRITE Game.Link.Y = 0xDD;
-        // JOE: TODO: MAP REWRITE Game.Link.Facing = Direction.Up;
+        // JOE: TODO: MAP REWRITE Game.Player.X = 0x70;
+        // JOE: TODO: MAP REWRITE Game.Player.Y = 0xDD;
+        // JOE: TODO: MAP REWRITE Game.Player.Facing = Direction.Up;
         // JOE: TODO: MAP REWRITE
         // JOE: TODO: MAP REWRITE for (var i = 0; i < 2; i++)
         // JOE: TODO: MAP REWRITE {
@@ -3685,7 +3685,7 @@ internal sealed unsafe partial class World
 
     private void UpdatePlayCave_Walk()
     {
-        _traceLog.Write($"UpdatePlayCave_Walk: Game.Link.Y <= _state.PlayCave.TargetY {Game.Player.Y} <= {_state.PlayCave.TargetY}");
+        _traceLog.Write($"UpdatePlayCave_Walk: Game.Player.Y <= _state.PlayCave.TargetY {Game.Player.Y} <= {_state.PlayCave.TargetY}");
         if (Game.Player.Y <= _state.PlayCave.TargetY)
         {
             FromUnderground = 1;
@@ -3693,7 +3693,7 @@ internal sealed unsafe partial class World
             return;
         }
 
-        Game.Player.MoveLinear(Direction.Up, Link.WalkSpeed);
+        Game.Player.MoveLinear(Direction.Up, Player.WalkSpeed);
         Game.Player.Animator.Advance();
     }
 
@@ -3813,10 +3813,10 @@ internal sealed unsafe partial class World
             return;
         }
 
-        _state.Death.Substate = DeathState.Substates.GrayLink;
+        _state.Death.Substate = DeathState.Substates.GrayPlayer;
     }
 
-    private void UpdateDie_GrayLink()
+    private void UpdateDie_GrayPlayer()
     {
         ReadOnlySpan<byte> grayPal = [0, 0x10, 0x30, 0];
 

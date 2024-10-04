@@ -193,7 +193,7 @@ internal abstract class Actor
             ObjType.BlueGohma => GohmaActor.Make(game, ActorColor.Blue),
             ObjType.RedGohma => GohmaActor.Make(game, ActorColor.Red),
             ObjType.RupieStash => RupeeStashActor.Make(game),
-            ObjType.Zelda => ZeldaActor.Make(game),
+            ObjType.Princess => PrincessActor.Make(game),
             ObjType.Digdogger1 => DigdoggerActor.Make(game, x, y, 3),
             ObjType.Digdogger2 => DigdoggerActor.Make(game, x, y, 1),
             ObjType.RedLamnola => LamnolaActor.MakeSet(game, ActorColor.Red),
