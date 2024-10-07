@@ -220,14 +220,15 @@ internal sealed class GameWorld
     public GameRoom[] TeleportDestinations { get; }
     public WorldInfo Info { get; }
     public string? LevelString { get; }
+    public bool IsOverworld { get; }
 
     public bool IsBossAlive => BossRoom != null && BossRoom.RoomFlags.ObjectCount != 0;
-    public bool IsOverworld => Name == "Overworld"; // JOE: TODO: This aint great.
 
     public GameWorld(Game game, TiledWorld world, string filename, int questId)
     {
         Name = Path.GetFileNameWithoutExtension(filename);
         if (world.Maps == null) throw new Exception($"World {Name} has no maps.");
+        IsOverworld = Name.IContains("Overworld"); // JOE: TODO: This aint great.
 
         var directory = Path.GetDirectoryName(filename);
         Rooms = new GameRoom[world.Maps.Length];
@@ -237,7 +238,8 @@ internal sealed class GameWorld
             var worldEntry = world.Maps![i];
             var asset = new Asset(directory, worldEntry.Filename);
             var tiledmap = asset.ReadJson<TiledMap>();
-            var room = new GameRoom(game, this, worldEntry, Path.GetFileName(worldEntry.Filename), tiledmap, questId);
+            var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
+            var room = new GameRoom(game, this, worldEntry, entryName, tiledmap, questId);
             if (room.RoomInformation.IsEntryRoom) EntryRoom = room;
             if (room.RoomInformation.IsBossRoom) BossRoom = room;
             worldMaps[i] = (room, worldEntry);
@@ -292,33 +294,21 @@ internal sealed class GameWorld
         return new GameWorld(game, new Asset(filename).ReadJson<TiledWorld>(), filename, questId);
     }
 
-
-    public static GameWorld WorldFromCaveDescription(Game game, string description)
-    {
-        var questId = game.World.Profile.Quest;
-        var enters = description.IReplace("{QuestId}", questId.ToString("D2"));
-
-        if (enters.IStartsWith("Level_"))
-        {
-            return Load(game, "Maps/" + enters + ".world", questId);
-        }
-        else if (enters.IStartsWith("Cave_"))
-        {
-        }
-
-        throw new Exception();
-    }
-
     public void ResetLevelKillCounts()
     {
         foreach (var map in Rooms) map.LevelKillCount = 0;
     }
 
-    public GameRoom GetGameRoom(string id)
+    public GameRoom GetRoomByName(string roomName)
     {
-        var room = Rooms.FirstOrDefault(t => t.Id == id);
-        if (room == null) throw new Exception($"Unable to find room \"{id}\" in world \"{Name}\"");
-        return room;
+        return Rooms.FirstOrDefault(t => roomName.IEquals(t.Name))
+            ?? throw new Exception($"Unable to find room name \"{roomName}\" in world \"{Name}\".");
+    }
+
+    public GameRoom GetRoomById(string id)
+    {
+        return Rooms.FirstOrDefault(t => id.IEquals(t.Id))
+            ?? throw new Exception($"Unable to find room id \"{id}\" in world \"{Name}\"");
     }
 }
 
@@ -546,6 +536,8 @@ internal sealed class GameRoom
 
     public void Reset()
     {
+        // I'm not fond of this. We're mixing/confusing ephemeral state with static data.
+
         // The room map is edited at playtime. Any persisted changes need to be re-applied as the room loads.
         _unmodifiedRoomMap.CopyTo(RoomMap);
     }
@@ -624,104 +616,6 @@ internal sealed class GameRoom
         Graphics.DrawImage(image, srcx, srcy, TileWidth, TileHeight, x, y, palette, tile.GetDrawingFlags());
     }
 
-    public IEnumerable<InteractiveGameObject> GetInteractiveGameObjects(Interaction interaction, int x, int y, int distance)
-    {
-        var minX = x - distance;
-        var maxX = x + distance;
-        var minY = y - distance;
-        var maxY = y + distance;
-
-        foreach (var obj in InteractiveGameObjects)
-        {
-            if (obj.Interaction.Interaction != interaction) continue;
-
-            if (obj.X >= minX && obj.X <= maxX && obj.Y >= minY && obj.Y <= maxY)
-            {
-                yield return obj;
-            }
-        }
-    }
-
-    // private IEnumerable<TiledTile> GetInclusiveTiles(GameMapTileLayer layer, GameObjectLayerObject obj)
-    // {
-    //     var startX = obj.X / TileWidth;
-    //     var startY = obj.Y / TileHeight;
-    //     var endX = (obj.X + obj.Width - 1) / TileWidth;
-    //     var endY = (obj.Y + obj.Height - 1) / TileHeight;
-    //
-    //     var tiles = layer.Tiles;
-    //     for (var y = startY; y <= endY; y++)
-    //     {
-    //         var tilerow = y * Width;
-    //         for (var x = startX; x <= endX; x++)
-    //         {
-    //             yield return tiles[tilerow + x];
-    //         }
-    //     }
-    // }
-    //
-    // private IEnumerable<Point> GetInclusiveTileCoordinates(GameObjectLayerObject obj)
-    // {
-    //     var startX = obj.X / TileWidth;
-    //     var startY = obj.Y / TileHeight;
-    //     var endX = (obj.X + obj.Width - 1) / TileWidth;
-    //     var endY = (obj.Y + obj.Height - 1) / TileHeight;
-    //
-    //     for (var y = startY; y <= endY; y++)
-    //     {
-    //         for (var x = startX; x <= endX; x++)
-    //         {
-    //             yield return new Point(x, y);
-    //         }
-    //     }
-    // }
-    //
-    // public IEnumerable<GameMapObject> GetObjects(int tileX, int tileY)
-    // {
-    //     foreach (var obj in ObjectLayer.Objects)
-    //     {
-    //         obj.GetScreenTileCoordinates(out var objectTileX, out var objectTileY);
-    //
-    //         if (tileX < objectTileX || tileX >= objectTileX + obj.Width / TileWidth) continue;
-    //         if (tileY < objectTileY || tileY >= objectTileY + obj.Height / TileHeight) continue;
-    //         yield return obj;
-    //     }
-    // }
-    //
-    // public bool TryGetActionObject(TileAction action, out InteractiveGameObject actionObject)
-    // {
-    //     actionObject = default;
-    //     foreach (var obj in ActionMapObjects)
-    //     {
-    //         if (obj.Action != action) continue;
-    //         actionObject = obj;
-    //         return true;
-    //     }
-    //
-    //     return false;
-    // }
-    //
-    // public bool TryGetActionObject(TileAction action, int tileX, int tileY, out InteractiveGameObject actionObject)
-    // {
-    //     actionObject = default;
-    //     foreach (var obj in GetObjects(tileX, tileY))
-    //     {
-    //         if (obj is not InteractiveGameObject currentObject) continue;
-    //         if (currentObject.Action != action) continue;
-    //         actionObject = currentObject;
-    //         return true;
-    //     }
-    //
-    //     return false;
-    // }
-    //
-    // public InteractiveGameObject GetActionObject(TileAction action, int tileX, int tileY)
-    // {
-    //     if (TryGetActionObject(action, tileX, tileY, out var actionObject)) return actionObject;
-    //
-    //     throw new Exception($"No object of type {action} found at {tileX}, {tileY}");
-    // }
-
     internal static bool TryParseDungeonDoors(string? s, [MaybeNullWhen(false)] out Dictionary<Direction, DoorType> doors)
     {
         doors = null;
@@ -777,13 +671,12 @@ internal abstract class GameMapObject
     public int Height { get; }
     public ImmutableDictionary<string, string> Properties { get; }
 
-    protected readonly TiledLayerObject LayerObject;
-
-    private readonly GameRoom _room;
+    protected GameRoom Room { get; }
+    protected TiledLayerObject LayerObject { get; }
 
     protected GameMapObject(GameRoom room, TiledLayerObject layerObject)
     {
-        _room = room;
+        Room = room;
         LayerObject = layerObject;
 
         Name = layerObject.Name;
@@ -796,16 +689,16 @@ internal abstract class GameMapObject
 
     public void GetScreenTileCoordinates(out int tileX, out int tileY)
     {
-        var objtilex = X / _room.TileWidth;
-        var objtiley = Y / _room.TileHeight;
+        var objtilex = X / Room.TileWidth;
+        var objtiley = Y / Room.TileHeight;
         tileX = objtilex;
         tileY = objtiley;
     }
 
     public void GetTileSize(out int tileWidth, out int tileHeight)
     {
-        tileWidth = Width / (_room.TileWidth);
-        tileHeight = Height / (_room.TileHeight );
+        tileWidth = Width / (Room.TileWidth);
+        tileHeight = Height / (Room.TileHeight );
     }
 }
 
@@ -907,13 +800,11 @@ internal sealed class GameMapReference
 internal sealed class InteractiveGameObject : GameMapObject
 {
     public string Id { get; }
-    private readonly GameRoom _room;
 
     public InteractableBlock Interaction { get; set; }
 
     public InteractiveGameObject(GameRoom room, TiledLayerObject layerObject, InteractableBlock interaction) : base(room, layerObject)
     {
-        _room = room;
         var idProperty = layerObject.GetProperty(TiledObjectProperties.Id);
         Interaction = interaction;
         Id = !string.IsNullOrEmpty(idProperty)
@@ -953,6 +844,9 @@ internal sealed class GameMapObjectLayer
 
                 case GameObjectLayerObjectType.Interactive:
                 default:
+                    if (room.Id == "7,7")
+                    {
+                    }
                     var interactable = TiledPropertySerializer<InteractableBlock>.Deserialize(obj);
                     // Allow some interactions to be implied.
                     if (interactable.Interaction == Interaction.Unknown)
@@ -968,7 +862,10 @@ internal sealed class GameMapObjectLayer
 
                     // The items are only root level so that they can be an array.
                     var cavespec = interactable.Entrance?.Cave;
-                    if (cavespec != null) cavespec.Items = interactable.CaveItems;
+                    if (cavespec != null)
+                    {
+                        cavespec.Items = interactable.CaveItems;
+                    }
 
                     list.Add(new InteractiveGameObject(room, obj, interactable));
                     break;

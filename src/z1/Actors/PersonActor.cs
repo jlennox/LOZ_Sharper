@@ -66,6 +66,13 @@ internal sealed class PersonActor : Actor
             Game.Sound.PlayEffect(SoundEffect.Item);
         }
 
+        // Room has been previously paid for. Clear it out.
+        if (Game.World.CurrentRoomFlags.ItemState)
+        {
+            Game.World.CurrentRoomFlags.ItemState = true;
+            return;
+        }
+
         _itemLocations = spec.Items?.Length switch
         {
             1 => [_defaultItemLocations[1]],
@@ -73,11 +80,18 @@ internal sealed class PersonActor : Actor
             _ => _defaultItemLocations,
         };
 
-        // Room has been previously paid for. Clear it out.
-        if (Game.World.CurrentRoomFlags.ItemState)
+        if (spec.Items != null)
         {
-            Game.World.CurrentRoomFlags.ItemState = true;
-            return;
+            const ItemObjActorOptions itemOptions = ItemObjActorOptions.DoNotSpawnIn | ItemObjActorOptions.LiftItem;
+            for (var i = 0; i < spec.Items.Length; ++i)
+            {
+                var caveItem = spec.Items[i];
+                var location = _itemLocations[i];
+                var item = game.World.AddItem(caveItem.ItemId, location.X, location.Y, itemOptions) as ItemObjActor;
+                if (item == null) continue;
+                var itemIndex = i;
+                item.OnTouched += _ => HandlePlayerHit(caveItem, itemIndex);
+            }
         }
 
         if (spec.HasEntranceCheck)
@@ -226,13 +240,13 @@ internal sealed class PersonActor : Actor
 
             if (itemId != ItemId.None && player.X == location.X)
             {
-                HandlePlayerHit(item, i);
+                // HandlePlayerHit(item, i);
                 break;
             }
         }
     }
 
-    private void HandlePlayerHit(CaveShopItem item, int index)
+    private bool HandlePlayerHit(CaveShopItem item, int index)
     {
         if (item.HasOption(CaveShopItemOptions.CheckCost))
         {
@@ -240,7 +254,7 @@ internal sealed class PersonActor : Actor
             if (actual < item.Cost)
             {
                 _log.Write($"Failed check: {actual} < {item.Costing} for {item.ItemId}.");
-                return;
+                return false;
             }
         }
 
@@ -250,10 +264,10 @@ internal sealed class PersonActor : Actor
             if (item.Cost > actual)
             {
                 _log.Write($"Failed pay: {actual} < {item.Costing} for {item.ItemId}.");
-                return;
+                return false;
             }
 
-            // TODO: I want to do positives this way too.
+            // JOE: TODO: I want to do positives this way too.
             if (item.Costing == ItemSlot.Rupees)
             {
                 Game.World.PostRupeeLoss(item.Cost);
@@ -280,7 +294,7 @@ internal sealed class PersonActor : Actor
 
         if (HandlePickUpHint(item))
         {
-            return;
+            return true;
         }
 
         if (_spec.IsSpecial)
@@ -291,6 +305,8 @@ internal sealed class PersonActor : Actor
         {
             HandlePickUpItem(item);
         }
+
+        return true;
     }
 
     private void HandlePickUpItem(CaveShopItem item)
@@ -567,7 +583,7 @@ internal sealed class PersonActor : Actor
             {
                 if (_spec.ShowItems)
                 {
-                    GlobalFunctions.DrawItemWide(Game, item.ItemId, location.X, location.Y);
+                    // GlobalFunctions.DrawItemWide(Game, item.ItemId, location.X, location.Y);
                 }
                 if (_spec.ShowNumbers || _showNumbers)
                 {

@@ -12,24 +12,9 @@ public ref struct StringParser
     public int ExpectInt(ReadOnlySpan<char> s)
     {
         if (Index >= s.Length) throw new Exception($"Unexpected end of string at position in \"{s}\", expected number.");
-        var start = Index;
-        var length = 0;
-
-        if (s[Index] is '+' or '-')
-        {
-            Index++;
-            length++;
-        }
-
-        while (Index < s.Length && char.IsAsciiDigit(s[Index]))
-        {
-            Index++;
-            length++;
-        }
-
-        if (length == 0) throw new Exception($"Unexpected number at position {Index} in \"{s}\"");
+        if (!TryExpectInt(s, out var i)) throw new Exception($"Expected number at position {Index} ('{s[Index]}') in \"{s}\"");
         SkipOptionalWhiteSpace(s);
-        return int.Parse(s.Slice(start, length));
+        return i;
     }
 
     public bool TryExpectInt(ReadOnlySpan<char> s, out int value)

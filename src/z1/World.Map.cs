@@ -1,5 +1,5 @@
-﻿using z1.Actors;
-using z1.Common.IO;
+﻿using System.Diagnostics.CodeAnalysis;
+using z1.Actors;
 using z1.IO;
 using z1.Render;
 
@@ -66,8 +66,27 @@ internal partial class World
         // JOE: TODO: MAP REWRITE }
     }
 
-    private void LoadMap(GameRoom room)
+    public readonly record struct RoomHistoryEntry(GameRoom Room, GameWorld World, Entrance FromEntrance);
+    private readonly Stack<RoomHistoryEntry> _previousRooms = new();
+
+    public RoomHistoryEntry? GetPreviousEntrance()
     {
+        if (_previousRooms.Count == 0) return null;
+        return _previousRooms.Peek();
+    }
+
+    public bool TryTakePreviousEntrance([MaybeNullWhen(false)] out RoomHistoryEntry entry)
+    {
+        return _previousRooms.TryPop(out entry);
+    }
+
+    private void LoadMap(GameRoom room, Entrance? fromEntrance = null)
+    {
+        if (fromEntrance != null) _previousRooms.Push(new RoomHistoryEntry(CurrentRoom, CurrentWorld, fromEntrance));
+
+        CurrentRoom = room;
+        CurrentWorld = room.World;
+
         room.Reset();
         LoadLayout(room);
 

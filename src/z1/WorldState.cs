@@ -74,7 +74,7 @@ internal struct PlayCaveState
     }
 
     public Substates Substate;
-    public CaveId CaveId;
+    public Entrance Entrance;
     public int Timer;
     public int TargetY;
     // public SpritePriority playerPriority; // JOE: Unused in C++.

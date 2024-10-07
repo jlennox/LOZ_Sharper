@@ -438,6 +438,7 @@ internal sealed class Sound
     public void PlayEffect(SoundEffect id, bool loop = false, int instance = -1)
     {
         _traceLog.Write($"PlayEffect({id}, {loop}, {instance})");
+        if (id == SoundEffect.None) return;
         if (id < 0 || (int)id >= _effectSamples.Length) throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown SoundEffect");
         if (instance is < -1 or >= Instances) throw new ArgumentOutOfRangeException(nameof(instance), instance, "Unknown instance");
 

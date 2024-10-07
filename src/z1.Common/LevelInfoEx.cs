@@ -86,6 +86,8 @@ public enum CaveSpecOptions
     EntranceCheck = 1 << 8,
     // Charge them when they enter (overworld mugger rooms)
     EntranceCost = 1 << 9,
+    // Determines if you can only get one item from here per play through. IE, a take any cave.
+    Persisted = 1 << 10,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -117,6 +119,7 @@ public sealed class CaveSpec
     [TiledIgnore, JsonIgnore] public bool DoesControlsBlockingWall => HasOption(CaveSpecOptions.ControlsBlockingWall);
     [TiledIgnore, JsonIgnore] public bool HasEntranceCheck => HasOption(CaveSpecOptions.EntranceCheck);
     [TiledIgnore, JsonIgnore] public bool HasEntranceCost => HasOption(CaveSpecOptions.EntranceCost);
+    [TiledIgnore, JsonIgnore] public bool IsPersisted => HasOption(CaveSpecOptions.Persisted);
 
     public CaveSpec Clone()
     {

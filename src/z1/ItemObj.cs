@@ -31,11 +31,17 @@ internal sealed class LadderActor : Actor
     }
 }
 
-internal class BlockActor : Actor
+internal interface IHasCollision
+{
+    CollisionResponse CheckCollision(Actor player);
+}
+
+internal class BlockActor : Actor, IHasCollision
 {
     public bool EnableDraw { get; set; }
 
-    private readonly TileType _tile;
+    protected readonly TileType Tile;
+
     private readonly int _width;
     private readonly int _height;
     private readonly TileSheet _tileSheet;
@@ -46,13 +52,13 @@ internal class BlockActor : Actor
         : base(game, type, x, y)
     {
         Decoration = 0;
-        _tile = tile;
+        Tile = tile;
         _width = width;
         _height = height;
         _tileSheet = game.World.CurrentWorld.GetBackgroundTileSheet();
     }
 
-    public CollisionResponse CheckCollision(Player player)
+    public CollisionResponse CheckCollision(Actor player)
     {
         var playerX = player.X;
         var playerY = player.Y + 3;
@@ -73,26 +79,32 @@ internal class BlockActor : Actor
     {
         if (!EnableDraw) return;
 
-        Graphics.DrawStripSprite16X16(_tileSheet, _tile, X, Y, Game.World.CurrentRoom.RoomInformation.InnerPalette);
+        var palette = Game.World.CurrentRoom.RoomInformation.InnerPalette;
+        Graphics.DrawStripSprite16X16(_tileSheet, Tile, X, Y, palette);
     }
 }
 
+[Flags]
+internal enum MovingBlockActorOptions { None, ReplaceWithBackground }
+
 internal class MovingBlockActor : BlockActor
 {
-    public bool HasFinishedMoving { get; set; }
+    public bool HasFinishedMoving { get; private set; }
 
     public event Action<MovingBlockActor>? OnFinishedMoving;
 
     private readonly Point _moveTo;
+    private readonly MovingBlockActorOptions _options;
     private bool _triggerEvent;
 
     public MovingBlockActor(
-        Game game, ObjType type, TileType tile, Point moveTo, int x, int y,
-        int width = World.BlockWidth, int height = World.BlockHeight)
+        Game game, ObjType type, TileType tile, Point moveTo, MovingBlockActorOptions options,
+        int x, int y, int width = World.BlockWidth, int height = World.BlockHeight)
         : base(game, type, tile, x, y, width, height)
     {
         Decoration = 0;
         _moveTo = moveTo;
+        _options = options;
     }
 
     public override void Update()
@@ -107,7 +119,17 @@ internal class MovingBlockActor : BlockActor
         {
             _triggerEvent = true;
             OnFinishedMoving?.Invoke(this);
+            if (_options.HasFlag(MovingBlockActorOptions.ReplaceWithBackground))
+            {
+                ReplaceWithBackground();
+            }
         }
+    }
+
+    public void ReplaceWithBackground()
+    {
+        Game.World.SetMapObjectXY(X, Y, Tile.GetBlockType());
+        Delete();
     }
 }
 
@@ -298,12 +320,11 @@ internal sealed class FireActor : Actor
     private readonly SpriteAnimator _animator;
 
     private FireState _state;
-    private readonly Actor _owner;
 
     public FireActor(Game game, Actor owner, int x, int y, Direction facing)
         : base(game, ObjType.Fire, x, y)
     {
-        _owner = owner;
+        Owner = owner;
         State = FireState.Moving;
         Facing = facing;
 
@@ -426,12 +447,11 @@ internal sealed class BombActor : Actor
     public BombState BombState = BombState.Initing;
 
     private readonly SpriteAnimator _animator;
-    private readonly Actor _owner;
 
     public BombActor(Game game, Actor owner, int x, int y)
         : base(game, ObjType.Bomb, x, y)
     {
-        _owner = owner;
+        Owner = owner;
         Facing = Game.Player.Facing;
         Decoration = 0;
         _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.BombItem)
@@ -563,7 +583,6 @@ internal sealed class PlayerSwordActor : Actor
     public int State;
     private int _timer;
     private readonly SpriteImage _image = new();
-    private readonly Player _owner;
 
     public PlayerSwordActor(Game game, ObjType type, Player owner)
         : base(game, type)
@@ -575,7 +594,7 @@ internal sealed class PlayerSwordActor : Actor
 
         Put();
         _timer = _swordStateDurations[State];
-        _owner = owner;
+        Owner = owner;
         Decoration = 0;
     }
 
@@ -620,9 +639,9 @@ internal sealed class PlayerSwordActor : Actor
 
     private void MakeProjectile()
     {
-        var x = _owner.X;
-        var y = _owner.Y;
-        var dir = _owner.Facing;
+        var x = Owner.X;
+        var y = Owner.Y;
+        var dir = Owner.Facing;
 
         MoveSimple(ref x, ref y, dir, 0x10);
 
@@ -647,9 +666,9 @@ internal sealed class PlayerSwordActor : Actor
 
             Game.Sound.PlayEffect(effect);
 
-            var shot = GlobalFunctions.MakeProjectile(Game, type, x, y, dir, _owner);
+            var shot = GlobalFunctions.MakeProjectile(Game, type, x, y, dir, Owner);
             Game.World.AddObject(shot);
-            shot.TileOffset = _owner.TileOffset;
+            shot.TileOffset = Owner.TileOffset;
         }
     }
 
@@ -688,23 +707,27 @@ internal sealed class PlayerSwordActor : Actor
     }
 }
 
+[Flags]
+internal enum ItemObjActorOptions { None, IsRoomItem, DoNotSpawnIn, LiftItem }
+
 internal sealed class ItemObjActor : Actor
 {
     private readonly ItemId _itemId;
-    private readonly bool _isRoomItem;
+    private readonly ItemObjActorOptions _options;
     private int _timer;
 
-    public event Action<ItemObjActor>? OnTouched;
+    public event Func<ItemObjActor, bool>? OnTouched;
 
-    public ItemObjActor(Game game, ItemId itemId, bool isRoomItem, int x, int y)
+    public ItemObjActor(Game game, ItemId itemId, ItemObjActorOptions options, int x, int y)
         : base(game, ObjType.Item, x, y)
     {
         Decoration = 0;
 
         _itemId = itemId;
-        _isRoomItem = isRoomItem;
+        _options = options;
 
-        if (!isRoomItem)
+        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem)
+            && !_options.HasFlag(ItemObjActorOptions.DoNotSpawnIn))
         {
             _timer = 0x1FF;
         }
@@ -721,7 +744,7 @@ internal sealed class ItemObjActor : Actor
 
     public override void Update()
     {
-        if (!_isRoomItem)
+        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
         {
             _timer--;
             if (_timer == 0)
@@ -742,9 +765,8 @@ internal sealed class ItemObjActor : Actor
         {
             touchedItem = true;
         }
-        else if (!_isRoomItem)
+        else if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
         {
-            // ReadOnlySpan<ObjectSlot> weaponSlots = [ObjectSlot.PlayerSword, ObjectSlot.Boomerang, ObjectSlot.Arrow];
             var weapons = Game.World.GetObjects(static t => t is PlayerSwordActor or BoomerangProjectile or ArrowProjectile);
             foreach (var obj in weapons)
             {
@@ -758,7 +780,7 @@ internal sealed class ItemObjActor : Actor
 
         if (touchedItem)
         {
-            OnTouched?.Invoke(this);
+            if (OnTouched?.Invoke(this) == false) return;
 
             Delete();
 
@@ -788,7 +810,7 @@ internal sealed class ItemObjActor : Actor
 
     public override void Draw()
     {
-        if (_isRoomItem || _timer < 0x1E0 || (_timer & 2) != 0)
+        if (_options.HasFlag(ItemObjActorOptions.IsRoomItem) || _timer < 0x1E0 || (_timer & 2) != 0)
         {
             GlobalFunctions.DrawItemWide(Game, _itemId, X, Y);
         }

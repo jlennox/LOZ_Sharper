@@ -3,7 +3,23 @@ using z1.Render;
 
 namespace z1.Actors;
 
-// The runtime state for InteractableBlock.
+// [DebuggerDisplay("")]
+// internal sealed class ItemActor : Actor
+// {
+//     public bool PickedUp { get; private set; }
+//
+//     private readonly ItemId _item;
+//
+//     public ItemActor(Game game, ItemId item, ObjType type, int x = 0, int y = 0)
+//         : base(game, type, x, y)
+//     {
+//         _item = item;
+//     }
+//
+//     public override void Update() { }
+//     public override void Draw() { }
+// }
+
 [DebuggerDisplay("{GameObject.Name} ({X},{Y})")]
 internal sealed class InteractiveGameObjectActor : Actor
 {
@@ -12,7 +28,9 @@ internal sealed class InteractiveGameObjectActor : Actor
     public InteractableBlock Interactable => GameObject.Interaction;
     public InteractiveGameObject GameObject { get; }
 
-    private bool HasInteracted => _state.HasInteracted || _hasInteracted || Interactable.Interaction == Interaction.None;
+    private bool HasInteracted => (_state.HasInteracted && Interactable.Persisted)
+        || _hasInteracted
+        || Interactable.Interaction == Interaction.None;
 
     private readonly ObjectState _state;
     private readonly RaftInteraction? _raft;
@@ -32,7 +50,7 @@ internal sealed class InteractiveGameObjectActor : Actor
         _raft = RaftInteraction.Create(game, this);
         _push = PushInteraction.Create(game, this);
 
-        if (HasInteracted && Interactable.Persisted) SetInteracted(true);
+        if (HasInteracted) SetInteracted(true);
     }
 
     public override void Update()
@@ -92,8 +110,8 @@ internal sealed class InteractiveGameObjectActor : Actor
         if (Interactable.Item != null && !_state.ItemGot)
         {
             var itemId = Interactable.Item.Item;
-            var isRoomItem = Interactable.Item.IsRoomItem;
-            var itemActor = new ItemObjActor(Game, itemId, isRoomItem, X, Y);
+            var flags = Interactable.Item.IsRoomItem ? ItemObjActorOptions.IsRoomItem : ItemObjActorOptions.None;
+            var itemActor = new ItemObjActor(Game, itemId, flags, X, Y);
             itemActor.OnTouched += _ => _state.ItemGot = true;
             Game.World.AddObject(itemActor);
             OptionalSound();
@@ -104,7 +122,7 @@ internal sealed class InteractiveGameObjectActor : Actor
             var count = Game.World.GetObjects().Count(t => t.ObjType == Interactable.SpawnedType.Value);
             if (count < MaxSpawnCount)
             {
-                Game.World.CommonMakeObjectAction(
+                Game.World.MakeActivatedObject(
                     Interactable.SpawnedType.Value,
                     X / World.TileWidth, Y / World.TileHeight - World.BaseRows);
             }
@@ -126,7 +144,6 @@ internal sealed class InteractiveGameObjectActor : Actor
         if (Game.World.WhirlwindTeleporting != 0) return;
         if (Game.World.GetMode() != GameMode.Play) return;
 
-        var obj = Game.World.GetObjects();
         if (!Game.World.Player.DoesCover(this)) return;
         Game.World.GotoStairs(TileBehavior.Cave, caveEntrance);
     }
@@ -190,7 +207,6 @@ internal sealed class InteractiveGameObjectActor : Actor
     public override void Draw()
     {
         _raft?.Draw();
-        _push?.Draw();
     }
 }
 
@@ -204,12 +220,8 @@ internal sealed class PushInteraction
     private readonly int _timerLimit;
     private readonly bool _allowHorizontal;
     private readonly bool _requireAlignment;
-    private readonly bool _removeTile;
+    private readonly bool _removeBackground;
     private readonly bool _movesBlock;
-    private Point _targetPos;
-    private readonly Point _originalPosition;
-    private bool _isMoving;
-    private bool _isDone;
     private MovingBlockActor? _movingActor;
 
     public PushInteraction(Game game, InteractiveGameObjectActor interactive)
@@ -217,10 +229,9 @@ internal sealed class PushInteraction
         _game = game;
         _interactive = interactive;
         _gameObject = interactive.GameObject;
-        _originalPosition = _interactive.Position;
         _allowHorizontal = true;
         _requireAlignment = true;
-        _removeTile = true;
+        _removeBackground = true;
         _movesBlock = true;
 
         switch (_gameObject.Interaction.Interaction)
@@ -237,7 +248,7 @@ internal sealed class PushInteraction
             case Interaction.Touch:
                 _timerLimit = 1;
                 _requireAlignment = false;
-                _removeTile = false;
+                _removeBackground = false;
                 _movesBlock = false;
                 break;
 
@@ -264,10 +275,7 @@ internal sealed class PushInteraction
 
     public bool Check()
     {
-        if (_movingActor != null)
-        {
-            return _movingActor.HasFinishedMoving;
-        }
+        if (_movingActor != null) return _movingActor.HasFinishedMoving;
 
         var dir = _game.Player.MovingDirection;
 
@@ -309,25 +317,39 @@ internal sealed class PushInteraction
         _pushTimer++;
         if (_pushTimer == _timerLimit)
         {
-            _targetPos = dir switch
-            {
-                Direction.Right => new Point(_interactive.X + _gameObject.Width, 0),
-                Direction.Left => new Point(_interactive.X - _gameObject.Width, 0),
-                Direction.Down => new Point(0, _interactive.Y + _gameObject.Height),
-                Direction.Up => new Point(0, _interactive.Y - _gameObject.Height),
-                _ => _targetPos
-            };
-            // _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, FloorMob1);
+            // This is all kind of complicated but here's how the original game behaves:
+            //
+            // - When the object begins to move:
+            //  - Nothing shows on the ground below it (_removeBackground).
+            //  - The moving object is displayed with color 0 being transparent (MovingBlockActor).
+            // - Once it's completed moving:
+            //  - It's displayed once again as a background with no transparency (ReplaceWithBackground).
+            //  - Now what's under it appears (return _movingActor.HasFinishedMoving).
+
             _interactive.Facing = dir;
 
-            // _log.Write(nameof(UpdateIdle), $"Moving {X:X2},{Y:X2} TargetPos:{_targetPos}, dir:{dir}");
+            if (_removeBackground)
+            {
+                var tile = _game.World.CurrentRoom.RoomInformation.FloorTile;
+                _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, tile);
+            }
+
             if (_movesBlock)
             {
+                var targetPos = dir switch
+                {
+                    Direction.Right => new Point(_interactive.X + _gameObject.Width, 0),
+                    Direction.Left => new Point(_interactive.X - _gameObject.Width, 0),
+                    Direction.Down => new Point(0, _interactive.Y + _gameObject.Height),
+                    Direction.Up => new Point(0, _interactive.Y - _gameObject.Height),
+                    _ => new Point(_interactive.X, _interactive.Y)
+                };
+
                 var block = _interactive.Interactable.ApparanceBlock;
                 if (block != null)
                 {
                     _movingActor = new MovingBlockActor(
-                        _game, ObjType.Block, block.Value, _targetPos,
+                        _game, ObjType.Block, block.Value, targetPos, MovingBlockActorOptions.ReplaceWithBackground,
                         _interactive.X, _interactive.Y, _gameObject.Width, _gameObject.Height)
                     {
                         Facing = dir,
@@ -335,14 +357,7 @@ internal sealed class PushInteraction
                     };
                     _game.World.AddObject(_movingActor);
                 }
-                _isMoving = true;
                 return false;
-            }
-
-            if (_removeTile)
-            {
-                var tile = _game.World.CurrentRoom.RoomInformation.FloorTile;
-                _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, tile);
             }
 
             _pushTimer = 0;
@@ -350,41 +365,6 @@ internal sealed class PushInteraction
         }
 
         return false;
-    }
-
-    // private bool UpdateMove()
-    // {
-    //     if (_isDone || _movingActor == null) return true;
-    //     _movingActor.MoveDirection(0x20, _movingActor.Facing);
-    //
-    //     _isDone = _movingActor.Facing.IsHorizontal()
-    //         ? _movingActor.X == _targetPos
-    //         : _movingActor.Y == _targetPos;
-    //
-    //     // _log.Write(nameof(UpdateMoving), $"{X:X2},{Y:X2} done:{done}");
-    //
-    //     return _isDone;
-    //
-    //     // if (done)
-    //     {
-    //         return true;
-    //         // _game.World.OnPushedBlock();
-    //         // _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, BlockMob);
-    //         // _game.World.SetMapObjectXY(_originalPosition.X, _originalPosition.Y, FloorMob2);
-    //         // Delete();
-    //     }
-    // }
-
-    public void Draw()
-    {
-        // if (!_isMoving) return;
-        //
-        // var block = _interactive.Interactable.ApparanceBlock;
-        // if (block == null) return;
-        //
-        // var sheet = _game.World.IsOverworld() ? TileSheet.BackgroundOverworld : TileSheet.BackgroundUnderworld;
-        // var palette = _game.World.CurrentRoom.RoomInformation.InnerPalette;
-        // Graphics.DrawStripSprite16X16(sheet, block.Value, _interactive.X, _interactive.Y, palette);
     }
 }
 

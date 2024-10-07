@@ -253,6 +253,7 @@ public enum ItemId
 
     // New
     MaxBombs,
+    ArgumentItemId,
 
     [TiledIgnore] MAX = 0x3F,
 }
@@ -322,6 +323,7 @@ public enum ItemSlot
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SoundEffect
 {
+    None = -1,
     Sea,
     SwordWave,
     BossHit,

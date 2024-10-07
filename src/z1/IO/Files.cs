@@ -147,42 +147,6 @@ internal readonly struct ListResource<T>
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct RoomCols
-{
-    public fixed byte ColumnDesc[World.ScreenBlockWidth];
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct HPAttr
-{
-    public byte Data;
-
-    public readonly int GetHP(int type)
-    {
-        return (type & 1) switch
-        {
-            0 => Data & 0xF0,
-            _ => Data << 4
-        };
-    }
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct SparsePos
-{
-    public byte roomId;
-    public byte pos;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct SparsePos2
-{
-    public byte roomId;
-    public byte x;
-    public byte y;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal unsafe struct LevelInfoBlock
 {
     public const int LevelPaletteCount = 8;
@@ -270,64 +234,6 @@ internal unsafe struct LevelInfoBlock
     }
 }
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct ObjectAttr
-{
-    [Flags]
-    private enum Type
-    {
-        None = 0,
-        CustomCollision = 1,
-        CustomDraw = 4,
-        Unknown10__ = 0x10,
-        InvincibleToWeapons = 0x20,
-        HalfWidth = 0x40,
-        Unknown80__ = 0x80,
-        WorldCollision = 0x100,
-    }
-
-    public short Data;
-
-    private readonly Type Typed => (Type)Data;
-
-    public readonly bool GetCustomCollision() => Typed.HasFlag(Type.CustomCollision);
-    public readonly bool GetUnknown10__() => Typed.HasFlag(Type.Unknown10__);
-    public readonly bool GetInvincibleToWeapons() => Typed.HasFlag(Type.InvincibleToWeapons);
-    public readonly bool GetHalfWidth() => Typed.HasFlag(Type.HalfWidth);
-    public readonly bool GetUnknown80__() => Typed.HasFlag(Type.Unknown80__);
-    public readonly bool GetWorldCollision() => Typed.HasFlag(Type.WorldCollision);
-    public readonly int GetItemDropClass() => Data >> 9 & 7;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct SparseRoomAttr
-{
-    public readonly byte roomId;
-    public readonly RoomAttrs attrs;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct SparseMaze
-{
-    public readonly byte roomId;
-    public readonly byte exitDir;
-    public fixed byte path[4];
-
-    public readonly Direction ExitDirection => (Direction)exitDir;
-    public readonly ReadOnlySpan<Direction> Paths => new[] { (Direction)path[0], (Direction)path[1], (Direction)path[2], (Direction)path[3], };
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct SparseRoomItem
-{
-    public readonly byte roomId;
-    public readonly byte x;
-    public readonly byte y;
-    public readonly byte itemId;
-
-    public readonly ItemId AsItemId => (ItemId)itemId;
-}
-
 internal enum Sparse
 {
     ArmosStairs,
@@ -353,18 +259,4 @@ internal enum Extra
     LevelPersonStringIds,
     HitPoints,
     PlayerDamage,
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct LevelPersonStrings
-{
-    public fixed byte StringIds[World.LevelGroups * (int)ObjType.PersonTypes];
-
-    public ReadOnlySpan<byte> GetStringIds(int levelTableIndex)
-    {
-        fixed (byte* p = StringIds)
-        {
-            return new ReadOnlySpan<byte>(p + levelTableIndex * (int)ObjType.PersonTypes, (int)ObjType.PersonTypes);
-        }
-    }
 }

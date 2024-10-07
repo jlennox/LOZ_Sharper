@@ -210,7 +210,7 @@ internal sealed class GameCheats
 
             // Need to be sure all the objects are flushed.
             game.World.KillAllObjects();
-            game.World.MakeCaveObjects(caveId.Value);
+            // JOE: TODO: MAP REWRITE game.World.MakeCaveObjects(caveId.Value);
         }
     }
 

@@ -8,7 +8,6 @@ namespace z1;
 internal interface IProjectile : IBlockableProjectile
 {
     bool IsPlayerWeapon { get; }
-
     bool IsInShotStartState();
 }
 
@@ -25,15 +24,14 @@ internal abstract class Projectile : Actor, IProjectile
 
     public ProjectileState State = ProjectileState.Flying;
 
-    public bool IsPlayerWeapon => _owner.IsPlayer;
+    public bool IsPlayerWeapon => Owner!.IsPlayer;
 
     private Direction _bounceDir = Direction.None;
-    protected readonly Actor _owner;
 
     protected Projectile(Game game, ObjType type, int x, int y, Actor owner)
         : base(game, type, x, y)
     {
-        _owner = owner;
+        Owner = owner;
 
         if (!IsPlayerWeapon)
         {
@@ -122,7 +120,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
 
     public static int PlayerCount(Game game)
     {
-        return game.World.GetObjects<PlayerSwordProjectile>().Count(t => t._owner.IsPlayer);
+        return game.World.GetObjects<PlayerSwordProjectile>().Count(t => t.Owner!.IsPlayer);
     }
 
     public override void Update()
@@ -399,12 +397,11 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     private static readonly DebugLog _log = new(nameof(BoomerangProjectile));
 
-    public bool IsPlayerWeapon => _owner.IsPlayer;
+    public bool IsPlayerWeapon => Owner.IsPlayer;
 
     private readonly int _startX;
     private readonly int _startY;
     private int _distanceTarget;
-    private readonly Actor _owner;
     private float _x;
     private float _y;
     private readonly float _leaveSpeed;
@@ -418,7 +415,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
         _startX = x;
         _startY = y;
         _distanceTarget = distance;
-        _owner = owner;
+        Owner = owner;
         _x = x;
         _y = y;
         _leaveSpeed = speed;
@@ -442,7 +439,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     public static int PlayerCount(Game game)
     {
-        return game.World.GetObjects<BoomerangProjectile>().Count(t => t._owner.IsPlayer);
+        return game.World.GetObjects<BoomerangProjectile>().Count(t => t.Owner.IsPlayer);
     }
 
     public override bool Delete()
@@ -545,20 +542,20 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     private void UpdateReturn()
     {
-        if (_owner == null || _owner.Decoration != 0)
+        if (Owner == null || Owner.Decoration != 0)
         {
             Delete();
             return;
         }
 
-        if (_owner is not IThrower thrower)
+        if (Owner is not IThrower thrower)
         {
             Delete();
             return;
         }
 
-        var yDist = _owner.Y - (int)Math.Floor(_y);
-        var xDist = _owner.X - (int)Math.Floor(_x);
+        var yDist = Owner.Y - (int)Math.Floor(_y);
+        var xDist = Owner.X - (int)Math.Floor(_x);
 
         if (Math.Abs(xDist) < 9 && Math.Abs(yDist) < 9)
         {
@@ -615,7 +612,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
             // The original game sets animTimer to 2.
             // But the sound from the NSF doesn't sound right at that speed.
             _animTimer = 11;
-            if (_owner != null && _owner.IsPlayer)
+            if (Owner != null && Owner.IsPlayer)
             {
                 Game.Sound.PlayEffect(SoundEffect.Boomerang);
             }
@@ -683,7 +680,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
     public static int PlayerCount(Game game)
     {
-        return game.World.GetObjects<MagicWaveProjectile>().Count(t => t._owner.IsPlayer);
+        return game.World.GetObjects<MagicWaveProjectile>().Count(t => t.Owner.IsPlayer);
     }
 
     public override void Update()
@@ -722,7 +719,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
     {
         if (Game.World.GetItem(ItemSlot.Book) == 0) return;
 
-        var fire = new FireActor(Game, _owner, X, Y, Facing)
+        var fire = new FireActor(Game, Owner!, X, Y, Facing)
         {
             ObjTimer = 0x4F,
             State = FireState.Standing
@@ -755,7 +752,7 @@ internal sealed class ArrowProjectile : Projectile
 
     public static int PlayerCount(Game game)
     {
-        return game.World.GetObjects<ArrowProjectile>().Count(t => t._owner.IsPlayer);
+        return game.World.GetObjects<ArrowProjectile>().Count(t => t.Owner.IsPlayer);
     }
 
     public void SetSpark(int frames = 3)
@@ -784,7 +781,7 @@ internal sealed class ArrowProjectile : Projectile
             return;
         }
 
-        if (Direction.None == CheckWorldMargin(Facing))
+        if (CheckWorldMargin(Facing) == Direction.None)
         {
             SetSpark();
         }

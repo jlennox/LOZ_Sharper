@@ -354,7 +354,7 @@ internal static class GLWindowGui
         {
             game.World.DebugKillAllObjects();
             game.World.CurrentRoomFlags.ItemState = false;
-            game.World.MakeCaveObjects(caveId);
+            // JOE: TODO: MAP REWRITE game.World.MakeCaveObjects(caveId);
         }
 
         static void SpawnPerson(Game game, PersonType type)

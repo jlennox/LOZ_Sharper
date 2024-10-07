@@ -1123,7 +1123,7 @@ internal sealed class Player : Actor, IThrower
     {
         if (Game.Cheats.NoClip) return dir;
 
-        foreach (var block in Game.World.GetObjects<BlockActor>())
+        foreach (var block in Game.World.GetObjects().OfType<IHasCollision>())
         {
             if (block.CheckCollision(this) == CollisionResponse.Blocked)
             {

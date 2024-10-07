@@ -168,16 +168,6 @@ internal static class GlobalFunctions
         return new PersonActor(game, caveId, spec, x, y);
     }
 
-    public static Actor MakeItem(Game game, ItemId itemId, int x, int y, bool isRoomItem)
-    {
-        if (itemId == ItemId.Fairy)
-        {
-            return new FairyActor(game, x, y);
-        }
-
-        return new ItemObjActor(game, itemId, isRoomItem, x, y);
-    }
-
     public static ItemGraphics? GetItemGraphics(int itemId)
     {
         if (itemId >= 0x3F) return null;

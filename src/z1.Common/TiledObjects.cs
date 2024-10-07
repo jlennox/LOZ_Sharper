@@ -22,27 +22,18 @@ public static class TiledObjectProperties
     // Room
     public const string Id = nameof(Id);
     public const string Monsters = nameof(Monsters);
-    // public const string IsEntryRoom = nameof(IsEntryRoom);
-    // public const string AmbientSound = nameof(AmbientSound);
-    // public const string IsLadderAllowed = nameof(IsLadderAllowed);
 
     // Overworld
     public const string MonstersEnter = nameof(MonstersEnter);
     public const string Maze = nameof(Maze);
-    // public const string MazeExit = nameof(MazeExit);
     public const string RoomInformation = nameof(RoomInformation);
-    // public const string PlaysSecretChime = nameof(PlaysSecretChime);
-    // public const string CaveId = nameof(CaveId);
-    // public const string RoomItemId = nameof(RoomItemId);
 
     // Underworld
     public const string DungeonDoors = nameof(DungeonDoors);
-    // public const string IsDark = nameof(IsDark);
     public const string Secret = nameof(Secret);
     public const string ItemId = nameof(ItemId);
     public const string ItemPosition = nameof(ItemPosition);
     public const string FireballLayout = nameof(FireballLayout);
-    // public const string IsBossRoom = nameof(IsBossRoom);
     public const string CellarItem = nameof(CellarItem);
     public const string CellarStairsLeft = nameof(CellarStairsLeft);
     public const string CellarStairsRight = nameof(CellarStairsRight);
@@ -51,18 +42,53 @@ public static class TiledObjectProperties
     public static readonly ImmutableArray<Direction> DoorDirectionOrder = [Direction.Right, Direction.Left, Direction.Down, Direction.Up];
 
     // Action
-    // public const string TileAction = nameof(TileAction);
-    // public const string Enters = nameof(Enters);
-    // public const string ExitPosition = nameof(ExitPosition);
-    // public const string Owner = nameof(Owner);
-    // public const string Reveals = nameof(Reveals);
     public const string Interaction = nameof(Interaction);
-    // public const string Raft = nameof(Raft);
-    public const string Argument = nameof(Argument);
     public const string RecorderDestination = nameof(RecorderDestination); // What sequence the recorder will warp you in.
 
     // TileBehavior
     public const string TileBehavior = nameof(TileBehavior);
+
+    public static TiledProperty CreateArgument(string name, string value)
+    {
+        return new TiledProperty
+        {
+            Name = $"Argument.{name}",
+            Value = value,
+        };
+    }
+}
+
+public enum TiledArgument
+{
+    None,
+    ItemId,
+    CellarStairsLeft,
+    CellarStairsRight,
+}
+
+public static class TiledArgumentProperties
+{
+    private static string GetPropertyName(TiledArgument name) => $"Argument.{name}";
+
+    public static TiledProperty CreateArgument(TiledArgument name, string value)
+    {
+        return new TiledProperty
+        {
+            Name = GetPropertyName(name),
+            Value = value,
+        };
+    }
+
+    public static TiledProperty? GetArgument(this IHasTiledProperties tiled, TiledArgument name)
+    {
+        return tiled.GetPropertyEntry(GetPropertyName(name));
+    }
+
+    public static TiledProperty ExpectArgument(this IHasTiledProperties tiled, TiledArgument name)
+    {
+        return tiled.GetPropertyEntry(GetPropertyName(name))
+            ?? throw new Exception($"Unable to find argument \"{name}\"");
+    }
 }
 
 public static class TiledTileSetTileProperties
@@ -94,18 +120,10 @@ public sealed class MazeRoom
     public Direction ExitDirection { get; set; }
 }
 
-// When this block is interacted with,
-public interface IInteractable
-{
-    Interaction Interaction { get; set; }
-    RoomItem? Item { get; set; }
-    Entrance? Entrance { get; set; }
-}
-
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum EntranceType
 {
-    Level, Cave, World
+    Level, Overworld, UnderworldCommon, OverworldCommon
 }
 
 [TiledClass]
@@ -116,10 +134,12 @@ public sealed class Entrance
     public PointXY ExitPosition { get; set; }
     public CaveSpec? Cave { get; set; }
     public BlockType BlockType { get; set; }
+    public RoomArguments? Arguments { get; set; }
 
-    public bool TryGetLevelNumber(out int levelNumber)
+    public int GetLevelNumber()
     {
-        return int.TryParse(Destination, out levelNumber);
+        return int.TryParse(Destination, out var levelNumber)
+            ? levelNumber : throw new Exception($"Invalid level number \"{Destination}\"");
     }
 
     public override string ToString() => Destination;
@@ -155,7 +175,7 @@ public enum InteractionRequirements { None, AllEnemiesDefeated }
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum InteractionEffect { None, OpenShutterDoors }
 
-public sealed class InteractableBlock : IInteractable
+public sealed class InteractableBlock
 {
     public Interaction Interaction { get; set; }
     public InteractionItemRequirement? ItemRequirement { get; set; }
@@ -164,19 +184,29 @@ public sealed class InteractableBlock : IInteractable
     public TileType? ApparanceBlock { get; set; }
     public Entrance? Entrance { get; set; }
     public InteractionEffect Effect { get; set; }
-    public CaveShopItem[]? CaveItems { get; set; } // These are root level so that we can have an array via multiple properties.
+    // These are root level, not inside CaveSpec, so that we can have an array via multiple properties.
+    public CaveShopItem[]? CaveItems { get; set; }
     public ObjType? SpawnedType { get; set; }
     public Raft? Raft { get; set; }
     public bool Repeatable { get; set; }
     public bool Persisted { get; set; }
     public string? Reveals { get; set; }
+    public RoomArguments? ArgumentsIn { get; set; }
+
+    public void Initialize(RoomArguments arguments)
+    {
+        if (Item?.Item == ItemId.ArgumentItemId)
+        {
+            Item.Item = ArgumentsIn?.ItemId ?? throw new Exception($"{nameof(ItemId.ArgumentItemId)} is used but no argument provided.");
+        }
+    }
 }
 
 [TiledClass]
 public sealed class RoomItem
 {
     public ItemId Item { get; set; }
-    public bool IsRoomItem { get; set; }
+    public bool IsRoomItem { get; set; } // UW only.
 }
 
 [TiledClass]
@@ -213,4 +243,12 @@ public sealed class RecorderDestination
 {
     // What sequence the recorder will warp you in.
     public int Slot { get; set; }
+}
+
+[TiledClass]
+public sealed class RoomArguments
+{
+    public string? ExitLeft { get; set; }
+    public string? ExitRight { get; set; }
+    public ItemId? ItemId { get; set; }
 }

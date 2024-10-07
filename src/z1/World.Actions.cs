@@ -223,79 +223,79 @@ internal partial class World
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Invalid game mode.")
     };
 
-    private ImmutableArray<Action> PlayCellarFuncs => [
-        UpdatePlayCellar_Start,
-        UpdatePlayCellar_FadeOut,
-        UpdatePlayCellar_LoadRoom,
-        UpdatePlayCellar_FadeIn,
-        UpdatePlayCellar_Walk
-    ];
+    // private ImmutableArray<Action> PlayCellarFuncs => [
+    //     UpdatePlayCellar_Start,
+    //     UpdatePlayCellar_FadeOut,
+    //     UpdatePlayCellar_LoadRoom,
+    //     UpdatePlayCellar_FadeIn,
+    //     UpdatePlayCellar_Walk
+    // ];
 
-    private ImmutableArray<Action> PlayCaveFuncs => [
-        UpdatePlayCave_Start,
-        UpdatePlayCave_Wait,
-        UpdatePlayCave_LoadRoom,
-        UpdatePlayCave_Walk
-    ];
+    // private ImmutableArray<Action> PlayCaveFuncs => [
+    //     UpdatePlayCave_Start,
+    //     UpdatePlayCave_Wait,
+    //     UpdatePlayCave_LoadRoom,
+    //     UpdatePlayCave_Walk
+    // ];
 
-    private ImmutableArray<Action> EndLevelFuncs => [
-        UpdateEndLevel_Start,
-        UpdateEndLevel_Wait,
-        UpdateEndLevel_Flash,
-        UpdateEndLevel_FillHearts,
-        UpdateEndLevel_Wait,
-        UpdateEndLevel_Furl,
-        UpdateEndLevel_Wait
-    ];
+    // private ImmutableArray<Action> EndLevelFuncs => [
+    //     UpdateEndLevel_Start,
+    //     UpdateEndLevel_Wait,
+    //     UpdateEndLevel_Flash,
+    //     UpdateEndLevel_FillHearts,
+    //     UpdateEndLevel_Wait,
+    //     UpdateEndLevel_Furl,
+    //     UpdateEndLevel_Wait
+    // ];
 
-    private ImmutableArray<Action> WinGameFuncs => [
-        UpdateWinGame_Start,
-        UpdateWinGame_Text1,
-        UpdateWinGame_Stand,
-        UpdateWinGame_Hold1,
-        UpdateWinGame_Colors,
-        UpdateWinGame_Hold2,
-        UpdateWinGame_Text2,
-        UpdateWinGame_Hold3,
-        UpdateWinGame_NoObjects,
-        UpdateWinGame_Credits
-    ];
+    // private ImmutableArray<Action> WinGameFuncs => [
+    //     UpdateWinGame_Start,
+    //     UpdateWinGame_Text1,
+    //     UpdateWinGame_Stand,
+    //     UpdateWinGame_Hold1,
+    //     UpdateWinGame_Colors,
+    //     UpdateWinGame_Hold2,
+    //     UpdateWinGame_Text2,
+    //     UpdateWinGame_Hold3,
+    //     UpdateWinGame_NoObjects,
+    //     UpdateWinGame_Credits
+    // ];
 
-    private ImmutableArray<Action> ScrollFuncs => [
-        UpdateScroll_Start,
-        UpdateScroll_AnimatingColors,
-        UpdateScroll_FadeOut,
-        UpdateScroll_LoadRoom,
-        UpdateScroll_Scroll
-    ];
+    // private ImmutableArray<Action> ScrollFuncs => [
+    //     UpdateScroll_Start,
+    //     UpdateScroll_AnimatingColors,
+    //     UpdateScroll_FadeOut,
+    //     UpdateScroll_LoadRoom,
+    //     UpdateScroll_Scroll
+    // ];
 
-    private ImmutableArray<Action> DeathFuncs => [
-        UpdateDie_Start,
-        UpdateDie_Flash,
-        UpdateDie_Wait1,
-        UpdateDie_Turn,
-        UpdateDie_Fade,
-        UpdateDie_GrayPlayer,
-        UpdateDie_Spark,
-        UpdateDie_Wait2,
-        UpdateDie_GameOver
-    ];
+    // private ImmutableArray<Action> DeathFuncs => [
+    //     UpdateDie_Start,
+    //     UpdateDie_Flash,
+    //     UpdateDie_Wait1,
+    //     UpdateDie_Turn,
+    //     UpdateDie_Fade,
+    //     UpdateDie_GrayPlayer,
+    //     UpdateDie_Spark,
+    //     UpdateDie_Wait2,
+    //     UpdateDie_GameOver
+    // ];
 
-    private ImmutableArray<Action> LeaveCellarFuncs => [
-        UpdateLeaveCellar_Start,
-        UpdateLeaveCellar_FadeOut,
-        UpdateLeaveCellar_LoadRoom,
-        UpdateLeaveCellar_FadeIn,
-        UpdateLeaveCellar_Walk,
-        UpdateLeaveCellar_Wait,
-        UpdateLeaveCellar_LoadOverworldRoom
-    ];
+    // private ImmutableArray<Action> LeaveCellarFuncs => [
+    //     UpdateLeaveCellar_Start,
+    //     UpdateLeaveCellar_FadeOut,
+    //     UpdateLeaveCellar_LoadRoom,
+    //     UpdateLeaveCellar_FadeIn,
+    //     UpdateLeaveCellar_Walk,
+    //     UpdateLeaveCellar_Wait,
+    //     UpdateLeaveCellar_LoadOverworldRoom
+    // ];
 
-    private ImmutableArray<Action> EnterFuncs => [
-        UpdateEnter_Start,
-        UpdateEnter_Wait,
-        UpdateEnter_FadeIn,
-        UpdateEnter_Walk,
-        UpdateEnter_WalkCave
-    ];
+    // private ImmutableArray<Action> EnterFuncs => [
+    //     UpdateEnter_Start,
+    //     UpdateEnter_Wait,
+    //     UpdateEnter_FadeIn,
+    //     UpdateEnter_Walk,
+    //     UpdateEnter_WalkCave
+    // ];
 }

@@ -208,4 +208,16 @@ internal static class Extensions
         var b = tile.IsFlippedY ? DrawingFlags.FlipY : 0;
         return a | b;
     }
+
+    public static BlockType GetBlockType(this TileType tile)
+    {
+        return tile switch
+        {
+            TileType.Ground => BlockType.Ground,
+            TileType.Rock => BlockType.Rock,
+            TileType.Headstone => BlockType.Headstone,
+            TileType.Block => BlockType.Block,
+            _ => throw new Exception($"TileType {tile} has no associated BlockType.")
+        };
+    }
 }

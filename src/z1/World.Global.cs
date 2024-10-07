@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using SkiaSharp;
 using z1.Actors;
 using z1.Render;
@@ -18,7 +19,7 @@ internal partial class World
         return (row << 4) | col;
     }
 
-    private static bool TryGetNextRoom(GameRoom currentRoom, Direction direction, out GameRoom room)
+    private static bool TryGetNextRoom(GameRoom currentRoom, Direction direction, [MaybeNullWhen(false)] out GameRoom room)
     {
         // GetWorldCoord(curRoomId, out var row, out var col);
 
@@ -47,6 +48,23 @@ internal partial class World
 
         // var nextRoomId = MakeRoomId(row, col);
         return currentRoom.Connections.TryGetValue(direction, out room);
+    }
+
+    private GameRoom GetNextRoom(GameRoom currentRoom, Direction direction, out RoomHistoryEntry entry)
+    {
+        entry = default;
+        if (!TryGetNextRoom(CurrentRoom, _state.Scroll.ScrollDir, out var nextRoom))
+        {
+            if (!TryTakePreviousEntrance(out entry))
+            {
+                entry = new RoomHistoryEntry(
+                    _overworldWorld.EntryRoom, _overworldWorld, new Entrance());
+            }
+
+            return entry.Room;
+        }
+
+        return nextRoom;
     }
 
     private static void GetRoomCoord(int position, out int tileY, out int tileX)

@@ -24,6 +24,11 @@ public interface IHasTiledProperties
     TiledProperty[]? Properties { get; set; }
 }
 
+public interface IHasInitialization
+{
+    void Initialize();
+}
+
 public interface IHasCompression
 {
     byte[] Data { get; set; }
@@ -294,9 +299,83 @@ public sealed class TiledProperty
     public TiledProperty(string name, object? value) : this(name, (value ?? "").ToString()) { }
     public TiledProperty(string name, PointXY point) : this(name, $"{point.X},{point.Y}") { }
 
-    public static TiledProperty CreateArgument(string name, object value)
+    public bool TryGetEnum<T>(out T value) where T : struct
     {
-        return new TiledProperty($"{TiledObjectProperties.Argument}_{name}", $"{value}");
+        value = default;
+        if (Value == null) return false;
+        return Enum.TryParse<T>(Value, ignoreCase: true, out value);
+    }
+
+    public T GetEnumProperty<T>(T defaultValue = default) where T : struct
+    {
+        if (Value == null) return defaultValue;
+        return Enum.Parse<T>(Value, ignoreCase: true);
+    }
+
+    public T? GetNullableEnumProperty<T>(T? defaultValue = null) where T : struct
+    {
+        if (Value == null) return defaultValue;
+        return Enum.Parse<T>(Value, ignoreCase: true);
+    }
+
+    public T[] GetEnumArray<T>() where T : struct
+    {
+        if (string.IsNullOrEmpty(Value)) return [];
+
+        var count = 1;
+        foreach (var c in Value) if (c == ',') count++;
+        Span<Range> outputs = stackalloc Range[count];
+        var stringSpan = Value.AsSpan();
+        var nfound = stringSpan.Split(outputs, ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var list = new T[count];
+
+        for (var i = 0; i < nfound; ++i)
+        {
+            var enumName = stringSpan[outputs[i]];
+            list[i] = Enum.Parse<T>(enumName, ignoreCase: true);
+        }
+
+        return list.ToArray();
+    }
+
+    public bool GetBoolean()
+    {
+        if (Value == null) return false;
+        return bool.Parse(Value);
+    }
+
+    public bool TryGetInt(out int value)
+    {
+        return int.TryParse(Value, out value);
+    }
+
+    public int? GetIntOrNull()
+    {
+        return int.TryParse(Value, out var value) ? value : null;
+    }
+
+    public PointXY GetPoint()
+    {
+        if (Value == null) return default;
+        var index = Value.IndexOf(',');
+        if (index == -1) return default;
+        var span = Value.AsSpan();
+        return new PointXY(int.Parse(span[..index]), int.Parse(span[(index + 1)..]));
+    }
+
+    public T GetJson<T>()
+    {
+        return JsonSerializer.Deserialize<T>(Value);
+    }
+
+    public T? GetClass<T>() where T : class
+    {
+        return ClassValue as T;
+    }
+
+    public T ExpectClass<T>() where T : class
+    {
+        return GetClass<T>() ?? throw new Exception($"Expected class \"{typeof(T).Name}\" at property \"{Name}\".");
     }
 
     public static TiledProperty ForClass<T>(string name, T obj)
@@ -771,7 +850,7 @@ public sealed class TiledProjectCustomProperty
         {
             var property = properties[i];
             // var value = property.GetValue(instance);
-            var innerType = property.PropertyType.GetInnerType();
+            var innerType = property.PropertyType.GetInnerType(out var isArray, out _);
             if (innerType.Name == "PointXY")
             {
             }
@@ -919,7 +998,7 @@ public static class TiledPropertySerializer<T>
                     var parser = new StringParser();
                     var nameSpan = tiledProperty.Name.AsSpan();
                     if (!parser.TryExpectWord(nameSpan, out var word)) continue;
-                    if (word != propertyName) continue; // TODO: This is case sensitive!
+                    if (!propertyName.IStartsWith(word)) continue;
 
                     if (parser.TryExpectChar(nameSpan, '[')
                         && parser.TryExpectInt(nameSpan, out var index)
@@ -949,6 +1028,8 @@ public static class TiledPropertySerializer<T>
             var value = DeserializeProperty(prop.PropertyType, propertyName, propertyValue);
             if (value != null) prop.SetValue(obj, value);
         }
+
+        if (obj is IHasInitialization init) init.Initialize();
 
         return obj;
     }
