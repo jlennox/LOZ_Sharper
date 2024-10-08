@@ -8,7 +8,7 @@ using z1.UI;
 
 namespace z1;
 
-internal enum DoorType { Open, None, FalseWall, FalseWall2, Bombable, Key, Key2, Shutter }
+internal enum DoorType { Open, Wall, FalseWall, FalseWall2, Bombable, Key, Key2, Shutter }
 internal enum TileInteraction { Load, Push, Touch, Cover }
 internal enum SpritePriority { None, AboveBg, BelowBg }
 internal enum SubmenuState { IdleClosed, StartOpening, EndOpening = 7, IdleOpen, StartClose }
@@ -145,7 +145,7 @@ internal sealed partial class World
     private ImmutableArray<string> _textTable;
     private readonly RoomHistory _roomHistory;
     private readonly GameWorld _overworldWorld;
-    private readonly Dictionary<EntranceType, GameWorld> _commonWorlds = [];
+    private readonly Dictionary<GameWorldType, GameWorld> _commonWorlds = [];
     public GameWorld CurrentWorld;
     public GameRoom CurrentRoom;
     public RoomFlags CurrentRoomFlags => CurrentRoom.RoomFlags;
@@ -160,7 +160,7 @@ internal sealed partial class World
     public int MarginLeft;
     public int MarginBottom;
     public int MarginTop;
-    private GLImage _wallsBmp;
+    // private GLImage _wallsBmp;
     private GLImage _doorsBmp;
 
     private GameMode _lastMode;
@@ -231,8 +231,8 @@ internal sealed partial class World
 
         _overworldWorld = GameWorld.Load(game, "Maps/Overworld.world", 1);
         CurrentWorld = _overworldWorld;
-        _commonWorlds[EntranceType.OverworldCommon] = GameWorld.Load(game, "Maps/OverworldCommon.world", 1);
-        _commonWorlds[EntranceType.UnderworldCommon] = GameWorld.Load(game, "Maps/UnderworldCommon.world", 1);
+        _commonWorlds[GameWorldType.OverworldCommon] = GameWorld.Load(game, "Maps/OverworldCommon.world", 1);
+        _commonWorlds[GameWorldType.UnderworldCommon] = GameWorld.Load(game, "Maps/UnderworldCommon.world", 1);
 
         _roomHistory = new RoomHistory(game, RoomHistoryLength);
         _statusBar = new StatusBar(this);
@@ -260,6 +260,7 @@ internal sealed partial class World
     {
         // Ensure there's one defined for each.
         foreach (var action in Enum.GetValues<TileAction>()) GetTileActionFunction(action);
+        foreach (var action in Enum.GetValues<DoorType>()) GetDoorFace(action);
     }
 
     private void LoadOpenRoomContext()
@@ -277,6 +278,7 @@ internal sealed partial class World
 
     private void LoadClosedRoomContext()
     {
+        return;
         _colCount = 24;
         _rowCount = 14;
         _startRow = 4;
@@ -316,7 +318,7 @@ internal sealed partial class World
     {
         _textTable = new Asset("text.json").ReadJson<string[]>().ToImmutableArray();
         _extraData = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
-        _wallsBmp = Graphics.CreateImage(new Asset("underworldWalls.png"));
+        // _wallsBmp = Graphics.CreateImage(new Asset("underworldWalls.png"));
         _doorsBmp = Graphics.CreateImage(new Asset("underworldDoors.png"));
 
         Profile = profile;
@@ -340,7 +342,7 @@ internal sealed partial class World
                 if (mode != GameMode.Unfurl)
                 {
                     OnLeavePlay();
-                    Game.Player?.Stop();
+                    Game.Player.Stop();
                 }
             }
 
@@ -365,7 +367,29 @@ internal sealed partial class World
     private bool IsAnyButtonPressing(GameButton a, GameButton b) => Game.Input.IsAnyButtonPressing(a, b);
     private void DrawRoom() => DrawMap(CurrentRoom, 0, 0);
     public void PauseFillHearts() => _pause = PauseState.FillingHearts;
-    public void LeaveRoom(Direction dir, GameRoom room) => GotoLeave(dir, room);
+    public void LeaveRoom(Direction dir, GameRoom currentRoom)
+    {
+        if (!TryGetNextRoom(currentRoom, dir, out _))
+        {
+            GotoLeaveCellar();
+            return;
+        }
+
+        GotoLeave(dir, currentRoom);
+
+        // switch (currentRoom.World.WorldType)
+        // {
+        //     case GameWorldType.OverworldCommon:
+        //     case GameWorldType.UnderworldCommon:
+        //     case GameWorldType.Underworld:
+        //         GotoLeaveCellar();
+        //         break;
+        //
+        //     default:
+        //         GotoLeave(dir, currentRoom);
+        //         break;
+        // }
+    }
     public void LeaveCellar() => GotoLeaveCellar();
 
     public void LeaveCellarByShortcut(GameRoom targetRoom)
@@ -391,11 +415,6 @@ internal sealed partial class World
     public LadderActor? GetLadder() => GetObject<LadderActor>();
     public void SetLadder(LadderActor ladder) => AddOnlyObjectOfType(ladder);
     public void RemoveLadder() => RemoveObject<LadderActor>();
-
-    private void PerformAction(InteractiveGameObject action)
-    {
-        // TODO
-    }
 
     public void UseRecorder()
     {
@@ -871,7 +890,7 @@ internal sealed partial class World
 
     private void DrawDoors(GameRoom room, bool above, int offsetX, int offsetY)
     {
-        if (!room.HasDungeonDoors) return;
+        if (!room.HasUnderworldDoors) return;
 
         var outerPalette = CurrentRoom.RoomInformation.OuterPalette;
         var baseY = above ? DoorOverlayBaseY : DoorUnderlayBaseY;
@@ -879,9 +898,11 @@ internal sealed partial class World
 
         foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
         {
-            var doorType = room.DungeonDoors[direction];
+            var doorType = room.UderworldDoors[direction];
             var doorState = flags.GetDoorState(direction);
-            if (_tempShutterDoorDir != 0 && room == _tempShutterRoom && doorType == DoorType.Shutter)
+            if (_tempShutterDoorDir != 0
+                && room == _tempShutterRoom
+                && doorType == DoorType.Shutter)
             {
                 if (direction == _tempShutterDoorDir)
                 {
@@ -896,7 +917,7 @@ internal sealed partial class World
             var doorPos = _doorPos[direction];
             Graphics.DrawImage(
                 _doorsBmp,
-                DoorWidth * doorFace,
+                DoorWidth * (int)doorFace,
                 doorPos.SourceY + baseY,
                 DoorWidth,
                 DoorHeight,
@@ -1015,7 +1036,7 @@ internal sealed partial class World
     private bool GetEffectiveDoorState(GameRoom room, Direction doorDir)
     {
         // TODO: the original game does it a little different, by looking at $EE.
-        var type = room.DungeonDoors[doorDir];
+        var type = room.UderworldDoors[doorDir];
         return room.RoomFlags.GetDoorState(doorDir)
             || (type == DoorType.Shutter && _tempShutters && room == _tempShutterRoom) // JOE: I think doing object instance comparisons is fine?
             || (_tempShutterDoorDir == doorDir && room == _tempShutterRoom);
@@ -1081,7 +1102,7 @@ internal sealed partial class World
 
         foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
         {
-            if (CurrentRoom.DungeonDoors[direction] == DoorType.Shutter)
+            if (CurrentRoom.UderworldDoors[direction] == DoorType.Shutter)
             {
                 UpdateDoorTileBehavior(direction);
             }
@@ -1308,7 +1329,7 @@ internal sealed partial class World
         var map = CurrentRoom.RoomMap;
         var doorOrd = doorDir.GetOrdinal();
         var corner = _doorCorners[doorOrd];
-        var type = room.DungeonDoors[doorDir];
+        var type = room.UderworldDoors[doorDir];
         var effectiveDoorState = GetEffectiveDoorState(room, doorDir);
         var behavior = _doorBehaviors[(int)type].GetBehavior(effectiveDoorState);
 
@@ -1351,12 +1372,6 @@ internal sealed partial class World
         _state.Play.LiftItemTimer = 0;
         _state.Play.LiftItemId = 0;
         _state.Play.PersonWallY = 0;
-
-        // if (CurrentRoom.Raft != null) // JOE: TODO: Map rewrite. I think this needs more work.
-        // {
-        //     var dock = new DockActor(Game, 0, 0);
-        //     AddObject(dock);
-        // }
 
         // Set the level's level foreground palette before making objects,
         // so that if we make a boss, we won't override a palette that it might set.
@@ -1570,7 +1585,7 @@ internal sealed partial class World
 
     private void CheckShutters()
     {
-        if (!CurrentRoom.HasDungeonDoors) return;
+        if (!CurrentRoom.HasUnderworldDoors) return;
         if (!_triggerShutters) return;
 
         _triggerShutters = false;
@@ -1578,7 +1593,7 @@ internal sealed partial class World
 
         foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
         {
-            if (CurrentRoom.DungeonDoors[direction] == DoorType.Shutter
+            if (CurrentRoom.UderworldDoors[direction] == DoorType.Shutter
                 && !GetEffectiveDoorState(direction))
             {
                 dirs |= direction;
@@ -1594,7 +1609,7 @@ internal sealed partial class World
 
     private void UpdateDoors2()
     {
-        if (!CurrentRoom.HasDungeonDoors) return;
+        if (!CurrentRoom.HasUnderworldDoors) return;
 
         if (GetMode() == GameMode.EndLevel
             || GetObjectTimer(ObjectTimer.Door) != 0
@@ -1623,7 +1638,7 @@ internal sealed partial class World
             if ((_triggeredDoorDir & (Direction)d) == 0) continue;
 
             var dir = (Direction)d;
-            var type = CurrentRoom.DungeonDoors[dir];
+            var type = CurrentRoom.UderworldDoors[dir];
 
             if (type is DoorType.Bombable or DoorType.Key or DoorType.Key2)
             {
@@ -1724,7 +1739,7 @@ internal sealed partial class World
 
     private void CheckBombableUWWalls()
     {
-        if (!CurrentRoom.HasDungeonDoors) return;
+        if (!CurrentRoom.HasUnderworldDoors) return;
 
         foreach (var bomb in Game.World.GetObjects<BombActor>())
         {
@@ -1735,7 +1750,7 @@ internal sealed partial class World
 
             foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
             {
-                var doorType = CurrentRoom.DungeonDoors[direction];
+                var doorType = CurrentRoom.UderworldDoors[direction];
                 if (doorType != DoorType.Bombable) continue;
 
                 var doorState = CurrentRoom.RoomFlags.GetDoorState(direction);
@@ -2143,7 +2158,7 @@ internal sealed partial class World
         GlobalFunctions.DrawItem(Game, itemId, Game.Player.X, Game.Player.Y - 0x10, 0);
     }
 
-    private void MakeObjects(Direction entryDir)
+    private void MakeObjects(Direction entryDir, ObjectState? state = null)
     {
         // JOE: TODO: MAP REWRITE if (IsUWCellar(CurrentRoom))
         // JOE: TODO: MAP REWRITE {
@@ -2153,7 +2168,7 @@ internal sealed partial class World
 
         if (_state.Play.RoomType == RoomType.Cave)
         {
-            MakeCaveObjects(_state.PlayCave.Entrance);
+            MakeCaveObjects(_state.PlayCave.Entrance, _state.PlayCave.ObjectState);
             return;
         }
 
@@ -2239,11 +2254,11 @@ internal sealed partial class World
     //     }
     // }
 
-    public void MakeCaveObjects(Entrance entrance)
+    public void MakeCaveObjects(Entrance entrance, ObjectState? state)
     {
         // JOE: TODO: MAP REWRITE NUKE THESE CAVE SPECS. var spec = _extraData.CaveSpec[(int)index];
 
-        MakePersonRoomObjects(entrance.Cave ?? throw new Exception());
+        MakePersonRoomObjects(entrance.Cave ?? throw new Exception(), state);
     }
 
     public void DebugMakeUnderworldPerson(PersonType type)
@@ -2293,17 +2308,17 @@ internal sealed partial class World
 
         spec ??= _extraData.CaveSpec.First(t => t.PersonType == findType);
 
-        MakePersonRoomObjects(spec);
+        MakePersonRoomObjects(spec, null);
     }
 
-    private void MakePersonRoomObjects(CaveSpec spec)
+    private void MakePersonRoomObjects(CaveSpec spec, ObjectState? state)
     {
         ReadOnlySpan<int> fireXs = [0x48, 0xA8];
 
         if (spec.DwellerType != CaveDwellerType.None)
         {
             // JOE: TODO: Fix CaveId.Cave1.
-            var person = GlobalFunctions.MakePerson(Game, CaveId.Cave1, spec, 0x78, 0x80);
+            var person = new PersonActor(Game, state, CaveId.Cave1, spec, 0x78, 0x80);
             AddObject(person);
         }
 
@@ -2503,12 +2518,6 @@ internal sealed partial class World
         _curMode = GameMode.Scroll;
     }
 
-    private void GotoScroll(Direction dir, GameRoom currentRoom)
-    {
-        GotoScroll(dir);
-        _state.Scroll.CurrentRoom = currentRoom;
-    }
-
     private bool CalcMazeStayPut(Direction dir)
     {
         var maze = CurrentRoom.Maze;
@@ -2537,17 +2546,23 @@ internal sealed partial class World
         return false;
     }
 
+    private void GotoScroll(Direction dir, GameRoom currentRoom)
+    {
+        GotoScroll(dir);
+        _state.Scroll.CurrentRoom = currentRoom;
+    }
+
     private void UpdateScroll()
     {
-        ReadOnlySpan<Action> functions = [
-            ScrollStart,
-            ScrollAnimatingColors,
-            ScrollFadeOut,
-            ScrollLoadRoom,
-            ScrollScroll
-        ];
-
-        functions[(int)_state.Scroll.Substate]();
+        switch (_state.Scroll.Substate)
+        {
+            case ScrollState.Substates.Start: ScrollStart(); break;
+            case ScrollState.Substates.AnimatingColors: ScrollAnimatingColors(); break;
+            case ScrollState.Substates.FadeOut: ScrollFadeOut(); break;
+            case ScrollState.Substates.LoadRoom: ScrollLoadRoom(); break;
+            case ScrollState.Substates.Scroll: ScrollScroll(); break;
+            default: throw new Exception($"Unknown ScrollState \"{_state.Scroll.Substate}\"");
+        }
         return;
 
         void ScrollStart()
@@ -2807,18 +2822,6 @@ internal sealed partial class World
         DrawRoomNoObjects();
     }
 
-    private void GotoEnter(Direction dir)
-    {
-        _state.Enter.Substate = EnterState.Substates.Start;
-        _state.Enter.ScrollDir = dir;
-        _state.Enter.Timer = 0;
-        _state.Enter.PlayerPriority = SpritePriority.AboveBg;
-        _state.Enter.PlayerSpeed = Player.WalkSpeed;
-        _state.Enter.GotoPlay = false;
-        Unpause();
-        _curMode = GameMode.Enter;
-    }
-
     private void MovePlayer(Direction dir, int speed, ref int fraction)
     {
         fraction += speed;
@@ -2833,25 +2836,37 @@ internal sealed partial class World
         Game.Player.Y = y;
     }
 
+    private void GotoEnter(Direction dir)
+    {
+        _state.Enter.Substate = EnterState.Substates.Start;
+        _state.Enter.ScrollDir = dir;
+        _state.Enter.Timer = 0;
+        _state.Enter.PlayerPriority = SpritePriority.AboveBg;
+        _state.Enter.PlayerSpeed = Player.WalkSpeed;
+        _state.Enter.GotoPlay = false;
+        Unpause();
+        _curMode = GameMode.Enter;
+    }
+
     private void UpdateEnter()
     {
-        ReadOnlySpan<Action> functions = [
-            EnterStart,
-            EnterWait,
-            EnterFadeIn,
-            EnterWalk,
-            EnterWalkCave
-        ];
-
-        functions[(int)_state.Enter.Substate]();
+        switch (_state.Enter.Substate)
+        {
+            case EnterState.Substates.Start: EnterStart(); break;
+            case EnterState.Substates.Wait: EnterWait(); break;
+            case EnterState.Substates.FadeIn: EnterFadeIn(); break;
+            case EnterState.Substates.Walk: EnterWalk(); break;
+            case EnterState.Substates.WalkCave: EnterWalkCave(); break;
+            default: throw new Exception($"Unknown EnterState \"{_state.Enter.Substate}\"");
+        }
 
         if (_state.Enter.GotoPlay)
         {
             var origShutterDoorDir = _tempShutterDoorDir;
             _tempShutterDoorDir = Direction.None;
-            if (CurrentRoom.HasDungeonDoors
+            if (CurrentRoom.HasUnderworldDoors
                 && origShutterDoorDir != Direction.None
-                && CurrentRoom.DungeonDoors[origShutterDoorDir] == DoorType.Shutter)
+                && CurrentRoom.UderworldDoors[origShutterDoorDir] == DoorType.Shutter)
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);
                 UpdateDoorTileBehavior(origShutterDoorDir);
@@ -2902,7 +2917,7 @@ internal sealed partial class World
             else if (_state.Enter.ScrollDir != Direction.None)
             {
                 var oppositeDir = _state.Enter.ScrollDir.GetOppositeDirection();
-                var doorType = CurrentRoom.DungeonDoors[oppositeDir];
+                var doorType = CurrentRoom.UderworldDoors[oppositeDir];
                 var distance = doorType is DoorType.Shutter or DoorType.Bombable ? BlockWidth * 2 : BlockWidth;
 
                 _state.Enter.TargetX = Game.Player.X;
@@ -2931,7 +2946,7 @@ internal sealed partial class World
                 _state.Enter.Timer = EnterState.StateTime;
             }
 
-            DoorwayDir = CurrentRoom.HasDungeonDoors ? _state.Enter.ScrollDir : Direction.None;
+            DoorwayDir = CurrentRoom.HasUnderworldDoors ? _state.Enter.ScrollDir : Direction.None;
         }
 
         void EnterWait()
@@ -3003,6 +3018,15 @@ internal sealed partial class World
         DrawRoomNoObjects(_state.Enter.PlayerPriority);
     }
 
+    private void SetPlayerExitPosOW(GameRoom room)
+    {
+        // if (room.ExitPosition != null) // JOE: TODO: MAP REWRITE. This check might not be right.
+        // {
+        //     Game.Player.X = room.ExitPosition.X;
+        //     Game.Player.Y = room.ExitPosition.Y;
+        // }
+    }
+
     public void GotoLoadLevel(int level, bool restartOW = false)
     {
         _state.LoadLevel.Level = level;
@@ -3011,15 +3035,6 @@ internal sealed partial class World
         _state.LoadLevel.RestartOW = restartOW;
 
         _curMode = GameMode.LoadLevel;
-    }
-
-    private void SetPlayerExitPosOW(GameRoom room)
-    {
-        if (room.ExitPosition != null) // JOE: TODO: MAP REWRITE. This check might not be right.
-        {
-            Game.Player.X = room.ExitPosition.X;
-            Game.Player.Y = room.ExitPosition.Y;
-        }
     }
 
     private void UpdateLoadLevel()
@@ -3099,6 +3114,7 @@ internal sealed partial class World
 
             if (CurrentWorld.Info.LevelNumber == 0 && !_state.Unfurl.RestartOW)
             {
+                var asdasdas = _previousRooms.ToArray();
                 LoadRoom(CurrentRoom);
                 SetPlayerExitPosOW(CurrentRoom);
             }
@@ -3178,17 +3194,17 @@ internal sealed partial class World
 
     private void UpdateEndLevel()
     {
-        ReadOnlySpan<Action> functions = [
-            EndLevelStart,
-            EndLevelWait,
-            EndLevelFlash,
-            EndLevelFillHearts,
-            EndLevelWait,
-            EndLevelFurl,
-            EndLevelWait
-        ];
-
-        functions[(int)_state.EndLevel.Substate]();
+        switch (_state.EndLevel.Substate)
+        {
+            case EndLevelState.Substates.Start: EndLevelStart(); break;
+            case EndLevelState.Substates.Wait1: EndLevelWait(); break;
+            case EndLevelState.Substates.Flash: EndLevelFlash(); break;
+            case EndLevelState.Substates.FillHearts: EndLevelFillHearts(); break;
+            case EndLevelState.Substates.Wait2: EndLevelWait(); break;
+            case EndLevelState.Substates.Furl: EndLevelFurl(); break;
+            case EndLevelState.Substates.Wait3: EndLevelWait(); break;
+            default: throw new Exception($"Unknown EndLevelState \"{_state.EndLevel.Substate}\"");
+        }
         return;
 
         void EndLevelStart()
@@ -3309,7 +3325,7 @@ internal sealed partial class World
         DrawPlayerLiftingItem(ItemId.TriforcePiece);
     }
 
-    public void GotoStairs(TileBehavior behavior, Entrance cave)
+    public void GotoStairs(TileBehavior behavior, Entrance cave, ObjectState state)
     {
         if (cave == null) throw new Exception("Unable to locate stairs action object.");
         if (cave.Destination == null) throw new Exception("Stairs do not target a proper location.");
@@ -3317,6 +3333,7 @@ internal sealed partial class World
         _state.Stairs.Substate = StairsState.Substates.Start;
         _state.Stairs.TileBehavior = behavior;
         _state.Stairs.Entrance = cave;
+        _state.Stairs.ObjectState = state;
         _state.Stairs.PlayerPriority = SpritePriority.AboveBg;
 
         _curMode = GameMode.Stairs;
@@ -3355,7 +3372,7 @@ internal sealed partial class World
                 var entrance = _state.Stairs.Entrance;
                 _log.Write($"CaveType: {entrance}");
 
-                LoadEntrance(entrance);
+                LoadEntrance(entrance, _state.Stairs.ObjectState);
 
                 // if ((int)cave <= 9)
                 // {
@@ -3378,16 +3395,16 @@ internal sealed partial class World
         }
     }
 
-    private void LoadEntrance(Entrance entrance)
+    private void LoadEntrance(Entrance entrance, ObjectState? state)
     {
         switch (entrance.DestinationType)
         {
-            case EntranceType.Level:
+            case GameWorldType.Underworld:
                 GotoLoadLevel(entrance.GetLevelNumber());
                 break;
 
-            case EntranceType.OverworldCommon:
-                GotoPlayCave(entrance);
+            case GameWorldType.OverworldCommon:
+                GotoPlayCave(entrance, state);
                 break;
         }
     }
@@ -3398,7 +3415,6 @@ internal sealed partial class World
         DrawRoomNoObjects(_state.Stairs.PlayerPriority);
     }
 
-    #region Cellar
     private void GotoPlayCellar()
     {
         _state.PlayCellar.Substate = PlayCellarState.Substates.Start;
@@ -3409,15 +3425,15 @@ internal sealed partial class World
 
     private void UpdatePlayCellar()
     {
-        ReadOnlySpan<Action> functions = [
-            PlayerCellarStart,
-            PlayerCellarFadeOut,
-            PlayerCellarLoadRoom,
-            PlayerCellarFadeIn,
-            PlayerCellarWalk
-        ];
-
-        functions[(int)_state.PlayCellar.Substate]();
+        switch (_state.PlayCellar.Substate)
+        {
+            case PlayCellarState.Substates.Start: PlayerCellarStart(); break;
+            case PlayCellarState.Substates.FadeOut: PlayerCellarFadeOut(); break;
+            case PlayCellarState.Substates.LoadRoom: PlayerCellarLoadRoom(); break;
+            case PlayCellarState.Substates.FadeIn: PlayerCellarFadeIn(); break;
+            case PlayCellarState.Substates.Walk: PlayerCellarWalk(); break;
+            default: throw new Exception($"Unknown PlayCellarState \"{_state.PlayCellar.Substate}\"");
+        }
         return;
 
         void PlayerCellarStart()
@@ -3524,9 +3540,7 @@ internal sealed partial class World
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
         DrawRoomNoObjects(_state.PlayCellar.PlayerPriority);
     }
-    #endregion
 
-    #region Leave Cellar
     private void GotoLeaveCellar()
     {
         _state.LeaveCellar.Substate = LeaveCellarState.Substates.Start;
@@ -3535,17 +3549,18 @@ internal sealed partial class World
 
     private void UpdateLeaveCellar()
     {
-        ReadOnlySpan<Action> functions = [
-            LeaveCellarStart,
-            LeaveCellarFadeOut,
-            LeaveCellarLoadRoom,
-            LeaveCellarFadeIn,
-            LeaveCellarWalk,
-            LeaveCellarWait,
-            LeaveCellarLoadOverworldRoom,
-        ];
+        switch (_state.LeaveCellar.Substate)
+        {
+            case LeaveCellarState.Substates.Start: LeaveCellarStart(); break;
+            case LeaveCellarState.Substates.FadeOut: LeaveCellarFadeOut(); break;
+            case LeaveCellarState.Substates.LoadRoom: LeaveCellarLoadRoom(); break;
+            case LeaveCellarState.Substates.FadeIn: LeaveCellarFadeIn(); break;
+            case LeaveCellarState.Substates.Walk: LeaveCellarWalk(); break;
+            case LeaveCellarState.Substates.Wait: LeaveCellarWait(); break;
+            case LeaveCellarState.Substates.LoadOverworldRoom: LeaveCellarLoadOverworldRoom(); break;
+            default: throw new Exception($"Unknown LeaveCellarState \"{_state.LeaveCellar.Substate}\"");
+        }
 
-        functions[(int)_state.LeaveCellar.Substate]();
         return;
 
         void LeaveCellarStart()
@@ -3573,11 +3588,11 @@ internal sealed partial class World
                 return;
             }
 
-            for (var i = 0; i < LevelInfoBlock.FadePals; i++)
-            {
-                // JOE: TODO: MAP REWRITE var step = _state.LeaveCellar.FadeStep;
-                // JOE: TODO: MAP REWRITE Graphics.SetPaletteIndexed((Palette)i + 2, CurrentWorld.Info.InCellarPalette[step][i]);
-            }
+            // JOE: TODO: MAP REWRITE for (var i = 0; i < LevelInfoBlock.FadePals; i++)
+            // JOE: TODO: MAP REWRITE {
+            // JOE: TODO: MAP REWRITE     var step = _state.LeaveCellar.FadeStep;
+            // JOE: TODO: MAP REWRITE     Graphics.SetPaletteIndexed((Palette)i + 2, CurrentWorld.Info.InCellarPalette[step][i]);
+            // JOE: TODO: MAP REWRITE }
             Graphics.UpdatePalettes();
             _state.LeaveCellar.FadeTimer = 9;
             _state.LeaveCellar.FadeStep++;
@@ -3661,8 +3676,15 @@ internal sealed partial class World
             }
             Graphics.UpdatePalettes();
 
-            LoadRoom(CurrentRoom);
-            SetPlayerExitPosOW(CurrentRoom);
+            var historyEntry = TakePreviousEntranceOrDefault();
+
+            LoadRoom(historyEntry.Room);
+            var exitPosition = historyEntry.FromEntrance.ExitPosition;
+            if (exitPosition != null)
+            {
+                Player.X = exitPosition.X;
+                Player.Y = exitPosition.Y;
+            }
             GotoEnter(Direction.None);
             Game.Player.Facing = Direction.Down;
         }
@@ -3687,28 +3709,26 @@ internal sealed partial class World
                 break;
         }
     }
-    #endregion
 
-    #region Caves
-    private void GotoPlayCave(Entrance entrance)
+    private void GotoPlayCave(Entrance entrance, ObjectState? state)
     {
         _state.PlayCave.Substate = PlayCaveState.Substates.Start;
         _state.PlayCave.Entrance = entrance;
+        _state.PlayCave.ObjectState = state;
 
         _curMode = GameMode.InitPlayCave;
     }
 
     private void UpdatePlayCave()
     {
-        ReadOnlySpan<Action> functions =
-        [
-            PlayCaveStart,
-            PlayCaveWait,
-            PlayCaveLoadRoom,
-            PlayCaveWalk
-        ];
-
-        functions[(int)_state.PlayCave.Substate]();
+        switch (_state.PlayCave.Substate)
+        {
+            case PlayCaveState.Substates.Start: PlayCaveStart(); break;
+            case PlayCaveState.Substates.Wait: PlayCaveWait(); break;
+            case PlayCaveState.Substates.LoadRoom: PlayCaveLoadRoom(); break;
+            case PlayCaveState.Substates.Walk: PlayCaveWalk(); break;
+            default: throw new Exception($"Unknown PlayCaveState \"{_state.PlayCave.Substate}\"");
+        }
         return;
 
         void PlayCaveStart()
@@ -3736,7 +3756,7 @@ internal sealed partial class World
             // var caveLayout = FindSparseFlag(Sparse.Shortcut, CurrentRoom) ? CaveType.Shortcut : CaveType.Items;
 
             // LoadCaveRoom(caveLayout);
-            var room = _commonWorlds[EntranceType.OverworldCommon].GetRoomByName(_state.PlayCave.Entrance.Destination);
+            var room = _commonWorlds[GameWorldType.OverworldCommon].GetRoomByName(_state.PlayCave.Entrance.Destination);
             LoadMap(room, _state.PlayCave.Entrance);
 
             _state.PlayCave.Substate = PlayCaveState.Substates.Walk;
@@ -3784,7 +3804,6 @@ internal sealed partial class World
                 break;
         }
     }
-    #endregion
 
     public void GotoDie()
     {
@@ -3807,19 +3826,19 @@ internal sealed partial class World
             // JOE: C++ does not return here.
         }
 
-        ReadOnlySpan<Action> functions = [
-            DieStart,
-            DieFlash,
-            DieWait1,
-            DieTurn,
-            DieFade,
-            DieGrayPlayer,
-            DieSpark,
-            DieWait2,
-            DieGameOver
-        ];
-
-        functions[(int)_state.Death.Substate]();
+        switch (_state.Death.Substate)
+        {
+            case DeathState.Substates.Start: DieStart(); break;
+            case DeathState.Substates.Flash: DieFlash(); break;
+            case DeathState.Substates.Wait1: DieWait1(); break;
+            case DeathState.Substates.Turn: DieTurn(); break;
+            case DeathState.Substates.Fade: DieFade(); break;
+            case DeathState.Substates.GrayPlayer: DieGrayPlayer(); break;
+            case DeathState.Substates.Spark: DieSpark(); break;
+            case DeathState.Substates.Wait2: DieWait2(); break;
+            case DeathState.Substates.GameOver: DieGameOver(); break;
+            default: throw new Exception($"Unknown DeathState \"{_state.Death.Substate}\"");
+        }
         return;
 
         void DieStart()
@@ -4342,7 +4361,7 @@ internal sealed partial class World
         Debug.WriteLine("Push door: {0}, {1}", tileY, tileX);
         var player = Player;
 
-        var doorType = CurrentRoom.DungeonDoors[player.MovingDirection];
+        var doorType = CurrentRoom.UderworldDoors[player.MovingDirection];
 
         switch (doorType)
         {

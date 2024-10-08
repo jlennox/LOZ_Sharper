@@ -228,6 +228,7 @@ internal sealed class TileMap
 internal sealed class MapExtractor
 {
     private readonly MapResources _resources;
+    private readonly byte[,] _wallTileMap;
 
     private delegate void LoadMobDelegate(ref TileMap map, MapResources resources, int row, int col, int squareIndex);
 
@@ -302,9 +303,10 @@ internal sealed class MapExtractor
     private int _marginBottom;
     private int _marginTop;
 
-    public MapExtractor(MapResources resources)
+    public MapExtractor(MapResources resources, byte[,] wallTileMap)
     {
         _resources = resources;
+        _wallTileMap = wallTileMap;
     }
 
     public unsafe TileMap LoadLayout(RoomId roomId, out ActionableTiles[] actions)
@@ -383,32 +385,32 @@ internal sealed class MapExtractor
         var levelInfoBlock = resources.LevelInfoBlock;
 
         var exitPos = owRoomAttrs.GetExitPosition();
-        var exitColumnX = exitPos & 0x0F;
-        var exitRowY = (exitPos >> 4) + 4;
+        var exitColumnX = (exitPos & 0x0F) * World.BlockWidth;
+        var exitRowY = ((exitPos >> 4) + 4) * World.BlockHeight + 0x0D;
 
         var caveId = owRoomAttrs.GetCaveId();
         var questId = owRoomAttrs.QuestNumber();
         string? caveName = null;
-        EntranceType? caveType = null;
+        GameWorldType? caveType = null;
         CaveSpec? caveSpec = null;
         if (resources.IsOverworld)
         {
             if ((int)caveId < 9)
             {
                 caveName = ((int)caveId).ToString();
-                caveType = EntranceType.Level;
+                caveType = GameWorldType.Underworld;
             }
             else
             {
                 caveName = "Cave";
-                caveType = EntranceType.OverworldCommon;
+                caveType = GameWorldType.OverworldCommon;
                 caveSpec = resources.CaveSpecs?.FirstOrDefault(t => (t.CaveId - CaveId.Cave1) == (int)caveId - 0x10);
             }
         }
         else
         {
             caveName = "TODO";
-            caveType = EntranceType.UnderworldCommon;
+            caveType = GameWorldType.UnderworldCommon;
         }
 
         var caveEntrance = new Entrance
@@ -781,39 +783,39 @@ internal sealed class MapExtractor
 
     public TiledTile[] DrawMap(TileMap map, RoomId roomId)
     {
-        var isOverworld = _resources.IsOverworld;
+        const int firstRow = 0;
+        const int lastRow = RoomTileHeight;
 
-        var firstRow = 0;
-        var lastRow = RoomTileHeight;
+        const int firstCol = 0;
+        const int lastCol = RoomTileWidth;
 
-        var firstCol = 0;
-        var lastCol = RoomTileWidth;
-
-        if (!isOverworld ) // TODO: "&& !isCellar"
-        {
-            // Graphics.DrawImage(
-            //     _wallsBmp,
-            //     0, 0,
-            //     TileMapWidth, TileMapHeight,
-            //     offsetX, TileMapBaseY + offsetY,
-            //     outerPalette, 0);
-        }
-
-        var tileset = isOverworld ? 0 : 1;
+        var tileset = _resources.IsOverworld ? 0 : 1;
         var tiles = new List<TiledTile>(lastRow * lastCol);
 
-        for (var row = firstRow; row < lastRow; row++)
+        for (var rowY = firstRow; rowY < lastRow; rowY++)
         {
-            for (var column = firstCol; column < lastCol; column++)
+            for (var columnX = firstCol; columnX < lastCol; columnX++)
             {
-                var tileRef = map.Refs(row, column);
-                tiles.Add(TiledTile.Create(tileRef, tileset));
+                // If we're in the underworld, we want to draw the walls but leave cutouts for where the doors go.
+                if (!_resources.IsOverworld && !_resources.IsCellarRoom(roomId))
+                {
+                    var mapped = _wallTileMap[rowY, columnX];
+                    if (mapped != 0)
+                    {
+                        var wallTile = TiledTile.Create(mapped, tileset);
+                        var halfY = (lastRow / 2) - 2;
+                        var halfX = (lastCol / 2) - 2;
+                        if ((rowY >= halfY && rowY <= halfY + 3) || (columnX >= halfX && columnX <= halfX + 3))
+                        {
+                            wallTile = TiledTile.Empty;
+                        }
+                        tiles.Add(wallTile);
+                        continue;
+                    }
+                }
+                var tileRef = map.Refs(rowY, columnX);
+                tiles.Add(tileRef == 0 ? TiledTile.Empty : TiledTile.Create(tileRef, tileset));
             }
-        }
-
-        if (!isOverworld) // TODO: "&& !isCellar"
-        {
-            // DrawDoors(roomId, false, offsetX, offsetY);
         }
 
         return tiles.ToArray();
@@ -990,7 +992,7 @@ internal unsafe struct LevelInfoBlock
     public fixed byte DarkPaletteSeq[FadeLength * FadePals * PaletteLength];
     public fixed byte DeathPaletteSeq[FadeLength * FadePals * PaletteLength];
 
-    public WorldInfo GetWorldInfo()
+    public WorldInfo GetWorldInfo(GameWorldType type)
     {
         static byte[][][] GetTriple(Func<int, int, byte[]> func)
         {
@@ -1002,6 +1004,7 @@ internal unsafe struct LevelInfoBlock
         var that = this;
         return new WorldInfo
         {
+            WorldType = type,
             Palettes = Enumerable.Range(0, LevelPaletteCount).Select(that.GetPalette).ToArray(),
             StartY = StartY,
             StartRoomId = StartRoomId,

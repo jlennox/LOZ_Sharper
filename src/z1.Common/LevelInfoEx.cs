@@ -20,6 +20,7 @@ public sealed class LevelInfoEx
 
 public sealed class WorldInfo
 {
+    public GameWorldType WorldType { get; set; }
     public byte[][] Palettes { get; set; }
     public byte StartY { get; set; }
     public byte StartRoomId { get; set; }

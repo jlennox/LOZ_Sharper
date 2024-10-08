@@ -240,26 +240,26 @@ internal sealed class PlayerProfile
         Statistics.Initialize();
     }
 
-    public RoomFlags GetRoomFlags(GameWorld world, GameRoom room)
+    public RoomFlags GetRoomFlags(GameRoom room)
     {
-        if (!RoomFlags.TryGetValue(world.Id, out var worldFlags))
+        if (!RoomFlags.TryGetValue(room.World.Id, out var worldFlags))
         {
             worldFlags = new Dictionary<string, RoomFlags>();
-            RoomFlags[world.Name] = worldFlags;
+            RoomFlags[room.World.Id] = worldFlags;
         }
 
         if (!worldFlags.TryGetValue(room.Id, out var roomFlags))
         {
             roomFlags = new RoomFlags();
-            worldFlags[room.Name] = roomFlags;
+            worldFlags[room.Id] = roomFlags;
         }
 
         return roomFlags;
     }
 
-    public ObjectState GetObjectFlags(GameWorld world, GameRoom room, InteractiveGameObject obj)
+    public ObjectState GetObjectFlags(GameRoom room, InteractiveGameObject obj)
     {
-        var roomflags = GetRoomFlags(world, room);
+        var roomflags = GetRoomFlags(room);
         return roomflags.GetObjectState(obj.Id);
     }
 

@@ -73,6 +73,7 @@ internal partial class World
     };
 
     private readonly record struct DoorPosition(int SourceY, int X, int Y);
+
     private static readonly Dictionary<Direction, DoorPosition> _doorPos = new() {
         { Direction.Right, new DoorPosition(64, 224, 136) },
         { Direction.Left, new DoorPosition(96, 0,   136) },
@@ -80,18 +81,20 @@ internal partial class World
         { Direction.Up, new DoorPosition(32, 112, 64) },
     };
 
-    private readonly record struct DoorStateFaces(byte Closed, byte Open);
-
-    private static readonly ImmutableArray<DoorStateFaces> _doorFaces = [
-        new DoorStateFaces(0, 0),
-        new DoorStateFaces(3, 3),
-        new DoorStateFaces(3, 3),
-        new DoorStateFaces(3, 3),
-        new DoorStateFaces(3, 4),
-        new DoorStateFaces(1, 0),
-        new DoorStateFaces(1, 0),
-        new DoorStateFaces(2, 0)
-    ];
+    private enum DoorState { Open, Locked, Shutter, Wall, Bombed }
+    private readonly record struct DoorStateFaces(DoorState Closed, DoorState Open);
+    private static DoorStateFaces GetDoorFace(DoorType type) => type switch
+    {
+        DoorType.Open => new DoorStateFaces(DoorState.Open, DoorState.Open),
+        DoorType.Wall => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
+        DoorType.FalseWall => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
+        DoorType.FalseWall2 => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
+        DoorType.Bombable => new DoorStateFaces(DoorState.Wall, DoorState.Bombed),
+        DoorType.Key => new DoorStateFaces(DoorState.Locked, DoorState.Open),
+        DoorType.Key2 => new DoorStateFaces(DoorState.Locked, DoorState.Open),
+        DoorType.Shutter => new DoorStateFaces(DoorState.Shutter, DoorState.Open),
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported door type.")
+    };
 
     private static readonly ImmutableArray<Cell> _doorCorners = [
         new Cell(0x0A, 0x1C),
@@ -222,80 +225,4 @@ internal partial class World
         GameMode.InitPlayCave => DrawPlayCave,
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Invalid game mode.")
     };
-
-    // private ImmutableArray<Action> PlayCellarFuncs => [
-    //     UpdatePlayCellar_Start,
-    //     UpdatePlayCellar_FadeOut,
-    //     UpdatePlayCellar_LoadRoom,
-    //     UpdatePlayCellar_FadeIn,
-    //     UpdatePlayCellar_Walk
-    // ];
-
-    // private ImmutableArray<Action> PlayCaveFuncs => [
-    //     UpdatePlayCave_Start,
-    //     UpdatePlayCave_Wait,
-    //     UpdatePlayCave_LoadRoom,
-    //     UpdatePlayCave_Walk
-    // ];
-
-    // private ImmutableArray<Action> EndLevelFuncs => [
-    //     UpdateEndLevel_Start,
-    //     UpdateEndLevel_Wait,
-    //     UpdateEndLevel_Flash,
-    //     UpdateEndLevel_FillHearts,
-    //     UpdateEndLevel_Wait,
-    //     UpdateEndLevel_Furl,
-    //     UpdateEndLevel_Wait
-    // ];
-
-    // private ImmutableArray<Action> WinGameFuncs => [
-    //     UpdateWinGame_Start,
-    //     UpdateWinGame_Text1,
-    //     UpdateWinGame_Stand,
-    //     UpdateWinGame_Hold1,
-    //     UpdateWinGame_Colors,
-    //     UpdateWinGame_Hold2,
-    //     UpdateWinGame_Text2,
-    //     UpdateWinGame_Hold3,
-    //     UpdateWinGame_NoObjects,
-    //     UpdateWinGame_Credits
-    // ];
-
-    // private ImmutableArray<Action> ScrollFuncs => [
-    //     UpdateScroll_Start,
-    //     UpdateScroll_AnimatingColors,
-    //     UpdateScroll_FadeOut,
-    //     UpdateScroll_LoadRoom,
-    //     UpdateScroll_Scroll
-    // ];
-
-    // private ImmutableArray<Action> DeathFuncs => [
-    //     UpdateDie_Start,
-    //     UpdateDie_Flash,
-    //     UpdateDie_Wait1,
-    //     UpdateDie_Turn,
-    //     UpdateDie_Fade,
-    //     UpdateDie_GrayPlayer,
-    //     UpdateDie_Spark,
-    //     UpdateDie_Wait2,
-    //     UpdateDie_GameOver
-    // ];
-
-    // private ImmutableArray<Action> LeaveCellarFuncs => [
-    //     UpdateLeaveCellar_Start,
-    //     UpdateLeaveCellar_FadeOut,
-    //     UpdateLeaveCellar_LoadRoom,
-    //     UpdateLeaveCellar_FadeIn,
-    //     UpdateLeaveCellar_Walk,
-    //     UpdateLeaveCellar_Wait,
-    //     UpdateLeaveCellar_LoadOverworldRoom
-    // ];
-
-    // private ImmutableArray<Action> EnterFuncs => [
-    //     UpdateEnter_Start,
-    //     UpdateEnter_Wait,
-    //     UpdateEnter_FadeIn,
-    //     UpdateEnter_Walk,
-    //     UpdateEnter_WalkCave
-    // ];
 }

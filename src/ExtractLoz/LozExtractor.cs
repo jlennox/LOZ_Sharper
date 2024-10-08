@@ -700,7 +700,7 @@ public partial class LozExtractor
     private const int Walls = 0x15fa0 + 16;
     private const int WallTileCount = 78;
 
-    private static void ExtractUnderworldWalls(BinaryReader reader, Bitmap bmp)
+    private static byte[,] ExtractUnderworldWalls(BinaryReader reader, Bitmap bmp)
     {
         reader.BaseStream.Position = Walls;
         var wallTiles = reader.ReadBytes(WallTileCount);
@@ -778,6 +778,8 @@ public partial class LozExtractor
             g.FillRectangle(Brushes.Black, 112, 144, 32, 32);
             g.FillRectangle(Brushes.Black, 112, 0, 32, 32);
         }
+
+        return map;
     }
 
     private static void ExtractUnderworldDoors(BinaryReader reader, Bitmap bmp)
@@ -3071,6 +3073,7 @@ public partial class LozExtractor
             if (special) options |= CaveSpecOptions.Special;
             if (pay) options |= CaveSpecOptions.Pay;
             if (pickUp) options |= CaveSpecOptions.PickUp;
+            if (pickUp && !showPrices) options |= CaveSpecOptions.Persisted;
 
             var caveId = (CaveId)((int)ObjType.Cave1 + i);
             var caveType = caveId == CaveId.Cave5Shortcut ? CaveType.Shortcut : CaveType.Items;
@@ -3090,6 +3093,7 @@ public partial class LozExtractor
             {
                 case PersonType.DoorRepair:
                     spec.Options |= CaveSpecOptions.EntranceCost;
+                    spec.Options |= CaveSpecOptions.Persisted;
                     spec.EntranceCheckItem = ItemSlot.Rupees;
                     spec.EntranceCheckAmount = 20;
                     break;
@@ -3143,7 +3147,7 @@ public partial class LozExtractor
             DwellerType = CaveDwellerType.Moblin,
             PersonType = PersonType.Grumble,
             Text = _gameStrings[(int)StringId.Grumble],
-            Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutters,
+            Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutters | CaveSpecOptions.Persisted,
             RequiresItem = ItemId.Food,
         });
 
@@ -3153,7 +3157,8 @@ public partial class LozExtractor
             PersonType = PersonType.MoneyOrLife,
             Text = _gameStrings[(int)StringId.MoneyOrLife],
             Options = CaveSpecOptions.ShowNumbers | CaveSpecOptions.ControlsBlockingWall
-                | CaveSpecOptions.ControlsShutters | CaveSpecOptions.ShowItems | CaveSpecOptions.Pay,
+                | CaveSpecOptions.ControlsShutters | CaveSpecOptions.ShowItems | CaveSpecOptions.Pay
+                | CaveSpecOptions.Persisted,
             Items = [
                 new CaveShopItem {
                     ItemId = ItemId.HeartContainer,
@@ -3193,7 +3198,8 @@ public partial class LozExtractor
             DwellerType = CaveDwellerType.OldMan,
             PersonType = PersonType.EnterLevel9,
             Text = _gameStrings[(int)StringId.EnterLevel9],
-            Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutters | CaveSpecOptions.EntranceCheck,
+            Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutters
+                | CaveSpecOptions.EntranceCheck | CaveSpecOptions.Persisted,
             EntranceCheckItem = ItemSlot.TriforcePieces,
             EntranceCheckAmount = 0xFF,
         });

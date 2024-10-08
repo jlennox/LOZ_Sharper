@@ -64,9 +64,13 @@ public unsafe partial class LozExtractor
         { new(1, 8), 3 },
         { new(1, 9), 3 },
     };
+    private static byte[,] _wallTileMap = null;
 
     private static void ExtractTiledMaps(Options options)
     {
+        using var reader = options.GetBinaryReader();
+        _wallTileMap ??= ExtractUnderworldWalls(reader, new Bitmap(300, 300));
+
         var overworldResources = ExtractOverworldTiledMaps(options);
         var underworldResources = ExtractUnderworldTiledMaps(options);
 
@@ -196,7 +200,7 @@ public unsafe partial class LozExtractor
 
     private static void ExtractTiledMap(Options options, MapResources resources, string name)
     {
-        var extractor = new MapExtractor(resources);
+        var extractor = new MapExtractor(resources, _wallTileMap);
         var isOverworld = resources.IsOverworld;
 
         var questObjects = Enumerable.Range(0, 3).Select(_ => new List<TiledLayerObject>()).ToArray();
@@ -509,7 +513,8 @@ public unsafe partial class LozExtractor
             });
         }
 
-        var worldInfo = resources.LevelInfoBlock.GetWorldInfo();
+        var worldtype = resources.IsOverworld ? GameWorldType.Overworld : GameWorldType.Underworld;
+        var worldInfo = resources.LevelInfoBlock.GetWorldInfo(worldtype);
         var world = new TiledWorld
         {
             Maps = worldEntries.ToArray(),
@@ -594,6 +599,8 @@ public unsafe partial class LozExtractor
                     Height = World.RoomTileHeight * World.TileHeight,
                 });
             }
+
+            worldInfo.WorldType = resources.IsOverworld ? GameWorldType.OverworldCommon : GameWorldType.UnderworldCommon;
 
             var commonWorld = new TiledWorld
             {

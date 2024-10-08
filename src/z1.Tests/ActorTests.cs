@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using z1.Actors;
 using z1.Common;
@@ -73,10 +72,10 @@ internal class ScreenGameMapObjectTests
         var directions = TiledObjectProperties.DoorDirectionOrder;
 
         foreach (var (input, expected) in new[] {
-                     ("None, None, Open, Key", new[] { DoorType.None, DoorType.None, DoorType.Open, DoorType.Key }),
-                 })
+            ("Wall, Wall, Open, Key", new[] { DoorType.Wall, DoorType.Wall, DoorType.Open, DoorType.Key }),
+        })
         {
-            Assert.That(GameRoom.TryParseDungeonDoors(input, out var actual), Is.True);
+            Assert.That(GameRoom.TryParseUnderworldDoors(input, out var actual), Is.True);
             var i = 0;
             foreach (var dir in directions)
             {

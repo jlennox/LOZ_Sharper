@@ -321,6 +321,7 @@ internal static class GLWindowGui
         if (ImGui.BeginMenu("Warp"))
         {
             if (ImGui.MenuItem("Level 1")) Warp(game, 1);
+            if (ImGui.MenuItem("Level 1 (Entrance)")) WarpOW(game, 7, 3);
             if (ImGui.MenuItem("Level 2")) Warp(game, 2);
             if (ImGui.MenuItem("Level 3")) Warp(game, 3);
             if (ImGui.MenuItem("Level 4")) Warp(game, 4);

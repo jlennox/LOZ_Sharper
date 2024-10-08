@@ -525,7 +525,7 @@ internal sealed class SubmenuType
 
     private static int GetDoorTileOffset(GameRoom room)
     {
-        if (!room.HasDungeonDoors) return 0;
+        if (!room.HasUnderworldDoors) return 0;
 
         var doorSum = 0;
         var doorBit = 8;
@@ -533,7 +533,7 @@ internal sealed class SubmenuType
         for (; doorBit != 0; doorBit >>= 1)
         {
             var direction = (Direction)doorBit;
-            if (!room.DungeonDoors.TryGetValue(direction, out var doorType)) continue;
+            if (!room.UderworldDoors.TryGetValue(direction, out var doorType)) continue;
 
             var isLockedType = doorType is DoorType.Bombable or DoorType.Key or DoorType.Key2;
 

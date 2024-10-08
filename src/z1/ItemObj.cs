@@ -798,7 +798,7 @@ internal sealed class ItemObjActor : Actor
                     Game.World.EndLevel();
                     Game.AutoSave();
                 }
-                else if (!Game.World.IsOverworld() && !Game.World.CurrentRoom.HasDungeonDoors) // JOE: TODO: Arg, this check is all wrong.
+                else if (!Game.World.IsOverworld() && !Game.World.CurrentRoom.HasUnderworldDoors) // JOE: TODO: Arg, this check is all wrong.
                 {
                     Game.World.LiftItem(_itemId);
                     Game.Sound.PushSong(SongId.ItemLift);

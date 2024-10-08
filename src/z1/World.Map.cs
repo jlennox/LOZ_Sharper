@@ -80,6 +80,16 @@ internal partial class World
         return _previousRooms.TryPop(out entry);
     }
 
+    public RoomHistoryEntry TakePreviousEntranceOrDefault()
+    {
+        if (!TryTakePreviousEntrance(out var entry))
+        {
+            entry = new RoomHistoryEntry(_overworldWorld.EntryRoom, _overworldWorld, new Entrance());
+        }
+
+        return entry;
+    }
+
     private void LoadMap(GameRoom room, Entrance? fromEntrance = null)
     {
         if (fromEntrance != null) _previousRooms.Push(new RoomHistoryEntry(CurrentRoom, CurrentWorld, fromEntrance));
@@ -90,7 +100,7 @@ internal partial class World
         room.Reset();
         LoadLayout(room);
 
-        if (room.HasDungeonDoors)
+        if (room.HasUnderworldDoors)
         {
             foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
             {
@@ -158,16 +168,6 @@ internal partial class World
 
         var y = TileMapBaseY + tileOffsetY;
 
-        if (room.HasDungeonDoors)
-        {
-            Graphics.DrawImage(
-                _wallsBmp,
-                0, 0,
-                TileMapWidth, TileMapHeight,
-                offsetX, TileMapBaseY + offsetY,
-                outerPalette, 0);
-        }
-
         for (var ytile = firstRow; ytile < lastRow; ytile++, y += TileHeight)
         {
             if (ytile < _startRow || ytile >= endRow) continue;
@@ -183,10 +183,7 @@ internal partial class World
             }
         }
 
-        if (room.HasDungeonDoors)
-        {
-            DrawDoors(room, false, offsetX, offsetY);
-        }
+        DrawDoors(room, false, offsetX, offsetY);
 
         Graphics.End();
     }

@@ -79,9 +79,9 @@ internal partial class World
         return new Point(position & 0xF0, (byte)(position << 4));
     }
 
-    private static int GetDoorStateFace(DoorType type, bool state)
+    private static DoorState GetDoorStateFace(DoorType type, bool state)
     {
-        var doorface = _doorFaces[(int)type];
+        var doorface = GetDoorFace(type);
         return state ? doorface.Open : doorface.Closed;
     }
 

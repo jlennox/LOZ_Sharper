@@ -22,19 +22,22 @@ internal sealed class PersonActor : Actor
     private readonly record struct ItemLocation(int X, int Y, int PriceX, int PriceY);
 
     private static readonly ImmutableArray<ItemLocation> _defaultItemLocations = [
-        new(0x58, 0x98, 0x48, 0xB0), new(0x78, 0x98, 0x68, 0xB0), new(0x98, 0x98, 0x88, 0xB0)
+        new ItemLocation(0x58, 0x98, 0x48, 0xB0),
+        new ItemLocation(0x78, 0x98, 0x68, 0xB0),
+        new ItemLocation(0x98, 0x98, 0x88, 0xB0)
     ];
 
     private static readonly ImmutableArray<ItemGraphics> _personGraphics = [
-        new(AnimationId.OldMan,   Palette.Red),
-        new(AnimationId.OldWoman, Palette.Red),
-        new(AnimationId.Merchant, Palette.Player),
-        new(AnimationId.Moblin,   Palette.Red)
+        new ItemGraphics(AnimationId.OldMan,   Palette.Red),
+        new ItemGraphics(AnimationId.OldWoman, Palette.Red),
+        new ItemGraphics(AnimationId.Merchant, Palette.Player),
+        new ItemGraphics(AnimationId.Moblin,   Palette.Red)
     ];
 
     private PersonType PersonType => _spec.PersonType;
 
     private PersonState _state = PersonState.Idle;
+    private readonly ObjectState _objectState;
     private readonly SpriteImage? _image;
 
     private readonly CaveSpec _spec; // Do not make readonly to avoid struct copies.
@@ -52,25 +55,27 @@ internal sealed class PersonActor : Actor
 
     // Arg. Sometimes "CaveId" is an ObjType.Person1-end :/
     // This code got to be a pretty big mess but I'm hoping a mapping format rewrite can clean that up.
-    public PersonActor(Game game, CaveId type, CaveSpec spec, int x, int y)
+    public PersonActor(Game game, ObjectState? state, CaveId type, CaveSpec spec, int x, int y)
         : base(game, (ObjType)type, x, y)
     {
         // We operate on a clone of it because we modify it to keep track of the state of this instance.
         _spec = spec.Clone();
+        // If it's not a persisted, create an ephemeral state.
+        _objectState = (spec.IsPersisted ? state : null) ?? new ObjectState();
         HP = 0;
         // This isn't used anymore. The effect is implemented a different way.
         // Game.World.SetPersonWallY(0x8D);
 
+        // Room has been previously paid for. Clear it out.
+        if (_objectState.ItemGot)
+        {
+            Delete();
+            return;
+        }
+
         if (!Game.World.IsOverworld())
         {
             Game.Sound.PlayEffect(SoundEffect.Item);
-        }
-
-        // Room has been previously paid for. Clear it out.
-        if (Game.World.CurrentRoomFlags.ItemState)
-        {
-            Game.World.CurrentRoomFlags.ItemState = true;
-            return;
         }
 
         _itemLocations = spec.Items?.Length switch
@@ -101,7 +106,7 @@ internal sealed class PersonActor : Actor
             var item = game.World.GetItem(checkItem);
             if (item >= checkAmount)
             {
-                Game.World.CurrentRoomFlags.ItemState = true;
+                _objectState.ItemGot = true;
                 return;
             }
         }
@@ -113,7 +118,7 @@ internal sealed class PersonActor : Actor
             if (checkItem == ItemSlot.Rupees)
             {
                 game.World.PostRupeeLoss(checkAmount);
-                Game.World.CurrentRoomFlags.ItemState = true;
+                _objectState.ItemGot = true;
                 return;
             }
 
@@ -154,12 +159,15 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    private void MarkItem()
+    public override bool Delete()
     {
-        Game.World.Game.World.CurrentRoomFlags.ItemState = true;
-        if (_spec.DoesControlsBlockingWall) Game.World.SetPersonWallY(0);
-        if (_spec.DoesControlsShutters) Game.World.OpenShutters();
-        Delete();
+        if (base.Delete())
+        {
+            if (_spec.DoesControlsBlockingWall) Game.World.SetPersonWallY(0);
+            if (_spec.DoesControlsShutters) Game.World.OpenShutters();
+            return true;
+        }
+        return false;
     }
 
     public override void Update()
@@ -168,7 +176,7 @@ internal sealed class PersonActor : Actor
         {
             case PersonState.Idle:
                 UpdateDialog();
-                CheckPlayerHit();
+                // CheckPlayerHit();
 
                 if (!Game.World.IsOverworld())
                 {
@@ -202,7 +210,7 @@ internal sealed class PersonActor : Actor
             {
                 case PersonType.DoorRepair:
                     Game.World.PostRupeeLoss(20);
-                    Game.World.Game.World.CurrentRoomFlags.ItemState = true;
+                    _objectState.ItemGot = true;
                     break;
 
                 case PersonType.Grumble:
@@ -222,29 +230,29 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    private void CheckPlayerHit()
-    {
-        if (_spec.Items == null) return;
-        if (!_spec.IsPay) return;
-
-        var player = Game.Player;
-
-        for (var i = 0; i < _spec.Items.Length; i++)
-        {
-            var item = _spec.Items[i];
-            var itemId = item.ItemId;
-            var location = _itemLocations[i];
-
-            var distanceY = Math.Abs(location.Y - player.Y);
-            if (distanceY >= 6) continue;
-
-            if (itemId != ItemId.None && player.X == location.X)
-            {
-                // HandlePlayerHit(item, i);
-                break;
-            }
-        }
-    }
+    // private void CheckPlayerHit()
+    // {
+    //     if (_spec.Items == null) return;
+    //     if (!_spec.IsPay) return;
+    //
+    //     var player = Game.Player;
+    //
+    //     for (var i = 0; i < _spec.Items.Length; i++)
+    //     {
+    //         var item = _spec.Items[i];
+    //         var itemId = item.ItemId;
+    //         var location = _itemLocations[i];
+    //
+    //         var distanceY = Math.Abs(location.Y - player.Y);
+    //         if (distanceY >= 6) continue;
+    //
+    //         if (itemId != ItemId.None && player.X == location.X)
+    //         {
+    //             // HandlePlayerHit(item, i);
+    //             break;
+    //         }
+    //     }
+    // }
 
     private bool HandlePlayerHit(CaveShopItem item, int index)
     {
@@ -289,7 +297,7 @@ internal sealed class PersonActor : Actor
 
         if (!_spec.ShowNumbers)
         {
-            Game.World.Game.World.CurrentRoomFlags.ItemState = true;
+            _objectState.ItemGot = true;
         }
 
         if (HandlePickUpHint(item))
@@ -427,7 +435,7 @@ internal sealed class PersonActor : Actor
         //         return;
         //     }
         //
-        //     Game.World.Game.World.CurrentRoomFlags.ItemState = true;
+        //     _objectState.ItemGot = true;
         //     Game.World.OpenShutters();
         //
         //     _showNumbers = false;
@@ -440,7 +448,7 @@ internal sealed class PersonActor : Actor
         var amount = item.Cost;
 
         Game.World.PostRupeeWin(amount);
-        Game.World.Game.World.CurrentRoomFlags.ItemState = true;
+        _objectState.ItemGot = true;
         _spec.ClearOptions(CaveSpecOptions.PickUp);
         _showNumbers = true;
     }
@@ -481,7 +489,7 @@ internal sealed class PersonActor : Actor
 
         if (ObjType == ObjType.Grumble)
         {
-            Game.World.Game.World.CurrentRoomFlags.ItemState = true;
+            _objectState.ItemGot = true;
             Game.World.SetItem(ItemSlot.Food, 0);
             Game.World.SetPersonWallY(0);
 

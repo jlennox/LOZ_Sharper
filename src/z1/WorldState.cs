@@ -75,6 +75,7 @@ internal struct PlayCaveState
 
     public Substates Substate;
     public Entrance Entrance;
+    public ObjectState? ObjectState;
     public int Timer;
     public int TargetY;
     // public SpritePriority playerPriority; // JOE: Unused in C++.
@@ -261,6 +262,7 @@ internal struct StairsState
     public TileBehavior TileBehavior;
     public SpritePriority PlayerPriority;
     public Entrance Entrance;
+    public ObjectState? ObjectState;
 
     public bool HasReachedTarget(Player player) => player.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
 }

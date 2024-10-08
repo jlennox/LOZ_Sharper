@@ -163,11 +163,6 @@ internal static class GlobalFunctions
         return new BoomerangProjectile(game, x, y, moving, distance, speed, owner);
     }
 
-    public static Actor MakePerson(Game game, CaveId caveId, CaveSpec spec, int x, int y)
-    {
-        return new PersonActor(game, caveId, spec, x, y);
-    }
-
     public static ItemGraphics? GetItemGraphics(int itemId)
     {
         if (itemId >= 0x3F) return null;

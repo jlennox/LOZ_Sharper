@@ -121,17 +121,17 @@ public sealed class MazeRoom
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum EntranceType
+public enum GameWorldType
 {
-    Level, Overworld, UnderworldCommon, OverworldCommon
+    Underworld, Overworld, UnderworldCommon, OverworldCommon
 }
 
 [TiledClass]
 public sealed class Entrance
 {
-    public EntranceType DestinationType { get; set; }
+    public GameWorldType DestinationType { get; set; }
     public string Destination { get; set; }
-    public PointXY ExitPosition { get; set; }
+    public PointXY? ExitPosition { get; set; }
     public CaveSpec? Cave { get; set; }
     public BlockType BlockType { get; set; }
     public RoomArguments? Arguments { get; set; }

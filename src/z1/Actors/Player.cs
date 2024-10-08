@@ -229,7 +229,7 @@ internal sealed class Player : Actor, IThrower
 
     public TileCollision CollidesWithTileMoving(int x, int y, Direction dir)
     {
-        if (!Game.World.CurrentRoom.HasDungeonDoors)
+        if (!Game.World.CurrentRoom.HasUnderworldDoors)
         {
             return Game.World.CollidesWithTileMoving(x, y, dir, true);
         }
@@ -1175,6 +1175,8 @@ internal sealed class Player : Actor, IThrower
         {
             if (HitsWorldLimit())
             {
+                // JOE: TODO: MAP REWRITE
+                // Is LeaveRoom depricated? I wouldn't think so.
                 Game.World.LeaveRoom(Facing, Game.World.CurrentRoom);
                 dir = Direction.None;
                 StopPlayer();

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Security.Cryptography.Pkcs;
 using z1.IO;
 using z1.Render;
 
@@ -221,6 +220,7 @@ internal sealed class GameWorld
     public WorldInfo Info { get; }
     public string? LevelString { get; }
     public bool IsOverworld { get; }
+    public GameWorldType WorldType { get; }
 
     public bool IsBossAlive => BossRoom != null && BossRoom.RoomFlags.ObjectCount != 0;
 
@@ -228,7 +228,6 @@ internal sealed class GameWorld
     {
         Name = Path.GetFileNameWithoutExtension(filename);
         if (world.Maps == null) throw new Exception($"World {Name} has no maps.");
-        IsOverworld = Name.IContains("Overworld"); // JOE: TODO: This aint great.
 
         var directory = Path.GetDirectoryName(filename);
         Rooms = new GameRoom[world.Maps.Length];
@@ -247,6 +246,8 @@ internal sealed class GameWorld
         }
 
         Info = world.GetJsonProperty<WorldInfo>(TiledWorldProperties.WorldInfo);
+        WorldType = Info.WorldType;
+        IsOverworld = WorldType == GameWorldType.Overworld;
         if (Info.LevelNumber > 0) LevelString = $"Level-{Info.LevelNumber}";
 
         EntryRoom ??= Rooms[0];
@@ -262,9 +263,8 @@ internal sealed class GameWorld
             .ToArray();
 
         // This can use a massive optimization.
-        for (var i = 0; i < orderedWorldMaps.Length; ++i)
+        foreach (var (room, entry) in orderedWorldMaps)
         {
-            var (room, entry) = orderedWorldMaps[i];
             if (entry.X > 0)
             {
                 var leftroom = orderedWorldMaps.FirstOrDefault(t => t.Entry.Right == entry.X && t.Entry.Y == entry.Y);
@@ -335,19 +335,13 @@ internal sealed class GameRoom
     private GameMapTileLayer? BehaviorLayer { get; }
     public GameMapObjectLayer ObjectLayer { get; }
     public ImmutableArray<InteractiveGameObject> InteractiveGameObjects { get; set; }
-    public bool HasDungeonDoors { get; }
-    public Dictionary<Direction, DoorType> DungeonDoors { get; } = [];
-    // public SoundEffect? AmbientSound { get; set; }
+    public bool HasUnderworldDoors { get; }
+    public Dictionary<Direction, DoorType> UderworldDoors { get; } = [];
     public ImmutableArray<MonsterEntry> Monsters { get; set; }
     public int ZoraCount { get; set; }
     public bool MonstersEnter { get; set; }
     public MazeRoom? Maze { get; set; }
-    // public Raft? Raft { get; set; }
     public RoomInformation RoomInformation { get; }
-    // public bool IsDark { get; }
-    // public bool PlaysSecretChime { get; }
-    // public bool IsBossRoom { get; }
-    // public bool IsEntryRoom { get; set; }
     public RecorderDestination? RecorderDestination { get; }
 
     public RoomTileMap RoomMap { get; }
@@ -367,7 +361,7 @@ internal sealed class GameRoom
     public ItemId ItemId { get; } = ItemId.None;
     public PointXY ItemPosition { get; }
     public int? FireballLayout { get; }
-    public PointXY ExitPosition { get; }
+    // public PointXY ExitPosition { get; }
     public string? CellarStairsLeftRoomId { get; set; }
     public string? CellarStairsRightRoomId { get; set; }
     // public CaveId? CaveId { get; set; }
@@ -406,29 +400,21 @@ internal sealed class GameRoom
         // Raft = map.GetClass<Raft>(TiledObjectProperties.Raft);
         RoomInformation = map.ExpectClass<RoomInformation>(TiledObjectProperties.RoomInformation);
         RecorderDestination = map.GetClass<RecorderDestination>(TiledObjectProperties.RecorderDestination);
-        // IsDark = map.GetBooleanProperty(TiledObjectProperties.IsDark);
-        // PlaysSecretChime = map.GetBooleanProperty(TiledObjectProperties.PlaysSecretChime);
-        // IsBossRoom = map.GetBooleanProperty(TiledObjectProperties.IsBossRoom);
-        // IsEntryRoom = map.GetBooleanProperty(TiledObjectProperties.IsEntryRoom);
         HiddenFromMap = map.GetBooleanProperty(TiledObjectProperties.HiddenFromMap);
 
         var dungeonDoors = map.GetProperty(TiledObjectProperties.DungeonDoors);
-        if (TryParseDungeonDoors(dungeonDoors, out var doors))
+        if (TryParseUnderworldDoors(dungeonDoors, out var doors))
         {
-            HasDungeonDoors = true;
-            DungeonDoors = doors;
+            HasUnderworldDoors = true;
+            UderworldDoors = doors;
         }
 
         Secret = map.GetEnumProperty(TiledObjectProperties.Secret, z1.World.Secret.None);
         ItemId = map.GetEnumProperty(TiledObjectProperties.ItemId, ItemId.None);
         ItemPosition = map.GetPoint(TiledObjectProperties.ItemPosition);
         FireballLayout = map.GetIntPropertyOrNull(TiledObjectProperties.FireballLayout);
-        // ExitPosition = map.GetPoint(TiledObjectProperties.ExitPosition);
         CellarStairsLeftRoomId = map.GetProperty(TiledObjectProperties.CellarStairsLeft);
         CellarStairsRightRoomId = map.GetProperty(TiledObjectProperties.CellarStairsRight);
-        // CaveId = map.GetNullableEnumProperty<CaveId>(TiledObjectProperties.CaveId);
-        // RoomItemId = map.GetEnumProperty(TiledObjectProperties.RoomItemId, ItemId.None);
-        // IsLadderAllowed = map.GetBooleanProperty(TiledObjectProperties.IsLadderAllowed);
 
         // Stores the entire map's worth of behaviors merged from all sources, with coinciding indexes to the tiles.
         var behaviors = new TileBehavior[Width * Height];
@@ -544,7 +530,7 @@ internal sealed class GameRoom
 
     public RoomFlags GetRoomFlags()
     {
-        return _game.World.Profile.GetRoomFlags(_game.World.CurrentWorld, this);
+        return _game.World.Profile.GetRoomFlags(this);
     }
 
     private int CountWaterTiles()
@@ -616,7 +602,7 @@ internal sealed class GameRoom
         Graphics.DrawImage(image, srcx, srcy, TileWidth, TileHeight, x, y, palette, tile.GetDrawingFlags());
     }
 
-    internal static bool TryParseDungeonDoors(string? s, [MaybeNullWhen(false)] out Dictionary<Direction, DoorType> doors)
+    internal static bool TryParseUnderworldDoors(string? s, [MaybeNullWhen(false)] out Dictionary<Direction, DoorType> doors)
     {
         doors = null;
 
@@ -656,11 +642,6 @@ internal sealed class GameMapTileLayer
     }
 }
 
-internal readonly record struct GameObjectLayerObject(
-    int X, int Y, int Width, int Height,
-    GameObjectLayerObjectType Type,
-    ImmutableDictionary<string, string> Properties);
-
 [DebuggerDisplay("{Name} ({X}, {Y})")]
 internal abstract class GameMapObject
 {
@@ -685,20 +666,6 @@ internal abstract class GameMapObject
         Width = layerObject.Width;
         Height = layerObject.Height;
         Properties = layerObject.GetPropertyDictionary();
-    }
-
-    public void GetScreenTileCoordinates(out int tileX, out int tileY)
-    {
-        var objtilex = X / Room.TileWidth;
-        var objtiley = Y / Room.TileHeight;
-        tileX = objtilex;
-        tileY = objtiley;
-    }
-
-    public void GetTileSize(out int tileWidth, out int tileHeight)
-    {
-        tileWidth = Width / (Room.TileWidth);
-        tileHeight = Height / (Room.TileHeight );
     }
 }
 
@@ -844,9 +811,6 @@ internal sealed class GameMapObjectLayer
 
                 case GameObjectLayerObjectType.Interactive:
                 default:
-                    if (room.Id == "7,7")
-                    {
-                    }
                     var interactable = TiledPropertySerializer<InteractableBlock>.Deserialize(obj);
                     // Allow some interactions to be implied.
                     if (interactable.Interaction == Interaction.Unknown)

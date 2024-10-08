@@ -3,23 +3,6 @@ using z1.Render;
 
 namespace z1.Actors;
 
-// [DebuggerDisplay("")]
-// internal sealed class ItemActor : Actor
-// {
-//     public bool PickedUp { get; private set; }
-//
-//     private readonly ItemId _item;
-//
-//     public ItemActor(Game game, ItemId item, ObjType type, int x = 0, int y = 0)
-//         : base(game, type, x, y)
-//     {
-//         _item = item;
-//     }
-//
-//     public override void Update() { }
-//     public override void Draw() { }
-// }
-
 [DebuggerDisplay("{GameObject.Name} ({X},{Y})")]
 internal sealed class InteractiveGameObjectActor : Actor
 {
@@ -42,7 +25,7 @@ internal sealed class InteractiveGameObjectActor : Actor
         : base(game, ObjType.Block, gameObject.X, gameObject.Y + World.TileMapBaseY)
     {
         GameObject = gameObject;
-        _state = game.World.Profile.GetObjectFlags(game.World.CurrentWorld, game.World.CurrentRoom, gameObject);
+        _state = game.World.Profile.GetObjectFlags(game.World.CurrentRoom, gameObject);
         // JOE: NOTE: This not being set makes it make a poof animation when you enter the room. This might be a good
         // way to have a method of revealing secrets to the player?
         Decoration = 0;
@@ -143,9 +126,12 @@ internal sealed class InteractiveGameObjectActor : Actor
         if (!caveEntrance.IsValid()) return;
         if (Game.World.WhirlwindTeleporting != 0) return;
         if (Game.World.GetMode() != GameMode.Play) return;
+        // JOE: Arg. I don't like the FromUnderground check too much. The value
+        // is unset inside CheckWater, which is not at all intuitive.
+        if (Game.World.FromUnderground != 0) return;
 
         if (!Game.World.Player.DoesCover(this)) return;
-        Game.World.GotoStairs(TileBehavior.Cave, caveEntrance);
+        Game.World.GotoStairs(TileBehavior.Cave, caveEntrance, _state);
     }
 
     private bool CheckRequirements()
@@ -202,7 +188,6 @@ internal sealed class InteractiveGameObjectActor : Actor
 
         return true;
     }
-
 
     public override void Draw()
     {
