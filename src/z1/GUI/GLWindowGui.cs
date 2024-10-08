@@ -33,6 +33,7 @@ internal static class GLWindowGui
         public static readonly PropertyInfo ImprovedMenus = GetProperty(nameof(GameEnhancements.ImprovedMenus));
         public static readonly PropertyInfo ReduceFlashing = GetProperty(nameof(GameEnhancements.ReduceFlashing));
         public static readonly PropertyInfo RedCandleLightsDarkRooms = GetProperty(nameof(GameEnhancements.RedCandleLightsDarkRooms));
+        public static readonly PropertyInfo DisableLowHealthWarning = GetProperty(nameof(GameEnhancements.DisableLowHealthWarning));
     }
 
     private static class AudioProperties
@@ -173,6 +174,7 @@ internal static class GLWindowGui
             DrawMenuItem("Red Candle Auto-Lights Darkrooms", GameEnhancementsProperties.RedCandleLightsDarkRooms, game.Enhancements);
             DrawMenuItem("Improved Menus", GameEnhancementsProperties.ImprovedMenus, game.Enhancements);
             DrawMenuItem("Reduce Flashing", GameEnhancementsProperties.ReduceFlashing, game.Enhancements);
+            DrawMenuItem("Disable Low Health Warning", GameEnhancementsProperties.DisableLowHealthWarning, game.Enhancements);
 
             var speed = game.Enhancements.TextSpeed;
             if (ImGui.SliderInt("Text Speed", ref speed,

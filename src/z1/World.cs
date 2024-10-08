@@ -798,6 +798,7 @@ internal sealed partial class World
 
     private void WarnLowHPIfNeeded()
     {
+        if (Game.Enhancements.DisableLowHealthWarning) return;
         if (Profile.Hearts >= 0x100) return;
 
         Game.Sound.PlayEffect(SoundEffect.LowHp);
