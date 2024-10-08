@@ -1,14 +1,12 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using z1.Actors;
-using z1.Common.IO;
 using z1.IO;
 using z1.Render;
 using z1.UI;
 
 namespace z1;
 
-internal enum DoorType { Open, Wall, FalseWall, FalseWall2, Bombable, Key, Key2, Shutter }
 internal enum TileInteraction { Load, Push, Touch, Cover }
 internal enum SpritePriority { None, AboveBg, BelowBg }
 internal enum SubmenuState { IdleClosed, StartOpening, EndOpening = 7, IdleOpen, StartClose }
@@ -861,11 +859,14 @@ internal sealed partial class World
             {
                 doorState = true;
             }
-            var doorFace = GetDoorStateFace(doorType, doorState);
+            var doorfaces = GetDoorFace(doorType);
+            var doorface = doorfaces.GetState(doorState);
+            if (doorface == DoorState.None) continue;
+
             var doorPos = _doorPos[direction];
             Graphics.DrawImage(
                 _doorsBmp,
-                DoorWidth * (int)doorFace,
+                DoorWidth * (int)doorface,
                 doorPos.SourceY + baseY,
                 DoorWidth,
                 DoorHeight,

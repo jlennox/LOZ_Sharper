@@ -10,12 +10,12 @@ public record PointXY(int X, int Y)
 
 public sealed class LevelInfoEx
 {
-    public byte[] OWPondColors { get; set; }
-    public CavePaletteSet CavePalette { get; set; }
-    public CaveSpec[] CaveSpec { get; set; }
-    public Dictionary<ObjType, ObjectAttribute> ObjectAttribute { get; set; }
-    public int[][] LevelPersonStringIds { get; set; }
-    public PointXY[] SpawnSpot { get; set; }
+    public required byte[] OWPondColors { get; init; }
+    public required CavePaletteSet CavePalette { get; init; }
+    public required CaveSpec[] CaveSpec { get; init; }
+    public required Dictionary<ObjType, ObjectAttribute> ObjectAttribute { get; init; }
+    public required int[][] LevelPersonStringIds { get; init; }
+    public required PointXY[] SpawnSpot { get; init; }
 }
 
 public sealed class WorldInfo
@@ -103,7 +103,7 @@ public sealed class CaveSpec
     public PersonType PersonType { get; set; }
     [JsonConverter(typeof(TiledJsonSelectableEnumConverter<CaveSpecOptions>))]
     public CaveSpecOptions Options { get; set; }
-    public string Text { get; set; }
+    public string? Text { get; set; }
     public ItemId? RequiresItem { get; set; }
     [TiledIgnore, JsonIgnore]
     public CaveShopItem[]? Items { get; set; }

@@ -239,7 +239,7 @@ public unsafe partial class LozExtractor
                     }
 
                     var door = uwRoomAttrs.GetDoor(dir);
-                    if (door == DoorType.None) continue;
+                    if (door == DoorType.Wall) continue;
                     if (dir == Direction.Down && currentRoom.Y == World.WorldHeight - 1) continue; // entry rooms are always the bottom row, and we can't go lower.
                     var nextRoom = new RoomId(currentRoom.X + offset.X, currentRoom.Y + offset.Y);
                     if (visitedRooms.Contains(nextRoom)) continue;

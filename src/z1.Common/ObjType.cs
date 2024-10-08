@@ -353,6 +353,9 @@ public enum SoundEffect
     [TiledIgnore] MAX
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum DoorType { Open, Wall, FalseWall, FalseWall2, Bombable, Key, Key2, Shutter, None }
+
 public enum TileAction
 {
     None,

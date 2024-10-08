@@ -32,7 +32,6 @@ public static class TiledObjectProperties
     public const string UnderworldDoors = nameof(UnderworldDoors);
     public const string Secret = nameof(Secret);
     public const string FireballLayout = nameof(FireballLayout);
-    public const string CellarItem = nameof(CellarItem);
     public const string CellarStairsLeft = nameof(CellarStairsLeft);
     public const string CellarStairsRight = nameof(CellarStairsRight);
     public const string HiddenFromMap = nameof(HiddenFromMap);
@@ -114,7 +113,7 @@ public enum Interaction { Unknown, None, Bomb, Burn, Push, PushVertical, Recorde
 public sealed class MazeRoom
 {
     [JsonConverter(typeof(EnumArrayJsonConverter<Direction>))]
-    public Direction[] Path { get; set; }
+    public required Direction[] Path { get; init; }
     public Direction ExitDirection { get; set; }
 }
 

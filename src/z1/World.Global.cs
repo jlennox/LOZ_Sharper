@@ -56,12 +56,6 @@ internal partial class World
         return nextRoom;
     }
 
-    private static DoorState GetDoorStateFace(DoorType type, bool state)
-    {
-        var doorface = GetDoorFace(type);
-        return state ? doorface.Open : doorface.Closed;
-    }
-
     private static void ClearScreen()
     {
         Graphics.Clear(SKColors.Black);

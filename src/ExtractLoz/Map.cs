@@ -946,8 +946,6 @@ internal readonly record struct UWRoomAttr(RoomAttr Attrs)
 
 internal enum Secret { None, FoesDoor, Ringleader, LastBoss, BlockDoor, BlockStairs, MoneyOrLife, FoesItem }
 
-internal enum DoorType { Open, None, FalseWall, FalseWall2, Bombable, Key, Key2, Shutter }
-
 internal static class TileAttr
 {
     public static TileAction GetAction(byte t) => (TileAction)((t & 0xF0) >> 4);

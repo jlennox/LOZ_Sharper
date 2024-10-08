@@ -129,7 +129,10 @@ internal sealed class PersonActor : Actor
         var animIndex = (ObjType)spec.DwellerType - ObjType.OldMan;
         var animId = _personGraphics[animIndex].AnimId;
         _image = new SpriteImage(TileSheet.PlayerAndItems, animId);
-        _textBox = new TextBox(Game, spec.Text);
+        if (spec.Text != null)
+        {
+            _textBox = new TextBox(Game, spec.Text);
+        }
 
         if ((spec.ShowNumbers || spec.IsSpecial) && spec.Items != null)
         {

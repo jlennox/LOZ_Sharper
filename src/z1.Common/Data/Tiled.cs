@@ -764,9 +764,9 @@ public enum TiledProjectCustomPropertyUseAs { Property, Map, Layer, Object, Tile
 public sealed class TiledProjectCustomProperty
 {
     public int Id { get; set; }
-    public string Name { get; set; }
+    public required string Name { get; set; }
     [JsonPropertyName("storageType")]
-    public string StorageType { get; set; }
+    public string StorageType { get; set; } = "string";
     public TiledProjectCustomPropertyType Type { get; set; }
     public string[]? Values { get; set; }
     [JsonPropertyName("valuesAsFlags")]

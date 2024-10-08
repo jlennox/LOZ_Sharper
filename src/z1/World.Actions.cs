@@ -81,9 +81,12 @@ internal partial class World
         { Direction.Up, new DoorPosition(32, 112, 64) },
     };
 
-    private enum DoorState { Open, Locked, Shutter, Wall, Bombed }
+    private enum DoorState { Open, Locked, Shutter, Wall, Bombed, None }
 
-    private readonly record struct DoorStateFaces(DoorState Closed, DoorState Open);
+    private readonly record struct DoorStateFaces(DoorState Closed, DoorState Open)
+    {
+        public DoorState GetState(bool isOpen) => isOpen ? Open : Closed;
+    }
 
     private static DoorStateFaces GetDoorFace(DoorType type) => type switch
     {
@@ -95,6 +98,7 @@ internal partial class World
         DoorType.Key => new DoorStateFaces(DoorState.Locked, DoorState.Open),
         DoorType.Key2 => new DoorStateFaces(DoorState.Locked, DoorState.Open),
         DoorType.Shutter => new DoorStateFaces(DoorState.Shutter, DoorState.Open),
+        DoorType.None => new DoorStateFaces(DoorState.None, DoorState.None),
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported door type.")
     };
 
