@@ -356,15 +356,23 @@ internal static class GLWindowGui
         static void SpawnCave(Game game, CaveId caveId)
         {
             game.World.DebugKillAllObjects();
-            game.World.CurrentRoomFlags.ItemState = false;
-            // JOE: TODO: MAP REWRITE game.World.MakeCaveObjects(caveId);
+            foreach (var (_, o) in game.World.CurrentRoomFlags.ObjectState)
+            {
+                o.HasInteracted = false;
+                o.ItemGot = false;
+            }
+            game.World.DebugSpawnCave(caves => caves.First(t => t.CaveId == caveId));
         }
 
         static void SpawnPerson(Game game, PersonType type)
         {
             game.World.DebugKillAllObjects();
-            game.World.CurrentRoomFlags.ItemState = false;
-            game.World.DebugMakeUnderworldPerson(type);
+            foreach (var (_, o) in game.World.CurrentRoomFlags.ObjectState)
+            {
+                o.HasInteracted = false;
+                o.ItemGot = false;
+            }
+            game.World.DebugSpawnCave(caves => caves.First(t => t.PersonType == type));
         }
 
         if (ImGui.BeginMenu("Person"))
@@ -390,6 +398,7 @@ internal static class GLWindowGui
             if (ImGui.MenuItem("Cave 19: Secret 100")) SpawnCave(game, CaveId.Cave19);
             if (ImGui.MenuItem("Cave 20: Secret 10")) SpawnCave(game, CaveId.Cave20);
             ImGui.Separator();
+            if (ImGui.MenuItem("DoorRrepair")) SpawnPerson(game, PersonType.DoorRepair);
             if (ImGui.MenuItem("Grumble")) SpawnPerson(game, PersonType.Grumble);
             if (ImGui.MenuItem("Money or life")) SpawnPerson(game, PersonType.MoneyOrLife);
             if (ImGui.MenuItem("More bombs")) SpawnPerson(game, PersonType.MoreBombs);

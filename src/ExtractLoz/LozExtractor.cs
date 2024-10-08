@@ -147,12 +147,9 @@ public partial class LozExtractor
         var result = CheckRomFile(options.RomPath);
         switch (result)
         {
-            case RomCheckResult.NotCorrectVersion:
-                throw new Exception("ROM is not supported. Pass the (U) (PRG0) version.");
-            case RomCheckResult.NotNesRom:
-                throw new Exception("Input file is not an NES ROM.");
-            case RomCheckResult.FileNotFound:
-                throw new FileNotFoundException("ROM file not found");
+            case RomCheckResult.NotCorrectVersion: throw new Exception("ROM is not supported. Pass the (U) (PRG0) version.");
+            case RomCheckResult.NotNesRom: throw new Exception("Input file is not an NES ROM.");
+            case RomCheckResult.FileNotFound: throw new FileNotFoundException("ROM file not found");
         }
     }
 

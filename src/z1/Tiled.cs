@@ -358,15 +358,9 @@ internal sealed class GameRoom
     public int LevelKillCount { get; set; }
 
     // Old zelda stuff that needs to be refactored in action objects and stuff.
-    public World.Secret Secret { get; }
-    // public ItemId ItemId { get; } = ItemId.None;
-    // public PointXY ItemPosition { get; }
     public int? FireballLayout { get; }
-    // public PointXY ExitPosition { get; }
     public string? CellarStairsLeftRoomId { get; set; }
     public string? CellarStairsRightRoomId { get; set; }
-    // public CaveId? CaveId { get; set; }
-    // public ItemId? RoomItemId { get; set; }
     public bool IsLadderAllowed { get; set; }
 
     private readonly Game _game;
@@ -409,7 +403,6 @@ internal sealed class GameRoom
             UnderworldDoors = doors;
         }
 
-        Secret = map.GetEnumProperty(TiledRoomProperties.Secret, z1.World.Secret.None);
         FireballLayout = map.GetIntPropertyOrNull(TiledRoomProperties.FireballLayout);
         CellarStairsLeftRoomId = map.GetProperty(TiledRoomProperties.CellarStairsLeft);
         CellarStairsRightRoomId = map.GetProperty(TiledRoomProperties.CellarStairsRight);

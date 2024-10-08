@@ -328,16 +328,6 @@ public unsafe partial class LozExtractor
                     properties.Add(new TiledProperty(TiledRoomProperties.Secret, secret));
                 }
 
-                var itemId = uwRoomAttrs.GetItemId();
-                if (itemId != 0)
-                {
-                    // JOE: TODO: properties.Add(new TiledProperty(TiledObjectProperties.ItemId, itemId));
-                    // JOE: TODO: var posIndex = uwRoomAttrs.GetItemPositionIndex();
-                    // JOE: TODO: var bytePos = levelBlock.ShortcutPosition[posIndex];
-                    // JOE: TODO: var pos = new PointXY(bytePos & 0xF0, (byte)(bytePos << 4));
-                    // JOE: TODO: properties.Add(new TiledProperty(TiledObjectProperties.ItemPosition, pos));
-                }
-
                 var fireballLayoutIndex = Array.IndexOf([0x24, 0x23], roomAttr.GetUniqueRoomId(roomId));
                 if (fireballLayoutIndex >= 0)
                 {
@@ -401,12 +391,13 @@ public unsafe partial class LozExtractor
 
                 const int startY = 0x9D;
                 var keeseX = new[] { 0x20, 0x60, 0x90, 0xD0 };
-                var keese = keeseX.Select(t => new MonsterEntry(ObjType.BlueKeese, 1, new Point(t, startY))).ToArray();
+                var keese = keeseX.Select(t => new MonsterEntry(ObjType.BlueKeese, false, 1, new Point(t, startY))).ToArray();
                 properties.Add(new TiledProperty(TiledRoomProperties.Monsters, string.Join(", ", keese)));
             }
             else
             {
-                if (TryExtractMonsterList(roomAttr, resources, out var monsterString, out var monsterList))
+                var hasRingleader = !resources.IsOverworld && uwRoomAttrs.GetSecret() == Secret.Ringleader;
+                if (TryExtractMonsterList(roomAttr, resources, hasRingleader, out var monsterString, out var monsterList))
                 {
                     var personType = monsterList.FirstOrDefault(t => t.ObjType is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble);
 
@@ -864,7 +855,9 @@ public unsafe partial class LozExtractor
         };
     }
 
-    private static bool TryExtractMonsterList(RoomAttr roomAttr, MapResources resources, out string monsterString, out List<MonsterEntry> monsterList)
+    private static bool TryExtractMonsterList(
+        RoomAttr roomAttr, MapResources resources, bool hasRingleader,
+        out string monsterString, out List<MonsterEntry> monsterList)
     {
         // JOE: TODO: Need to handle a lot of other cases here.
         var monsterCount = roomAttr.GetMonsterCount();
@@ -881,17 +874,40 @@ public unsafe partial class LozExtractor
             if (owRoomAttrs.HasZora()) monsterList.Add(new MonsterEntry(ObjType.Zora));
         }
 
+        static void AddMonster(ObjType objId, ref bool hasRingleader, int count, List<MonsterEntry> monsterList)
+        {
+            if (!hasRingleader)
+            {
+                monsterList.Add(new MonsterEntry(objId, false, count));
+                return;
+            }
+
+            monsterList.Add(new MonsterEntry(objId, true, 1));
+            hasRingleader = false;
+            count--;
+
+            if (count > 0)
+            {
+                monsterList.Add(new MonsterEntry(objId, false, count));
+            }
+        }
+
         if (isList)
         {
             var listId = objId - ObjType.Rock;
             var list = resources.ObjectList.GetItem(listId);
             var monsters = new ObjType[monsterCount];
             for (var i = 0; i < monsterCount; i++) monsters[i] = (ObjType)list[i];
-            monsterList.AddRange(monsters.GroupBy(t => t).Select(t => new MonsterEntry(t.Key, t.Count())));
+            // monsterList.AddRange(monsters.GroupBy(t => t).Select(t => new MonsterEntry(t.Key, false, t.Count())));
+
+            foreach (var group in monsters.GroupBy(t => t))
+            {
+                AddMonster(group.Key, ref hasRingleader, group.Count(), monsterList);
+            }
         }
         else
         {
-            monsterList.Add(new MonsterEntry(objId, monsterCount));
+            AddMonster(objId, ref hasRingleader, monsterCount, monsterList);
         }
 
         monsterString = string.Join(", ", monsterList.Where(t => t.ObjType != ObjType.None));

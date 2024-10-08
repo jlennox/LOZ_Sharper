@@ -2,6 +2,8 @@
 
 internal abstract class MonsterActor : Actor
 {
+    public bool IsRingleader { get; set; }
+
     protected MonsterActor(Game game, ObjType type, int x = 0, int y = 0)
         : base(game, type, x, y)
     {
@@ -75,5 +77,20 @@ internal abstract class MonsterActor : Actor
             >= 0x50 => facing.GetNextDirection8(),
             _ => facing.GetPrevDirection8()
         };
+    }
+
+    public override bool Delete()
+    {
+        if (base.Delete())
+        {
+            // I'm not sure about doing this in delete... because it does trigger on the room change.
+            if (IsRingleader)
+            {
+                Game.World.KillAllObjects();
+            }
+            return true;
+        }
+
+        return false;
     }
 }

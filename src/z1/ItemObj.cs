@@ -259,7 +259,7 @@ internal abstract class BlockObjBase : Actor
 
         if (done)
         {
-            Game.World.OnPushedBlock();
+            // Game.World.OnPushedBlock();
             Game.World.SetMapObjectXY(X, Y, BlockMob);
             Game.World.SetMapObjectXY(_origX, _origY, FloorMob2);
             Delete();

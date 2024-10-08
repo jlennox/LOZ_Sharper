@@ -296,7 +296,28 @@ internal sealed partial class World
             _lastMode = mode;
         }
 
-        GetUpdateFunction(_curMode)!();
+        switch (_curMode)
+        {
+            case GameMode.Demo: /* no-op */ break;
+            case GameMode.LoadLevel: UpdateLoadLevel(); break;
+            case GameMode.Unfurl: UpdateUnfurl(); break;
+            case GameMode.Enter: UpdateEnter(); break;
+            case GameMode.Play: UpdatePlay(); break;
+            case GameMode.Leave: UpdateLeave(); break;
+            case GameMode.Scroll: UpdateScroll(); break;
+            case GameMode.ContinueQuestion: UpdateContinueQuestion(); break;
+            case GameMode.PlayCellar: UpdatePlay(); break;
+            case GameMode.LeaveCellar: UpdateLeaveCellar(); break;
+            case GameMode.PlayCave: UpdatePlay(); break;
+            case GameMode.PlayShortcuts: /* no-op */ break;
+            case GameMode.Stairs: UpdateStairsState(); break;
+            case GameMode.Death: UpdateDie(); break;
+            case GameMode.EndLevel: UpdateEndLevel(); break;
+            case GameMode.WinGame: UpdateWinGame(); break;
+            case GameMode.InitPlayCellar: UpdatePlayCellar(); break;
+            case GameMode.InitPlayCave: UpdatePlayCave(); break;
+            default: throw new ArgumentOutOfRangeException(nameof(_curMode), _curMode, "Invalid game mode.");
+        }
     }
 
     public void Draw()
@@ -307,7 +328,28 @@ internal sealed partial class World
             _statusBar.Draw(_submenuOffsetY);
         }
 
-        GetDrawFunction(_curMode)!();
+        switch (_curMode)
+        {
+            case GameMode.Demo: /* no-op */ break;
+            case GameMode.LoadLevel: DrawLoadLevel(); break;
+            case GameMode.Unfurl: DrawUnfurl(); break;
+            case GameMode.Enter: DrawEnter(); break;
+            case GameMode.Play: DrawPlay(); break;
+            case GameMode.Leave: DrawLeave(); break;
+            case GameMode.Scroll: DrawScroll(); break;
+            case GameMode.ContinueQuestion: DrawContinueQuestion(); break;
+            case GameMode.PlayCellar: DrawPlay(); break;
+            case GameMode.LeaveCellar: DrawLeaveCellar(); break;
+            case GameMode.PlayCave: DrawPlay(); break;
+            case GameMode.PlayShortcuts: /* no-op */ break;
+            case GameMode.Stairs: DrawStairsState(); break;
+            case GameMode.Death: DrawDie(); break;
+            case GameMode.EndLevel: DrawEndLevel(); break;
+            case GameMode.WinGame: DrawWinGame(); break;
+            case GameMode.InitPlayCellar: DrawPlayCellar(); break;
+            case GameMode.InitPlayCave: DrawPlayCave(); break;
+            default: throw new ArgumentOutOfRangeException(nameof(_curMode), _curMode, "Invalid game mode.");
+        }
     }
 
     private bool IsButtonPressing(GameButton button) => Game.Input.IsButtonPressing(button);
@@ -671,31 +713,6 @@ internal sealed partial class World
         return new TileCollision(false, behavior, hitFineCol, hitFineRow);
     }
 
-    public void OnPushedBlock()
-    {
-        Game.Sound.PlayEffect(SoundEffect.Secret);
-
-        if (IsOverworld())
-        {
-            if (!CurrentRoom.RoomFlags.ShortcutState)
-            {
-                // JOE: TODO: Map rewrite. if (FindSparseFlag(Sparse.Shortcut, CurrentRoom))
-                // JOE: TODO: Map rewrite. {
-                // JOE: TODO: Map rewrite.     TakeShortcut();
-                // JOE: TODO: Map rewrite.     ShowShortcutStairs(CurrentRoom);
-                // JOE: TODO: Map rewrite. }
-            }
-        }
-        else
-        {
-            switch (CurrentRoom.Secret)
-            {
-                case Secret.BlockDoor: _triggerShutters = true; break;
-                case Secret.BlockStairs: AddUWRoomStairs(); break;
-            }
-        }
-    }
-
     public void OnActivatedArmos(int x, int y)
     {
         // JOE: TODO: MAP REWRITE var pos = FindSparsePos2(Sparse.ArmosStairs, CurrentRoom);
@@ -1001,6 +1018,11 @@ internal sealed partial class World
         return AddItem(itemId, Game.Player.X, Game.Player.Y - TileHeight);
     }
 
+    public void DebugSpawnCave(Func<CaveSpec[], CaveSpec> getSpec)
+    {
+        MakePersonRoomObjects(getSpec(_extraData.CaveSpec), null);
+    }
+
     public void DebugClearHistory()
     {
         CurrentWorld.ResetLevelKillCounts();
@@ -1196,7 +1218,7 @@ internal sealed partial class World
                 // JOE: TODO: MAP REWRITE }
             }
 
-            if (!CurrentRoom.RoomFlags.ItemState)
+            // if (!CurrentRoom.RoomFlags.ItemState)
             {
                 // JOE: TODO: OBJECT REWRITE if (CurrentRoom.TryGetActionObject(TileAction.Item, out var itemObject))
                 // JOE: TODO: OBJECT REWRITE {
@@ -1209,13 +1231,13 @@ internal sealed partial class World
         }
         else
         {
-            if (!CurrentRoom.RoomFlags.ItemState)
-            {
-                if (room.Secret is not (Secret.FoesItem or Secret.LastBoss))
-                {
-                    AddUWRoomItem(room);
-                }
-            }
+            // if (!CurrentRoom.RoomFlags.ItemState)
+            // {
+            //     if (room.Secret is not (Secret.FoesItem or Secret.LastBoss))
+            //     {
+            //         AddUWRoomItem(room);
+            //     }
+            // }
         }
     }
 
@@ -1728,42 +1750,6 @@ internal sealed partial class World
                 _roomAllDead = true;
             }
         }
-
-        switch (CurrentRoom.Secret)
-        {
-            case Secret.Ringleader:
-                // JOE: I'm not sure what RoomObj is for and I feel like I'm double purposing it here...
-                if ((RoomObj == null || RoomObj.IsDeleted) || RoomObj is PersonActor)
-                {
-                    KillAllObjects();
-                }
-                break;
-
-            case Secret.LastBoss:
-                if (GetItem(ItemSlot.PowerTriforce) != 0) _triggerShutters = true;
-                break;
-
-            case Secret.FoesItem:
-                // ORIGINAL: BlockDoor and BlockStairs are handled here.
-                if (_roomAllDead)
-                {
-                    if (!_madeRoomItem && !CurrentRoom.RoomFlags.ItemState)
-                    {
-                        _madeRoomItem = true;
-                        AddUWRoomItem(CurrentRoom);
-                    }
-                }
-                // fall thru
-                goto case Secret.FoesDoor;
-            case Secret.FoesDoor:
-                if (_roomAllDead) _triggerShutters = true;
-                break;
-        }
-    }
-
-    private void AddUWRoomStairs()
-    {
-        SetMapObjectXY(0xD0, 0x60, BlockType.UnderworldStairs);
     }
 
     public void KillAllObjects()
@@ -2118,12 +2104,6 @@ internal sealed partial class World
             MakePersonRoomObjects(CurrentRoom.CaveSpec, state);
         }
 
-        // JOE: TODO: MAP REWRITE if (objId is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble)
-        // JOE: TODO: MAP REWRITE {
-        // JOE: TODO: MAP REWRITE     MakeUnderworldPerson(objId);
-        // JOE: TODO: MAP REWRITE     return;
-        // JOE: TODO: MAP REWRITE }
-
         // Zoras are a bit special and are never not spawned.
         for (var i = 0; i < CurrentRoom.ZoraCount; i++)
         {
@@ -2149,14 +2129,11 @@ internal sealed partial class World
         var y = 0;
         for (var i = 0; i < monsterCount; i++)
         {
-            var type = monsterList[i].ObjType;
+            var entry = monsterList[i];
+            var type = entry.ObjType;
 
-            if (monstersEnterFromEdge
-                && type != ObjType.Zora // JOE: TODO: Move this to an attribute on the class?
-                && type != ObjType.Armos
-                && type != ObjType.StandingFire
-                && type != ObjType.Whirlwind
-                )
+            var cannotEdgeSpawn = type is ObjType.Zora or ObjType.Armos or ObjType.StandingFire or ObjType.Whirlwind;
+            if (monstersEnterFromEdge && !cannotEdgeSpawn)
             {
                 _pendingEdgeSpawns.Add(type);
                 continue;
@@ -2169,6 +2146,8 @@ internal sealed partial class World
             }
 
             var obj = Actor.AddFromType(type, Game, x, y);
+            if (obj is MonsterActor mactor && entry.IsRingleader) mactor.IsRingleader = true;
+
             // The NES logic would only set HoldingItem for the first object.
             if (i == 0)
             {
@@ -2198,59 +2177,7 @@ internal sealed partial class World
 
     public void MakeCaveObjects(Entrance entrance, ObjectState? state)
     {
-        // JOE: TODO: MAP REWRITE NUKE THESE CAVE SPECS. var spec = _extraData.CaveSpec[(int)index];
-
         MakePersonRoomObjects(entrance.Cave ?? throw new Exception(), state);
-    }
-
-    public void DebugMakeUnderworldPerson(PersonType type)
-    {
-        // JOE: TODO: MAP REWRITE var spec = _extraData.CaveSpec.First(t => t.PersonType == type);
-        // JOE: TODO: MAP REWRITE MakePersonRoomObjects((CaveId)ObjType.Person1, spec);
-    }
-
-    private void MakeUnderworldPerson(ObjType type)
-    {
-        var secret = CurrentRoom.Secret;
-
-        PersonType? findType = null;
-        CaveSpec? spec = null;
-
-        // JOE: TODO: This all needs to be defined in the level data.
-        if (type == ObjType.Grumble)
-        {
-            findType = PersonType.Grumble;
-        }
-        else if (secret == Secret.MoneyOrLife)
-        {
-            findType = PersonType.MoneyOrLife;
-        }
-        else
-        {
-            var levelIndex = 00000; // JOE: TODO: MAP REWRITE _infoBlock.EffectiveLevelNumber - 1;
-            var levelTableIndex = _levelGroups[levelIndex];
-            var stringSlot = type - ObjType.Person1;
-            var stringId = _extraData.LevelPersonStringIds[levelTableIndex][stringSlot];
-
-            if ((StringId)stringId == StringId.MoreBombs)
-            {
-                findType = PersonType.MoreBombs;
-            }
-            else
-            {
-                spec = new CaveSpec
-                {
-                    DwellerType = CaveDwellerType.OldMan,
-                    Text = _textTable[stringId],
-                };
-            }
-        }
-
-        if (spec == null && findType == null) throw new Exception();
-
-        spec ??= _extraData.CaveSpec.First(t => t.PersonType == findType);
-
-        MakePersonRoomObjects(spec, null);
     }
 
     private void MakePersonRoomObjects(CaveSpec spec, ObjectState? state)
@@ -2931,11 +2858,10 @@ internal sealed partial class World
             if (_state.Enter.HasReachedTarget(Game.Player))
             {
                 _state.Enter.GotoPlay = true;
+                return;
             }
-            else
-            {
-                Game.Player.MoveLinear(_state.Enter.ScrollDir, _state.Enter.PlayerSpeed);
-            }
+
+            Game.Player.MoveLinear(_state.Enter.ScrollDir, _state.Enter.PlayerSpeed);
         }
 
         void EnterWalkCave()
@@ -2943,11 +2869,10 @@ internal sealed partial class World
             if (_state.Enter.HasReachedTarget(Game.Player))
             {
                 _state.Enter.GotoPlay = true;
+                return;
             }
-            else
-            {
-                MovePlayer(_state.Enter.ScrollDir, _state.Enter.PlayerSpeed, ref _state.Enter.PlayerFraction);
-            }
+
+            MovePlayer(_state.Enter.ScrollDir, _state.Enter.PlayerSpeed, ref _state.Enter.PlayerFraction);
         }
     }
 
@@ -3013,7 +2938,6 @@ internal sealed partial class World
                         _savedOWRoom = origRoom;
                     }
                 }
-
                 break;
 
             case LoadLevelState.Substates.Wait when _state.LoadLevel.Timer == 0:
@@ -3310,19 +3234,8 @@ internal sealed partial class World
 
             case StairsState.Substates.Walk when IsOverworld():
             case StairsState.Substates.WalkCave when _state.Stairs.HasReachedTarget(Game.Player):
-                var entrance = _state.Stairs.Entrance;
-                _log.Write($"CaveType: {entrance}");
-
-                LoadEntrance(entrance, _state.Stairs.ObjectState);
-
-                // if ((int)cave <= 9)
-                // {
-                //     GotoLoadLevel((int)cave);
-                // }
-                // else
-                // {
-                //     GotoPlayCave(cave);
-                // }
+                _log.Write($"CaveType: {_state.Stairs.Entrance}");
+                LoadEntrance(_state.Stairs.Entrance, _state.Stairs.ObjectState);
                 break;
 
             case StairsState.Substates.Walk:
@@ -3529,11 +3442,11 @@ internal sealed partial class World
                 return;
             }
 
-            // JOE: TODO: MAP REWRITE for (var i = 0; i < LevelInfoBlock.FadePals; i++)
-            // JOE: TODO: MAP REWRITE {
-            // JOE: TODO: MAP REWRITE     var step = _state.LeaveCellar.FadeStep;
-            // JOE: TODO: MAP REWRITE     Graphics.SetPaletteIndexed((Palette)i + 2, CurrentWorld.Info.InCellarPalette[step][i]);
-            // JOE: TODO: MAP REWRITE }
+            for (var i = 0; i < LevelInfoBlock.FadePals; i++)
+            {
+                var step = _state.LeaveCellar.FadeStep;
+                Graphics.SetPaletteIndexed((Palette)i + 2, CurrentWorld.Info.InCellarPalette[step][i]);
+            }
             Graphics.UpdatePalettes();
             _state.LeaveCellar.FadeTimer = 9;
             _state.LeaveCellar.FadeStep++;

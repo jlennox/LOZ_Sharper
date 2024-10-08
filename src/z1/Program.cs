@@ -16,6 +16,7 @@ namespace z1;
 // * Make replay engine?
 // * Figure out where to define what song is playing.
 // * Refactor game-space to be (0,0), not (0,status bar height).
+// * Make fire shooters and spike traps objects.
 
 // Known tiled map issues:
 // * Q1 level 7 recorder spot isn't marked as first quest only.

@@ -175,3 +175,38 @@ public class TiledPropertyTests
         Assert.That(actual.Point.Y, Is.EqualTo(expected.Point.Y));
     }
 }
+
+[TestFixture]
+public class ParseMonstersTests
+{
+    [Test]
+    public void Test()
+    {
+        var tests = new[] {
+            ("BlueKeese*2", new[] {
+                new MonsterEntry(ObjType.BlueKeese),
+                new MonsterEntry(ObjType.BlueKeese)
+            }),
+            ("BlueKeese, RedKeese", new[] {
+                new MonsterEntry(ObjType.BlueKeese),
+                new MonsterEntry(ObjType.RedKeese)
+            }),
+            ("BlueKeese[X=5,Y=2]*2, RedKeese", new[] {
+                new MonsterEntry(ObjType.BlueKeese, false, 1, new System.Drawing.Point(5, 2)),
+                new MonsterEntry(ObjType.BlueKeese, false, 1, new System.Drawing.Point(5, 2)),
+                new MonsterEntry(ObjType.RedKeese)
+            }),
+            ("BlueKeese[X=5,Ringleader,Y=2]*2, RedKeese", new[] {
+                new MonsterEntry(ObjType.BlueKeese, true, 1, new System.Drawing.Point(5, 2)),
+                new MonsterEntry(ObjType.BlueKeese, true, 1, new System.Drawing.Point(5, 2)),
+                new MonsterEntry(ObjType.RedKeese)
+            }),
+        };
+
+        foreach (var (input, expected) in tests)
+        {
+            var actual = MonsterEntry.ParseMonsters(input, out _).ToArray();
+            Assert.That(actual, Is.EqualTo(expected));
+        }
+    }
+}

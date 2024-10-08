@@ -493,7 +493,7 @@ public enum Direction
     [TiledIgnore] OppositeHorizontals = HorizontalMask,
 }
 
-public readonly record struct MonsterEntry(ObjType ObjType, int Count = 1, Point? Point = null)
+public readonly record struct MonsterEntry(ObjType ObjType, bool IsRingleader = false, int Count = 1, Point? Point = null)
 {
     [ThreadStatic]
     private static List<MonsterEntry>? _temporaryList;
@@ -512,6 +512,37 @@ public readonly record struct MonsterEntry(ObjType ObjType, int Count = 1, Point
         {
             parser.SkipOptionalWhiteSpace(monsterListSpan);
             var monsterName = parser.ExpectWord(monsterListSpan);
+            int? pointX = null;
+            int? pointY = null;
+            var isRingleader = false;
+
+            if (parser.TryExpectChar(monsterListSpan, '['))
+            {
+                while (true)
+                {
+                    var param = parser.ExpectWord(monsterListSpan); // JOE: TODO: Case sensitive.
+                    switch (param)
+                    {
+                        case "X":
+                            parser.ExpectChar(monsterListSpan, '=');
+                            pointX = parser.ExpectInt(monsterListSpan);
+                            break;
+                        case "Y":
+                            parser.ExpectChar(monsterListSpan, '=');
+                            pointY = parser.ExpectInt(monsterListSpan);
+                            break;
+                        case "Ringleader":
+                            isRingleader = true;
+                            break;
+                        default: throw new Exception($"Unsupported parameter \"{param}\" in monster list \"{monsterList}\"");
+                    }
+
+                    if (!parser.TryExpectChar(monsterListSpan, ',')) break;
+                }
+
+                parser.ExpectChar(monsterListSpan, ']');
+            }
+
             var count = parser.TryExpectChar(monsterListSpan, '*')
                 ? parser.ExpectInt(monsterListSpan)
                 : 1;
@@ -527,7 +558,8 @@ public readonly record struct MonsterEntry(ObjType ObjType, int Count = 1, Point
             }
             else
             {
-                for (var j = 0; j < count; j++) list.Add(new MonsterEntry(type));
+                Point? point = pointX != null && pointY != null ? new Point(pointX.Value, pointY.Value) : null;
+                for (var j = 0; j < count; j++) list.Add(new MonsterEntry(type, isRingleader, 1, point));
             }
 
             if (!parser.TryExpectChar(monsterListSpan, ',')) break;
@@ -542,12 +574,24 @@ public readonly record struct MonsterEntry(ObjType ObjType, int Count = 1, Point
 
         sb.Append(ObjType.ToString());
 
-        if (Point != null)
+        if (Point != null || IsRingleader)
         {
-            sb.Append("[X=");
-            sb.Append(Point.Value.X);
-            sb.Append(",Y=");
-            sb.Append(Point.Value.Y);
+            sb.Append('[');
+            var hasValue = false;
+            if (Point != null)
+            {
+                sb.Append("X=");
+                sb.Append(Point.Value.X);
+                sb.Append(",Y=");
+                sb.Append(Point.Value.Y);
+                hasValue = true;
+            }
+            if (IsRingleader)
+            {
+                if (hasValue) sb.Append(',');
+                sb.Append("Ringleader");
+
+            }
             sb.Append(']');
         }
 
