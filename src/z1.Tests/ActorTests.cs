@@ -69,7 +69,7 @@ internal class ScreenGameMapObjectTests
     [Test]
     public void TryParseDungeonDoors()
     {
-        var directions = TiledObjectProperties.DoorDirectionOrder;
+        var directions = TiledRoomProperties.DoorDirectionOrder;
 
         foreach (var (input, expected) in new[] {
             ("Wall, Wall, Open, Key", new[] { DoorType.Wall, DoorType.Wall, DoorType.Open, DoorType.Key }),

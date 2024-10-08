@@ -81,7 +81,7 @@ public enum CaveSpecOptions
     Special = 1 << 3,
     Pay = 1 << 4,
     PickUp = 1 << 5,
-    ControlsShutters = 1 << 6,
+    ControlsShutterDoors = 1 << 6,
     ControlsBlockingWall = 1 << 7,
     // Check they have the item when they enter (level 9 entrance)
     EntranceCheck = 1 << 8,
@@ -116,7 +116,7 @@ public sealed class CaveSpec
     [TiledIgnore, JsonIgnore] public bool IsSpecial => HasOption(CaveSpecOptions.Special);
     [TiledIgnore, JsonIgnore] public bool IsPay => HasOption(CaveSpecOptions.Pay);
     [TiledIgnore, JsonIgnore] public bool IsPickUp => HasOption(CaveSpecOptions.PickUp);
-    [TiledIgnore, JsonIgnore] public bool DoesControlsShutters => HasOption(CaveSpecOptions.ControlsShutters);
+    [TiledIgnore, JsonIgnore] public bool DoesControlsShutters => HasOption(CaveSpecOptions.ControlsShutterDoors);
     [TiledIgnore, JsonIgnore] public bool DoesControlsBlockingWall => HasOption(CaveSpecOptions.ControlsBlockingWall);
     [TiledIgnore, JsonIgnore] public bool HasEntranceCheck => HasOption(CaveSpecOptions.EntranceCheck);
     [TiledIgnore, JsonIgnore] public bool HasEntranceCost => HasOption(CaveSpecOptions.EntranceCost);

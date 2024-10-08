@@ -220,4 +220,6 @@ internal static class Extensions
             _ => throw new Exception($"TileType {tile} has no associated BlockType.")
         };
     }
+
+    public static bool IsLockedType(this DoorType type) => type is DoorType.Bombable or DoorType.Key or DoorType.Key2;
 }

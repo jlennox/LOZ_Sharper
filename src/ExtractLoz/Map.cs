@@ -34,6 +34,8 @@ internal sealed class World
     public const int UWMarginTop = 0x5D;
     public const int UWMarginBottom = 0xBD;
     public const int TileTypes = 256;
+
+    public const int UWBlockRow = 10;
 }
 
 internal readonly record struct ColumnRow(byte Desc, bool IsOverworld)
@@ -404,7 +406,7 @@ internal sealed class MapExtractor
             {
                 caveName = "Cave";
                 caveType = GameWorldType.OverworldCommon;
-                caveSpec = resources.CaveSpecs?.FirstOrDefault(t => (t.CaveId - CaveId.Cave1) == (int)caveId - 0x10);
+                caveSpec = resources.CaveSpec?.FirstOrDefault(t => (t.CaveId - CaveId.Cave1) == (int)caveId - 0x10);
             }
         }
         else
@@ -468,19 +470,30 @@ internal sealed class MapExtractor
         {
             var secret = uwRoomAttrs.GetSecret();
 
-            if (secret is not (Secret.FoesItem or Secret.LastBoss))
+            var uwItemId = uwRoomAttrs.GetItemId();
+            if (uwItemId != ItemId.MAX && uwItemId != ItemId.TriforcePiece)
             {
-                var uwItemId = uwRoomAttrs.GetItemId();
-                if (uwItemId != ItemId.None && uwItemId != ItemId.TriforcePiece)
+                var posIndex = uwRoomAttrs.GetItemPositionIndex();
+                var block = resources.LevelInfoBlock;
+                var pos = block.GetShortcutPosition(posIndex);
+
+                if (secret is Secret.FoesItem or Secret.LastBoss)
                 {
-                    var posIndex = uwRoomAttrs.GetItemPositionIndex();
-                    var block = resources.LevelInfoBlock;
-                    var bytePos = block.ShortcutPosition[posIndex];
-                    var pos = new PointXY(bytePos & 0xF0, (byte)(bytePos << 4));
                     AddInteractionP(GetTileCoords(pos.X, pos.Y), TileAction.Item, new InteractableBlock
                     {
                         Interaction = Interaction.None,
+                        Requirements = InteractionRequirements.AllEnemiesDefeated,
                         Item = new RoomItem { Item = uwItemId },
+                        Persisted = true,
+                    });
+                }
+                else
+                {
+                    AddInteractionP(GetTileCoords(pos.X, pos.Y), TileAction.Item, new InteractableBlock
+                    {
+                        Interaction = Interaction.None,
+                        Item = new RoomItem { Item = uwItemId, IsRoomItem = true },
+                        Persisted = true,
                     });
                 }
             }
@@ -489,7 +502,7 @@ internal sealed class MapExtractor
             {
                 AddInteractionP(GetTileCoords(0xD0, 0x60), TileAction.Stairs, new InteractableBlock
                 {
-                    Interaction = Interaction.None,
+                    Interaction = Interaction.Revealed,
                     Entrance = EntranceWith(BlockType.Stairs),
                 });
             }
@@ -499,9 +512,51 @@ internal sealed class MapExtractor
                 AddInteraction(RoomTileWidth / 2 - 1, RoomTileHeight / 2 - 1, TileAction.Item, new InteractableBlock
                 {
                     Interaction = Interaction.None,
-                    Item = new RoomItem { Item = ItemId.TriforcePiece }
+                    Item = new RoomItem { Item = ItemId.TriforcePiece },
+                    Persisted = true,
                 });
             }
+        }
+
+        var markFirstBlock = !resources.IsOverworld && uwRoomAttrs.HasBlock()
+            && uwRoomAttrs.GetSecret() is Secret.BlockDoor or Secret.BlockStairs or Secret.None;
+
+        void CheckUWBlock(int x, int y)
+        {
+            if (!markFirstBlock) return;
+            if (y != UWBlockRow) return;
+            if (map.Refs(UWBlockRow, x) != (byte)TileType.Block) return;
+
+            markFirstBlock = false;
+
+            var interaction = uwRoomAttrs.GetSecret() switch
+            {
+                Secret.BlockStairs => new InteractableBlock
+                {
+                    Interaction = Interaction.Push,
+                    ApparanceBlock = TileType.Block,
+                    Repeatable = false,
+                    Reveals = shortcutStairsName,
+                },
+                Secret.BlockDoor => new InteractableBlock
+                {
+                    Interaction = Interaction.Push,
+                    ApparanceBlock = TileType.Block,
+                    Repeatable = false,
+                    Effect = InteractionEffect.OpenShutterDoors,
+                    Requirements = InteractionRequirements.AllEnemiesDefeated,
+
+                },
+                Secret.None => new InteractableBlock
+                {
+                    Interaction = Interaction.Push,
+                    ApparanceBlock = TileType.Block,
+                    Repeatable = false,
+                },
+                _ => throw new Exception()
+            };
+
+            AddInteraction(x, y, TileAction.PushBlock, interaction);
         }
 
         if (hasShortcutStairs)
@@ -526,22 +581,24 @@ internal sealed class MapExtractor
 
             var columnTable = resources.ColTable.GetItem(tableIndex);
             var columnStart = GetColumnStart(columnTable, columnIndex, maxColumnStartOffset);
-            var column = _startCol + columnDescIndex * 2;
+            var columnX = _startCol + columnDescIndex * 2;
 
-            for (var rowIndex = _startRow; rowIndex < rowEnd; columnStart++)
+            for (var rowIndexY = _startRow; rowIndexY < rowEnd; columnStart++)
             {
                 var columnRow = new ColumnRow(columnTable[columnStart], isOverworld || isCellar);
                 var tileRef = columnRow.SquareNumber;
 
-                loadMobFunc(ref map, resources, rowIndex, column, tileRef);
+                loadMobFunc(ref map, resources, rowIndexY, columnX, tileRef);
+                CheckUWBlock(columnX, rowIndexY);
 
-                rowIndex += 2;
+                rowIndexY += 2;
 
                 var repeatCount = columnRow.RepeatCount;
-                for (var m = 0; m < repeatCount && rowIndex < rowEnd; m++)
+                for (var m = 0; m < repeatCount && rowIndexY < rowEnd; m++)
                 {
-                    loadMobFunc(ref map, resources, rowIndex, column, tileRef);
-                    rowIndex += 2;
+                    loadMobFunc(ref map, resources, rowIndexY, columnX, tileRef);
+                    CheckUWBlock(columnX, rowIndexY);
+                    rowIndexY += 2;
                 }
             }
 
@@ -552,7 +609,8 @@ internal sealed class MapExtractor
             for (var rowIndexY = _startRow; rowIndexY < rowEnd; columnStart++)
             {
                 var columnRow = new ColumnRow(columnTable[columnStart], isOverworld || isCellar);
-                var tileRef = columnRow.SquareNumber; var attr = resources.TileAttrs[tileRef];
+                var tileRef = columnRow.SquareNumber;
+                var attr = resources.TileAttrs[tileRef];
                 var action = TileAttr.GetAction(attr);
 
                 if (lastAction != null && lastAction.Action != action)
@@ -564,38 +622,10 @@ internal sealed class MapExtractor
                     lastAction = null;
                 }
 
-                if (isOverworld)
-                {
-                    if (action == TileAction.Raft)
-                    {
-                        AddInteraction(column, rowIndexY, TileAction.Raft, new InteractableBlock
-                        {
-                            Interaction = Interaction.None,
-                            Raft = new Raft(Direction.Up),
-                            Repeatable = true,
-                            ItemRequirement = new InteractionItemRequirement(ItemSlot.Raft, 1)
-                        });
-                    }
-
-                    if (action is TileAction.Push or TileAction.PushBlock)
-                    {
-                        // var requirement = resources.IsOverworld
-                        //     ? new InteractionItemRequirement(ItemSlot.Bracelet, 1)
-                        //     : null;
-                        //
-                        // AddInteraction(column, rowIndexY, action, new InteractableBlock
-                        // {
-                        //     Interaction = resources.IsOverworld ? Interaction.PushVertical : Interaction.Push,
-                        //     Repeatable = true,
-                        //     Reveals = shortcutStairsName,
-                        //     ItemRequirement = requirement,
-                        // });
-                    }
-                }
-
                 var lookup = new Dictionary<TileAction, Interaction>
                 {
                     { TileAction.Cave, Interaction.None },
+                    { TileAction.Stairs, Interaction.None },
                     { TileAction.Bomb, Interaction.Bomb },
                     { TileAction.Burn, Interaction.Burn },
                     { TileAction.Recorder, Interaction.Recorder },
@@ -604,7 +634,12 @@ internal sealed class MapExtractor
                     { TileAction.PushHeadstone, Interaction.Push },
                     { TileAction.Push, Interaction.PushVertical },
                     { TileAction.PushBlock, Interaction.Push },
+                    { TileAction.Raft, Interaction.Cover },
                 };
+
+                if (!lookup.TryGetValue(action, out _) && action is not (TileAction.None or TileAction.Ladder))
+                {
+                }
 
                 if (lookup.TryGetValue(action, out var interactionType))
                 {
@@ -617,20 +652,20 @@ internal sealed class MapExtractor
                     if (isArmosStairs)
                     {
                         var pos = GetTileCoords(armosStairs.Value.X, armosStairs.Value.Y);
-                        isArmosStairs = pos.X == column && pos.Y == rowIndexY;
+                        isArmosStairs = pos.X == columnX && pos.Y == rowIndexY;
                     }
 
                     if (armosItem != null)
                     {
                         var pos = GetTileCoords(armosItem.Value.X, armosItem.Value.Y);
-                        if (pos.X == column && pos.Y == rowIndexY)
+                        if (pos.X == columnX && pos.Y == rowIndexY)
                         {
                             interaction.Item = new RoomItem { Item = armosItem.Value.AsItemId };
                         }
                     }
 
                     // TODO: Underworld TileAction.Block is different.
-                    if (action is TileAction.Burn or TileAction.PushHeadstone)
+                    if (action is TileAction.Burn or TileAction.PushHeadstone or TileAction.Stairs)
                     {
                         interaction.Entrance = EntranceWith(BlockType.Stairs);
                     }
@@ -673,9 +708,15 @@ internal sealed class MapExtractor
                                 case Secret.BlockStairs: interaction.Reveals = shortcutStairsName; break;
                             }
                             break;
+
+                        case TileAction.Raft:
+                            interaction.Raft = new Raft(Direction.Up);
+                            interaction.Repeatable = true;
+                            interaction.ItemRequirement = new InteractionItemRequirement(ItemSlot.Raft, 1);
+                            break;
                     }
 
-                    AddInteraction(column, rowIndexY, action, interaction);
+                    AddInteraction(columnX, rowIndexY, action, interaction);
                 }
 
                 // if (lastAction != null && !lastAction.CanRepeat(newaction))
@@ -695,7 +736,10 @@ internal sealed class MapExtractor
                 var repeatCount = columnRow.RepeatCount;
                 for (var m = 0; m < repeatCount && rowIndexY < rowEnd; m++)
                 {
-                    loadMobFunc(ref map, resources, rowIndexY, column, tileRef);
+                    // loadMobFunc(ref map, resources, rowIndexY, columnX, tileRef);
+                    // CheckUWBlock(columnX, rowIndexY);
+
+
                     // if (action != TileAction.None)
                     // {
                     //     lastAction = lastAction.ExpandHeight();
@@ -990,13 +1034,27 @@ internal unsafe struct LevelInfoBlock
     public fixed byte DarkPaletteSeq[FadeLength * FadePals * PaletteLength];
     public fixed byte DeathPaletteSeq[FadeLength * FadePals * PaletteLength];
 
+    public PointXY GetShortcutPosition(int index)
+    {
+        var bytePos = ShortcutPosition[index];
+        return new PointXY(bytePos & 0xF0, (byte)(bytePos << 4));
+    }
+
     public WorldInfo GetWorldInfo(GameWorldType type)
     {
         static byte[][][] GetTriple(Func<int, int, byte[]> func)
         {
-            return Enumerable.Range(0, FadePals)
-                .Select(fade => Enumerable.Range(0, FadeLength)
-                    .Select(len => func(len, fade)).ToArray()).ToArray();
+            var palettes = new byte[PaletteLength][][];
+            for (var index = 0; index < PaletteLength; index++)
+            {
+                palettes[index] = new byte[FadePals][];
+                for (var fade = 0; fade < FadePals; fade++)
+                {
+                    palettes[index][fade] = func(index, fade);
+                }
+            }
+
+            return palettes;
         }
 
         var that = this;

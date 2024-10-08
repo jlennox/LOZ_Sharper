@@ -96,7 +96,7 @@ internal partial class World
 
         if (room.HasUnderworldDoors)
         {
-            foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
+            foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
             {
                 UpdateDoorTileBehavior(room, direction);
             }

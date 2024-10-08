@@ -338,6 +338,7 @@ internal sealed class GameRoom
     public bool HasUnderworldDoors { get; }
     public Dictionary<Direction, DoorType> UnderworldDoors { get; } = [];
     public ImmutableArray<MonsterEntry> Monsters { get; set; }
+    public CaveSpec? CaveSpec { get; set; }
     public int ZoraCount { get; set; }
     public bool MonstersEnter { get; set; }
     public MazeRoom? Maze { get; set; }
@@ -391,26 +392,27 @@ internal sealed class GameRoom
 
         RoomMap = new RoomTileMap(Width, Height);
 
-        Id = map.GetProperty(TiledObjectProperties.Id) ?? throw new Exception("Room has no room id.");
-        Monsters = MonsterEntry.ParseMonsters(map.GetProperty(TiledObjectProperties.Monsters), out var zoraCount);
+        Id = map.GetProperty(TiledRoomProperties.Id) ?? throw new Exception("Room has no room id.");
+        Monsters = MonsterEntry.ParseMonsters(map.GetProperty(TiledRoomProperties.Monsters), out var zoraCount);
         ZoraCount = zoraCount;
-        MonstersEnter = map.GetBooleanProperty(TiledObjectProperties.MonstersEnter);
-        Maze = map.GetClass<MazeRoom>(TiledObjectProperties.Maze);
-        RoomInformation = map.ExpectClass<RoomInformation>(TiledObjectProperties.RoomInformation);
+        MonstersEnter = map.GetBooleanProperty(TiledRoomProperties.MonstersEnter);
+        CaveSpec = map.GetClass<CaveSpec>(TiledRoomProperties.CaveSpec);
+        Maze = map.GetClass<MazeRoom>(TiledRoomProperties.Maze);
+        RoomInformation = map.ExpectClass<RoomInformation>(TiledRoomProperties.RoomInformation);
         RecorderDestination = map.GetClass<RecorderDestination>(TiledObjectProperties.RecorderDestination);
-        HiddenFromMap = map.GetBooleanProperty(TiledObjectProperties.HiddenFromMap);
+        HiddenFromMap = map.GetBooleanProperty(TiledRoomProperties.HiddenFromMap);
 
-        var dungeonDoors = map.GetProperty(TiledObjectProperties.UnderworldDoors);
+        var dungeonDoors = map.GetProperty(TiledRoomProperties.UnderworldDoors);
         if (TryParseUnderworldDoors(dungeonDoors, out var doors))
         {
             HasUnderworldDoors = true;
             UnderworldDoors = doors;
         }
 
-        Secret = map.GetEnumProperty(TiledObjectProperties.Secret, z1.World.Secret.None);
-        FireballLayout = map.GetIntPropertyOrNull(TiledObjectProperties.FireballLayout);
-        CellarStairsLeftRoomId = map.GetProperty(TiledObjectProperties.CellarStairsLeft);
-        CellarStairsRightRoomId = map.GetProperty(TiledObjectProperties.CellarStairsRight);
+        Secret = map.GetEnumProperty(TiledRoomProperties.Secret, z1.World.Secret.None);
+        FireballLayout = map.GetIntPropertyOrNull(TiledRoomProperties.FireballLayout);
+        CellarStairsLeftRoomId = map.GetProperty(TiledRoomProperties.CellarStairsLeft);
+        CellarStairsRightRoomId = map.GetProperty(TiledRoomProperties.CellarStairsRight);
 
         // Stores the entire map's worth of behaviors merged from all sources, with coinciding indexes to the tiles.
         var behaviors = new TileBehavior[Width * Height];
@@ -606,7 +608,7 @@ internal sealed class GameRoom
         var parser = new StringParser();
 
         doors = new Dictionary<Direction, DoorType>();
-        var directions = TiledObjectProperties.DoorDirectionOrder;
+        var directions = TiledRoomProperties.DoorDirectionOrder;
         for (var i = 0; i < directions.Length; i++)
         {
             if (!parser.TryExpectEnum<DoorType>(s, out var doorType)) return false;
@@ -768,7 +770,7 @@ internal sealed class InteractiveGameObject : GameMapObject
 
     public InteractiveGameObject(GameRoom room, TiledLayerObject layerObject, InteractableBlock interaction) : base(room, layerObject)
     {
-        var idProperty = layerObject.GetProperty(TiledObjectProperties.Id);
+        var idProperty = layerObject.GetProperty(TiledRoomProperties.Id);
         Interaction = interaction;
         Id = !string.IsNullOrEmpty(idProperty)
             ? idProperty

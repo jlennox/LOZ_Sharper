@@ -7,13 +7,15 @@ using z1.GUI;
 
 namespace z1;
 
+// Sharper bugs (minor):
+// * Can't hit the underworld cave people.
+
 // Sharper:
 // * Rectify MarginRight.
 // * Refactor out ActiveShots.
 // * Make replay engine?
 // * Figure out where to define what song is playing.
-// * Crashes when you die.
-// * Refactor game-space to be 0,0, not 0,status bar height.
+// * Refactor game-space to be (0,0), not (0,status bar height).
 
 // Known tiled map issues:
 // * Q1 level 7 recorder spot isn't marked as first quest only.

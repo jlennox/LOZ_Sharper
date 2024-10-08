@@ -111,12 +111,10 @@ internal sealed class InteractiveGameObjectActor : Actor
             }
         }
 
-        switch (Interactable.Effect)
+        if (Interactable.Effect.HasFlag(InteractionEffect.OpenShutterDoors))
         {
-            case InteractionEffect.OpenShutterDoors:
-                OptionalSound();
-                Game.World.OpenShutters();
-                break;
+            OptionalSound();
+            Game.World.OpenShutters();
         }
     }
 
@@ -331,17 +329,16 @@ internal sealed class PushInteraction
                 };
 
                 var block = _interactive.Interactable.ApparanceBlock;
-                if (block != null)
+                if (block == null) return true;
+
+                _movingActor = new MovingBlockActor(
+                    _game, ObjType.Block, block.Value, targetPos, MovingBlockActorOptions.ReplaceWithBackground,
+                    _interactive.X, _interactive.Y, _gameObject.Width, _gameObject.Height)
                 {
-                    _movingActor = new MovingBlockActor(
-                        _game, ObjType.Block, block.Value, targetPos, MovingBlockActorOptions.ReplaceWithBackground,
-                        _interactive.X, _interactive.Y, _gameObject.Width, _gameObject.Height)
-                    {
-                        Facing = dir,
-                        EnableDraw = true,
-                    };
-                    _game.World.AddObject(_movingActor);
-                }
+                    Facing = dir,
+                    EnableDraw = true,
+                };
+                _game.World.AddObject(_movingActor);
                 return false;
             }
 

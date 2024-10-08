@@ -15,13 +15,12 @@ public static class TiledWorldProperties
     public const string WorldInfo = nameof(WorldInfo);
 }
 
-public static class TiledObjectProperties
+public static class TiledRoomProperties
 {
-    public const string Type = nameof(Type);
-
     // Room
     public const string Id = nameof(Id);
     public const string Monsters = nameof(Monsters);
+    public const string CaveSpec = nameof(CaveSpec);
 
     // Overworld
     public const string MonstersEnter = nameof(MonstersEnter);
@@ -37,6 +36,12 @@ public static class TiledObjectProperties
     public const string HiddenFromMap = nameof(HiddenFromMap);
 
     public static readonly ImmutableArray<Direction> DoorDirectionOrder = [Direction.Right, Direction.Left, Direction.Down, Direction.Up];
+}
+
+public static class TiledObjectProperties
+{
+    public const string Type = nameof(Type);
+    public const string Id = nameof(Id);
 
     // Action
     public const string Interaction = nameof(Interaction);
@@ -107,7 +112,21 @@ public enum GameObjectLayerObjectType
 
 [TiledClass]
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum Interaction { Unknown, None, Bomb, Burn, Push, PushVertical, Recorder, Touch, TouchOnce, Cover }
+public enum Interaction
+{
+    Unknown,
+    None,
+    Bomb,
+    Burn,
+    Push,
+    PushVertical,
+    Recorder,
+    Touch,
+    TouchOnce,
+    Cover,
+    // Requires a "revealed" to show.
+    Revealed,
+}
 
 [TiledClass]
 public sealed class MazeRoom
@@ -169,7 +188,9 @@ public sealed class InteractionItemRequirement
 [TiledSelectableEnum]
 public enum InteractionRequirements { None, AllEnemiesDefeated }
 
+[Flags]
 [JsonConverter(typeof(JsonStringEnumConverter))]
+[TiledSelectableEnum]
 public enum InteractionEffect { None, OpenShutterDoors }
 
 public sealed class InteractableBlock

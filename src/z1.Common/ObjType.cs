@@ -269,6 +269,7 @@ public enum PersonType
     EnterLevel9,
     CaveShortcut,
     MoreBombs,
+    Text,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -412,6 +413,7 @@ public enum BlockType
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TileType
 {
+    Tile = 1,
     Ground = 0x0E,
     Rock = 0xC8,
     Headstone = 0xBC,

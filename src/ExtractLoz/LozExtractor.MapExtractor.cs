@@ -26,8 +26,10 @@ internal record MapResources(
     RoomContext RoomContext, RoomCols[] RoomCols, TableResource<byte> ColTable, byte[] TileAttrs,
     TableResource<byte> ObjectList, byte[] PrimaryMobs, byte[]? SecondaryMobs, byte[] TileBehaviors,
     RoomAttr[] RoomAttrs, TableResource<byte> SparseTable, LevelInfoBlock LevelInfoBlock, MapResources? CellarResources,
-    CaveSpec[]? CaveSpecs, int QuestId)
+    LevelInfoEx LevelInfoEx, string[] TextTable, int QuestId)
 {
+    public CaveSpec[] CaveSpec => LevelInfoEx.CaveSpec;
+
     public byte[][] GetRoomColsArray() => RoomCols.Select(t => t.Get()).ToArray();
     public RoomAttr GetRoomAttr(Point point) => RoomAttrs[point.Y * World.WorldWidth + point.X];
     public RoomAttr GetRoomAttr(RoomId point) => RoomAttrs[point.Id];
@@ -65,11 +67,13 @@ public unsafe partial class LozExtractor
         { new(1, 9), 3 },
     };
     private static byte[,] _wallTileMap = null;
+    private static string[] _textTable = null;
 
     private static void ExtractTiledMaps(Options options)
     {
         using var reader = options.GetBinaryReader();
         _wallTileMap ??= ExtractUnderworldWalls(reader, new Bitmap(300, 300));
+        _textTable ??= ExtractText(options);
 
         var overworldResources = ExtractOverworldTiledMaps(options);
         var underworldResources = ExtractUnderworldTiledMaps(options);
@@ -116,7 +120,8 @@ public unsafe partial class LozExtractor
             SparseTable: sparseTable,
             LevelInfoBlock: levelInfo,
             CellarResources: null,
-            CaveSpecs: levelInfoEx.CaveSpec,
+            LevelInfoEx: levelInfoEx,
+            TextTable: _textTable ?? throw new Exception(),
             QuestId: 0);
 
         ExtractTiledMap(options, resources, "Overworld");
@@ -135,6 +140,7 @@ public unsafe partial class LozExtractor
         var sparseTable = ExtractOverworldMapSparseAttrs(options); // there is no underworld specific one.
         var mapObjects = ExtractUnderworldMobs(options, reader);
         var levelInfo = ExtractUnderworldInfo(options);
+        var levelInfoEx = ExtractOverworldInfoEx(options);
 
         var resources = new MapResources(
             IsOverworld: false,
@@ -150,7 +156,8 @@ public unsafe partial class LozExtractor
             SparseTable: sparseTable,
             LevelInfoBlock: levelInfo.First().Value,
             CellarResources: null,
-            CaveSpecs: null,
+            LevelInfoEx: levelInfoEx,
+            TextTable: _textTable ?? throw new Exception(),
             QuestId: 0);
 
         var cellarTileAttributes = ExtractUnderworldCellarTileAttrs(options);
@@ -281,16 +288,16 @@ public unsafe partial class LozExtractor
             var uwRoomAttrs = new UWRoomAttr(roomAttr);
             var isCellar = resources.IsCellarRoom(roomId);
 
-            properties.Add(new TiledProperty(TiledObjectProperties.Id, name ?? roomId.GetGameRoomId()));
+            properties.Add(new TiledProperty(TiledRoomProperties.Id, name ?? roomId.GetGameRoomId()));
 
             if (resources.IsOverworld)
             {
-                properties.AddIf(owRoomAttrs.DoMonstersEnter(), new TiledProperty(TiledObjectProperties.MonstersEnter, true));
+                properties.AddIf(owRoomAttrs.DoMonstersEnter(), new TiledProperty(TiledRoomProperties.MonstersEnter, true));
 
                 var maze = resources.SparseTable.FindSparseAttr<SparseMaze>(Sparse.Maze, roomId.Id);
                 if (maze != null)
                 {
-                    properties.Add(TiledProperty.ForClass(TiledObjectProperties.Maze, new MazeRoom
+                    properties.Add(TiledProperty.ForClass(TiledRoomProperties.Maze, new MazeRoom
                     {
                         Path = maze.Value.Paths.ToArray(),
                         ExitDirection = maze.Value.ExitDirection,
@@ -309,16 +316,16 @@ public unsafe partial class LozExtractor
                     }
                 }
 
-                var doors = TiledObjectProperties.DoorDirectionOrder
+                var doors = TiledRoomProperties.DoorDirectionOrder
                     .Select(uwRoomAttrs.GetDoor)
                     .Select(t => t.ToString())
                     .ToArray();
-                properties.Add(new TiledProperty(TiledObjectProperties.UnderworldDoors, string.Join(", ", doors)));
+                properties.Add(new TiledProperty(TiledRoomProperties.UnderworldDoors, string.Join(", ", doors)));
 
                 var secret = uwRoomAttrs.GetSecret();
                 if (secret != Secret.None)
                 {
-                    properties.Add(new TiledProperty(TiledObjectProperties.Secret, secret));
+                    properties.Add(new TiledProperty(TiledRoomProperties.Secret, secret));
                 }
 
                 var itemId = uwRoomAttrs.GetItemId();
@@ -334,7 +341,7 @@ public unsafe partial class LozExtractor
                 var fireballLayoutIndex = Array.IndexOf([0x24, 0x23], roomAttr.GetUniqueRoomId(roomId));
                 if (fireballLayoutIndex >= 0)
                 {
-                    properties.Add(new TiledProperty(TiledObjectProperties.FireballLayout, fireballLayoutIndex));
+                    properties.Add(new TiledProperty(TiledRoomProperties.FireballLayout, fireballLayoutIndex));
                 }
 
                 if (maxroomX != 0 && minroomX != 0)
@@ -350,7 +357,7 @@ public unsafe partial class LozExtractor
 
                     if ((mapMaskByte & 0x80) != 0x80)
                     {
-                        properties.Add(new TiledProperty(TiledObjectProperties.HiddenFromMap, true));
+                        properties.Add(new TiledProperty(TiledRoomProperties.HiddenFromMap, true));
                     }
                 }
 
@@ -365,6 +372,28 @@ public unsafe partial class LozExtractor
             var innerPalette = roomAttr.GetInnerPalette();
             var outerPalette = roomAttr.GetOuterPalette();
 
+            CaveSpec UnderworldPersonSpec(ObjType personType)
+            {
+                if (personType == ObjType.Grumble) return resources.CaveSpec.First(t => t.PersonType == PersonType.Grumble);
+
+                var secret = uwRoomAttrs.GetSecret();
+                if (secret == Secret.MoneyOrLife) return resources.CaveSpec.First(t => t.PersonType == PersonType.MoneyOrLife);
+
+                var levelGroups = new byte[] { 0, 0, 1, 1, 0, 1, 0, 1, 2 };
+                var levelIndex = resources.LevelInfoBlock.EffectiveLevelNumber - 1;
+                int levelTableIndex = levelGroups[levelIndex];
+                var stringSlot = personType - ObjType.Person1;
+                var stringId = (StringId)resources.LevelInfoEx.LevelPersonStringIds[levelTableIndex][stringSlot];
+                if (stringId == StringId.MoreBombs) return resources.CaveSpec.First(t => t.PersonType == PersonType.MoreBombs);
+
+                return new CaveSpec
+                {
+                    DwellerType = CaveDwellerType.OldMan,
+                    PersonType = PersonType.Text,
+                    Text = _textTable[(int)stringId],
+                };
+            }
+
             if (isCellar)
             {
                 innerPalette = (Palette)2;
@@ -373,13 +402,23 @@ public unsafe partial class LozExtractor
                 const int startY = 0x9D;
                 var keeseX = new[] { 0x20, 0x60, 0x90, 0xD0 };
                 var keese = keeseX.Select(t => new MonsterEntry(ObjType.BlueKeese, 1, new Point(t, startY))).ToArray();
-                properties.Add(new TiledProperty(TiledObjectProperties.Monsters, string.Join(", ", keese)));
+                properties.Add(new TiledProperty(TiledRoomProperties.Monsters, string.Join(", ", keese)));
             }
             else
             {
-                if (TryExtractMonsterList(roomAttr, resources, out var monsterString))
+                if (TryExtractMonsterList(roomAttr, resources, out var monsterString, out var monsterList))
                 {
-                    properties.Add(new TiledProperty(TiledObjectProperties.Monsters, monsterString));
+                    var personType = monsterList.FirstOrDefault(t => t.ObjType is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble);
+
+                    if (personType != default && !resources.IsOverworld)
+                    {
+                        var caveSpec = UnderworldPersonSpec(personType.ObjType);
+                        properties.Add(TiledProperty.ForClass(TiledRoomProperties.CaveSpec, caveSpec));
+                    }
+                    else
+                    {
+                        properties.Add(new TiledProperty(TiledRoomProperties.Monsters, monsterString));
+                    }
                 }
             }
 
@@ -397,7 +436,7 @@ public unsafe partial class LozExtractor
                 }
             }
 
-            properties.Add(TiledProperty.ForClass(TiledObjectProperties.RoomInformation, new RoomInformation
+            properties.Add(TiledProperty.ForClass(TiledRoomProperties.RoomInformation, new RoomInformation
             {
                 InnerPalette = innerPalette,
                 OuterPalette = outerPalette,
@@ -407,7 +446,7 @@ public unsafe partial class LozExtractor
                 AmbientSound = ambientSound,
                 IsDark = uwRoomAttrs.IsDark(),
                 PlaysSecretChime = resources.IsOverworld && roomAttr.GetUniqueRoomId(roomId) == 0x0F,
-                FloorTile = resources.IsOverworld ? TileType.Ground : TileType.Block
+                FloorTile = resources.IsOverworld ? TileType.Ground : TileType.Tile
             }));
 
             return properties.ToArray();
@@ -825,16 +864,16 @@ public unsafe partial class LozExtractor
         };
     }
 
-    private static bool TryExtractMonsterList(RoomAttr roomAttr, MapResources resources, out string monsterString)
+    private static bool TryExtractMonsterList(RoomAttr roomAttr, MapResources resources, out string monsterString, out List<MonsterEntry> monsterList)
     {
         // JOE: TODO: Need to handle a lot of other cases here.
         var monsterCount = roomAttr.GetMonsterCount();
         monsterString = "";
+        monsterList = new List<MonsterEntry>();
         if (monsterCount == 0) return false;
 
         var objId = (ObjType)roomAttr.MonsterListId;
         var isList = objId >= ObjType.Rock;
-        var monsterList = new List<MonsterEntry>();
 
         if (resources.IsOverworld)
         {

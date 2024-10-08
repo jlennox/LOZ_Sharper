@@ -843,7 +843,7 @@ internal sealed partial class World
         var baseY = above ? DoorOverlayBaseY : DoorUnderlayBaseY;
         var flags = CurrentRoom.RoomFlags;
 
-        foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
+        foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
         {
             var doorType = room.UnderworldDoors[direction];
             var doorState = flags.GetDoorState(direction);
@@ -1048,7 +1048,7 @@ internal sealed partial class World
         _tempShutterRoom = CurrentRoom;
         Game.Sound.PlayEffect(SoundEffect.Door);
 
-        foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
+        foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
         {
             if (CurrentRoom.UnderworldDoors[direction] == DoorType.Shutter)
             {
@@ -1533,7 +1533,7 @@ internal sealed partial class World
         _triggerShutters = false;
         Direction dirs = 0;
 
-        foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
+        foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
         {
             if (CurrentRoom.UnderworldDoors[direction] == DoorType.Shutter
                 && !GetEffectiveDoorState(direction))
@@ -1572,36 +1572,30 @@ internal sealed partial class World
             OpenShutters();
         }
 
-        var d = 1;
         var flags = CurrentRoom.RoomFlags;
 
-        for (var i = 0; i < 4; i++, d <<= 1)
+        foreach (var dir in TiledRoomProperties.DoorDirectionOrder)
         {
-            if ((_triggeredDoorDir & (Direction)d) == 0) continue;
+            if ((_triggeredDoorDir & dir) == 0) continue;
 
-            var dir = (Direction)d;
             var type = CurrentRoom.UnderworldDoors[dir];
+            if (!type.IsLockedType()) continue;
+            if (flags.GetDoorState(dir)) continue;
 
-            if (type is DoorType.Bombable or DoorType.Key or DoorType.Key2)
+            var oppositeDir = dir.GetOppositeDirection();
+            if (!TryGetNextRoom(CurrentRoom, dir, out var nextRoom))
             {
-                if (!flags.GetDoorState(dir))
-                {
-                    var oppositeDir = dir.GetOppositeDirection();
-                    if (!TryGetNextRoom(CurrentRoom, dir, out var nextRoom))
-                    {
-                        _log.Error("Attempted to move to invalid room.");
-                        return;
-                    }
-
-                    flags.SetDoorState(dir);
-                    nextRoom.RoomFlags.SetDoorState(oppositeDir);
-                    if (type != DoorType.Bombable)
-                    {
-                        Game.Sound.PlayEffect(SoundEffect.Door);
-                    }
-                    UpdateDoorTileBehavior(dir);
-                }
+                _log.Error("Attempted to move to invalid room.");
+                return;
             }
+
+            flags.SetDoorState(dir);
+            nextRoom.RoomFlags.SetDoorState(oppositeDir);
+            if (type != DoorType.Bombable)
+            {
+                Game.Sound.PlayEffect(SoundEffect.Door);
+            }
+            UpdateDoorTileBehavior(dir);
         }
 
         _triggeredDoorCmd = 0;
@@ -1687,10 +1681,11 @@ internal sealed partial class World
         {
             if (bomb.BombState != BombState.Fading) continue;
 
+            // JOE: Why the + 8...?
             var bombX = bomb.X + 8;
             var bombY = bomb.Y + 8;
 
-            foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
+            foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
             {
                 var doorType = CurrentRoom.UnderworldDoors[direction];
                 if (doorType != DoorType.Bombable) continue;
@@ -2117,6 +2112,11 @@ internal sealed partial class World
         var monstersEnterFromEdge = CurrentRoom.MonstersEnter;
         var monsterList = CurrentRoom.Monsters;
         var monsterCount = monsterList.Length;
+
+        if (CurrentRoom.CaveSpec != null)
+        {
+            MakePersonRoomObjects(CurrentRoom.CaveSpec, state);
+        }
 
         // JOE: TODO: MAP REWRITE if (objId is >= ObjType.Person1 and < ObjType.PersonEnd or ObjType.Grumble)
         // JOE: TODO: MAP REWRITE {

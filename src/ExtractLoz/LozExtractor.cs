@@ -3147,7 +3147,7 @@ public partial class LozExtractor
             DwellerType = CaveDwellerType.Moblin,
             PersonType = PersonType.Grumble,
             Text = _gameStrings[(int)StringId.Grumble],
-            Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutters | CaveSpecOptions.Persisted,
+            Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutterDoors | CaveSpecOptions.Persisted,
             RequiresItem = ItemId.Food,
         });
 
@@ -3157,7 +3157,7 @@ public partial class LozExtractor
             PersonType = PersonType.MoneyOrLife,
             Text = _gameStrings[(int)StringId.MoneyOrLife],
             Options = CaveSpecOptions.ShowNumbers | CaveSpecOptions.ControlsBlockingWall
-                | CaveSpecOptions.ControlsShutters | CaveSpecOptions.ShowItems | CaveSpecOptions.Pay
+                | CaveSpecOptions.ControlsShutterDoors | CaveSpecOptions.ShowItems | CaveSpecOptions.Pay
                 | CaveSpecOptions.Persisted,
             Items = [
                 new CaveShopItem {
@@ -3198,7 +3198,7 @@ public partial class LozExtractor
             DwellerType = CaveDwellerType.OldMan,
             PersonType = PersonType.EnterLevel9,
             Text = _gameStrings[(int)StringId.EnterLevel9],
-            Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutters
+            Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutterDoors
                 | CaveSpecOptions.EntranceCheck | CaveSpecOptions.Persisted,
             EntranceCheckItem = ItemSlot.TriforcePieces,
             EntranceCheckAmount = 0xFF,
