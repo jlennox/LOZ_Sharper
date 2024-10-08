@@ -82,7 +82,9 @@ internal partial class World
     };
 
     private enum DoorState { Open, Locked, Shutter, Wall, Bombed }
+
     private readonly record struct DoorStateFaces(DoorState Closed, DoorState Open);
+
     private static DoorStateFaces GetDoorFace(DoorType type) => type switch
     {
         DoorType.Open => new DoorStateFaces(DoorState.Open, DoorState.Open),

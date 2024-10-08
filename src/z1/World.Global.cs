@@ -8,17 +8,6 @@ namespace z1;
 
 internal partial class World
 {
-    private static void GetWorldCoord(int roomId, out int row, out int col)
-    {
-        row = (roomId & 0xF0) >> 4;
-        col = roomId & 0x0F;
-    }
-
-    private static int MakeRoomId(int row, int col)
-    {
-        return (row << 4) | col;
-    }
-
     private static bool TryGetNextRoom(GameRoom currentRoom, Direction direction, [MaybeNullWhen(false)] out GameRoom room)
     {
         // GetWorldCoord(curRoomId, out var row, out var col);
@@ -65,18 +54,6 @@ internal partial class World
         }
 
         return nextRoom;
-    }
-
-    private static void GetRoomCoord(int position, out int tileY, out int tileX)
-    {
-        tileY = position & 0x0F;
-        tileX = (position & 0xF0) >> 4;
-        tileY -= 4;
-    }
-
-    private static Point GetRoomItemPosition(byte position)
-    {
-        return new Point(position & 0xF0, (byte)(position << 4));
     }
 
     private static DoorState GetDoorStateFace(DoorType type, bool state)

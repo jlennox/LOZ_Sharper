@@ -27,13 +27,10 @@ internal partial class World
 
         if (level == 0)
         {
-            LoadOverworldContext();
             CurrentRoom = CurrentWorld.EntryRoom;
         }
         else
         {
-            LoadUnderworldContext();
-
             // foreach (var tileMap in _tileMaps)
             // {
             //     for (var x = 0; x < TileMap.Size; x++)
@@ -42,9 +39,6 @@ internal partial class World
             //     }
             // }
         }
-
-        // _roomAttrs = ListResource<RoomAttrs>.LoadList(new Asset(_directory.RoomAttrs), Rooms).ToArray();
-        // _sparseRoomAttrs = TableResource<byte>.Load(new Asset(_directory.Extra1));
 
         var facing = Game.Player?.Facing ?? Direction.Up;
 

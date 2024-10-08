@@ -34,25 +34,25 @@ internal readonly struct TableResource<T>
         return new TableResource<T>(file, length, offsets.ToArray(), heap.ToArray());
     }
 
-    public ReadOnlySpan<T> GetItem(int index)
-    {
-        if (index >= Length) return null;
-        if (Heap == null || index >= Offsets.Length) throw new Exception();
-
-        var offset = Offsets[index];
-        if (Heap.Length <= offset) throw new Exception();
-
-        return MemoryMarshal.Cast<byte, T>(Heap.AsSpan()[offset..]);
-    }
+    // public ReadOnlySpan<T> GetItem(int index)
+    // {
+    //     if (index >= Length) return null;
+    //     if (Heap == null || index >= Offsets.Length) throw new Exception();
+    //
+    //     var offset = Offsets[index];
+    //     if (Heap.Length <= offset) throw new Exception();
+    //
+    //     return MemoryMarshal.Cast<byte, T>(Heap.AsSpan()[offset..]);
+    // }
 
     // JOE: TODO: Make this use LoadVariableLengthData?
-    public ReadOnlySpan<T> ReadLengthPrefixedItem(int index)
-    {
-        var offset = Offsets[index];
-        var offsetHeap = Heap.AsSpan()[offset..];
-        var length = MemoryMarshal.Read<int>(offsetHeap);
-        return MemoryMarshal.Cast<byte, T>(offsetHeap[sizeof(int)..length]);
-    }
+    // public ReadOnlySpan<T> ReadLengthPrefixedItem(int index)
+    // {
+    //     var offset = Offsets[index];
+    //     var offsetHeap = Heap.AsSpan()[offset..];
+    //     var length = MemoryMarshal.Read<int>(offsetHeap);
+    //     return MemoryMarshal.Cast<byte, T>(offsetHeap[sizeof(int)..length]);
+    // }
 
     // JOE: TODO: Put this into its own class so `ILoadVariableLengthData` does not need to return object.
     public TAs LoadVariableLengthData<TAs>(int index)
@@ -79,34 +79,34 @@ internal readonly struct TableResource<T>
         return item.LoadVariableData(localHeap[Unsafe.SizeOf<TIn>()..]);
     }
 
-    public TAs GetItem<TAs>(Extra extra) where TAs : struct => GetItem<TAs>((int)extra);
-    public ReadOnlySpan<TAs> GetItems<TAs>(Extra extra) where TAs : struct => GetItems<TAs>((int)extra);
-    public TAs GetItem<TAs>(Sparse extra) where TAs : struct => GetItem<TAs>((int)extra);
-    public ReadOnlySpan<TAs> GetItems<TAs>(Sparse extra) where TAs : struct => GetItems<TAs>((int)extra);
+    // public TAs GetItem<TAs>(Extra extra) where TAs : struct => GetItem<TAs>((int)extra);
+    // public ReadOnlySpan<TAs> GetItems<TAs>(Extra extra) where TAs : struct => GetItems<TAs>((int)extra);
+    // public TAs GetItem<TAs>(Sparse extra) where TAs : struct => GetItem<TAs>((int)extra);
+    // public ReadOnlySpan<TAs> GetItems<TAs>(Sparse extra) where TAs : struct => GetItems<TAs>((int)extra);
 
-    public ReadOnlySpan<TAs> GetItems<TAs>(int index) where TAs : struct => MemoryMarshal.Cast<T, TAs>(GetItem(index));
-    public TAs GetItem<TAs>(int index) where TAs : struct => GetItems<TAs>(index)[0];
+    // public ReadOnlySpan<TAs> GetItems<TAs>(int index) where TAs : struct => MemoryMarshal.Cast<T, TAs>(GetItem(index));
+    // public TAs GetItem<TAs>(int index) where TAs : struct => GetItems<TAs>(index)[0];
 
-    public TSparse? FindSparseAttr<TSparse>(Sparse attrId, int elemId)
-        where TSparse : struct
-    {
-        if (Heap == null) return null;
-        var valueArray = GetItems<byte>(attrId);
-
-        var count = valueArray[0];
-        var elemSize = valueArray[1];
-        var elem = valueArray[2..];
-
-        for (var i = 0; i < count; i++, elem = elem[elemSize..])
-        {
-            if (elem[0] == elemId)
-            {
-                return MemoryMarshal.Cast<byte, TSparse>(elem)[0];
-            }
-        }
-
-        return null;
-    }
+    // public TSparse? FindSparseAttr<TSparse>(Sparse attrId, int elemId)
+    //     where TSparse : struct
+    // {
+    //     if (Heap == null) return null;
+    //     var valueArray = GetItems<byte>(attrId);
+    //
+    //     var count = valueArray[0];
+    //     var elemSize = valueArray[1];
+    //     var elem = valueArray[2..];
+    //
+    //     for (var i = 0; i < count; i++, elem = elem[elemSize..])
+    //     {
+    //         if (elem[0] == elemId)
+    //         {
+    //             return MemoryMarshal.Cast<byte, TSparse>(elem)[0];
+    //         }
+    //     }
+    //
+    //     return null;
+    // }
 }
 
 internal readonly struct ListResource<T>
@@ -232,31 +232,4 @@ internal unsafe struct LevelInfoBlock
 
         return result;
     }
-}
-
-internal enum Sparse
-{
-    ArmosStairs,
-    ArmosItem,
-    Dock,
-    Item,
-    Shortcut,
-    Maze,
-    SecretScroll,
-    Ladder,
-    Recorder,
-    Fairy,
-    RoomReplacement,
-}
-
-internal enum Extra
-{
-    PondColors,
-    SpawnSpots,
-    ObjAttrs,
-    CavePalettes,
-    Caves,
-    LevelPersonStringIds,
-    HitPoints,
-    PlayerDamage,
 }

@@ -336,7 +336,7 @@ internal sealed class GameRoom
     public GameMapObjectLayer ObjectLayer { get; }
     public ImmutableArray<InteractiveGameObject> InteractiveGameObjects { get; set; }
     public bool HasUnderworldDoors { get; }
-    public Dictionary<Direction, DoorType> UderworldDoors { get; } = [];
+    public Dictionary<Direction, DoorType> UnderworldDoors { get; } = [];
     public ImmutableArray<MonsterEntry> Monsters { get; set; }
     public int ZoraCount { get; set; }
     public bool MonstersEnter { get; set; }
@@ -358,8 +358,8 @@ internal sealed class GameRoom
 
     // Old zelda stuff that needs to be refactored in action objects and stuff.
     public World.Secret Secret { get; }
-    public ItemId ItemId { get; } = ItemId.None;
-    public PointXY ItemPosition { get; }
+    // public ItemId ItemId { get; } = ItemId.None;
+    // public PointXY ItemPosition { get; }
     public int? FireballLayout { get; }
     // public PointXY ExitPosition { get; }
     public string? CellarStairsLeftRoomId { get; set; }
@@ -392,26 +392,22 @@ internal sealed class GameRoom
         RoomMap = new RoomTileMap(Width, Height);
 
         Id = map.GetProperty(TiledObjectProperties.Id) ?? throw new Exception("Room has no room id.");
-        // AmbientSound = map.GetNullableEnumProperty<SoundEffect>(TiledObjectProperties.AmbientSound);
         Monsters = MonsterEntry.ParseMonsters(map.GetProperty(TiledObjectProperties.Monsters), out var zoraCount);
         ZoraCount = zoraCount;
         MonstersEnter = map.GetBooleanProperty(TiledObjectProperties.MonstersEnter);
         Maze = map.GetClass<MazeRoom>(TiledObjectProperties.Maze);
-        // Raft = map.GetClass<Raft>(TiledObjectProperties.Raft);
         RoomInformation = map.ExpectClass<RoomInformation>(TiledObjectProperties.RoomInformation);
         RecorderDestination = map.GetClass<RecorderDestination>(TiledObjectProperties.RecorderDestination);
         HiddenFromMap = map.GetBooleanProperty(TiledObjectProperties.HiddenFromMap);
 
-        var dungeonDoors = map.GetProperty(TiledObjectProperties.DungeonDoors);
+        var dungeonDoors = map.GetProperty(TiledObjectProperties.UnderworldDoors);
         if (TryParseUnderworldDoors(dungeonDoors, out var doors))
         {
             HasUnderworldDoors = true;
-            UderworldDoors = doors;
+            UnderworldDoors = doors;
         }
 
         Secret = map.GetEnumProperty(TiledObjectProperties.Secret, z1.World.Secret.None);
-        ItemId = map.GetEnumProperty(TiledObjectProperties.ItemId, ItemId.None);
-        ItemPosition = map.GetPoint(TiledObjectProperties.ItemPosition);
         FireballLayout = map.GetIntPropertyOrNull(TiledObjectProperties.FireballLayout);
         CellarStairsLeftRoomId = map.GetProperty(TiledObjectProperties.CellarStairsLeft);
         CellarStairsRightRoomId = map.GetProperty(TiledObjectProperties.CellarStairsRight);

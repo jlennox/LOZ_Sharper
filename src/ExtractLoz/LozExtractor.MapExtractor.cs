@@ -313,7 +313,7 @@ public unsafe partial class LozExtractor
                     .Select(uwRoomAttrs.GetDoor)
                     .Select(t => t.ToString())
                     .ToArray();
-                properties.Add(new TiledProperty(TiledObjectProperties.DungeonDoors, string.Join(", ", doors)));
+                properties.Add(new TiledProperty(TiledObjectProperties.UnderworldDoors, string.Join(", ", doors)));
 
                 var secret = uwRoomAttrs.GetSecret();
                 if (secret != Secret.None)
@@ -324,11 +324,11 @@ public unsafe partial class LozExtractor
                 var itemId = uwRoomAttrs.GetItemId();
                 if (itemId != 0)
                 {
-                    properties.Add(new TiledProperty(TiledObjectProperties.ItemId, itemId));
-                    var posIndex = uwRoomAttrs.GetItemPositionIndex();
-                    var bytePos = levelBlock.ShortcutPosition[posIndex];
-                    var pos = new PointXY(bytePos & 0xF0, (byte)(bytePos << 4));
-                    properties.Add(new TiledProperty(TiledObjectProperties.ItemPosition, pos));
+                    // JOE: TODO: properties.Add(new TiledProperty(TiledObjectProperties.ItemId, itemId));
+                    // JOE: TODO: var posIndex = uwRoomAttrs.GetItemPositionIndex();
+                    // JOE: TODO: var bytePos = levelBlock.ShortcutPosition[posIndex];
+                    // JOE: TODO: var pos = new PointXY(bytePos & 0xF0, (byte)(bytePos << 4));
+                    // JOE: TODO: properties.Add(new TiledProperty(TiledObjectProperties.ItemPosition, pos));
                 }
 
                 var fireballLayoutIndex = Array.IndexOf([0x24, 0x23], roomAttr.GetUniqueRoomId(roomId));

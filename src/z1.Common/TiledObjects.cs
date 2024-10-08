@@ -29,10 +29,8 @@ public static class TiledObjectProperties
     public const string RoomInformation = nameof(RoomInformation);
 
     // Underworld
-    public const string DungeonDoors = nameof(DungeonDoors);
+    public const string UnderworldDoors = nameof(UnderworldDoors);
     public const string Secret = nameof(Secret);
-    public const string ItemId = nameof(ItemId);
-    public const string ItemPosition = nameof(ItemPosition);
     public const string FireballLayout = nameof(FireballLayout);
     public const string CellarItem = nameof(CellarItem);
     public const string CellarStairsLeft = nameof(CellarStairsLeft);

@@ -533,7 +533,7 @@ internal sealed class SubmenuType
         for (; doorBit != 0; doorBit >>= 1)
         {
             var direction = (Direction)doorBit;
-            if (!room.UderworldDoors.TryGetValue(direction, out var doorType)) continue;
+            if (!room.UnderworldDoors.TryGetValue(direction, out var doorType)) continue;
 
             var isLockedType = doorType is DoorType.Bombable or DoorType.Key or DoorType.Key2;
 

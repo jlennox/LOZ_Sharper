@@ -76,11 +76,8 @@ internal sealed partial class World
     public const int BaseRows = 8;
     private const int TileMapHeight = ScreenTileHeight * TileHeight;
     public const int TileMapBaseY = 0x40;
-    private const int Doors = 4;
 
     private const int StartX = 0x78;
-    private const int FirstCaveIndex = 0x10;
-    private const int TriforcePieceX = 0x78;
 
     private const int ScrollSpeed = 4;
     private const int RoomHistoryLength = 6;
@@ -107,17 +104,11 @@ internal sealed partial class World
     private const int DoorOverlayBaseY = 128;
     private const int DoorUnderlayBaseY = 0;
 
-    private const int DoorHoleCoordH = 0x90;
-    private const int DoorHoleCoordV = 0x78;
-
     private const int UWBombRadius = 32;
 
     internal enum Secret { None, FoesDoor, Ringleader, LastBoss, BlockDoor, BlockStairs, MoneyOrLife, FoesItem }
 
-    private delegate void LoadMobDelegate(ref RoomTileMap map, int row, int col, int mobIndex);
     private enum PauseState { Unpaused, Paused, FillingHearts }
-    private enum TileScheme { Overworld, UnderworldMain, UnderworldCellar }
-    private enum UniqueRoomIds { TopRightOverworldSecret = 0x0F }
 
     private static readonly DebugLog _traceLog = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
     private static readonly DebugLog _log = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
@@ -138,9 +129,6 @@ internal sealed partial class World
     // JOE: NOTE: Ultimately this (and others, like CandleUsed) needs to be owned by Player so that multiple Players are possible.
     public PlayerProfile Profile { get; private set; }
 
-    private LevelDirectory _directory;
-    public LevelInfoBlock _infoBlock;
-    private TableResource<byte> _sparseRoomAttrs;
     private LevelInfoEx _extraData;
     private ImmutableArray<string> _textTable;
     private readonly RoomHistory _roomHistory;
@@ -178,7 +166,6 @@ internal sealed partial class World
     private GameRoom? _tempShutterRoom;
     private Direction _tempShutterDoorDir;
     private bool _tempShutters;
-    private bool _prevRoomWasCellar;
     private GameRoom? _savedOWRoom;
     private int _edgeX;
     private int _edgeY;
@@ -245,6 +232,20 @@ internal sealed partial class World
         Validate();
 
         PlayAreaRect = new Rectangle(0, TileMapBaseY, ScreenTileWidth * TileWidth, TileMapHeight);
+        LoadOpenRoomContext();
+
+        void LoadOpenRoomContext()
+        {
+            _colCount = 32;
+            _rowCount = 22;
+            _startRow = 0;
+            _startCol = 0;
+            _tileTypeCount = 56;
+            MarginRight = OWMarginRight;
+            MarginLeft = OWMarginLeft;
+            MarginBottom = OWMarginBottom;
+            MarginTop = OWMarginTop;
+        }
     }
 
     public World(Game game, PlayerProfile profile)
@@ -263,62 +264,10 @@ internal sealed partial class World
         foreach (var action in Enum.GetValues<DoorType>()) GetDoorFace(action);
     }
 
-    private void LoadOpenRoomContext()
-    {
-        _colCount = 32;
-        _rowCount = 22;
-        _startRow = 0;
-        _startCol = 0;
-        _tileTypeCount = 56;
-        MarginRight = OWMarginRight;
-        MarginLeft = OWMarginLeft;
-        MarginBottom = OWMarginBottom;
-        MarginTop = OWMarginTop;
-    }
-
-    private void LoadClosedRoomContext()
-    {
-        return;
-        _colCount = 24;
-        _rowCount = 14;
-        _startRow = 4;
-        _startCol = 4;
-        _tileTypeCount = 9;
-        MarginRight = UWMarginRight;
-        MarginLeft = UWMarginLeft;
-        MarginBottom = UWMarginBottom;
-        MarginTop = UWMarginTop;
-    }
-
-    private void LoadMapResourcesFromDirectory(int uniqueRoomCount)
-    {
-    }
-
-    private void LoadOverworldContext()
-    {
-        _prevRoomWasCellar = false;
-        LoadOpenRoomContext();
-        LoadMapResourcesFromDirectory(124);
-    }
-
-    private void LoadUnderworldContext()
-    {
-        _prevRoomWasCellar = false;
-        LoadClosedRoomContext();
-        LoadMapResourcesFromDirectory(64);
-    }
-
-    private void LoadCellarContext()
-    {
-        _prevRoomWasCellar = true;
-        LoadOpenRoomContext();
-    }
-
     private void Init(PlayerProfile profile)
     {
         _textTable = new Asset("text.json").ReadJson<string[]>().ToImmutableArray();
         _extraData = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
-        // _wallsBmp = Graphics.CreateImage(new Asset("underworldWalls.png"));
         _doorsBmp = Graphics.CreateImage(new Asset("underworldDoors.png"));
 
         Profile = profile;
@@ -402,7 +351,6 @@ internal sealed partial class World
     public void UnfurlLevel() => GotoUnfurl();
     private bool IsPlaying() => IsPlaying(_curMode);
     private static bool IsPlaying(GameMode mode) => mode is GameMode.Play or GameMode.PlayCave or GameMode.PlayCellar or GameMode.PlayShortcuts;
-    private bool IsPlayingCave() => GetMode() == GameMode.PlayCave;
 
     public GameMode GetMode() => _curMode switch
     {
@@ -898,7 +846,7 @@ internal sealed partial class World
 
         foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
         {
-            var doorType = room.UderworldDoors[direction];
+            var doorType = room.UnderworldDoors[direction];
             var doorState = flags.GetDoorState(direction);
             if (_tempShutterDoorDir != 0
                 && room == _tempShutterRoom
@@ -1036,7 +984,7 @@ internal sealed partial class World
     private bool GetEffectiveDoorState(GameRoom room, Direction doorDir)
     {
         // TODO: the original game does it a little different, by looking at $EE.
-        var type = room.UderworldDoors[doorDir];
+        var type = room.UnderworldDoors[doorDir];
         return room.RoomFlags.GetDoorState(doorDir)
             || (type == DoorType.Shutter && _tempShutters && room == _tempShutterRoom) // JOE: I think doing object instance comparisons is fine?
             || (_tempShutterDoorDir == doorDir && room == _tempShutterRoom);
@@ -1044,9 +992,7 @@ internal sealed partial class World
 
     private bool GetEffectiveDoorState(Direction doorDir) => GetEffectiveDoorState(CurrentRoom, doorDir);
     public WorldInfo GetLevelInfo() => CurrentWorld.Info;
-    public bool IsOverworld() => CurrentWorld.IsOverworld; // JOE: TODO: Use properties on world.
-    // private bool IsUWCellar(int roomId) => !IsOverworld() && (_roomAttrs[roomId].GetUniqueRoomId() >= 0x3E);
-    // public bool IsUWCellar() => IsUWCellar(CurrentRoom);
+    public bool IsOverworld() => CurrentWorld.IsOverworld;
 
     public Actor DebugSpawnItem(ItemId itemId)
     {
@@ -1102,7 +1048,7 @@ internal sealed partial class World
 
         foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
         {
-            if (CurrentRoom.UderworldDoors[direction] == DoorType.Shutter)
+            if (CurrentRoom.UnderworldDoors[direction] == DoorType.Shutter)
             {
                 UpdateDoorTileBehavior(direction);
             }
@@ -1275,25 +1221,19 @@ internal sealed partial class World
 
     private void AddUWRoomItem(GameRoom room)
     {
-        var itemId = room.ItemId;
-
-        if (itemId != ItemId.None)
-        {
-            var pos = room.ItemPosition;
-
-            if (itemId == ItemId.TriforcePiece)
-            {
-                pos = pos with { X = TriforcePieceX };
-            }
-
-            var itemObj = new ItemObjActor(Game, itemId, ItemObjActorOptions.IsRoomItem, pos.X, pos.Y);
-            AddOnlyObjectOfType(itemObj);
-
-            if (room.Secret is Secret.FoesItem or Secret.LastBoss)
-            {
-                Game.Sound.PlayEffect(SoundEffect.RoomItem);
-            }
-        }
+        // JOE: TODO: MAP REWRITE var itemId = room.ItemId;
+        // JOE: TODO: MAP REWRITE
+        // JOE: TODO: MAP REWRITE if (itemId != ItemId.None)
+        // JOE: TODO: MAP REWRITE {
+        // JOE: TODO: MAP REWRITE     var pos = room.ItemPosition;
+        // JOE: TODO: MAP REWRITE     var itemObj = new ItemObjActor(Game, itemId, ItemObjActorOptions.IsRoomItem, pos.X, pos.Y);
+        // JOE: TODO: MAP REWRITE     AddOnlyObjectOfType(itemObj);
+        // JOE: TODO: MAP REWRITE
+        // JOE: TODO: MAP REWRITE     if (room.Secret is Secret.FoesItem or Secret.LastBoss)
+        // JOE: TODO: MAP REWRITE     {
+        // JOE: TODO: MAP REWRITE         Game.Sound.PlayEffect(SoundEffect.RoomItem);
+        // JOE: TODO: MAP REWRITE     }
+        // JOE: TODO: MAP REWRITE }
     }
 
     private void LoadCaveRoom(Entrance entrance)
@@ -1329,7 +1269,7 @@ internal sealed partial class World
         var map = CurrentRoom.RoomMap;
         var doorOrd = doorDir.GetOrdinal();
         var corner = _doorCorners[doorOrd];
-        var type = room.UderworldDoors[doorDir];
+        var type = room.UnderworldDoors[doorDir];
         var effectiveDoorState = GetEffectiveDoorState(room, doorDir);
         var behavior = _doorBehaviors[(int)type].GetBehavior(effectiveDoorState);
 
@@ -1593,7 +1533,7 @@ internal sealed partial class World
 
         foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
         {
-            if (CurrentRoom.UderworldDoors[direction] == DoorType.Shutter
+            if (CurrentRoom.UnderworldDoors[direction] == DoorType.Shutter
                 && !GetEffectiveDoorState(direction))
             {
                 dirs |= direction;
@@ -1638,7 +1578,7 @@ internal sealed partial class World
             if ((_triggeredDoorDir & (Direction)d) == 0) continue;
 
             var dir = (Direction)d;
-            var type = CurrentRoom.UderworldDoors[dir];
+            var type = CurrentRoom.UnderworldDoors[dir];
 
             if (type is DoorType.Bombable or DoorType.Key or DoorType.Key2)
             {
@@ -1750,7 +1690,7 @@ internal sealed partial class World
 
             foreach (var direction in TiledObjectProperties.DoorDirectionOrder)
             {
-                var doorType = CurrentRoom.UderworldDoors[direction];
+                var doorType = CurrentRoom.UnderworldDoors[direction];
                 if (doorType != DoorType.Bombable) continue;
 
                 var doorState = CurrentRoom.RoomFlags.GetDoorState(direction);
@@ -2285,7 +2225,7 @@ internal sealed partial class World
         }
         else
         {
-            var levelIndex = _infoBlock.EffectiveLevelNumber - 1; // JOE: TODO: MAP REWRITE
+            var levelIndex = 00000; // JOE: TODO: MAP REWRITE _infoBlock.EffectiveLevelNumber - 1;
             var levelTableIndex = _levelGroups[levelIndex];
             var stringSlot = type - ObjType.Person1;
             var stringId = _extraData.LevelPersonStringIds[levelTableIndex][stringSlot];
@@ -2866,7 +2806,7 @@ internal sealed partial class World
             _tempShutterDoorDir = Direction.None;
             if (CurrentRoom.HasUnderworldDoors
                 && origShutterDoorDir != Direction.None
-                && CurrentRoom.UderworldDoors[origShutterDoorDir] == DoorType.Shutter)
+                && CurrentRoom.UnderworldDoors[origShutterDoorDir] == DoorType.Shutter)
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);
                 UpdateDoorTileBehavior(origShutterDoorDir);
@@ -2917,7 +2857,7 @@ internal sealed partial class World
             else if (_state.Enter.ScrollDir != Direction.None)
             {
                 var oppositeDir = _state.Enter.ScrollDir.GetOppositeDirection();
-                var doorType = CurrentRoom.UderworldDoors[oppositeDir];
+                var doorType = CurrentRoom.UnderworldDoors[oppositeDir];
                 var distance = doorType is DoorType.Shutter or DoorType.Bombable ? BlockWidth * 2 : BlockWidth;
 
                 _state.Enter.TargetX = Game.Player.X;
@@ -3114,7 +3054,6 @@ internal sealed partial class World
 
             if (CurrentWorld.Info.LevelNumber == 0 && !_state.Unfurl.RestartOW)
             {
-                var asdasdas = _previousRooms.ToArray();
                 LoadRoom(CurrentRoom);
                 SetPlayerExitPosOW(CurrentRoom);
             }
@@ -3125,7 +3064,7 @@ internal sealed partial class World
                 Game.Player.Y = CurrentWorld.Info.StartY;
             }
 
-            for (var i = 0; i < LevelInfoBlock.LevelPaletteCount; i++)
+            for (var i = 0; i < CurrentWorld.Info.Palettes.Length; i++)
             {
                 Graphics.SetPaletteIndexed((Palette)i, CurrentWorld.Info.Palettes[i]);
             }
@@ -4361,7 +4300,7 @@ internal sealed partial class World
         Debug.WriteLine("Push door: {0}, {1}", tileY, tileX);
         var player = Player;
 
-        var doorType = CurrentRoom.UderworldDoors[player.MovingDirection];
+        var doorType = CurrentRoom.UnderworldDoors[player.MovingDirection];
 
         switch (doorType)
         {
