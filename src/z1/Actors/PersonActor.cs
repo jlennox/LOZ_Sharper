@@ -12,7 +12,7 @@ internal sealed class PersonActor : Actor
     {
         Idle,
         PickedUp,
-        WaitingForLetter,
+        WaitingForItem,
         WaitingForFood,
         WaitingForStairs,
     }
@@ -42,16 +42,14 @@ internal sealed class PersonActor : Actor
 
     private readonly CaveSpec _spec; // Do not make readonly to avoid struct copies.
     private readonly TextBox _textBox;
-    private int _chosenIndex;
-    private bool _showNumbers;
     private readonly ImmutableArray<ItemLocation> _itemLocations;
 
     private readonly byte[] _gamblingAmounts = new byte[3];
     private readonly byte[] _gamblingIndexes = new byte[3];
     private readonly string[] _priceStrings = [];
+    private readonly List<ItemObjActor> _itemActors = [];
 
     public override bool ShouldStopAtPersonWall => true;
-    public override bool IsUnderworldPerson => true;
 
     // Arg. Sometimes "CaveId" is an ObjType.Person1-end :/
     // This code got to be a pretty big mess but I'm hoping a mapping format rewrite can clean that up.
@@ -87,13 +85,17 @@ internal sealed class PersonActor : Actor
 
         if (spec.Items != null)
         {
-            const ItemObjActorOptions itemOptions = ItemObjActorOptions.DoNotSpawnIn | ItemObjActorOptions.LiftItem;
+            var itemOptions = ItemObjActorOptions.IsRoomItem;
+            if (PersonType == PersonType.Shop) itemOptions |= ItemObjActorOptions.LiftOverhead;
+
             for (var i = 0; i < spec.Items.Length; ++i)
             {
                 var caveItem = spec.Items[i];
                 var location = _itemLocations[i];
                 var item = game.World.AddItem(caveItem.ItemId, location.X, location.Y, itemOptions) as ItemObjActor;
                 if (item == null) continue;
+
+                _itemActors.Add(item);
                 var itemIndex = i;
                 item.OnTouched += _ => HandlePlayerHit(caveItem, itemIndex);
             }
@@ -119,11 +121,12 @@ internal sealed class PersonActor : Actor
             {
                 game.World.PostRupeeLoss(checkAmount);
                 _objectState.ItemGot = true;
-                return;
             }
-
-            // JOE: TODO
-            throw new Exception($"EntranceCost is not implemented for this item {checkItem}.");
+            else
+            {
+                // JOE: TODO
+                throw new Exception($"EntranceCost is not implemented for this item {checkItem}.");
+            }
         }
 
         var animIndex = (ObjType)spec.DwellerType - ObjType.OldMan;
@@ -134,13 +137,13 @@ internal sealed class PersonActor : Actor
             _textBox = new TextBox(Game, spec.Text);
         }
 
-        if ((spec.ShowNumbers || spec.IsSpecial) && spec.Items != null)
+        if (spec.ShowNumbers && spec.Items != null)
         {
-            var negative = spec.ShowNegative;
+            var showNegative = spec.ShowNegative;
             _priceStrings = spec.Items.Select(t =>
             {
-                var neg = negative || t.ShowNegative ? NumberSign.Negative : NumberSign.None;
-                return GlobalFunctions.NumberToString(t.Cost, neg);
+                var neg = showNegative || t.ShowNegative ? NumberSign.Negative : NumberSign.None;
+                return GameString.NumberToString(t.Cost, neg);
             }).ToArray();
         }
 
@@ -150,10 +153,15 @@ internal sealed class PersonActor : Actor
         }
 
         // JOE: TODO: Move this
-        if (type == CaveId.Cave11MedicineShop)
+        // if (type == CaveId.Cave11MedicineShop)
+        // {
+        //     var itemValue = Game.World.GetItem(ItemSlot.Letter);
+        //     _state = itemValue == 2 ? PersonState.Idle : PersonState.WaitingForItem;
+        // }
+        if (spec.RequiredItem != null)
         {
-            var itemValue = Game.World.GetItem(ItemSlot.Letter);
-            _state = itemValue == 2 ? PersonState.Idle : PersonState.WaitingForLetter;
+            var itemValue = Game.World.GetItem(spec.RequiredItem.Item);
+            _state = itemValue == spec.RequiredItem.RequiredLevel ? PersonState.Idle : PersonState.WaitingForItem;
         }
 
         if (_state == PersonState.Idle)
@@ -179,7 +187,6 @@ internal sealed class PersonActor : Actor
         {
             case PersonState.Idle:
                 UpdateDialog();
-                // CheckPlayerHit();
 
                 if (!Game.World.IsOverworld())
                 {
@@ -193,7 +200,7 @@ internal sealed class PersonActor : Actor
                 break;
 
             case PersonState.PickedUp: UpdatePickUp(); break;
-            case PersonState.WaitingForLetter: UpdateWaitForLetter(); break;
+            case PersonState.WaitingForItem: UpdateWaitForLetter(); break;
             case PersonState.WaitingForFood: UpdateWaitForFood(); break;
             case PersonState.WaitingForStairs: CheckStairsHit(); break;
             default: throw new Exception($"Invalid state: {_state}");
@@ -233,88 +240,58 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    // private void CheckPlayerHit()
-    // {
-    //     if (_spec.Items == null) return;
-    //     if (!_spec.IsPay) return;
-    //
-    //     var player = Game.Player;
-    //
-    //     for (var i = 0; i < _spec.Items.Length; i++)
-    //     {
-    //         var item = _spec.Items[i];
-    //         var itemId = item.ItemId;
-    //         var location = _itemLocations[i];
-    //
-    //         var distanceY = Math.Abs(location.Y - player.Y);
-    //         if (distanceY >= 6) continue;
-    //
-    //         if (itemId != ItemId.None && player.X == location.X)
-    //         {
-    //             // HandlePlayerHit(item, i);
-    //             break;
-    //         }
-    //     }
-    // }
-
-    private bool HandlePlayerHit(CaveShopItem item, int index)
+    private bool HandlePlayerHit(CaveShopItem caveItem, int index)
     {
-        if (item.HasOption(CaveShopItemOptions.CheckCost))
+        if (caveItem.HasOption(CaveShopItemOptions.CheckCost))
         {
-            var actual = Game.World.GetItem(item.Costing);
-            if (actual < item.Cost)
+            var actual = Game.World.GetItem(caveItem.Costing);
+            if (actual < caveItem.Cost)
             {
-                _log.Write($"Failed check: {actual} < {item.Costing} for {item.ItemId}.");
+                _log.Write($"Failed check: {actual} < {caveItem.Costing} for {caveItem.ItemId}.");
                 return false;
             }
         }
 
         if (_spec.IsPay)
         {
-            var actual = Game.World.GetItem(item.Costing);
-            if (item.Cost > actual)
+            var actual = Game.World.GetItem(caveItem.Costing);
+            if (caveItem.Cost > actual)
             {
-                _log.Write($"Failed pay: {actual} < {item.Costing} for {item.ItemId}.");
+                _log.Write($"Failed pay: {actual} < {caveItem.Costing} for {caveItem.ItemId}.");
                 return false;
             }
 
             // JOE: TODO: I want to do positives this way too.
-            if (item.Costing == ItemSlot.Rupees)
+            if (caveItem.Costing == ItemSlot.Rupees)
             {
-                Game.World.PostRupeeLoss(item.Cost);
+                Game.World.PostRupeeLoss(caveItem.Cost);
             }
             else
             {
-                var newValue = actual - item.Cost;
+                var newValue = actual - caveItem.Cost;
                 // This is to emulate the zombie player game behavior.
-                if (item.Costing == ItemSlot.HeartContainers && newValue <= PlayerProfile.DefaultHeartCount)
+                if (caveItem.Costing == ItemSlot.HeartContainers && newValue <= PlayerProfile.DefaultHeartCount)
                 {
                     Game.World.Profile.Hearts = 0;
                 }
                 else
                 {
-                    Game.World.SetItem(item.Costing, actual - item.Cost);
+                    Game.World.SetItem(caveItem.Costing, actual - caveItem.Cost);
                 }
             }
         }
 
-        if (!_spec.ShowNumbers)
-        {
-            _objectState.ItemGot = true;
-        }
+        // Here we've successfully committed commerce.
+        _objectState.ItemGot = true;
+        foreach (var itemActor in _itemActors) itemActor.Delete();
 
-        if (HandlePickUpHint(item))
+        if (PersonType == PersonType.Gambling)
         {
-            return true;
-        }
-
-        if (_spec.IsSpecial)
-        {
-            HandlePickUpSpecial(item, index);
+            HandleGamblingPickup(caveItem, index);
         }
         else
         {
-            HandlePickUpItem(item);
+            HandlePickUpItem(caveItem);
         }
 
         return true;
@@ -355,119 +332,31 @@ internal sealed class PersonActor : Actor
         return true;
     }
 
-    private void HandlePickUpSpecial(CaveShopItem item, int index)
+    private void HandleGamblingPickup(CaveShopItem item, int index)
     {
-        if (PersonType == PersonType.Gambling)
+        var price = item.Cost;
+        if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
+
+        int finalIndex;
+
+        for (var i = 0; i < _gamblingIndexes.Length; i++)
         {
-            var price = item.Cost;
-            if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
-
-            int finalIndex;
-
-            for (var i = 0; i < _gamblingIndexes.Length; i++)
-            {
-                finalIndex = _gamblingIndexes[i];
-                var sign = finalIndex != 2 ? NumberSign.Negative : NumberSign.Positive;
-                _priceStrings[i] = GlobalFunctions.NumberToString(_gamblingAmounts[finalIndex], sign);
-            }
-
-            _spec.ClearOptions(CaveSpecOptions.PickUp);
-            finalIndex = _gamblingIndexes[index];
-
-            if (finalIndex == 2)
-            {
-                Game.World.PostRupeeWin(_gamblingAmounts[finalIndex]);
-            }
-            else
-            {
-                Game.World.PostRupeeLoss(_gamblingAmounts[finalIndex]);
-            }
-
-            return;
+            finalIndex = _gamblingIndexes[i];
+            var sign = finalIndex != 2 ? NumberSign.Negative : NumberSign.Positive;
+            _priceStrings[i] = GameString.NumberToString(_gamblingAmounts[finalIndex], sign);
         }
-        //
-        // if (PersonType == PersonType.MoreBombs)
-        // {
-        //     var price = item.Cost;
-        //     if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
-        //
-        //     Game.World.PostRupeeLoss(price);
-        //     var profile = Game.World.Profile;
-        //     profile.Items[ItemSlot.MaxBombs] += 4;
-        //     profile.Items[ItemSlot.Bombs] = profile.Items[ItemSlot.MaxBombs];
-        //
-        //     _showNumbers = false;
-        //     _state = PersonState.PickedUp;
-        //     ObjTimer = 0x40;
-        //     return;
-        // }
-        //
-        // if (PersonType == PersonType.MoneyOrLife)
-        // {
-        //     var price = item.Cost;
-        //     var itemId = item.ItemId;
-        //
-        //     if (itemId == ItemId.Rupee)
-        //     {
-        //         if (price > Game.World.GetItem(ItemSlot.Rupees)) return;
-        //
-        //         Game.World.PostRupeeLoss(price);
-        //     }
-        //     else if (itemId == ItemId.HeartContainer)
-        //     {
-        //         if (price > Game.World.GetItem(ItemSlot.HeartContainers)) return;
-        //
-        //         var profile = Game.World.Profile;
-        //         if (profile.Items[ItemSlot.HeartContainers] <= PlayerProfile.DefaultHeartCount)
-        //         {
-        //             // This is to emulate the zombie player game behavior.
-        //             profile.Hearts = 0;
-        //         }
-        //         else
-        //         {
-        //             profile.Items[ItemSlot.HeartContainers]--;
-        //             if (profile.Hearts > 0x100)
-        //             {
-        //                 profile.Hearts -= 0x100;
-        //             }
-        //             Game.Sound.PlayEffect(SoundEffect.KeyHeart);
-        //         }
-        //     }
-        //     else
-        //     {
-        //         return;
-        //     }
-        //
-        //     _objectState.ItemGot = true;
-        //     Game.World.OpenShutters();
-        //
-        //     _showNumbers = false;
-        //     _state = PersonState.PickedUp;
-        //     ObjTimer = 0x40;
-        //     return;
-        // }
 
-        // Give money
-        var amount = item.Cost;
-
-        Game.World.PostRupeeWin(amount);
-        _objectState.ItemGot = true;
         _spec.ClearOptions(CaveSpecOptions.PickUp);
-        _showNumbers = true;
-    }
+        finalIndex = _gamblingIndexes[index];
 
-    private void AddItem(CaveShopItem item)
-    {
-        // JOE: TODO: This has a lot more work needed.
-        var set = item.HasOption(CaveShopItemOptions.SetItem);
-        if (!World.ItemToEquipment.TryGetValue(item.ItemId, out var val)) return;
-        if (set)
+        if (finalIndex == 2)
         {
-            Game.World.SetItem(val.Slot, item.ItemAmount);
-            return;
+            Game.World.PostRupeeWin(_gamblingAmounts[finalIndex]);
         }
-
-        Game.World.AddItem(item.ItemId);
+        else
+        {
+            Game.World.PostRupeeLoss(_gamblingAmounts[finalIndex]);
+        }
     }
 
     private void InitGambling()
@@ -583,20 +472,15 @@ internal sealed class PersonActor : Actor
         palette = CalcPalette(palette);
         _image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
 
-        if (_state == PersonState.WaitingForLetter) return;
+        if (_state == PersonState.WaitingForItem) return;
 
         for (var i = 0; _spec.Items != null && i < _spec.Items.Length; i++)
         {
-            var item = _spec.Items[i];
             var location = _itemLocations[i];
 
-            if (_state != PersonState.PickedUp || i != _chosenIndex)
+            if (_state != PersonState.PickedUp)
             {
-                if (_spec.ShowItems)
-                {
-                    // GlobalFunctions.DrawItemWide(Game, item.ItemId, location.X, location.Y);
-                }
-                if (_spec.ShowNumbers || _showNumbers)
+                if (_spec.ShowNumbers)
                 {
                     GlobalFunctions.DrawString(_priceStrings[i], location.PriceX, location.PriceY, 0);
                 }

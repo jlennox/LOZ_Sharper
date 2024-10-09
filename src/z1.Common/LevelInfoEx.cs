@@ -75,20 +75,34 @@ public sealed class ObjectAttribute
 public enum CaveSpecOptions
 {
     None = 0,
+    // If the prices listed have a "-" prefix.
     ShowNegative = 1 << 0,
+    // If prices are shown.
     ShowNumbers = 1 << 1,
     ShowItems = 1 << 2,
-    Special = 1 << 3,
-    Pay = 1 << 4,
-    PickUp = 1 << 5,
-    ControlsShutterDoors = 1 << 6,
-    ControlsBlockingWall = 1 << 7,
+    Pay = 1 << 3,
+    PickUp = 1 << 4,
+    ControlsShutterDoors = 1 << 5,
+    ControlsBlockingWall = 1 << 6,
     // Check they have the item when they enter (level 9 entrance)
-    EntranceCheck = 1 << 8,
+    EntranceCheck = 1 << 7,
     // Charge them when they enter (overworld mugger rooms)
-    EntranceCost = 1 << 9,
+    EntranceCost = 1 << 8,
     // Determines if you can only get one item from here per play through. IE, a take any cave.
-    Persisted = 1 << 10,
+    Persisted = 1 << 9,
+}
+
+public enum PersonItemRequirementEffect { RemovePerson, UpgradeItem }
+public enum PersonItemRequirementType { Check, Consumes }
+
+public sealed class PersonItemRequirement
+{
+    public PersonItemRequirementType RequirementType { get; set; }
+    public PersonItemRequirementEffect Effect { get; set; }
+    public ItemSlot Item { get; set; }
+    public int RequiredLevel { get; set; }
+
+    public int? UpgradeLevel { get; set; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -104,7 +118,7 @@ public sealed class CaveSpec
     [JsonConverter(typeof(TiledJsonSelectableEnumConverter<CaveSpecOptions>))]
     public CaveSpecOptions Options { get; set; }
     public string? Text { get; set; }
-    public ItemId? RequiresItem { get; set; }
+    public PersonItemRequirement? RequiredItem { get; set; }
     [TiledIgnore, JsonIgnore]
     public CaveShopItem[]? Items { get; set; }
     public ItemSlot? EntranceCheckItem { get; set; }
@@ -113,7 +127,6 @@ public sealed class CaveSpec
     [TiledIgnore, JsonIgnore] public bool ShowNegative => HasOption(CaveSpecOptions.ShowNegative);
     [TiledIgnore, JsonIgnore] public bool ShowNumbers => HasOption(CaveSpecOptions.ShowNumbers);
     [TiledIgnore, JsonIgnore] public bool ShowItems => HasOption(CaveSpecOptions.ShowItems);
-    [TiledIgnore, JsonIgnore] public bool IsSpecial => HasOption(CaveSpecOptions.Special);
     [TiledIgnore, JsonIgnore] public bool IsPay => HasOption(CaveSpecOptions.Pay);
     [TiledIgnore, JsonIgnore] public bool IsPickUp => HasOption(CaveSpecOptions.PickUp);
     [TiledIgnore, JsonIgnore] public bool DoesControlsShutters => HasOption(CaveSpecOptions.ControlsShutterDoors);

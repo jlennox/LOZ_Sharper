@@ -24,63 +24,56 @@ internal static class Global
     public const int SysPaletteLength = 64;
 
     public const int StdSpeed = 0x20;
-
-    public const float TWO_PI = 6.283185307179586f;
-    public const float PI_OVER_16 = 0.196349540849362f;
-    public const float PI_OVER_8 = 0.392699081698724f;
-    public const float NEG_PI_OVER_8 = -0.392699081698724f;
 }
 
-internal enum NumberSign
+internal static class Pi
 {
-    None,
-    Negative,
-    Positive,
+    public const float TwoPi = 6.283185307179586f;
+    public const float PiOver16 = 0.196349540849362f;
+    public const float PiOver8 = 0.392699081698724f;
+    public const float NegPiOver8 = -0.392699081698724f;
 }
 
-internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette, bool Flash = false)
+internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette, bool DoesFlash = false)
 {
-    public Palette GetPalette() => Palette;
-    public bool HasFlashAttr() => Flash;
-
     // This can not be an ImmutableArray<ItemGraphics> because of this bug: https://github.com/dotnet/runtime/issues/104511
     public static readonly ItemGraphics[] Items = [
-        new(AnimationId.BombItem, Palette.Blue),
-        new(AnimationId.SwordItem, Palette.Player),
-        new(AnimationId.SwordItem, Palette.Blue),
-        new(AnimationId.MSwordItem, Palette.RedBackground),
-        new(AnimationId.FleshItem, Palette.RedBackground),
-        new(AnimationId.RecorderItem, Palette.RedBackground),
-        new(AnimationId.CandleItem, Palette.Blue),
-        new(AnimationId.CandleItem, Palette.RedBackground),
-        new(AnimationId.ArrowItem, Palette.Player),
-        new(AnimationId.ArrowItem, Palette.Blue),
-        new(AnimationId.BowItem, Palette.Player),
-        new(AnimationId.MKeyItem, Palette.RedBackground),
-        new(AnimationId.Raft, Palette.Player),
-        new(AnimationId.Ladder, Palette.Player),
-        new(AnimationId.PowerTriforce, Palette.RedBackground, true),
-        new(AnimationId.RuppeeItem, Palette.Blue),
-        new(AnimationId.WandItem, Palette.Blue),
-        new(AnimationId.BookItem, Palette.RedBackground),
-        new(AnimationId.RingItem, Palette.Blue),
-        new(AnimationId.RingItem, Palette.RedBackground),
-        new(AnimationId.BraceletItem, Palette.RedBackground),
-        new(AnimationId.MapItem, Palette.Blue),
-        new(AnimationId.Compass, Palette.RedBackground),
-        new(AnimationId.MapItem, Palette.RedBackground),
-        new(AnimationId.RuppeeItem, Palette.RedBackground, true),
-        new(AnimationId.KeyItem, Palette.RedBackground),
-        new(AnimationId.HeartContainer, Palette.RedBackground),
-        new(AnimationId.TriforcePiece, Palette.RedBackground, true),
-        new(AnimationId.MShieldItem, Palette.Player),
-        new(AnimationId.Boomerang, Palette.Player),
-        new(AnimationId.Boomerang, Palette.Blue),
-        new(AnimationId.BottleItem, Palette.Blue),
-        new(AnimationId.BottleItem, Palette.RedBackground),
-        new(AnimationId.Clock, Palette.RedBackground),
-        new(AnimationId.Heart, Palette.RedBackground, true),
-        new(AnimationId.Fairy, Palette.RedBackground),
+        new ItemGraphics(AnimationId.BombItem, Palette.Blue),
+        new ItemGraphics(AnimationId.SwordItem, Palette.Player),
+        new ItemGraphics(AnimationId.SwordItem, Palette.Blue),
+        new ItemGraphics(AnimationId.MSwordItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.FleshItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.RecorderItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.CandleItem, Palette.Blue),
+        new ItemGraphics(AnimationId.CandleItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.ArrowItem, Palette.Player),
+        new ItemGraphics(AnimationId.ArrowItem, Palette.Blue),
+        new ItemGraphics(AnimationId.BowItem, Palette.Player),
+        new ItemGraphics(AnimationId.MKeyItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.Raft, Palette.Player),
+        new ItemGraphics(AnimationId.Ladder, Palette.Player),
+        new ItemGraphics(AnimationId.PowerTriforce, Palette.RedBackground, true),
+        new ItemGraphics(AnimationId.RuppeeItem, Palette.Blue),
+        new ItemGraphics(AnimationId.WandItem, Palette.Blue),
+        new ItemGraphics(AnimationId.BookItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.RingItem, Palette.Blue),
+        new ItemGraphics(AnimationId.RingItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.BraceletItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.MapItem, Palette.Blue),
+        new ItemGraphics(AnimationId.Compass, Palette.RedBackground),
+        new ItemGraphics(AnimationId.MapItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.RuppeeItem, Palette.RedBackground, true),
+        new ItemGraphics(AnimationId.KeyItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.HeartContainer, Palette.RedBackground),
+        new ItemGraphics(AnimationId.TriforcePiece, Palette.RedBackground, true),
+        new ItemGraphics(AnimationId.MShieldItem, Palette.Player),
+        new ItemGraphics(AnimationId.Boomerang, Palette.Player),
+        new ItemGraphics(AnimationId.Boomerang, Palette.Blue),
+        new ItemGraphics(AnimationId.BottleItem, Palette.Blue),
+        new ItemGraphics(AnimationId.BottleItem, Palette.RedBackground),
+        new ItemGraphics(AnimationId.Clock, Palette.RedBackground),
+        new ItemGraphics(AnimationId.Heart, Palette.RedBackground, true),
+        new ItemGraphics(AnimationId.Fairy, Palette.RedBackground),
     ];
 }
 
@@ -147,7 +140,8 @@ internal static class GlobalFunctions
 
     public static Actor MakeProjectile(Game game, ObjType type, int x, int y, Direction moving, Actor actor)
     {
-        return type switch {
+        return type switch
+        {
             ObjType.FlyingRock => new FlyingRockProjectile(game, x, y, moving, actor),
             ObjType.PlayerSwordShot => new PlayerSwordProjectile(game, x, y, moving, actor),
             ObjType.Arrow => new ArrowProjectile(game, x, y, moving, actor),
@@ -187,9 +181,9 @@ internal static class GlobalFunctions
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, graphics.Value.AnimId);
         var xOffset = width != 0 ? (width - image.Animation.Width) / 2 : 0;
 
-        var pal = graphics.Value.HasFlashAttr()
+        var pal = graphics.Value.DoesFlash
             ? (game.FrameCounter & 8) == 0 ? Palette.Blue : Palette.Red
-            : graphics.Value.GetPalette();
+            : graphics.Value.Palette;
 
         image.Draw(TileSheet.PlayerAndItems, x + xOffset, y, pal);
     }
@@ -230,6 +224,15 @@ internal static class GlobalFunctions
     }
 
     public static void DrawString(ReadOnlySpan<int> str, int x, int y, Palette palette)
+    {
+        foreach (var t in str)
+        {
+            DrawChar(t, x, y, palette);
+            x += 8;
+        }
+    }
+
+    public static void DrawString(ReadOnlySpan<char> str, int x, int y, Palette palette)
     {
         foreach (var t in str)
         {
@@ -376,77 +379,5 @@ internal static class GlobalFunctions
         RedLeeverActor.ClearRoomData();
         BouldersActor.ClearRoomData();
         Statues.Init();
-    }
-
-    public static string NumberToString(int number, NumberSign sign)
-    {
-        Span<char> buffer = stackalloc char[16];
-        var actual = NumberToString(number, sign, buffer);
-        return new string(actual);
-    }
-
-    public static ReadOnlySpan<char> NumberToString(int number, NumberSign sign, Span<char> output)
-    {
-        if (!number.TryFormat(output, out var size)) throw new Exception();
-        if (!number.TryFormat(output[^size..], out _)) throw new Exception();
-
-        var signChar = sign switch
-        {
-            NumberSign.Negative => '-',
-            NumberSign.Positive => '+',
-            _ => '\0',
-        };
-
-        if (signChar != '\0')
-        {
-            size++;
-            output[^size] = signChar;
-        }
-
-        // Left pad to 4 because that's how the game does it.
-        while (size < 4)
-        {
-            size++;
-            output[^size] = ' ';
-        }
-
-        return output[^size..];
-    }
-
-    public static byte[] NumberToStringR(byte number, NumberSign sign, ref Span<byte> charBuf)
-    {
-        var bufLen = charBuf.Length;
-
-        Debug.Assert(bufLen >= 3);
-        Debug.Assert(sign == NumberSign.None || bufLen >= 4);
-
-        var n = number;
-        var pChar = bufLen - 1;
-
-        while (true)
-        {
-            var digit = n % 10;
-            charBuf[pChar] = (byte)digit;
-            pChar--;
-            n /= 10;
-            if (n == 0) break;
-        }
-
-        if (sign != NumberSign.None && number != 0)
-        {
-            charBuf[pChar] = sign == NumberSign.Negative ? (byte)Chars.Minus : (byte)Chars.Plus;
-            pChar--;
-        }
-
-        var strLeft = pChar + 1;
-
-        for (; pChar >= 0; pChar--)
-        {
-            charBuf[pChar] = (byte)Chars.Space;
-        }
-
-        charBuf = charBuf[strLeft..];
-
-        return charBuf.ToArray();
     }
 }

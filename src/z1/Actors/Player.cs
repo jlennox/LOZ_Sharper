@@ -159,10 +159,6 @@ internal sealed class Player : Actor, IThrower
         {
             CheckWater();
             CheckDoorway();
-            if (Game.World.GetMode() == GameMode.Play)
-            {
-                CheckWarp();
-            }
             Animate();
         }
 
@@ -284,27 +280,6 @@ internal sealed class Player : Actor, IThrower
 
         var ladder = new LadderActor(Game, X + ladderOffsetsX[dirOrd], Y + ladderOffsetsY[dirOrd]);
         Game.World.SetLadder(ladder);
-    }
-
-    private void CheckWarp()
-    {
-        if (Game.World.FromUnderground != 0 || TileOffset != 0) return;
-
-        if (Game.World.IsOverworld() && false) // JOE: TODO: MAP REWRITE This appears to the level 6 entrance...? Game.World.CurRoomId == 0x22)
-        {
-            if ((X & 7) != 0) return;
-        }
-        else
-        {
-            if ((X & 0xF) != 0) return;
-        }
-
-        if ((Y & 0xF) != 0xD) return;
-
-        var fineRow = (Y + 3 - 0x40) / 8;
-        var fineCol = X / 8;
-
-        Game.World.CoverTile(fineRow, fineCol);
     }
 
     private void CheckDoorway()

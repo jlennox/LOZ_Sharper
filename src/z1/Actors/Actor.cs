@@ -44,6 +44,8 @@ internal abstract class Actor
     public int X { get; set; }
     public int Y { get; set; }
 
+    public bool Visible { get; set; } = true;
+
     public bool IsDeleted => _isDeleted;
 
     private bool _isDeleted;
@@ -72,7 +74,12 @@ internal abstract class Actor
 
     public ObjType ObjType { get; }
     public ObjectAttribute Attributes => Game.World.GetObjectAttribute(ObjType);
+    public ObjectStatistics ObjectStatistics => Game.World.Profile.Statistics.GetObjectStatistics(this);
     public Actor? Owner { get; protected set; }
+
+    // Any non-player actors that can pick up an item and count as the player having collected. IE, arrows.
+    // This does not apply to room items.
+    public virtual bool CanPickupItem => false;
 
     protected bool IsStunned => _isStunned();
 
@@ -88,7 +95,7 @@ internal abstract class Actor
 
         // JOE: "monsters and persons not armos or flying ghini"
         if (type < ObjType.PersonEnd
-            && type != ObjType.Armos && type != ObjType.FlyingGhini)
+            && type is not (ObjType.Armos or ObjType.FlyingGhini))
         {
             // JOE: This might not be entirely correct...
             // var time = game.World.CurObjSlot + 1;
@@ -115,7 +122,6 @@ internal abstract class Actor
 
     public virtual bool CanHoldRoomItem => false;
     public virtual bool IsReoccuring => true;
-    public virtual bool IsUnderworldPerson => true;
     public virtual bool IsAttrackedToMeat => false;
 
     public ItemObjActor? HoldingItem { get; set; }
@@ -257,6 +263,9 @@ internal abstract class Actor
     public bool DoesCover(int x, int y)
     {
         // JOE: TODO: Should this be logically identical to PlayerCoversTile?
+        // This logic is adapted from CheckWarp
+
+        if (Game.World.GetMode() != GameMode.Play) return false;
 
         // NOTE: This check is because level 6 is double wide. We need to pass width and height into this.
         if (Game.World.IsOverworld() && false) // JOE: TODO: MAP REWRITE This appears to the level 6 entrance...? Game.World.CurRoomId == 0x22)
@@ -286,8 +295,6 @@ internal abstract class Actor
         for (; cur.Owner != null; cur = cur.Owner) { }
         return cur;
     }
-
-    public ObjectStatistics ObjectStatistics => Game.World.Profile.Statistics.GetObjectStatistics(this);
 
     public static void MoveSimple(ref int x, ref int y, Direction dir, int speed)
     {
@@ -467,6 +474,8 @@ internal abstract class Actor
 
     public void DecoratedDraw()
     {
+        if (!Visible) return;
+
         if (Decoration == 0)
         {
             Draw();

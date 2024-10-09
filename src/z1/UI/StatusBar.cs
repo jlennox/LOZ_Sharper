@@ -215,20 +215,16 @@ internal sealed class StatusBar
 
     private void DrawCount(ItemSlot itemSlot, int x, int y)
     {
-        var charBuf = new byte[4].AsSpan();
-
         var count = _world.GetItem(itemSlot);
-        var strLeft = GlobalFunctions.NumberToStringR((byte)count, NumberSign.None, ref charBuf);
-
         if (count < 100)
         {
-            var newStrLeft = new byte[strLeft.Length + 1];
-            newStrLeft[0] = (byte)Chars.X;
-            Array.Copy(strLeft, 0, newStrLeft, 1, strLeft.Length);
-            strLeft = newStrLeft;
+            GlobalFunctions.DrawChar((byte)Chars.X, x, y, 0);
+            x += 8;
         }
 
-        GlobalFunctions.DrawString(strLeft, x, y, 0);
+        Span<char> charBuf = stackalloc char[16];
+        var str = GameString.NumberToString((byte)count, NumberSign.None, charBuf, 0);
+        GlobalFunctions.DrawString(str, x, y, 0);
     }
 
     private void DrawItems(int baseY)

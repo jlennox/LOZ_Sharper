@@ -44,7 +44,7 @@ internal class NumberToStringTests
     [TestCase(1234, NumberSign.Negative, "-1234")]
     public void EnsureNumberToStringWorks(int number, NumberSign sign, string expected)
     {
-        var actual = GlobalFunctions.NumberToString(number, sign);
+        var actual = GameString.NumberToString(number, sign);
         Assert.That(actual, Is.EqualTo(expected));
     }
 }

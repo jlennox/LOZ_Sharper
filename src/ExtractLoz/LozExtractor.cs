@@ -3067,7 +3067,6 @@ public partial class LozExtractor
             if (showNegative) options |= CaveSpecOptions.ShowNegative;
             if (showPrices) options |= CaveSpecOptions.ShowNumbers;
             if (showItems) options |= CaveSpecOptions.ShowItems;
-            if (special) options |= CaveSpecOptions.Special;
             if (pay) options |= CaveSpecOptions.Pay;
             if (pickUp) options |= CaveSpecOptions.PickUp;
             if (pickUp && !showPrices) options |= CaveSpecOptions.Persisted;
@@ -3096,9 +3095,35 @@ public partial class LozExtractor
                     break;
             }
 
-            if (spec.CaveId == CaveId.Cave11MedicineShop)
+            switch (caveId)
             {
-                spec.RequiresItem = ItemId.Letter;
+                case CaveId.Cave11MedicineShop:
+                    spec.RequiredItem = new PersonItemRequirement
+                    {
+                        RequirementType = PersonItemRequirementType.Check,
+                        Effect = PersonItemRequirementEffect.UpgradeItem,
+                        Item = ItemSlot.Letter,
+                        RequiredLevel = 1,
+                        UpgradeLevel = 2,
+                    };
+                    break;
+                case CaveId.Cave18:
+                case CaveId.Cave19:
+                case CaveId.Cave20:
+                    spec.Items = [
+                        new CaveShopItem {
+                            ItemId = ItemId.Rupee,
+                            ItemAmount = caveId switch {
+                                CaveId.Cave18 => 10,
+                                CaveId.Cave19 => 100,
+                                CaveId.Cave20 => 30,
+                                _ => throw new Exception(),
+                            },
+                            Cost = 0,
+                            Options = CaveShopItemOptions.ShowNegative,
+                        },
+                    ];
+                    break;
             }
 
             if (hint)
@@ -3145,7 +3170,13 @@ public partial class LozExtractor
             PersonType = PersonType.Grumble,
             Text = _gameStrings[(int)StringId.Grumble],
             Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutterDoors | CaveSpecOptions.Persisted,
-            RequiresItem = ItemId.Food,
+            RequiredItem = new PersonItemRequirement
+            {
+                RequirementType = PersonItemRequirementType.Consumes,
+                Effect = PersonItemRequirementEffect.RemovePerson,
+                Item = ItemSlot.Food,
+                RequiredLevel = 1,
+            }
         });
 
         caves.Add(new CaveSpec

@@ -165,7 +165,7 @@ internal static class Extensions
             // So, we can skip multiplying x and y by 1/(2^.5)
         }
 
-        var rotated = Rotate(new PointF(x, y), Global.NEG_PI_OVER_8);
+        var rotated = Rotate(new PointF(x, y), Pi.NegPiOver8);
         y = rotated.Y;
 
         if (y > 0) sector++;

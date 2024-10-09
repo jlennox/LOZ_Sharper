@@ -20,6 +20,13 @@ public enum Chars
     Plus = 0x64,
 }
 
+public enum NumberSign
+{
+    None,
+    Negative,
+    Positive,
+}
+
 public static class GameString
 {
     public static unsafe string FromBytes(byte[] bytes)
@@ -102,4 +109,39 @@ public static class GameString
         <= 0x09 => (char)(b + '0'),
         _ => (char)(b + 'a' - 0x0A),
     };
+
+    public static string NumberToString(int number, NumberSign sign)
+    {
+        Span<char> buffer = stackalloc char[16];
+        var actual = NumberToString(number, sign, buffer);
+        return new string(actual);
+    }
+
+    public static ReadOnlySpan<char> NumberToString(int number, NumberSign sign, Span<char> output, int paddedSize = 4)
+    {
+        if (!number.TryFormat(output, out var size)) throw new Exception();
+        if (!number.TryFormat(output[^size..], out _)) throw new Exception();
+
+        var signChar = sign switch
+        {
+            NumberSign.Negative => '-',
+            NumberSign.Positive => '+',
+            _ => '\0',
+        };
+
+        if (signChar != '\0')
+        {
+            size++;
+            output[^size] = signChar;
+        }
+
+        // Left pad to 4 because that's how the game does it.
+        while (size < paddedSize)
+        {
+            size++;
+            output[^size] = ' ';
+        }
+
+        return output[^size..];
+    }
 }

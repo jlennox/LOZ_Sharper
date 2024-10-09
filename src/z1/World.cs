@@ -104,8 +104,6 @@ internal sealed partial class World
 
     private const int UWBombRadius = 32;
 
-    internal enum Secret { None, FoesDoor, Ringleader, LastBoss, BlockDoor, BlockStairs, MoneyOrLife, FoesItem }
-
     private enum PauseState { Unpaused, Paused, FillingHearts }
 
     private static readonly DebugLog _traceLog = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
@@ -120,6 +118,7 @@ internal sealed partial class World
     public bool SwordBlocked;           // 52E
     public byte WhirlwindTeleporting;   // 522
     public Direction DoorwayDir;         // 53
+    // JOE: TODO: Stick this on Player?
     public int FromUnderground;    // 5A
     public int ActiveShots;        // 34C
     public int RecorderUsed;       // 51B
@@ -128,7 +127,6 @@ internal sealed partial class World
     public PlayerProfile Profile { get; private set; }
 
     private LevelInfoEx _extraData;
-    private ImmutableArray<string> _textTable;
     private readonly RoomHistory _roomHistory;
     private readonly GameWorld _overworldWorld;
     private readonly Dictionary<GameWorldType, GameWorld> _commonWorlds = [];
@@ -140,13 +138,11 @@ internal sealed partial class World
     private int _colCount;
     private int _startRow;
     private int _startCol;
-    private int _tileTypeCount;
     // JOE: TODO: Move to rect.
     public int MarginRight;
     public int MarginLeft;
     public int MarginBottom;
     public int MarginTop;
-    // private GLImage _wallsBmp;
     private GLImage _doorsBmp;
 
     private GameMode _lastMode;
@@ -174,7 +170,6 @@ internal sealed partial class World
     private byte _helpDropValue;          // 51
     private int _roomKillCount;          // 34F
     private bool _roomAllDead;            // 34D
-    private bool _madeRoomItem;
     private byte _teleportingRoomIndex;   // 523
     private PauseState _pause;                  // E0
     private SubmenuState _submenu;                // E1
@@ -238,7 +233,6 @@ internal sealed partial class World
             _rowCount = 22;
             _startRow = 0;
             _startCol = 0;
-            _tileTypeCount = 56;
             MarginRight = OWMarginRight;
             MarginLeft = OWMarginLeft;
             MarginBottom = OWMarginBottom;
@@ -264,7 +258,6 @@ internal sealed partial class World
 
     private void Init(PlayerProfile profile)
     {
-        _textTable = new Asset("text.json").ReadJson<string[]>().ToImmutableArray();
         _extraData = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
         _doorsBmp = Graphics.CreateImage(new Asset("underworldDoors.png"));
 
@@ -582,8 +575,8 @@ internal sealed partial class World
     public int GetStunTimer(StunTimerSlot slot) => _stunTimers.GetValueOrDefault(slot);
     public void SetStunTimer(StunTimerSlot slot, int value) => _stunTimers[slot] = value;
     public void PushTile(int row, int col) => InteractTile(row, col, TileInteraction.Push);
-    private void TouchTile(int row, int col) => InteractTile(row, col, TileInteraction.Touch);
-    public void CoverTile(int row, int col) => InteractTile(row, col, TileInteraction.Cover);
+    // private void TouchTile(int row, int col) => InteractTile(row, col, TileInteraction.Touch);
+    // public void CoverTile(int row, int col) => InteractTile(row, col, TileInteraction.Cover);
 
     private void InteractTile(int row, int col, TileInteraction interaction)
     {
@@ -949,13 +942,19 @@ internal sealed partial class World
         if (equip.MaxValue.HasValue) max = equip.MaxValue.Value;
         if (equip.Max.HasValue) max = profile.Items[equip.Max.Value];
 
+        if (slot == ItemSlot.RupeesToAdd)
+        {
+            PostRupeeWin(value);
+            return;
+        }
+
         if (itemId is ItemId.Heart or ItemId.Fairy)
         {
             var heartValue = value << 8;
             FillHearts(heartValue);
             return;
         }
-        else if (slot is ItemSlot.RupeesToAdd or ItemSlot.Keys or ItemSlot.HeartContainers or ItemSlot.MaxBombs or ItemSlot.Bombs)
+        else if (slot is ItemSlot.Keys or ItemSlot.HeartContainers or ItemSlot.MaxBombs or ItemSlot.Bombs)
         {
             value += (byte)profile.Items[slot];
 
@@ -1322,7 +1321,6 @@ internal sealed partial class World
         RoomObj = null;
         _roomKillCount = 0;
         _roomAllDead = false;
-        _madeRoomItem = false;
         EnablePersonFireballs = false;
         _ghostCount = 0;
         _armosCount = 0;
@@ -1553,7 +1551,7 @@ internal sealed partial class World
         if (!_triggerShutters) return;
 
         _triggerShutters = false;
-        Direction dirs = 0;
+        var dirs = Direction.None;
 
         foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
         {
@@ -1806,7 +1804,6 @@ internal sealed partial class World
 
         _roomKillCount = 0;
         _roomAllDead = false;
-        _madeRoomItem = false;
         EnablePersonFireballs = false;
     }
 
@@ -3046,12 +3043,7 @@ internal sealed partial class World
         }
     }
 
-    public void EndLevel()
-    {
-        GotoEndLevel();
-    }
-
-    private void GotoEndLevel()
+    public void GotoEndLevel()
     {
         _state.EndLevel.Substate = EndLevelState.Substates.Start;
         _curMode = GameMode.EndLevel;

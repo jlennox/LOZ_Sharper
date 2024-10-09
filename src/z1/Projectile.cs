@@ -333,8 +333,8 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         var xDist = Game.Player.X - x;
         var yDist = Game.Player.Y - y;
 
-        var sector = new PointF(xDist, yDist).Rotate(Global.PI_OVER_16).GetSector16();
-        var angle = Global.PI_OVER_8 * sector;
+        var sector = new PointF(xDist, yDist).Rotate(Pi.PiOver16).GetSector16();
+        var angle = Pi.PiOver8 * sector;
 
         Facing = _sector16Dirs[sector];
 

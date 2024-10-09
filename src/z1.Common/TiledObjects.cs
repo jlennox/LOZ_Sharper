@@ -199,7 +199,8 @@ public sealed class InteractableBlock
     public InteractionItemRequirement? ItemRequirement { get; set; }
     public InteractionRequirements Requirements { get; set; }
     public RoomItem? Item { get; set; }
-    public TileType? ApparanceBlock { get; set; }
+    // How a push block appears as it moves.
+    public BlockType? ApparanceBlock { get; set; }
     public Entrance? Entrance { get; set; }
     public InteractionEffect Effect { get; set; }
     // These are root level, not inside CaveSpec, so that we can have an array via multiple properties.

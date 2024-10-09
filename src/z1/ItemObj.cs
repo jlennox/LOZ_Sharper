@@ -40,14 +40,14 @@ internal class BlockActor : Actor, IHasCollision
 {
     public bool EnableDraw { get; set; }
 
-    protected readonly TileType Tile;
+    protected readonly BlockType Tile;
 
     private readonly int _width;
     private readonly int _height;
     private readonly TileSheet _tileSheet;
 
     public BlockActor(
-        Game game, ObjType type, TileType tile, int x, int y,
+        Game game, ObjType type, BlockType tile, int x, int y,
         int width = World.BlockWidth, int height = World.BlockHeight)
         : base(game, type, x, y)
     {
@@ -98,7 +98,7 @@ internal class MovingBlockActor : BlockActor
     private bool _triggerEvent;
 
     public MovingBlockActor(
-        Game game, ObjType type, TileType tile, Point moveTo, MovingBlockActorOptions options,
+        Game game, ObjType type, BlockType tile, Point moveTo, MovingBlockActorOptions options,
         int x, int y, int width = World.BlockWidth, int height = World.BlockHeight)
         : base(game, type, tile, x, y, width, height)
     {
@@ -128,7 +128,7 @@ internal class MovingBlockActor : BlockActor
 
     public void ReplaceWithBackground()
     {
-        Game.World.SetMapObjectXY(X, Y, Tile.GetBlockType());
+        Game.World.SetMapObjectXY(X, Y, Tile);
         Delete();
     }
 }
@@ -708,14 +708,23 @@ internal sealed class PlayerSwordActor : Actor
 }
 
 [Flags]
-internal enum ItemObjActorOptions { None, IsRoomItem, DoNotSpawnIn, LiftItem }
+internal enum ItemObjActorOptions { None, IsRoomItem, LiftOverhead, BecomesInactive }
 
 internal sealed class ItemObjActor : Actor
 {
+    // How long items are on the floor before they disappear.
+    private const int DespawnTime = 0x1FF;
+    // How long the item blinks when it first appears.
+    private const int SpawnInTime = 0x1F;
+    private const int SpawnInTimeLastTimer = 0x1FF - SpawnInTime;
+
+    public bool TouchEnabled { get; set; } = true;
+
     private readonly ItemId _itemId;
     private readonly ItemObjActorOptions _options;
     private int _timer;
 
+    // Can return false to prevent the item from being picked up. IE, if the player couldn't afford it in a shop.
     public event Func<ItemObjActor, bool>? OnTouched;
 
     public ItemObjActor(Game game, ItemId itemId, ItemObjActorOptions options, int x, int y)
@@ -726,15 +735,16 @@ internal sealed class ItemObjActor : Actor
         _itemId = itemId;
         _options = options;
 
-        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem)
-            && !_options.HasFlag(ItemObjActorOptions.DoNotSpawnIn))
+        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
         {
-            _timer = 0x1FF;
+            _timer = DespawnTime;
         }
     }
 
     private bool TouchesObject(Actor obj)
     {
+        if (!TouchEnabled) return false;
+
         var distanceX = Math.Abs(obj.X + 0 - X);
         var distanceY = Math.Abs(obj.Y + 3 - Y);
 
@@ -742,75 +752,89 @@ internal sealed class ItemObjActor : Actor
             && distanceY <= 8;
     }
 
-    public override void Update()
+    private void OptionalDelete()
     {
-        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
+        if (_options.HasFlag(ItemObjActorOptions.BecomesInactive))
         {
-            _timer--;
-            if (_timer == 0)
-            {
-                Delete();
-                return;
-            }
-
-            if (_timer >= 0x1E0)
-            {
-                return;
-            }
+            TouchEnabled = false;
+            return;
         }
 
-        var touchedItem = false;
+        Delete();
+    }
 
+    private bool IsItemTouched()
+    {
         if (TouchesObject(Game.Player))
         {
-            touchedItem = true;
+            return true;
         }
-        else if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
+
+        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
         {
             var weapons = Game.World.GetObjects(static t => t is PlayerSwordActor or BoomerangProjectile or ArrowProjectile);
             foreach (var obj in weapons)
             {
                 if (!obj.IsDeleted && TouchesObject(obj))
                 {
-                    touchedItem = true;
-                    break;
+                    return true;
                 }
             }
         }
 
-        if (touchedItem)
+        return false;
+    }
+
+    public override void Update()
+    {
+        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
         {
-            if (OnTouched?.Invoke(this) == false) return;
-
-            Delete();
-
-            if (_itemId == ItemId.PowerTriforce)
+            _timer--;
+            switch (_timer)
             {
-                Game.World.OnTouchedPowerTriforce();
-                Game.Sound.PlayEffect(SoundEffect.RoomItem);
-            }
-            else
-            {
-                Game.World.AddItem(_itemId);
+                case 0:
+                    Delete();
+                    return;
 
-                if (_itemId == ItemId.TriforcePiece)
-                {
-                    Game.World.EndLevel();
-                    Game.AutoSave();
-                }
-                else if (!Game.World.IsOverworld() && !Game.World.CurrentRoom.HasUnderworldDoors) // JOE: TODO: Arg, this check is all wrong.
-                {
-                    Game.World.LiftItem(_itemId);
-                    Game.Sound.PushSong(SongId.ItemLift);
-                    Game.AutoSave();
-                }
+                case >= 0x1E0:
+                    return;
             }
+        }
+
+        if (!IsItemTouched()) return;
+        if (OnTouched?.Invoke(this) == false) return;
+
+        OptionalDelete();
+
+        if (_itemId == ItemId.PowerTriforce)
+        {
+            Game.World.OnTouchedPowerTriforce();
+            Game.Sound.PlayEffect(SoundEffect.RoomItem);
+            return;
+        }
+
+        Game.World.AddItem(_itemId);
+
+        if (_itemId == ItemId.TriforcePiece)
+        {
+            Game.World.GotoEndLevel();
+        }
+        else if (_options.HasFlag(ItemObjActorOptions.LiftOverhead))
+        {
+            Game.World.LiftItem(_itemId);
+            Game.Sound.PushSong(SongId.ItemLift);
+        }
+
+        // Auto-save if it's an underworld item (IE, triforce or bow)
+        if (!Game.World.IsOverworld())
+        {
+            Game.AutoSave();
         }
     }
 
     public override void Draw()
     {
-        if (_options.HasFlag(ItemObjActorOptions.IsRoomItem) || _timer < 0x1E0 || (_timer & 2) != 0)
+        if (_options.HasFlag(ItemObjActorOptions.IsRoomItem) || _timer < SpawnInTimeLastTimer || (_timer & 2) != 0)
         {
             GlobalFunctions.DrawItemWide(Game, _itemId, X, Y);
         }
@@ -890,89 +914,5 @@ internal sealed class WhirlwindActor : Actor
     {
         var pal = Palette.Player + (Game.FrameCounter & 3);
         _animator.Draw(TileSheet.NpcsOverworld, X, Y, pal);
-    }
-}
-
-internal sealed class DockActor : Actor
-{
-    private Direction? _state;
-    private readonly SpriteImage _raftImage;
-
-    public DockActor(Game game, int x, int y)
-        : base(game, ObjType.Dock, x, y)
-    {
-        Decoration = 0;
-
-        _raftImage = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.Raft);
-    }
-
-    public override void Update()
-    {
-        if (Game.World.GetItem(ItemSlot.Raft) == 0) return;
-
-        var player = Game.Player;
-
-        switch (_state)
-        {
-            case null:
-                // The upper right raft area is closer to the left edge, 0x60, level 4's is 0x80.
-                var x = 0x60; // JOE: TODO: MAP REWRITE Game.World.CurRoomId == 0x55 ? 0x80 : 0x60; // I think this is level 6 entrance? This check happens elsewhere.
-                if (x != player.X) return;
-
-                X = x;
-
-                switch (player.Y)
-                {
-                    case 0x3D: _state = Direction.Down; break;
-                    case 0x7D: _state = Direction.Up; break;
-                    default: return;
-                }
-
-                Y = player.Y + 6;
-
-                player.SetState(PlayerState.Paused);
-                player.Facing = _state.Value;
-                Game.Sound.PlayEffect(SoundEffect.Secret);
-                break;
-
-            case Direction.Down:
-                // $8FB0
-                Y++;
-                player.Y++;
-
-                if (player.Y == 0x7F)
-                {
-                    player.TileOffset = 2;
-                    player.SetState(PlayerState.Idle);
-                    _state = 0;
-                }
-
-                // Not exactly the same as the original, but close enough.
-                player.Animator.Advance();
-                break;
-
-            case Direction.Up:
-                Y--;
-                player.Y--;
-
-                if (player.Y == 0x3D)
-                {
-                    Game.World.LeaveRoom(player.Facing, Game.World.CurrentRoom);
-                    player.SetState(PlayerState.Idle);
-                    _state = 0;
-                }
-
-                // Not exactly the same as the original, but close enough.
-                player.Animator.Advance();
-                break;
-        }
-    }
-
-    public override void Draw()
-    {
-        if (_state != 0)
-        {
-            _raftImage.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Player);
-        }
     }
 }

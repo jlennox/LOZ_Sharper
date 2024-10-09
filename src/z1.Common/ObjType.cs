@@ -317,8 +317,6 @@ public enum ItemSlot
     MaxConcurrentSwordShots,
     MaxConcurrentMagicWaves,
     MaxRupees,
-
-    MaxItems
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -570,6 +568,7 @@ public readonly record struct MonsterEntry(ObjType ObjType, bool IsRingleader = 
 
     public override string ToString()
     {
+        // Only runs in the extractor, so allocations are not important.
         var sb = new StringBuilder();
 
         sb.Append(ObjType.ToString());
@@ -603,4 +602,16 @@ public readonly record struct MonsterEntry(ObjType ObjType, bool IsRingleader = 
 
         return sb.ToString();
     }
+}
+
+public static class CommonOverworldRoomName
+{
+    public const string Cave = nameof(Cave);
+    public const string Shortcut = nameof(Shortcut);
+}
+
+public static class CommonUnderworldRoomName
+{
+    public const string ItemCellar = nameof(ItemCellar);
+    public const string Transport = nameof(Transport);
 }

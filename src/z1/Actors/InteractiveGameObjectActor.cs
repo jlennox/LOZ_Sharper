@@ -26,8 +26,6 @@ internal sealed class InteractiveGameObjectActor : Actor
     {
         GameObject = gameObject;
         _state = game.World.Profile.GetObjectFlags(game.World.CurrentRoom, gameObject);
-        // JOE: NOTE: This not being set makes it make a poof animation when you enter the room. This might be a good
-        // way to have a method of revealing secrets to the player?
         Decoration = 0;
 
         _raft = RaftInteraction.Create(game, this);
@@ -35,6 +33,8 @@ internal sealed class InteractiveGameObjectActor : Actor
 
         if (HasInteracted) SetInteracted(true);
     }
+
+    public void DebugSetInteracted() => SetInteracted(false);
 
     public override void Update()
     {
@@ -144,7 +144,7 @@ internal sealed class InteractiveGameObjectActor : Actor
 
     private bool CheckItemRequirement()
     {
-        var requirement = GameObject.Interaction.ItemRequirement;
+        var requirement = Interactable.ItemRequirement;
         if (requirement == null) return true;
         var actualValue = Game.World.GetItem(requirement.ItemSlot);
         return actualValue >= requirement.ItemLevel;
@@ -199,7 +199,8 @@ internal sealed class PushInteraction
 
     private readonly Game _game;
     private readonly InteractiveGameObjectActor _interactive;
-    private readonly InteractiveGameObject _gameObject;
+    private readonly int _width;
+    private readonly int _height;
     private readonly int _timerLimit;
     private readonly bool _allowHorizontal;
     private readonly bool _requireAlignment;
@@ -207,17 +208,20 @@ internal sealed class PushInteraction
     private readonly bool _movesBlock;
     private MovingBlockActor? _movingActor;
 
-    public PushInteraction(Game game, InteractiveGameObjectActor interactive)
+    public PushInteraction(
+        Game game, InteractiveGameObjectActor interactive,
+        Interaction interaction, int width, int height)
     {
         _game = game;
         _interactive = interactive;
-        _gameObject = interactive.GameObject;
+        _width = width;
+        _height = height;
         _allowHorizontal = true;
         _requireAlignment = true;
         _removeBackground = true;
         _movesBlock = true;
 
-        switch (_gameObject.Interaction.Interaction)
+        switch (interaction)
         {
             case Interaction.Push:
                 _timerLimit = 17;
@@ -247,10 +251,11 @@ internal sealed class PushInteraction
 
     public static PushInteraction? Create(Game game, InteractiveGameObjectActor interactive)
     {
-        if (interactive.GameObject.Interaction.Interaction
+        var gameobj = interactive.GameObject;
+        if (gameobj.Interaction.Interaction
             is Interaction.Push or Interaction.PushVertical or Interaction.Touch or Interaction.TouchOnce)
         {
-            return new PushInteraction(game, interactive);
+            return new PushInteraction(game, interactive, gameobj.Interaction.Interaction, gameobj.Width, gameobj.Height);
         }
 
         return null;
@@ -281,7 +286,7 @@ internal sealed class PushInteraction
         else
         {
             // Not my favorite way to do this, but it's not terrible either.
-            if (_interactive.IsWithinBoundsInclusive(playerX, playerY, _gameObject.Width, _gameObject.Height))
+            if (_interactive.IsWithinBoundsInclusive(playerX, playerY, _width, _height))
             {
                 var goingTo = _game.Player.Position + dir.GetOffset();
                 var collides = _game.Player.CollidesWithTileMoving(goingTo.X, goingTo.Y, dir);
@@ -321,10 +326,10 @@ internal sealed class PushInteraction
             {
                 var targetPos = dir switch
                 {
-                    Direction.Right => new Point(_interactive.X + _gameObject.Width, 0),
-                    Direction.Left => new Point(_interactive.X - _gameObject.Width, 0),
-                    Direction.Down => new Point(0, _interactive.Y + _gameObject.Height),
-                    Direction.Up => new Point(0, _interactive.Y - _gameObject.Height),
+                    Direction.Right => new Point(_interactive.X + _width, 0),
+                    Direction.Left => new Point(_interactive.X - _width, 0),
+                    Direction.Down => new Point(0, _interactive.Y + _height),
+                    Direction.Up => new Point(0, _interactive.Y - _height),
                     _ => new Point(_interactive.X, _interactive.Y)
                 };
 
@@ -333,7 +338,7 @@ internal sealed class PushInteraction
 
                 _movingActor = new MovingBlockActor(
                     _game, ObjType.Block, block.Value, targetPos, MovingBlockActorOptions.ReplaceWithBackground,
-                    _interactive.X, _interactive.Y, _gameObject.Width, _gameObject.Height)
+                    _interactive.X, _interactive.Y, _width, _height)
                 {
                     Facing = dir,
                     EnableDraw = true,
@@ -423,6 +428,7 @@ internal sealed class RaftInteraction
                 _interactive.Y++;
                 player.Y++;
 
+                // Player has reached the dock.
                 if (player.Y == _gameObject.Y + World.TileMapBaseY)
                 {
                     player.TileOffset = 2;
@@ -437,6 +443,7 @@ internal sealed class RaftInteraction
                 _interactive.Y--;
                 player.Y--;
 
+                // Player has reached the top of the map.
                 if (player.Y == World.TileMapBaseY - 3)
                 {
                     _game.World.LeaveRoom(player.Facing, _game.World.CurrentRoom);

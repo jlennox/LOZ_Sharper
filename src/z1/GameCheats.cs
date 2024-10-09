@@ -256,6 +256,10 @@ internal sealed class GameCheats
         public override void RunPayload(Game game, string[] args)
         {
             game.World.KillAllObjects();
+            foreach (var obj in game.World.GetObjects<InteractiveGameObjectActor>())
+            {
+                obj.DebugSetInteracted();
+            }
             game.Toast("Killed all objects.");
         }
     }
@@ -346,6 +350,7 @@ internal sealed class GameCheats
             game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
             // game.World.PostRupeeWin(0xFF); // listening to this gets annoying.
+            profile.Items[ItemSlot.Rupees] += 100;
             profile.Items[ItemSlot.Bombs] = 98;
             profile.Items[ItemSlot.Keys] = 98;
             profile.Items[ItemSlot.HeartContainers] = 16;

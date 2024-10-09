@@ -1162,7 +1162,7 @@ internal sealed class PondFairyActor : MonsterActor
     public override void Draw()
     {
         const float radius = 0x36;
-        const float angler = -Global.TWO_PI / 85.0f;
+        const float angler = -Pi.TwoPi / 85.0f;
 
         var xOffset = (16 - _animator.Animation.Width) / 2;
         _animator.Draw(TileSheet.PlayerAndItems, PondFairyX + xOffset, PondFairyY, Palette.Red);

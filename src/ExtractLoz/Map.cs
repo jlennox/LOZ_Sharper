@@ -404,14 +404,15 @@ internal sealed class MapExtractor
             }
             else
             {
-                caveName = "Cave";
+                caveName = CommonOverworldRoomName.Cave;
                 caveType = GameWorldType.OverworldCommon;
                 caveSpec = resources.CaveSpec?.FirstOrDefault(t => (t.CaveId - CaveId.Cave1) == (int)caveId - 0x10);
             }
         }
         else
         {
-            caveName = "TODO";
+            var hasCellar = resources.LevelInfoBlock.FindCellarRoomIds(roomId, resources.RoomAttrs, out var left, out var right);
+            caveName = hasCellar && left == right ? CommonUnderworldRoomName.ItemCellar : CommonUnderworldRoomName.Transport;
             caveType = GameWorldType.UnderworldCommon;
         }
 
@@ -534,14 +535,14 @@ internal sealed class MapExtractor
                 Secret.BlockStairs => new InteractableBlock
                 {
                     Interaction = Interaction.Push,
-                    ApparanceBlock = TileType.Block,
+                    ApparanceBlock = BlockType.Block,
                     Repeatable = false,
                     Reveals = shortcutStairsName,
                 },
                 Secret.BlockDoor => new InteractableBlock
                 {
                     Interaction = Interaction.Push,
-                    ApparanceBlock = TileType.Block,
+                    ApparanceBlock = BlockType.Block,
                     Repeatable = false,
                     Effect = InteractionEffect.OpenShutterDoors,
                     Requirements = InteractionRequirements.AllEnemiesDefeated,
@@ -550,7 +551,7 @@ internal sealed class MapExtractor
                 Secret.None => new InteractableBlock
                 {
                     Interaction = Interaction.Push,
-                    ApparanceBlock = TileType.Block,
+                    ApparanceBlock = BlockType.Block,
                     Repeatable = false,
                 },
                 _ => throw new Exception()
@@ -681,7 +682,7 @@ internal sealed class MapExtractor
                             break;
 
                         case TileAction.PushHeadstone:
-                            interaction.ApparanceBlock = TileType.Headstone;
+                            interaction.ApparanceBlock = BlockType.Headstone;
                             break;
 
                         case TileAction.Armos:
@@ -694,14 +695,14 @@ internal sealed class MapExtractor
                             break;
 
                         case TileAction.Push:
-                            interaction.ApparanceBlock = TileType.Rock;
+                            interaction.ApparanceBlock = BlockType.Rock;
                             interaction.ItemRequirement = new InteractionItemRequirement(ItemSlot.Bracelet, 1);
                             interaction.Reveals = shortcutStairsName;
                             break;
 
                         case TileAction.PushBlock:
                             interaction.Requirements |= InteractionRequirements.AllEnemiesDefeated;
-                            interaction.ApparanceBlock = TileType.Block;
+                            interaction.ApparanceBlock = BlockType.Block;
                             switch (uwRoomAttrs.GetSecret())
                             {
                                 case Secret.BlockDoor: interaction.Effect = InteractionEffect.OpenShutterDoors; break;
