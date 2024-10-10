@@ -132,7 +132,7 @@ internal sealed partial class World
     private readonly Dictionary<GameWorldType, GameWorld> _commonWorlds = [];
     public GameWorld CurrentWorld;
     public GameRoom CurrentRoom;
-    public RoomFlags CurrentRoomFlags => CurrentRoom.RoomFlags;
+    public PersistedRoomState CurrentPersistedRoomState => CurrentRoom.PersistedRoomState;
 
     private int _rowCount;
     private int _colCount;
@@ -408,7 +408,7 @@ internal sealed partial class World
             return;
         }
 
-        if (IsPlaying() && _state.Play.RoomType == RoomType.Regular)
+        if (IsPlaying() && !CurrentRoom.IsCave && !CurrentRoom.IsCellar)
         {
             // JOE: TODO: OBJECT REWRITE if (CurrentRoom.TryGetActionObject(TileAction.Recorder, out var actionObject))
             // JOE: TODO: OBJECT REWRITE {
@@ -448,7 +448,7 @@ internal sealed partial class World
             && WhirlwindTeleporting == 0
             && IsOverworld()
             && IsPlaying()
-            && _state.Play.RoomType == RoomType.Regular
+            && !CurrentRoom.IsCave
             && GetItem(ItemSlot.TriforcePieces) != 0)
         {
             ReadOnlySpan<byte> teleportRoomIds = [0x36, 0x3B, 0x73, 0x44, 0x0A, 0x21, 0x41, 0x6C];
@@ -720,7 +720,7 @@ internal sealed partial class World
         // JOE: TODO: MAP REWRITE     SetMapObjectXY(x, y, BlockObjType.Ground);
         // JOE: TODO: MAP REWRITE }
         // JOE: TODO: MAP REWRITE
-        // JOE: TODO: MAP REWRITE if (!CurrentRoom.RoomFlags.ItemState)
+        // JOE: TODO: MAP REWRITE if (!CurrentRoom.PersistedRoomState.ItemState)
         // JOE: TODO: MAP REWRITE {
         // JOE: TODO: MAP REWRITE     var roomItem = FindSparseItem(Sparse.ArmosItem, CurrentRoom);
         // JOE: TODO: MAP REWRITE
@@ -818,7 +818,7 @@ internal sealed partial class World
     {
         var playedSound = false;
 
-        var ambientSound = CurrentRoom.RoomInformation.AmbientSound;
+        var ambientSound = CurrentRoom.Information.AmbientSound;
         if (ambientSound != null)
         {
             // JOE: TODO: This does sadly limit the usage of the boss roar, and I'm not sure how it behaves in the overworld.
@@ -849,9 +849,9 @@ internal sealed partial class World
     {
         if (!room.HasUnderworldDoors) return;
 
-        var outerPalette = CurrentRoom.RoomInformation.OuterPalette;
+        var outerPalette = CurrentRoom.Information.OuterPalette;
         var baseY = above ? DoorOverlayBaseY : DoorUnderlayBaseY;
-        var flags = CurrentRoom.RoomFlags;
+        var flags = CurrentRoom.PersistedRoomState;
 
         foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
         {
@@ -1003,7 +1003,7 @@ internal sealed partial class World
     {
         // TODO: the original game does it a little different, by looking at $EE.
         var type = room.UnderworldDoors[doorDir];
-        return room.RoomFlags.GetDoorState(doorDir)
+        return room.PersistedRoomState.GetDoorState(doorDir)
             || (type == DoorType.Shutter && _tempShutters && room == _tempShutterRoom) // JOE: I think doing object instance comparisons is fine?
             || (_tempShutterDoorDir == doorDir && room == _tempShutterRoom);
     }
@@ -1209,7 +1209,7 @@ internal sealed partial class World
 
         if (IsOverworld())
         {
-            if (room.RoomFlags.ShortcutState)
+            if (room.PersistedRoomState.ShortcutState)
             {
                 // JOE: TODO: MAP REWRITE if (FindSparseFlag(Sparse.Shortcut, roomId))
                 // JOE: TODO: MAP REWRITE {
@@ -1217,7 +1217,7 @@ internal sealed partial class World
                 // JOE: TODO: MAP REWRITE }
             }
 
-            // if (!CurrentRoom.RoomFlags.ItemState)
+            // if (!CurrentRoom.PersistedRoomState.ItemState)
             {
                 // JOE: TODO: OBJECT REWRITE if (CurrentRoom.TryGetActionObject(TileAction.Item, out var itemObject))
                 // JOE: TODO: OBJECT REWRITE {
@@ -1230,7 +1230,7 @@ internal sealed partial class World
         }
         else
         {
-            // if (!CurrentRoom.RoomFlags.ItemState)
+            // if (!CurrentRoom.PersistedRoomState.ItemState)
             // {
             //     if (room.Secret is not (Secret.FoesItem or Secret.LastBoss))
             //     {
@@ -1305,14 +1305,13 @@ internal sealed partial class World
         }
     }
 
-    private void GotoPlay(RoomType roomType = RoomType.Regular)
+    private void GotoPlay()
     {
-        _curMode = roomType switch
+        _curMode = CurrentRoom switch
         {
-            RoomType.Regular => GameMode.Play,
-            RoomType.Cave => GameMode.PlayCave,
-            RoomType.Cellar => GameMode.PlayCellar,
-            _ => throw new ArgumentOutOfRangeException(nameof(roomType), roomType, "Unknown room type.")
+            { IsCave: true } => GameMode.PlayCave,
+            { IsCellar: true } => GameMode.PlayCellar,
+            _ => GameMode.Play,
         };
 
         _curColorSeqNum = 0;
@@ -1330,7 +1329,6 @@ internal sealed partial class World
         _state.Play.AnimatingRoomColors = false;
         _state.Play.AllowWalkOnWater = false;
         _state.Play.UncoveredRecorderSecret = false;
-        _state.Play.RoomType = roomType;
         _state.Play.LiftItemTimer = 0;
         _state.Play.LiftItemId = 0;
         _state.Play.PersonWallY = 0;
@@ -1350,7 +1348,7 @@ internal sealed partial class World
         MakeWhirlwind();
         _roomHistory.AddRoomToHistory();
 
-        CurrentRoom.RoomFlags.VisitState = true;
+        CurrentRoom.PersistedRoomState.VisitState = true;
     }
 
     private void Pause()
@@ -1592,7 +1590,7 @@ internal sealed partial class World
             OpenShutters();
         }
 
-        var flags = CurrentRoom.RoomFlags;
+        var flags = CurrentRoom.PersistedRoomState;
 
         foreach (var dir in TiledRoomProperties.DoorDirectionOrder)
         {
@@ -1610,7 +1608,7 @@ internal sealed partial class World
             }
 
             flags.SetDoorState(dir);
-            nextRoom.RoomFlags.SetDoorState(oppositeDir);
+            nextRoom.PersistedRoomState.SetDoorState(oppositeDir);
             if (type != DoorType.Bombable)
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);
@@ -1710,7 +1708,7 @@ internal sealed partial class World
                 var doorType = CurrentRoom.UnderworldDoors[direction];
                 if (doorType != DoorType.Bombable) continue;
 
-                var doorState = CurrentRoom.RoomFlags.GetDoorState(direction);
+                var doorState = CurrentRoom.PersistedRoomState.GetDoorState(direction);
                 if (doorState) continue;
 
                 var doorMiddle = _doorMiddles[direction];
@@ -1814,7 +1812,7 @@ internal sealed partial class World
 
     private void SaveObjectCount()
     {
-        var flags = CurrentRoom.RoomFlags;
+        var flags = CurrentRoom.PersistedRoomState;
 
         if (IsOverworld())
         {
@@ -1859,7 +1857,7 @@ internal sealed partial class World
 
     private void CalcObjCountToMake(ref ObjType type, ref int count)
     {
-        var flags = CurrentRoom.RoomFlags;
+        var flags = CurrentRoom.PersistedRoomState;
 
         if (IsOverworld())
         {
@@ -2086,10 +2084,9 @@ internal sealed partial class World
         // JOE: TODO: MAP REWRITE     return;
         // JOE: TODO: MAP REWRITE }
 
-        if (_state.Play.RoomType == RoomType.Cave)
+        if (_curMode == GameMode.PlayCave && _state.PlayCave.Entrance?.Cave != null)
         {
-            MakeCaveObjects(_state.PlayCave.Entrance, _state.PlayCave.ObjectState);
-            return;
+            MakeCaveObjects(_state.PlayCave.Entrance.Cave, _state.PlayCave.ObjectState);
         }
 
         var monstersEnterFromEdge = CurrentRoom.MonstersEnter;
@@ -2172,9 +2169,9 @@ internal sealed partial class World
     //     }
     // }
 
-    public void MakeCaveObjects(Entrance entrance, ObjectState? state)
+    public void MakeCaveObjects(CaveSpec cave, ObjectState? state)
     {
-        MakePersonRoomObjects(entrance.Cave ?? throw new Exception(), state);
+        MakePersonRoomObjects(cave, state);
     }
 
     private void MakePersonRoomObjects(CaveSpec spec, ObjectState? state)
@@ -2452,7 +2449,7 @@ internal sealed partial class World
                 //     return;
                 // }
 
-                _state.Scroll.NextRoom = GetNextRoom(CurrentRoom, _state.Scroll.ScrollDir, out _);
+                _state.Scroll.NextRoom = GetNextRoom(_state.Scroll.ScrollDir, out _);
             }
 
             _state.Scroll.Substate = ScrollState.Substates.AnimatingColors;
@@ -2564,7 +2561,7 @@ internal sealed partial class World
 
             LoadRoom(nextRoom);
 
-            if (CurrentRoom.RoomInformation.IsDark && _darkRoomFadeStep == 0 && !Profile.PreventDarkRooms(Game))
+            if (CurrentRoom.Information.IsDark && _darkRoomFadeStep == 0 && !Profile.PreventDarkRooms(Game))
             {
                 _state.Scroll.Substate = ScrollState.Substates.FadeOut;
                 _state.Scroll.Timer = Game.Cheats.SpeedUp ? 1 : 9;
@@ -2578,6 +2575,23 @@ internal sealed partial class World
 
         void ScrollScroll()
         {
+            if (Game.Cheats.SpeedUp && false)
+            {
+                _state.Scroll.Timer = 0;
+                GotoEnter(_state.Scroll.ScrollDir);
+
+                var limits = Player.PlayerLimits;
+                if (_state.Scroll.SpeedX != 0)
+                {
+                    Game.Player.X = Math.Clamp(Game.Player.X + _state.Scroll.SpeedX, limits[1], limits[0]);
+                }
+                else
+                {
+                    Game.Player.Y = Math.Clamp(Game.Player.Y + _state.Scroll.SpeedY, limits[3], limits[2]);
+                }
+                return;
+            }
+
             if (_state.Scroll.Timer > 0)
             {
                 _state.Scroll.Timer--;
@@ -2587,30 +2601,29 @@ internal sealed partial class World
             if (_state.Scroll is { OffsetX: 0, OffsetY: 0 })
             {
                 GotoEnter(_state.Scroll.ScrollDir);
-                if (_state.Scroll.NextRoom.RoomInformation.PlaysSecretChime)
+                if (_state.Scroll.NextRoom.Information.PlaysSecretChime)
                 {
                     Game.Sound.PlayEffect(SoundEffect.Secret);
                 }
                 return;
             }
 
-            if (Game.Cheats.SpeedUp)
-            {
-                // JOE: TODO
-            }
+            var speedMultiplier = Game.Cheats.SpeedUp ? 2 : 1;
+            var speedX = _state.Scroll.SpeedX * speedMultiplier;
+            var speedY = _state.Scroll.SpeedY * speedMultiplier;
 
-            _state.Scroll.OffsetX += _state.Scroll.SpeedX;
-            _state.Scroll.OffsetY += _state.Scroll.SpeedY;
+            _state.Scroll.OffsetX += speedX;
+            _state.Scroll.OffsetY += speedY;
 
             // JOE: TODO: Does this prevent screen wrapping?
             var playerLimits = Player.PlayerLimits;
             if (_state.Scroll.SpeedX != 0)
             {
-                Game.Player.X = Math.Clamp(Game.Player.X + _state.Scroll.SpeedX, playerLimits[1], playerLimits[0]);
+                Game.Player.X = Math.Clamp(Game.Player.X + speedX, playerLimits[1], playerLimits[0]);
             }
             else
             {
-                Game.Player.Y = Math.Clamp(Game.Player.Y + _state.Scroll.SpeedY, playerLimits[3], playerLimits[2]);
+                Game.Player.Y = Math.Clamp(Game.Player.Y + speedY, playerLimits[3], playerLimits[2]);
             }
 
             Game.Player.Animator.Advance();
@@ -2794,7 +2807,7 @@ internal sealed partial class World
                     _state.Enter.ScrollDir,
                     distance);
 
-                if (!CurrentRoom.RoomInformation.IsDark && _darkRoomFadeStep > 0)
+                if (!CurrentRoom.Information.IsDark && _darkRoomFadeStep > 0)
                 {
                     _state.Enter.Substate = EnterState.Substates.FadeIn;
                     _state.Enter.Timer = 9;
@@ -3249,9 +3262,14 @@ internal sealed partial class World
                 GotoLoadLevel(entrance.GetLevelNumber());
                 break;
 
+            case GameWorldType.UnderworldCommon:
             case GameWorldType.OverworldCommon:
                 GotoPlayCave(entrance, state);
                 break;
+
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(entrance.DestinationType), entrance.DestinationType, "Unsupported entrance type.");
         }
     }
 
@@ -3371,7 +3389,7 @@ internal sealed partial class World
             if (Game.Player.Y >= _state.PlayCellar.TargetY)
             {
                 FromUnderground = 1;
-                GotoPlay(RoomType.Cellar);
+                GotoPlay();
             }
             else
             {
@@ -3411,7 +3429,7 @@ internal sealed partial class World
 
         void LeaveCellarStart()
         {
-            if (GetPreviousEntrance()?.World.IsOverworld ?? true)
+            if (GetPreviousEntrance()?.Room.World.IsOverworld ?? true)
             {
                 _state.LeaveCellar.Substate = LeaveCellarState.Substates.Wait;
                 _state.LeaveCellar.Timer = 29;
@@ -3451,19 +3469,21 @@ internal sealed partial class World
 
         void LeaveCellarLoadRoom()
         {
+            var room = GetNextRoom(Player.Facing, out var entry);
+
             var nextRoomId = Game.Player.X < 0x80
-                ? CurrentRoom.CellarStairsLeftRoomId
-                : CurrentRoom.CellarStairsRightRoomId;
+                ? room.CellarStairsLeftRoomId
+                : room.CellarStairsRightRoomId;
 
             if (nextRoomId == null)
             {
-                throw new Exception($"Missing CellarStairsLeft/RightRoomId attributes in room \"{CurrentRoom}\" world \"{CurrentWorld.Name}\"");
+                throw new Exception($"Missing CellarStairs[Left/Right]RoomId attributes in room \"{room}\"");
             }
 
-            LoadRoom(CurrentWorld.GetRoomById(nextRoomId));
+            LoadRoom(room);
 
-            Game.Player.X = 0x60;
-            Game.Player.Y = 0xA0;
+            Game.Player.X = entry.FromEntrance.ExitPosition?.X ?? 0x60;
+            Game.Player.Y = entry.FromEntrance.ExitPosition?.Y ?? 0xA0;
             Game.Player.Facing = Direction.Down;
 
             _state.LeaveCellar.Substate = LeaveCellarState.Substates.FadeIn;
@@ -3602,7 +3622,8 @@ internal sealed partial class World
             // var caveLayout = FindSparseFlag(Sparse.Shortcut, CurrentRoom) ? CaveType.Shortcut : CaveType.Items;
 
             // LoadCaveRoom(caveLayout);
-            var room = _commonWorlds[GameWorldType.OverworldCommon].GetRoomByName(_state.PlayCave.Entrance.Destination);
+            var entrance = _state.PlayCave.Entrance;
+            var room = _commonWorlds[entrance.DestinationType].GetRoomByName(entrance.Destination);
             LoadMap(room, _state.PlayCave.Entrance);
 
             _state.PlayCave.Substate = PlayCaveState.Substates.Walk;
@@ -3625,7 +3646,7 @@ internal sealed partial class World
             if (Game.Player.Y <= _state.PlayCave.TargetY)
             {
                 FromUnderground = 1;
-                GotoPlay(RoomType.Cave);
+                GotoPlay();
                 return;
             }
 
@@ -4011,7 +4032,7 @@ internal sealed partial class World
     {
         if (interaction != TileInteraction.Load) return;
 
-        if (CurrentRoom.RoomFlags.SecretState)
+        if (CurrentRoom.PersistedRoomState.SecretState)
         {
             SetMapObject(tileY, tileX, BlockType.Cave);
             return;
@@ -4025,7 +4046,7 @@ internal sealed partial class World
     {
         if (interaction != TileInteraction.Load) return;
 
-        if (CurrentRoom.RoomFlags.SecretState)
+        if (CurrentRoom.PersistedRoomState.SecretState)
         {
             SetMapObject(tileY, tileX, BlockType.Stairs);
             return;

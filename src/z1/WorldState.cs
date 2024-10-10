@@ -3,8 +3,6 @@ using z1.Actors;
 
 namespace z1;
 
-internal enum RoomType { Regular, Cellar, Cave }
-
 [DebuggerDisplay("{Substate}")]
 internal struct PlayState
 {
@@ -16,7 +14,6 @@ internal struct PlayState
     public bool AnimatingRoomColors;
     public bool AllowWalkOnWater;
     public bool UncoveredRecorderSecret;
-    public RoomType RoomType;
     public short LiftItemTimer;
     public ItemId LiftItemId;
     public int PersonWallY;
@@ -74,7 +71,7 @@ internal struct PlayCaveState
     }
 
     public Substates Substate;
-    public Entrance Entrance;
+    public Entrance? Entrance;
     public ObjectState? ObjectState;
     public int Timer;
     public int TargetY;

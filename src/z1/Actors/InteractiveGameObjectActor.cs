@@ -318,7 +318,7 @@ internal sealed class PushInteraction
 
             if (_removeBackground)
             {
-                var tile = _game.World.CurrentRoom.RoomInformation.FloorTile;
+                var tile = _game.World.CurrentRoom.Information.FloorTile;
                 _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, tile);
             }
 
@@ -337,7 +337,8 @@ internal sealed class PushInteraction
                 if (block == null) return true;
 
                 _movingActor = new MovingBlockActor(
-                    _game, ObjType.Block, block.Value, targetPos, MovingBlockActorOptions.ReplaceWithBackground,
+                    _game, ObjType.Block, block.Value, targetPos,
+                    MovingBlockActorOptions.ReplaceWithBackground,
                     _interactive.X, _interactive.Y, _width, _height)
                 {
                     Facing = dir,

@@ -39,15 +39,14 @@ internal partial class World
         return currentRoom.Connections.TryGetValue(direction, out room);
     }
 
-    private GameRoom GetNextRoom(GameRoom currentRoom, Direction direction, out RoomHistoryEntry entry)
+    private GameRoom GetNextRoom(Direction direction, out RoomHistoryEntry entry)
     {
         entry = default;
-        if (!TryGetNextRoom(CurrentRoom, _state.Scroll.ScrollDir, out var nextRoom))
+        if (!TryGetNextRoom(CurrentRoom, direction, out var nextRoom))
         {
             if (!TryTakePreviousEntrance(out entry))
             {
-                entry = new RoomHistoryEntry(
-                    _overworldWorld.EntryRoom, _overworldWorld, new Entrance());
+                entry = new RoomHistoryEntry(_overworldWorld.EntryRoom, new Entrance());
             }
 
             return entry.Room;

@@ -60,8 +60,11 @@ internal partial class World
         // JOE: TODO: MAP REWRITE }
     }
 
-    public readonly record struct RoomHistoryEntry(GameRoom Room, GameWorld World, Entrance FromEntrance);
+    public readonly record struct RoomHistoryEntry(GameRoom Room, Entrance FromEntrance);
     private readonly Stack<RoomHistoryEntry> _previousRooms = new();
+
+    // JOE: TODO: Make this set to what world map should be drawn by the statusbar.
+    public GameWorld CurrentWorldMap { get; private set; }
 
     public RoomHistoryEntry? GetPreviousEntrance()
     {
@@ -71,14 +74,20 @@ internal partial class World
 
     public bool TryTakePreviousEntrance([MaybeNullWhen(false)] out RoomHistoryEntry entry)
     {
-        return _previousRooms.TryPop(out entry);
+        if (_previousRooms.TryPop(out entry))
+        {
+            // CurrentWorldMap = _previousRooms.Wh
+            return true;
+        }
+
+        return false;
     }
 
     public RoomHistoryEntry TakePreviousEntranceOrDefault()
     {
         if (!TryTakePreviousEntrance(out var entry))
         {
-            entry = new RoomHistoryEntry(_overworldWorld.EntryRoom, _overworldWorld, new Entrance());
+            entry = new RoomHistoryEntry(_overworldWorld.EntryRoom, new Entrance());
         }
 
         return entry;
@@ -86,7 +95,7 @@ internal partial class World
 
     private void LoadMap(GameRoom room, Entrance? fromEntrance = null)
     {
-        if (fromEntrance != null) _previousRooms.Push(new RoomHistoryEntry(CurrentRoom, CurrentWorld, fromEntrance));
+        if (fromEntrance != null) _previousRooms.Push(new RoomHistoryEntry(CurrentRoom, fromEntrance));
 
         CurrentRoom = room;
         CurrentWorld = room.World;
@@ -108,16 +117,6 @@ internal partial class World
         foreach (var actionObject in room.InteractiveGameObjects)
         {
             _objects.Add(new InteractiveGameObjectActor(Game, actionObject));
-            // JOE: TODO: OBJECT REWRITE var actionFunc = GetTileActionFunction(actionObject.Action);
-            // JOE: TODO: OBJECT REWRITE actionObject.GetScreenTileCoordinates(out var tileX, out var tileY);
-            // JOE: TODO: OBJECT REWRITE actionObject.GetTileSize(out var tileWidth, out var tileHeight);
-            // JOE: TODO: OBJECT REWRITE for (var y = tileY; y < tileY + tileHeight; y += 2)
-            // JOE: TODO: OBJECT REWRITE {
-            // JOE: TODO: OBJECT REWRITE     for (var x = tileX; x < tileX + tileWidth; x += 2)
-            // JOE: TODO: OBJECT REWRITE     {
-            // JOE: TODO: OBJECT REWRITE         actionFunc(tileY, tileX, TileInteraction.Load);
-            // JOE: TODO: OBJECT REWRITE     }
-            // JOE: TODO: OBJECT REWRITE }
         }
 
         PatchTileBehaviors();
@@ -127,8 +126,8 @@ internal partial class World
     {
         Graphics.Begin();
 
-        var outerPalette = room.RoomInformation.OuterPalette;
-        var innerPalette = room.RoomInformation.InnerPalette;
+        var outerPalette = room.Information.OuterPalette;
+        var innerPalette = room.Information.InnerPalette;
 
         var firstRow = 0;
         var lastRow = ScreenTileHeight;

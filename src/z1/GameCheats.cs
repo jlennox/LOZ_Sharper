@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.Remoting;
 using System.Text;
 using System.Text.RegularExpressions;
 using Silk.NET.Input;
@@ -349,7 +348,6 @@ internal sealed class GameCheats
             game.World.AddItem(ItemId.MagicSword);
             game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
-            // game.World.PostRupeeWin(0xFF); // listening to this gets annoying.
             profile.Items[ItemSlot.Rupees] += 100;
             profile.Items[ItemSlot.Bombs] = 98;
             profile.Items[ItemSlot.Keys] = 98;
@@ -447,7 +445,7 @@ internal sealed class GameCheats
         {
             if (cheat is T t)
             {
-                t.RunPayload(_game, Array.Empty<string>());
+                t.RunPayload(_game, []);
             }
         }
     }

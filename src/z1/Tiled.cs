@@ -222,7 +222,7 @@ internal sealed class GameWorld
     public bool IsOverworld { get; }
     public GameWorldType WorldType { get; }
 
-    public bool IsBossAlive => BossRoom != null && BossRoom.RoomFlags.ObjectCount != 0;
+    public bool IsBossAlive => BossRoom != null && BossRoom.PersistedRoomState.ObjectCount != 0;
 
     public GameWorld(Game game, TiledWorld world, string filename, int questId)
     {
@@ -239,8 +239,8 @@ internal sealed class GameWorld
             var tiledmap = asset.ReadJson<TiledMap>();
             var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
             var room = new GameRoom(game, this, worldEntry, entryName, tiledmap, questId);
-            if (room.RoomInformation.IsEntryRoom) EntryRoom = room;
-            if (room.RoomInformation.IsBossRoom) BossRoom = room;
+            if (room.Information.IsEntryRoom) EntryRoom = room;
+            if (room.Information.IsBossRoom) BossRoom = room;
             worldMaps[i] = (room, worldEntry);
             Rooms[i] = room;
         }
@@ -342,26 +342,29 @@ internal sealed class GameRoom
     public int ZoraCount { get; set; }
     public bool MonstersEnter { get; set; }
     public MazeRoom? Maze { get; set; }
-    public RoomInformation RoomInformation { get; }
+    public RoomInformation Information { get; }
     public RecorderDestination? RecorderDestination { get; }
 
     public RoomTileMap RoomMap { get; }
-    public RoomTileMap _unmodifiedRoomMap { get; }
+    private readonly RoomTileMap _unmodifiedRoomMap;
     public bool HidePlayerMapCursor { get; set; }
-    public bool HiddenFromMap { get; set; }
     public bool IsTriforceRoom { get; set; }
-    public bool HasTriforce => IsTriforceRoom && !RoomFlags.ItemState;
+    public bool HasTriforce => IsTriforceRoom && !PersistedRoomState.ItemState;
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
-    public RoomFlags RoomFlags => GetRoomFlags();
+    public PersistedRoomState PersistedRoomState => GetRoomFlags();
 
+    // JOE: TODO: Uh, this feels wrong...?
     public int LevelKillCount { get; set; }
 
     // Old zelda stuff that needs to be refactored in action objects and stuff.
     public int? FireballLayout { get; }
     public string? CellarStairsLeftRoomId { get; set; }
     public string? CellarStairsRightRoomId { get; set; }
-    public bool IsLadderAllowed { get; set; }
+
+    // I'm not super fond of how these checks work.
+    public bool IsCellar => World.WorldType == GameWorldType.UnderworldCommon;
+    public bool IsCave => World.WorldType == GameWorldType.OverworldCommon;
 
     private readonly Game _game;
     // private readonly GameMapObject[] _ownedObjects;
@@ -392,9 +395,8 @@ internal sealed class GameRoom
         MonstersEnter = map.GetBooleanProperty(TiledRoomProperties.MonstersEnter);
         CaveSpec = map.GetClass<CaveSpec>(TiledRoomProperties.CaveSpec);
         Maze = map.GetClass<MazeRoom>(TiledRoomProperties.Maze);
-        RoomInformation = map.ExpectClass<RoomInformation>(TiledRoomProperties.RoomInformation);
+        Information = map.ExpectClass<RoomInformation>(TiledRoomProperties.RoomInformation);
         RecorderDestination = map.GetClass<RecorderDestination>(TiledObjectProperties.RecorderDestination);
-        HiddenFromMap = map.GetBooleanProperty(TiledRoomProperties.HiddenFromMap);
 
         var dungeonDoors = map.GetProperty(TiledRoomProperties.UnderworldDoors);
         if (TryParseUnderworldDoors(dungeonDoors, out var doors))
@@ -519,7 +521,7 @@ internal sealed class GameRoom
         _unmodifiedRoomMap.CopyTo(RoomMap);
     }
 
-    public RoomFlags GetRoomFlags()
+    public PersistedRoomState GetRoomFlags()
     {
         return _game.World.Profile.GetRoomFlags(this);
     }

@@ -256,7 +256,7 @@ internal sealed class Player : Actor, IThrower
 
         if (mode != GameMode.Play) return;
 
-        if (Game.World.IsOverworld() && !Game.World.CurrentRoom.IsLadderAllowed) return;
+        if (Game.World.IsOverworld() && !Game.World.CurrentRoom.Information.IsLadderAllowed) return;
 
         if (Game.World.DoorwayDir != Direction.None
             || Game.World.GetItem(ItemSlot.Ladder) == 0

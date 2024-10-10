@@ -29,11 +29,9 @@ public static class TiledRoomProperties
 
     // Underworld
     public const string UnderworldDoors = nameof(UnderworldDoors);
-    public const string Secret = nameof(Secret);
     public const string FireballLayout = nameof(FireballLayout);
     public const string CellarStairsLeft = nameof(CellarStairsLeft);
     public const string CellarStairsRight = nameof(CellarStairsRight);
-    public const string HiddenFromMap = nameof(HiddenFromMap);
 
     public static readonly ImmutableArray<Direction> DoorDirectionOrder = [Direction.Right, Direction.Left, Direction.Down, Direction.Up];
 }
@@ -228,20 +226,41 @@ public sealed class RoomItem
     public bool IsRoomItem { get; set; } // UW only.
 }
 
+[Flags]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+[TiledSelectableEnum]
+public enum RoomFlags
+{
+    [TiledIgnore] None = 0,
+    PlaysSecretChime = 1 << 0,
+    IsEntryRoom = 1 << 1,
+    // Used to know when to no longer play the bossroar AmbientSound.
+    IsBossRoom = 1 << 2,
+    IsLadderAllowed = 1 << 3,
+    IsDark = 1 << 4,
+    // For a cellar, for example, instead shows the level's map you came from.
+    ShowPreviousMap = 1 << 5,
+    // This room does not show when the map is revealed.
+    HiddenFromMap = 1 << 6,
+}
+
 [TiledClass]
 public sealed class RoomInformation
 {
     public Palette InnerPalette { get; set; }
     public Palette OuterPalette { get; set; }
     public SoundEffect? AmbientSound { get; set; }
-    public bool PlaysSecretChime { get; set; }
-    public bool IsEntryRoom { get; set; }
-    // Used to know when to no longer play the bossroar AmbientSound.
-    public bool IsBossRoom { get; set; }
-    public bool IsLadderAllowed { get; set; }
-    public bool IsDark { get; set; }
+    public RoomFlags Options { get; set; }
     // Only used when something is destroyed or moved.
     public TileType FloorTile { get; set; }
+
+    [TiledIgnore, JsonIgnore] public bool PlaysSecretChime => Options.HasFlag(RoomFlags.PlaysSecretChime);
+    [TiledIgnore, JsonIgnore] public bool IsEntryRoom => Options.HasFlag(RoomFlags.IsEntryRoom);
+    [TiledIgnore, JsonIgnore] public bool IsBossRoom => Options.HasFlag(RoomFlags.IsBossRoom);
+    [TiledIgnore, JsonIgnore] public bool IsLadderAllowed => Options.HasFlag(RoomFlags.IsLadderAllowed);
+    [TiledIgnore, JsonIgnore] public bool IsDark => Options.HasFlag(RoomFlags.IsDark);
+    [TiledIgnore, JsonIgnore] public bool HideMap => Options.HasFlag(RoomFlags.ShowPreviousMap);
+    [TiledIgnore, JsonIgnore] public bool HiddenFromMap => Options.HasFlag(RoomFlags.HiddenFromMap);
 }
 
 [TiledClass]

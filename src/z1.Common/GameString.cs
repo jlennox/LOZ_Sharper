@@ -67,6 +67,8 @@ public static class GameString
     // The top bit is used to indicate we should pass the rest of the bytes through untouched.
     public static int ByteFromChar(char c) => c switch
     {
+        '❤' => (byte)Chars.FullHeart,
+        '\u2661' => (byte)Chars.EmptyHeart,
         >= (char)0x80 => (byte)(c & ~0x80),
         ' ' => 0x24,
         ',' => 0x28,
@@ -104,6 +106,7 @@ public static class GameString
         0x2C => '.',
         0x2D => '"',
         0x2E => '?',
+        (byte)Chars.FullHeart => '❤',
         (byte)Chars.Minus => '-',
         (byte)Chars.Plus => '+',
         <= 0x09 => (char)(b + '0'),

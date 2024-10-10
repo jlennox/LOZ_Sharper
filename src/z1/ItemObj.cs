@@ -79,7 +79,7 @@ internal class BlockActor : Actor, IHasCollision
     {
         if (!EnableDraw) return;
 
-        var palette = Game.World.CurrentRoom.RoomInformation.InnerPalette;
+        var palette = Game.World.CurrentRoom.Information.InnerPalette;
         Graphics.DrawStripSprite16X16(_tileSheet, Tile, X, Y, palette);
     }
 }
@@ -164,7 +164,7 @@ internal abstract class BlockObjBase : Actor
     {
         if (_curUpdate == UpdateMoving)
         {
-            Graphics.DrawStripSprite16X16(_tileSheet, Block, X, Y, Game.World.CurrentRoom.RoomInformation.InnerPalette);
+            Graphics.DrawStripSprite16X16(_tileSheet, Block, X, Y, Game.World.CurrentRoom.Information.InnerPalette);
         }
     }
 
@@ -421,7 +421,7 @@ internal sealed class TreeActor : Actor
             if (Math.Abs(fire.X - X) >= 16 || Math.Abs(fire.Y - Y) >= 16) continue;
 
             Game.World.SetMapObjectXY(X, Y, BlockType.Stairs);
-            Game.World.CurrentRoomFlags.SecretState = true;
+            Game.World.CurrentPersistedRoomState.SecretState = true;
             Game.Sound.PlayEffect(SoundEffect.Secret);
             Game.World.Profile.Statistics.TreesBurned++;
             Delete();
@@ -541,7 +541,7 @@ internal sealed class RockWallActor : Actor
             if (Math.Abs(bomb.X - X) >= 16 || Math.Abs(bomb.Y - Y) >= 16) continue;
 
             Game.World.SetMapObjectXY(X, Y, BlockType.Cave);
-            Game.World.CurrentRoomFlags.SecretState = true;
+            Game.World.CurrentPersistedRoomState.SecretState = true;
             Game.Sound.PlayEffect(SoundEffect.Secret);
             Game.World.Profile.Statistics.OWBlocksBombed++;
             Delete();
@@ -792,11 +792,13 @@ internal sealed class ItemObjActor : Actor
             _timer--;
             switch (_timer)
             {
+                // Pickup time has run out.
                 case 0:
                     Delete();
                     return;
 
-                case >= 0x1E0:
+                // It's still in the "blinking in" phase.
+                case >= SpawnInTimeLastTimer:
                     return;
             }
         }

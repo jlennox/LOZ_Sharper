@@ -529,7 +529,7 @@ internal sealed class SubmenuType
 
         var doorSum = 0;
         var doorBit = 8;
-        var flags = room.RoomFlags;
+        var flags = room.PersistedRoomState;
         for (; doorBit != 0; doorBit >>= 1)
         {
             var direction = (Direction)doorBit;
@@ -597,9 +597,9 @@ internal sealed class SubmenuType
             {
                 var room = map.RoomGrid[mapX, mapY];
                 if (room == null) continue;
-                if (!room.HiddenFromMap)
+                if (!room.Information.HiddenFromMap)
                 {
-                    if (room.RoomFlags.VisitState)
+                    if (room.PersistedRoomState.VisitState)
                     {
                         var tile = 0xD0 + GetDoorTileOffset(room);
                         GlobalFunctions.DrawChar(tile, x, y, (Palette)1);

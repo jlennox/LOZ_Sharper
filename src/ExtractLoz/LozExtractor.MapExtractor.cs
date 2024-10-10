@@ -278,7 +278,10 @@ public unsafe partial class LozExtractor
         var minroomX = allExtractedRooms.Where(t => t != null).Min(t => t.Value.RoomId.X);
         var maxroomX = allExtractedRooms.Where(t => t != null).Max(t => t.Value.RoomId.X);
 
-        static TiledProperty[] GetRoomProperties(MapResources resources, RoomId roomId, int minroomX, int maxroomX, string? name = null)
+        static TiledProperty[] GetRoomProperties(
+            MapResources resources, RoomId roomId,
+            int minroomX, int maxroomX,
+            string? name = null, RoomFlags roomOptions = RoomFlags.None)
         {
             var properties = new List<TiledProperty>();
             var levelBlock = resources.LevelInfoBlock;
@@ -309,10 +312,18 @@ public unsafe partial class LozExtractor
             {
                 if (resources.LevelInfoBlock.FindCellarRoomIds(roomId, resources.RoomAttrs, out var left, out var right))
                 {
-                    if (left != right && (left != roomId || right != roomId))
+
+                    if (resources.LevelInfoBlock.LevelNumber == 1 && resources.QuestId == 0 && roomId == new RoomId(2, 2))
                     {
-                        properties.Add(TiledArgumentProperties.CreateArgument(TiledArgument.CellarStairsLeft, left.GetGameRoomId()));
-                        properties.Add(TiledArgumentProperties.CreateArgument(TiledArgument.CellarStairsRight, right.GetGameRoomId()));
+                    }
+
+                    // if (left != right && (left != roomId || right != roomId))
+                    {
+                        properties.Add(new TiledProperty(TiledRoomProperties.CellarStairsLeft, left.GetGameRoomId()));
+                        if (right != left)
+                        {
+                            properties.Add(new TiledProperty(TiledRoomProperties.CellarStairsRight, right.GetGameRoomId()));
+                        }
                     }
                 }
 
@@ -321,12 +332,6 @@ public unsafe partial class LozExtractor
                     .Select(t => t.ToString())
                     .ToArray();
                 properties.Add(new TiledProperty(TiledRoomProperties.UnderworldDoors, string.Join(", ", doors)));
-
-                var secret = uwRoomAttrs.GetSecret();
-                if (secret != Secret.None)
-                {
-                    properties.Add(new TiledProperty(TiledRoomProperties.Secret, secret));
-                }
 
                 var fireballLayoutIndex = Array.IndexOf([0x24, 0x23], roomAttr.GetUniqueRoomId(roomId));
                 if (fireballLayoutIndex >= 0)
@@ -347,7 +352,7 @@ public unsafe partial class LozExtractor
 
                     if ((mapMaskByte & 0x80) != 0x80)
                     {
-                        properties.Add(new TiledProperty(TiledRoomProperties.HiddenFromMap, true));
+                        roomOptions |= RoomFlags.HiddenFromMap;
                     }
                 }
 
@@ -414,29 +419,28 @@ public unsafe partial class LozExtractor
             }
 
             SoundEffect? ambientSound = null;
-            if (resources.IsOverworld && owRoomAttrs.HasAmbientSound())
+            if (resources.IsOverworld)
             {
-                ambientSound = SoundEffect.Sea;
+                if (owRoomAttrs.HasAmbientSound()) ambientSound = SoundEffect.Sea;
+                if (roomAttr.GetUniqueRoomId(roomId) == 0x0F) roomOptions |= RoomFlags.PlaysSecretChime;
             }
-            else if (!resources.IsOverworld)
+            else
             {
                 var ambientSoundInt = uwRoomAttrs.GetAmbientSound();
-                if (ambientSoundInt != 0)
-                {
-                    ambientSound = SoundEffect.BossRoar1 + ambientSoundInt - 1;
-                }
+                if (ambientSoundInt != 0) ambientSound = SoundEffect.BossRoar1 + ambientSoundInt - 1;
+                if (resources.LevelInfoBlock.BossRoomId == roomId.Id) roomOptions |= RoomFlags.IsBossRoom;
+                if (uwRoomAttrs.IsDark()) roomOptions |= RoomFlags.IsDark;
             }
+
+            if (resources.FindSparseFlag(roomId, Sparse.Ladder)) roomOptions |= RoomFlags.IsLadderAllowed;
+            if (roomId.Id == startRoomId) roomOptions |= RoomFlags.IsEntryRoom;
 
             properties.Add(TiledProperty.ForClass(TiledRoomProperties.RoomInformation, new RoomInformation
             {
                 InnerPalette = innerPalette,
                 OuterPalette = outerPalette,
-                IsBossRoom = !resources.IsOverworld && resources.LevelInfoBlock.BossRoomId == roomId.Id,
-                IsLadderAllowed = resources.FindSparseFlag(roomId, Sparse.Ladder),
-                IsEntryRoom = roomId.Id == startRoomId,
+                Options = roomOptions,
                 AmbientSound = ambientSound,
-                IsDark = uwRoomAttrs.IsDark(),
-                PlaysSecretChime = resources.IsOverworld && roomAttr.GetUniqueRoomId(roomId) == 0x0F,
                 FloorTile = resources.IsOverworld ? TileType.Ground : TileType.Tile
             }));
 
@@ -561,11 +565,11 @@ public unsafe partial class LozExtractor
             var commonRooms = new List<TiledWorldEntry>();
             (RoomId Room, string Name)[] cellarRoomIds = isUnderworldCommon
                 ? [
-                    (new RoomId(4), "Item"),
-                    (new RoomId(7), "Transport")
+                    (new RoomId(4), CommonUnderworldRoomName.ItemCellar),
+                    (new RoomId(7), CommonUnderworldRoomName.Transport)
                 ] : [
-                    (RoomId.FromUniqueRoomId(0x79), "Cave"),
-                    (RoomId.FromUniqueRoomId(0x7A), "Shortcut")
+                    (RoomId.FromUniqueRoomId(0x79), CommonOverworldRoomName.Cave),
+                    (RoomId.FromUniqueRoomId(0x7A), CommonOverworldRoomName.Shortcut)
                 ];
 
 
@@ -613,7 +617,7 @@ public unsafe partial class LozExtractor
                     TileHeight = 8,
                     Layers = [commonBackgroundLayer, .. objectLayers],
                     TileSets = tilesets,
-                    Properties = GetRoomProperties(resources, commonRoomId, 0, 0, commonRoomName)
+                    Properties = GetRoomProperties(resources, commonRoomId, 0, 0, commonRoomName, RoomFlags.ShowPreviousMap)
                 };
 
                 var filename = $"{commonName}/{commonRoomName}.json";

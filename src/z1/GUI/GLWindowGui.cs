@@ -358,7 +358,7 @@ internal static class GLWindowGui
         static void SpawnCave(Game game, CaveId caveId)
         {
             game.World.DebugKillAllObjects();
-            foreach (var (_, o) in game.World.CurrentRoomFlags.ObjectState)
+            foreach (var (_, o) in game.World.CurrentPersistedRoomState.ObjectState)
             {
                 o.HasInteracted = false;
                 o.ItemGot = false;
@@ -369,7 +369,7 @@ internal static class GLWindowGui
         static void SpawnPerson(Game game, PersonType type)
         {
             game.World.DebugKillAllObjects();
-            foreach (var (_, o) in game.World.CurrentRoomFlags.ObjectState)
+            foreach (var (_, o) in game.World.CurrentPersistedRoomState.ObjectState)
             {
                 o.HasInteracted = false;
                 o.ItemGot = false;

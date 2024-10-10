@@ -14,7 +14,7 @@ internal sealed class ObjectState
     public bool ItemGot { get; set; }
 }
 
-internal sealed class RoomFlags
+internal sealed class PersistedRoomState
 {
     public bool ItemState { get; set; } // true if item has been picked up.
     public bool ShortcutState { get; set; } // Overworld
@@ -201,8 +201,9 @@ internal sealed class PlayerProfile
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
     public PlayerStatistics Statistics { get; set; }
-    public Dictionary<string, Dictionary<string, RoomFlags>> RoomFlags { get; set; }
+    public Dictionary<string, Dictionary<string, PersistedRoomState>> RoomFlags { get; set; }
     public Dictionary<int, DungeonItems> DungeonItems { get; set; }
+    public TimeSpan Playtime { get; set; } // JOE: TODO
 
     public PlayerProfile()
     {
@@ -240,17 +241,17 @@ internal sealed class PlayerProfile
         Statistics.Initialize();
     }
 
-    public RoomFlags GetRoomFlags(GameRoom room)
+    public PersistedRoomState GetRoomFlags(GameRoom room)
     {
         if (!RoomFlags.TryGetValue(room.World.Id, out var worldFlags))
         {
-            worldFlags = new Dictionary<string, RoomFlags>();
+            worldFlags = new Dictionary<string, PersistedRoomState>();
             RoomFlags[room.World.Id] = worldFlags;
         }
 
         if (!worldFlags.TryGetValue(room.Id, out var roomFlags))
         {
-            roomFlags = new RoomFlags();
+            roomFlags = new PersistedRoomState();
             worldFlags[room.Id] = roomFlags;
         }
 

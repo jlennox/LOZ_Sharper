@@ -4,9 +4,41 @@ using z1.Render;
 
 namespace z1.Actors;
 
+// Cave specifications:
+//
+// Hint cave:
+// - Shows "{Rupee} X"
+// - Prices with negative signs.
+// - Rupees show in the 3 item slots.
+// - When interacted with:
+//   - Item is not lifted overhead.
+//   - The prices and the "{Rupee} X" disappear.
+//   - The rupee's in the item slots remain present, but can't be interacted with.
+//   - The shopkeeper remains.
+//
+// Shop:
+// - Shows "{Rupee} X"
+// - Prices have no signage prefix.
+// - Bottom of key item aligns to center of two 00's in 100 price tag.
+//   IE, the third digit of the text does not center to the item.
+// - When interacted with:
+//   - Item is lifted overhead.
+//   - Shopkeeper and items disappear and "blink" as they do.
+//   - Prices/"{Rupee} X" disappear immediately upon purchase.
+//
+// Gambling/Money Making Game:
+// - Shows "{Rupee} X"
+// - Prices with negative signs.
+// - Rupees show in the 3 item slots.
+// - When interacted with:
+//   - Item is not lifted overhead.
+//   - The prices are updated to reflect the potential winning/losses. All numbers of signed, negative and positive.
+//   - The rupee's in the item slots remain present, but can't be interacted with.
+//   - The shopkeeper remains.
 internal sealed class PersonActor : Actor
 {
     public const int PersonWallY = 0x8E;
+    private const int DisappearTime = 0x40;
 
     private enum PersonState
     {
@@ -176,6 +208,7 @@ internal sealed class PersonActor : Actor
         {
             if (_spec.DoesControlsBlockingWall) Game.World.SetPersonWallY(0);
             if (_spec.DoesControlsShutters) Game.World.OpenShutters();
+            foreach (var item in _itemActors) item.Delete();
             return true;
         }
         return false;
@@ -199,7 +232,12 @@ internal sealed class PersonActor : Actor
                 }
                 break;
 
-            case PersonState.PickedUp: UpdatePickUp(); break;
+            case PersonState.PickedUp:
+                UpdatePickUp();
+                // Make them "blink" as they disappear.
+                Visible = (Game.FrameCounter & 1) == 0;
+                foreach (var item in _itemActors) item.Visible = Visible;
+                break;
             case PersonState.WaitingForItem: UpdateWaitForLetter(); break;
             case PersonState.WaitingForFood: UpdateWaitForFood(); break;
             case PersonState.WaitingForStairs: CheckStairsHit(); break;
@@ -283,7 +321,7 @@ internal sealed class PersonActor : Actor
 
         // Here we've successfully committed commerce.
         _objectState.ItemGot = true;
-        foreach (var itemActor in _itemActors) itemActor.Delete();
+        foreach (var itemActor in _itemActors) itemActor.TouchEnabled = false;
 
         if (PersonType == PersonType.Gambling)
         {
@@ -313,7 +351,7 @@ internal sealed class PersonActor : Actor
         if (_spec.IsPickUp)
         {
             _state = PersonState.PickedUp;
-            ObjTimer = 0x40;
+            ObjTimer = DisappearTime;
             Game.World.LiftItem(item.ItemId);
             Game.Sound.PushSong(SongId.ItemLift);
         }
@@ -406,7 +444,7 @@ internal sealed class PersonActor : Actor
         if (food != null)
         {
             _state = PersonState.PickedUp;
-            ObjTimer = 0x40;
+            ObjTimer = DisappearTime;
             Game.Sound.PlayEffect(SoundEffect.Secret);
         }
     }
@@ -455,9 +493,6 @@ internal sealed class PersonActor : Actor
     {
         switch (_state)
         {
-            case PersonState.PickedUp when (Game.FrameCounter & 1) == 0:
-                return;
-
             case PersonState.Idle:
             case PersonState.WaitingForFood:
             case PersonState.WaitingForStairs:
