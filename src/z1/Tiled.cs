@@ -217,10 +217,9 @@ internal sealed class GameWorld
     public GameRoom? BossRoom { get; }
     public GameWorldMap GameWorldMap { get; }
     public GameRoom[] TeleportDestinations { get; }
-    public WorldInfo Info { get; }
+    public WorldSettings Settings { get; }
     public string? LevelString { get; }
-    public bool IsOverworld { get; }
-    public GameWorldType WorldType { get; }
+    public bool IsOverworld => Settings.WorldType == GameWorldType.Overworld;
 
     public bool IsBossAlive => BossRoom != null && BossRoom.PersistedRoomState.ObjectCount != 0;
 
@@ -239,16 +238,14 @@ internal sealed class GameWorld
             var tiledmap = asset.ReadJson<TiledMap>();
             var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
             var room = new GameRoom(game, this, worldEntry, entryName, tiledmap, questId);
-            if (room.Information.IsEntryRoom) EntryRoom = room;
-            if (room.Information.IsBossRoom) BossRoom = room;
+            if (room.Settings.IsEntryRoom) EntryRoom = room;
+            if (room.Settings.IsBossRoom) BossRoom = room;
             worldMaps[i] = (room, worldEntry);
             Rooms[i] = room;
         }
 
-        Info = world.GetJsonProperty<WorldInfo>(TiledWorldProperties.WorldInfo);
-        WorldType = Info.WorldType;
-        IsOverworld = WorldType == GameWorldType.Overworld;
-        if (Info.LevelNumber > 0) LevelString = $"Level-{Info.LevelNumber}";
+        Settings = world.GetJsonProperty<WorldSettings>(TiledWorldProperties.WorldSettings);
+        if (Settings.LevelNumber > 0) LevelString = $"Level-{Settings.LevelNumber}";
 
         EntryRoom ??= Rooms[0];
 
@@ -262,6 +259,7 @@ internal sealed class GameWorld
             .ThenBy(t => t.Entry.X)
             .ToArray();
 
+        // Build out how rooms connect to each other.
         // This can use a massive optimization.
         foreach (var (room, entry) in orderedWorldMaps)
         {
@@ -342,8 +340,9 @@ internal sealed class GameRoom
     public int ZoraCount { get; set; }
     public bool MonstersEnter { get; set; }
     public MazeRoom? Maze { get; set; }
-    public RoomInformation Information { get; }
+    public RoomSettings Settings { get; }
     public RecorderDestination? RecorderDestination { get; }
+    public EntryPosition? EntryPosition { get; }
 
     public RoomTileMap RoomMap { get; }
     private readonly RoomTileMap _unmodifiedRoomMap;
@@ -362,9 +361,9 @@ internal sealed class GameRoom
     public string? CellarStairsLeftRoomId { get; set; }
     public string? CellarStairsRightRoomId { get; set; }
 
-    // I'm not super fond of how these checks work.
-    public bool IsCellar => World.WorldType == GameWorldType.UnderworldCommon;
-    public bool IsCave => World.WorldType == GameWorldType.OverworldCommon;
+    // I'm not super fond of how these checks work. These should likely be moved over to flags.
+    public bool IsCellar => World.Settings.WorldType == GameWorldType.UnderworldCommon;
+    public bool IsCave => World.Settings.WorldType == GameWorldType.OverworldCommon;
 
     private readonly Game _game;
     // private readonly GameMapObject[] _ownedObjects;
@@ -395,8 +394,9 @@ internal sealed class GameRoom
         MonstersEnter = map.GetBooleanProperty(TiledRoomProperties.MonstersEnter);
         CaveSpec = map.GetClass<CaveSpec>(TiledRoomProperties.CaveSpec);
         Maze = map.GetClass<MazeRoom>(TiledRoomProperties.Maze);
-        Information = map.ExpectClass<RoomInformation>(TiledRoomProperties.RoomInformation);
+        Settings = map.ExpectClass<RoomSettings>(TiledRoomProperties.RoomSettings);
         RecorderDestination = map.GetClass<RecorderDestination>(TiledObjectProperties.RecorderDestination);
+        EntryPosition = map.GetClass<EntryPosition>(TiledRoomProperties.EntryPosition);
 
         var dungeonDoors = map.GetProperty(TiledRoomProperties.UnderworldDoors);
         if (TryParseUnderworldDoors(dungeonDoors, out var doors))
@@ -708,6 +708,15 @@ internal sealed class RoomTileMap
         tileX = Math.Max(0, Math.Min(tileX, Width - 1));
 
         return Behaviors[tileY * Width + tileX];
+    }
+
+    public void UpdateTileBehavior(TileBehavior oldBehavior, TileBehavior newBehavior)
+    {
+        for (var i = 0; i < Behaviors.Length; i++)
+        {
+            ref var existing = ref Behaviors[i];
+            if (existing == oldBehavior) existing = newBehavior;
+        }
     }
 
     public bool CheckBlockBehavior(int tileX, int tileY, TileBehavior behavior)

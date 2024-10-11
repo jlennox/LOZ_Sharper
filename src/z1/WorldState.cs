@@ -12,11 +12,38 @@ internal struct PlayState
     public int Timer;
 
     public bool AnimatingRoomColors;
-    public bool AllowWalkOnWater;
-    public bool UncoveredRecorderSecret;
     public short LiftItemTimer;
     public ItemId LiftItemId;
     public int PersonWallY;
+    private TaskCompletionSource? _pondDryoutEvent;
+
+    public void Reset()
+    {
+        Substate = Substates.Active;
+        AnimatingRoomColors = false;
+        LiftItemTimer = 0;
+        LiftItemId = 0;
+        PersonWallY = 0;
+        CancelPondDryoutEvent();
+    }
+
+    public TaskCompletionSource CreatePondDryoutEvent()
+    {
+        _pondDryoutEvent?.TrySetCanceled();
+        return _pondDryoutEvent = new TaskCompletionSource();
+    }
+
+    public void CompletePondDryoutEvent()
+    {
+        _pondDryoutEvent?.TrySetResult();
+        _pondDryoutEvent = null;
+    }
+
+    public void CancelPondDryoutEvent()
+    {
+        _pondDryoutEvent?.TrySetCanceled();
+        _pondDryoutEvent = null;
+    }
 }
 
 [DebuggerDisplay("{Substate}")]
@@ -32,6 +59,8 @@ internal struct PlayCellarState
     }
 
     public Substates Substate;
+    public Entrance Entrance;
+    public ObjectState? ObjectState;
     public SpritePriority PlayerPriority;
     public int TargetY;
     public int FadeTimer;

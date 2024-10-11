@@ -20,6 +20,7 @@ internal sealed class World
     public const int UniqueRooms = 124;
     public const int TileMapHeight = RoomTileHeight * TileHeight;
     public const int TileMapBaseY = 64;
+    public const int StartX = 0x78;
 
     public const int WorldWidth = 16;
     public const int WorldHeight = 8;
@@ -395,6 +396,7 @@ internal sealed class MapExtractor
         string? caveName = null;
         GameWorldType? caveType = null;
         CaveSpec? caveSpec = null;
+        EntryPosition? caveEntryPosition = null;
         if (resources.IsOverworld)
         {
             if ((int)caveId < 9)
@@ -414,6 +416,8 @@ internal sealed class MapExtractor
             var hasCellar = resources.LevelInfoBlock.FindCellarRoomIds(roomId, resources.RoomAttrs, out var left, out var right);
             caveName = hasCellar && left == right ? CommonUnderworldRoomName.ItemCellar : CommonUnderworldRoomName.Transport;
             caveType = GameWorldType.UnderworldCommon;
+            var entryX = roomId == left ? 0x30 : 0xC0;
+            caveEntryPosition = new EntryPosition(entryX, 0x60, Direction.Down, 0x60);
         }
 
         var caveEntrance = new Entrance
@@ -421,6 +425,7 @@ internal sealed class MapExtractor
             DestinationType = caveType.Value,
             Destination = caveName,
             ExitPosition = new PointXY(exitColumnX, exitRowY),
+            EntryPosition = caveEntryPosition,
             Cave = caveSpec,
             BlockType = BlockType.Stairs,
         };
@@ -432,6 +437,11 @@ internal sealed class MapExtractor
         }
 
         void AddInteraction(int tileX, int tileY, TileAction action, InteractableBlock block)
+        {
+            AddInteractionWithQuest(tileX, tileY, questId, action, block);
+        }
+
+        void AddInteractionWithQuest(int tileX, int tileY, int questId, TileAction action, InteractableBlock block)
         {
             block.CaveItems = block.Entrance?.Cave?.Items;
             var serialized = TiledPropertySerializer<InteractableBlock>.Serialize(block);
@@ -445,11 +455,24 @@ internal sealed class MapExtractor
 
         if (recorderPosition != null)
         {
+            ReadOnlySpan<int> roomIds = [0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72];
+
+            var i = roomIds.IndexOf(roomId.Id);
+            // The first one is level 7 entrance, the others are second quest only.
+            var actionQuestId = i switch
+            {
+                0 => 1,
+                >= 1 => 2,
+                _ => throw new Exception()
+            };
+
+            var effect = actionQuestId == 1 ? InteractionEffect.DryoutWater : InteractionEffect.None;
             var rec = recorderPosition.Value.GetRoomCoord();
-            AddInteraction(rec.X * 2, rec.Y * 2, TileAction.Recorder, new InteractableBlock
+            AddInteractionWithQuest(rec.X * 2, rec.Y * 2, actionQuestId, TileAction.Recorder, new InteractableBlock
             {
                 Interaction = Interaction.Recorder,
                 Entrance = caveEntrance,
+                Effect = effect,
             });
         }
 
@@ -638,10 +661,6 @@ internal sealed class MapExtractor
                     { TileAction.Raft, Interaction.Cover },
                 };
 
-                if (!lookup.TryGetValue(action, out _) && action is not (TileAction.None or TileAction.Ladder))
-                {
-                }
-
                 if (lookup.TryGetValue(action, out var interactionType))
                 {
                     var interaction = new InteractableBlock
@@ -675,6 +694,8 @@ internal sealed class MapExtractor
                         interaction.Entrance = EntranceWith(BlockType.Cave);
                     }
 
+                    var actionQuestId = questId;
+
                     switch (action)
                     {
                         case TileAction.Cave or TileAction.Bomb or TileAction.Burn:
@@ -705,7 +726,7 @@ internal sealed class MapExtractor
                             interaction.ApparanceBlock = BlockType.Block;
                             switch (uwRoomAttrs.GetSecret())
                             {
-                                case Secret.BlockDoor: interaction.Effect = InteractionEffect.OpenShutterDoors; break;
+                                case Secret.BlockDoor: interaction.Effect |= InteractionEffect.OpenShutterDoors; break;
                                 case Secret.BlockStairs: interaction.Reveals = shortcutStairsName; break;
                             }
                             break;
@@ -715,9 +736,26 @@ internal sealed class MapExtractor
                             interaction.Repeatable = true;
                             interaction.ItemRequirement = new InteractionItemRequirement(ItemSlot.Raft, 1);
                             break;
+
+                        case TileAction.Recorder:
+                            ReadOnlySpan<int> roomIds = [0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72];
+
+                            var i = roomIds.IndexOf(roomId.Id);
+                            // The first one is level 7 entrance, the others are second quest only.
+                            actionQuestId = i switch
+                            {
+                                0 => 1,
+                                > 0 => 2,
+                                _ => throw new Exception()
+                            };
+                            if (actionQuestId == 1)
+                            {
+                                interaction.Effect |= InteractionEffect.DryoutWater;
+                            }
+                            break;
                     }
 
-                    AddInteraction(columnX, rowIndexY, action, interaction);
+                    AddInteractionWithQuest(columnX, rowIndexY, actionQuestId, action, interaction);
                 }
 
                 // if (lastAction != null && !lastAction.CanRepeat(newaction))
@@ -1041,7 +1079,7 @@ internal unsafe struct LevelInfoBlock
         return new PointXY(bytePos & 0xF0, (byte)(bytePos << 4));
     }
 
-    public WorldInfo GetWorldInfo(GameWorldType type)
+    public WorldSettings GetWorldInfo(GameWorldType type)
     {
         static byte[][][] GetTriple(Func<int, int, byte[]> func)
         {
@@ -1058,15 +1096,18 @@ internal unsafe struct LevelInfoBlock
             return palettes;
         }
 
+        var options = type == GameWorldType.Overworld ? WorldOptions.AllowWhirlwind : WorldOptions.None;
+
         var that = this;
-        return new WorldInfo
+        return new WorldSettings
         {
             WorldType = type,
+            Options = options,
             Palettes = Enumerable.Range(0, LevelPaletteCount).Select(that.GetPalette).ToArray(),
-            StartY = StartY,
-            StartRoomId = StartRoomId,
-            TriforceRoomId = TriforceRoomId,
-            BossRoomId = BossRoomId,
+            // EnterAt = new PointXY(StartX, StartY),
+            // StartRoomId = StartRoomId,
+            // TriforceRoomId = TriforceRoomId,
+            // BossRoomId = BossRoomId,
             SongId = (SongId)Song,
             LevelNumber = LevelNumber,
             // EffectiveLevelNumber = EffectiveLevelNumber,

@@ -122,7 +122,7 @@ internal sealed class StatusBar
 
     private void DrawMiniMap(int baseY)
     {
-        if (!_world.CurrentRoom.Information.HideMap)
+        if (!_world.CurrentRoom.Settings.HideMap)
         {
             DrawMiniMapInner(baseY);
         }
@@ -192,7 +192,7 @@ internal sealed class StatusBar
                 // int b = drawnMap[xi + MiniMapColumnOffset + xoff] << (yi + yoff);
                 //if ((b & 0x80) != 0)
                 // We still want to display the player's cursor in room's hidden from the map.
-                if (!room.Information.HiddenFromMap)
+                if (!room.Settings.HiddenFromMap)
                 {
                     var tile = settings.Tile;
                     settings.DrawTileFn(tile, x, y, settings);

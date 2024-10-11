@@ -339,6 +339,7 @@ internal static class GLWindowGui
                 if (ImGui.MenuItem("Raft")) WarpOW(game, 5, 5);
                 if (ImGui.MenuItem("Ghost")) WarpOW(game, 1, 2);
                 if (ImGui.MenuItem("Level 6 Entrance")) WarpOW(game, 2, 2);
+                if (ImGui.MenuItem("Level 7 Entrance")) WarpOW(game, 2, 4);
                 if (ImGui.MenuItem("Armos / Bracelet")) WarpOW(game, 4, 2);
                 if (ImGui.MenuItem("Ladder / Heart")) WarpOW(game, 15, 5);
                 if (ImGui.MenuItem("Cave 12: Lost hills hint")) WarpOW(game, 0, 7);

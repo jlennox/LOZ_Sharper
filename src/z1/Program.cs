@@ -22,7 +22,6 @@ namespace z1;
 // * Q1 level 7 recorder spot isn't marked as first quest only -- there's an array in the original code for this.
 // * Somethings that shouldn't merge are still merging. Notably, overworld q6 entrance.
 // * Make recorder destinations spots on the map: ReadOnlySpan<int> teleportYs = [0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D];
-// * Add IsEntrance for main overworld spot and dungeon spots. Add EntersTo and a way to add parameters.
 // * Fix _tempShutterRoomId
 // * Need to pass along entryroom start x/y's (Add EntersTo?)
 
@@ -39,6 +38,9 @@ namespace z1;
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.
+
+// Linting to add:
+// * If world says "AllowWhirlwind" but does not have any recorder destinations, error.
 
 // BUGS TO ADD:
 // * Canana key?

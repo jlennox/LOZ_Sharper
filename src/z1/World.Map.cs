@@ -118,16 +118,14 @@ internal partial class World
         {
             _objects.Add(new InteractiveGameObjectActor(Game, actionObject));
         }
-
-        PatchTileBehaviors();
     }
 
     private void DrawMap(GameRoom room, int offsetX, int offsetY)
     {
         Graphics.Begin();
 
-        var outerPalette = room.Information.OuterPalette;
-        var innerPalette = room.Information.InnerPalette;
+        var outerPalette = room.Settings.OuterPalette;
+        var innerPalette = room.Settings.InnerPalette;
 
         var firstRow = 0;
         var lastRow = ScreenTileHeight;

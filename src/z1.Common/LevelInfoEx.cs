@@ -18,16 +18,26 @@ public sealed class LevelInfoEx
     public required PointXY[] SpawnSpot { get; init; }
 }
 
-public sealed class WorldInfo
+[Flags]
+[JsonConverter(typeof(JsonStringEnumConverter))]
+[TiledSelectableEnum]
+public enum WorldOptions
+{
+    [TiledIgnore] None = 0,
+    AllowWhirlwind = 1 << 0,
+}
+
+public sealed class WorldSettings
 {
     public GameWorldType WorldType { get; set; }
+    public WorldOptions Options { get; set; }
     public byte[][] Palettes { get; set; }
-    public byte StartY { get; set; }
-    public byte StartRoomId { get; set; }
-    public byte TriforceRoomId { get; set; }
-    public byte BossRoomId { get; set; }
+    // Player's position when enter in the starting room.
+    // public byte StartRoomId { get; set; }
+    // public byte TriforceRoomId { get; set; }
+    // public byte BossRoomId { get; set; }
     public SongId SongId { get; set; }
-    public byte LevelNumber { get; set; }
+    public int LevelNumber { get; set; }
     // public byte EffectiveLevelNumber { get; set; }
     // public byte DrawnMapOffset { get; set; }
     // public byte[] CellarRoomIds { get; set; }
@@ -38,6 +48,8 @@ public sealed class WorldInfo
     public byte[][][] InCellarPalette { get; set; }
     public byte[][][] DarkPalette { get; set; }
     public byte[][][] DeathPalette { get; set; }
+
+    [TiledIgnore, JsonIgnore] public bool AllowWhirlwind => Options.HasFlag(WorldOptions.AllowWhirlwind);
 }
 
 public sealed class CavePaletteSet

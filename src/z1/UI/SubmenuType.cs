@@ -597,7 +597,7 @@ internal sealed class SubmenuType
             {
                 var room = map.RoomGrid[mapX, mapY];
                 if (room == null) continue;
-                if (!room.Information.HiddenFromMap)
+                if (!room.Settings.HiddenFromMap)
                 {
                     if (room.PersistedRoomState.VisitState)
                     {

@@ -20,6 +20,9 @@ internal sealed class InteractiveGameObjectActor : Actor
     private readonly PushInteraction? _push;
     private bool _hasSoundPlayed;
     private bool _hasInteracted;
+    private Task? _awaitingEvent;
+    // This is used for when the code externally sets an interaction. It'll check on the following Update() if all the other criteria are met.
+    private bool _hasPerformedInteraction = false;
 
     public InteractiveGameObjectActor(Game game, InteractiveGameObject gameObject)
         : base(game, ObjType.Block, gameObject.X, gameObject.Y + World.TileMapBaseY)
@@ -41,6 +44,16 @@ internal sealed class InteractiveGameObjectActor : Actor
         if (!CheckRequirements()) return;
         if (!CheckItemRequirement()) return;
 
+        if (_awaitingEvent != null)
+        {
+            if (_awaitingEvent.IsCompleted)
+            {
+                _awaitingEvent = null;
+                SetInteracted(false);
+            }
+            return;
+        }
+
         if (HasInteracted)
         {
             UpdateCaveEntrance();
@@ -48,10 +61,32 @@ internal sealed class InteractiveGameObjectActor : Actor
             return;
         }
 
-        if (CheckBombable() || CheckBurnable() || CheckCover() || (_push?.Check() ?? false))
+        if (CheckBombable() || CheckBurnable() || CheckCover() || (_push?.Check() ?? false) || _hasPerformedInteraction)
         {
+            _hasPerformedInteraction = false;
+            if (CheckDeferredEvent()) return;
             SetInteracted(false);
         }
+    }
+
+    private void OptionalSound(bool initializing)
+    {
+        if (initializing || _hasSoundPlayed) return;
+        _hasSoundPlayed = true;
+        Game.Sound.PlayEffect(SoundEffect.Secret);
+    }
+
+    // Some interactions do not cause the secret to be revealed immediately, and instead are deferred until after a trigger.
+    // We have to be careful to keep all of this single threaded and using the normal update loop.
+    private bool CheckDeferredEvent()
+    {
+        if (Interactable.Effect.HasFlag(InteractionEffect.DryoutWater))
+        {
+            _awaitingEvent = Game.World.DryoutWater();
+            return true;
+        }
+
+        return false;
     }
 
     private void SetInteracted(bool initializing)
@@ -63,19 +98,12 @@ internal sealed class InteractiveGameObjectActor : Actor
             _state.HasInteracted = true;
         }
 
-        void OptionalSound()
-        {
-            if (initializing || _hasSoundPlayed) return;
-            _hasSoundPlayed = true;
-            Game.Sound.PlayEffect(SoundEffect.Secret);
-        }
-
         if (Interactable.Entrance.IsValid())
         {
             Game.World.SetMapObjectXY(X, Y, Interactable.Entrance.BlockType);
             if (!initializing)
             {
-                OptionalSound();
+                OptionalSound(initializing);
                 switch (Interactable.Interaction)
                 {
                     case Interaction.Bomb: Game.World.Profile.Statistics.OWBlocksBombed++; break;
@@ -87,7 +115,7 @@ internal sealed class InteractiveGameObjectActor : Actor
         if (Interactable.Raft != null)
         {
             Game.World.SetMapObjectXY(X, Y, BlockType.Dock);
-            OptionalSound();
+            OptionalSound(initializing);
         }
 
         if (Interactable.Item != null && !_state.ItemGot)
@@ -97,7 +125,7 @@ internal sealed class InteractiveGameObjectActor : Actor
             var itemActor = new ItemObjActor(Game, itemId, flags, X, Y);
             itemActor.OnTouched += _ => _state.ItemGot = true;
             Game.World.AddObject(itemActor);
-            OptionalSound();
+            OptionalSound(initializing);
         }
 
         if (Interactable.SpawnedType != null && Interactable.SpawnedType != ObjType.None)
@@ -113,9 +141,18 @@ internal sealed class InteractiveGameObjectActor : Actor
 
         if (Interactable.Effect.HasFlag(InteractionEffect.OpenShutterDoors))
         {
-            OptionalSound();
+            OptionalSound(initializing);
             Game.World.OpenShutters();
         }
+    }
+
+    // The result of this is a bit iffy. At this point, it's designed to know if the recorder should summon the whirlwind.
+    public bool PerformInteraction(Interaction interaction)
+    {
+        if (Interactable.Interaction != interaction) return false;
+        if (HasInteracted) return true;
+        _hasPerformedInteraction = true;
+        return true;
     }
 
     private void UpdateCaveEntrance()
@@ -318,7 +355,7 @@ internal sealed class PushInteraction
 
             if (_removeBackground)
             {
-                var tile = _game.World.CurrentRoom.Information.FloorTile;
+                var tile = _game.World.CurrentRoom.Settings.FloorTile;
                 _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, tile);
             }
 

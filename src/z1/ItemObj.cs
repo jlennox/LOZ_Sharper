@@ -79,7 +79,7 @@ internal class BlockActor : Actor, IHasCollision
     {
         if (!EnableDraw) return;
 
-        var palette = Game.World.CurrentRoom.Information.InnerPalette;
+        var palette = Game.World.CurrentRoom.Settings.InnerPalette;
         Graphics.DrawStripSprite16X16(_tileSheet, Tile, X, Y, palette);
     }
 }
@@ -164,7 +164,7 @@ internal abstract class BlockObjBase : Actor
     {
         if (_curUpdate == UpdateMoving)
         {
-            Graphics.DrawStripSprite16X16(_tileSheet, Block, X, Y, Game.World.CurrentRoom.Information.InnerPalette);
+            Graphics.DrawStripSprite16X16(_tileSheet, Block, X, Y, Game.World.CurrentRoom.Settings.InnerPalette);
         }
     }
 

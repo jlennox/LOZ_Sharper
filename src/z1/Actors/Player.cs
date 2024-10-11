@@ -1,4 +1,6 @@
 ﻿using System.Collections.Immutable;
+using System.ComponentModel;
+using NAudio.MediaFoundation;
 using z1.IO;
 using z1.Render;
 
@@ -256,7 +258,7 @@ internal sealed class Player : Actor, IThrower
 
         if (mode != GameMode.Play) return;
 
-        if (Game.World.IsOverworld() && !Game.World.CurrentRoom.Information.IsLadderAllowed) return;
+        if (Game.World.IsOverworld() && !Game.World.CurrentRoom.Settings.IsLadderAllowed) return;
 
         if (Game.World.DoorwayDir != Direction.None
             || Game.World.GetItem(ItemSlot.Ladder) == 0
@@ -554,6 +556,24 @@ internal sealed class Player : Actor, IThrower
         Facing = (Direction)perpMoving;
         Moving = (byte)perpMoving;
         SetSpeed();
+    }
+
+    public void ApplyEntryPosition(EntryPosition? entry, int defaultX, int defaultY, out int? targetX, out int? targetY)
+    {
+        if (entry == null)
+        {
+            X = defaultX;
+            Y = defaultY;
+            targetX = null;
+            targetY = null;
+            return;
+        }
+
+        X = entry.X;
+        Y = entry.Y;
+        targetX = entry.TargetX;
+        targetY = entry.TargetY;
+        if (entry.Facing != Direction.None) Facing = entry.Facing;
     }
 
     // $B366

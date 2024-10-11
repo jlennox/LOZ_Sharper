@@ -433,9 +433,13 @@ public unsafe partial class LozExtractor
             }
 
             if (resources.FindSparseFlag(roomId, Sparse.Ladder)) roomOptions |= RoomFlags.IsLadderAllowed;
-            if (roomId.Id == startRoomId) roomOptions |= RoomFlags.IsEntryRoom;
+            if (roomId.Id == startRoomId)
+            {
+                properties.Add(TiledProperty.ForClass(TiledRoomProperties.EntryPosition, new EntryPosition(World.StartX, resources.LevelInfoBlock.StartY, Direction.Up)));
+                roomOptions |= RoomFlags.IsEntryRoom;
+            }
 
-            properties.Add(TiledProperty.ForClass(TiledRoomProperties.RoomInformation, new RoomInformation
+            properties.Add(TiledProperty.ForClass(TiledRoomProperties.RoomSettings, new RoomSettings
             {
                 InnerPalette = innerPalette,
                 OuterPalette = outerPalette,
@@ -552,7 +556,7 @@ public unsafe partial class LozExtractor
         var world = new TiledWorld
         {
             Maps = worldEntries.ToArray(),
-            Properties = [new TiledProperty(TiledWorldProperties.WorldInfo, JsonSerializer.Serialize(worldInfo))],
+            Properties = [new TiledProperty(TiledWorldProperties.WorldSettings, JsonSerializer.Serialize(worldInfo))],
         };
 
         options.AddJson($"Maps/{name}.world", world, _tiledJsonOptions);
@@ -639,7 +643,7 @@ public unsafe partial class LozExtractor
             var commonWorld = new TiledWorld
             {
                 Maps = commonRooms.ToArray(),
-                Properties = [new TiledProperty(TiledWorldProperties.WorldInfo, JsonSerializer.Serialize(worldInfo))],
+                Properties = [new TiledProperty(TiledWorldProperties.WorldSettings, JsonSerializer.Serialize(worldInfo))],
             };
 
             options.AddJson($"Maps/{commonName}.world", commonWorld, _tiledJsonOptions);

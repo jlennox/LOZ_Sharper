@@ -12,7 +12,7 @@ public static class TiledLayerProperties
 
 public static class TiledWorldProperties
 {
-    public const string WorldInfo = nameof(WorldInfo);
+    public const string WorldSettings = nameof(WorldSettings);
 }
 
 public static class TiledRoomProperties
@@ -21,11 +21,14 @@ public static class TiledRoomProperties
     public const string Id = nameof(Id);
     public const string Monsters = nameof(Monsters);
     public const string CaveSpec = nameof(CaveSpec);
+    // When a player "enters" this room from a non-screen scroll, this is where they appear.
+    // IE, the player enters a dungeon. The player enters a cellar. Etc.
+    public const string EntryPosition = nameof(EntryPosition);
 
     // Overworld
     public const string MonstersEnter = nameof(MonstersEnter);
     public const string Maze = nameof(Maze);
-    public const string RoomInformation = nameof(RoomInformation);
+    public const string RoomSettings = nameof(RoomSettings);
 
     // Underworld
     public const string UnderworldDoors = nameof(UnderworldDoors);
@@ -140,12 +143,41 @@ public enum GameWorldType
     Underworld, Overworld, UnderworldCommon, OverworldCommon
 }
 
+public sealed class EntryPosition
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+    public Direction Facing { get; set; }
+    public int? TargetX { get; set; }
+    public int? TargetY { get; set; }
+
+    public EntryPosition() { }
+
+    public EntryPosition(int x, int y, Direction facing)
+    {
+        X = x;
+        Y = y;
+        Facing = facing;
+    }
+
+    public EntryPosition(int x, int y, Direction facing, int targetY)
+    {
+        X = x;
+        Y = y;
+        Facing = facing;
+        TargetY = targetY;
+    }
+}
+
 [TiledClass]
 public sealed class Entrance
 {
     public GameWorldType DestinationType { get; set; }
     public string Destination { get; set; }
+    // When the player leave this new area, the position on this map the player should be.
     public PointXY? ExitPosition { get; set; }
+    // Where inside the new map the player should be.
+    public EntryPosition? EntryPosition { get; set; }
     public CaveSpec? Cave { get; set; }
     public BlockType BlockType { get; set; }
     public RoomArguments? Arguments { get; set; }
@@ -189,7 +221,12 @@ public enum InteractionRequirements { None, AllEnemiesDefeated }
 [Flags]
 [JsonConverter(typeof(JsonStringEnumConverter))]
 [TiledSelectableEnum]
-public enum InteractionEffect { None, OpenShutterDoors }
+public enum InteractionEffect
+{
+    None,
+    OpenShutterDoors,
+    DryoutWater,
+}
 
 public sealed class InteractableBlock
 {
@@ -245,7 +282,7 @@ public enum RoomFlags
 }
 
 [TiledClass]
-public sealed class RoomInformation
+public sealed class RoomSettings
 {
     public Palette InnerPalette { get; set; }
     public Palette OuterPalette { get; set; }
