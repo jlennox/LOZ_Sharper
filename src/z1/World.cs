@@ -2152,10 +2152,9 @@ internal sealed partial class World
 
     private bool FindSpawnPos(ObjType type, ReadOnlySpan<PointXY> spots, int len, ref int x, ref int y)
     {
-        var objAttrs = GetObjectAttribute(type);
-
         var playerX = Game.Player.X;
         var playerY = Game.Player.Y;
+        var objAttrs = GetObjectAttribute(type);
         var noWorldCollision = !objAttrs.HasWorldCollision;
 
         for (var i = 0; i < len; i++)
@@ -2242,7 +2241,7 @@ internal sealed partial class World
             }
             _worldKillCycle = (byte)cycle;
 
-            // JOE: NOTE: I believe this is because Zora's always respawn.
+            // Zora's always respawn.
             if (obj is not ZoraActor)
             {
                 _roomKillCount++;

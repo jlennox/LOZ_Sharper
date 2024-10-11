@@ -18,7 +18,12 @@ public enum StatusBarFeatures
     EquipmentAndMap = Equipment | MapCursors,
 }
 
-internal readonly record struct TileInst(byte Id, byte X, byte Y, byte PaletteId)
+internal enum TileInstType
+{
+    Normal, SwordButton
+}
+
+internal readonly record struct TileInst(byte Id, byte X, byte Y, byte PaletteId, TileInstType Type = TileInstType.Normal)
 {
     public Palette Palette => (Palette)PaletteId;
 }
@@ -68,7 +73,7 @@ internal sealed class StatusBar
 
         // Item B Box
         new(0x69, 120+24, 24, 0),
-        new(0x0A, 128+24, 24, 0),
+        new(0x0A, 128+24, 24, 0, TileInstType.SwordButton),
         new(0x6B, 136+24, 24, 0),
         new(0x6C, 120+24, 32, 0),
         new(0x6C, 136+24, 32, 0),
@@ -113,7 +118,18 @@ internal sealed class StatusBar
 
         foreach (var tileInst in _uiTiles)
         {
-            DrawTile(tileInst.Id, tileInst.X, tileInst.Y + baseY, tileInst.Palette);
+            var tileId = tileInst.Id;
+
+            // If the sword is blocked, show "X" instead of the usual "B".
+            if (tileInst.Type == TileInstType.SwordButton)
+            {
+                if (_world.SwordBlocked || _world.GetStunTimer(StunTimerSlot.NoSword) != 0)
+                {
+                    tileId = (byte)GameString.ByteFromChar('X');
+                }
+            }
+
+            DrawTile(tileId, tileInst.X, tileInst.Y + baseY, tileInst.Palette);
         }
 
         DrawMiniMap(baseY);
