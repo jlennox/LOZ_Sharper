@@ -271,10 +271,10 @@ public partial class LozExtractor
         const double SampleRateMs = SampleRate / 1000.0;
         const double MillisecondsAFrame = 1000.0 / 60.0;
 
-        string outPath = item.Filename;
+        string outPath = "Audio/" + item.Filename;
         using (var tempFile = options.AddTempFile(outPath))
-        using (ExtractNsf.NsfEmu emu = new ExtractNsf.NsfEmu())
-        using (ExtractNsf.WaveWriter waveWriter = new ExtractNsf.WaveWriter(SampleRate, tempFile.TempFilename))
+        using (var emu = new ExtractNsf.NsfEmu())
+        using (var waveWriter = new ExtractNsf.WaveWriter(SampleRate, tempFile.TempFilename))
         {
             emu.SampleRate = SampleRate;
             emu.LoadMem(nsfImage, nsfImage.Length);
@@ -483,6 +483,9 @@ public partial class LozExtractor
             //  byte 1  : first column (in chars)
             //  byte 2..: text
 
+
+            var text = new List<string>();
+
             using (var writer = new BinaryWriter(options.AddStream("credits.tab")))
             {
                 writer.Write((ushort)listPtrs.Length);
@@ -491,6 +494,9 @@ public partial class LozExtractor
                 {
                     ushort ptr = (ushort)(listPtrs[i] - listPtrs[0]);
                     writer.Write(ptr);
+
+                    var strBin = heap[ptr..];
+                    var str = GameString.FromBytes(strBin);
                 }
 
                 writer.Write(heap);
@@ -538,12 +544,12 @@ public partial class LozExtractor
 
         // We don't need to translate secrets into primaries.
 
-        WriteListFile(options, "uwCellarPrimaryMobs.list", primaries);
+        // WriteListFile(options, "uwCellarPrimaryMobs.list", primaries);
 
         reader.BaseStream.Position = UWCellarSecondarySquareTable;
         var secondaries = reader.ReadBytes(16 * 4);       // 16 squares, 4 8x8 tiles each
 
-        WriteListFile(options, "uwCellarSecondaryMobs.list", secondaries);
+        // WriteListFile(options, "uwCellarSecondaryMobs.list", secondaries);
 
         return (primaries, secondaries);
     }
@@ -640,8 +646,7 @@ public partial class LozExtractor
         reader.BaseStream.Position = UnderworldSquareTable;
         var primaries = reader.ReadBytes(8);
 
-        WriteListFile(options, "uwPrimaryMobs.list", primaries);
-        return ListResource<byte>.Load(options.Files["uwPrimaryMobs.list"]);
+        return GetListFile<byte>(primaries); // "uwPrimaryMobs.list"
     }
 
     private static void ExtractUnderworldTilesDebug(BinaryReader reader, Bitmap bmp)
@@ -957,12 +962,12 @@ public partial class LozExtractor
                 primaries[i] = secrets[primary - 0xE5];
         }
 
-        WriteListFile(options, "owPrimaryMobs.list", primaries);
+        // WriteListFile(options, "owPrimaryMobs.list", primaries);
 
         reader.BaseStream.Position = SecondarySquareTable;
         var secondaries = reader.ReadBytes(16 * 4);       // 16 squares, 4 8x8 tiles each
 
-        WriteListFile(options, "owSecondaryMobs.list", secondaries);
+        // WriteListFile(options, "owSecondaryMobs.list", secondaries);
 
         return (primaries, secondaries);
     }
@@ -1159,16 +1164,16 @@ public partial class LozExtractor
 
         var attrs = new byte[56];
 
-        using (var writer = new BinaryWriter(options.AddStream("overworldTileAttrs.dat")))
+        // using (var writer = new BinaryWriter(options.AddStream("overworldTileAttrs.dat")))
         {
             for (int i = 0; i < 56; i++)
             {
                 byte value = (byte)(tileAttrs[i] | ((int)tileActions[i] << 4));
                 attrs[i] = value;
-                writer.Write(value);
+                // writer.Write(value);
             }
 
-            Utility.PadStream(writer.BaseStream);
+            // Utility.PadStream(writer.BaseStream);
         }
 
         return attrs;
@@ -1248,8 +1253,8 @@ public partial class LozExtractor
         tileToBehaviorMap[0x72] = (byte)TileBehavior.GenericWalkable;
         tileToBehaviorMap[0x73] = (byte)TileBehavior.GenericWalkable;
 
-        options.AddFile("owTileBehaviors.dat", tileToBehaviorMap);
-        return ListResource<byte>.LoadList(options.Files["owTileBehaviors.dat"], World.TileTypes);
+        // options.AddFile("owTileBehaviors.dat", tileToBehaviorMap);
+        return ListResource<byte>.LoadList(tileToBehaviorMap, World.TileTypes);
     }
 
     private static bool IsUnderworldWalkable(int t)
@@ -1314,18 +1319,22 @@ public partial class LozExtractor
         tileAttrs[8] = 0xF;
         tileActions[8] = TileAction.None;
 
-        using (var writer = new BinaryWriter(options.AddStream("underworldTileAttrs.dat")))
+
+        var fixedAttrs = new byte[tileAttrs.Length];
+
+        // using (var writer = new BinaryWriter(options.AddStream("underworldTileAttrs.dat")))
         {
             for (int i = 0; i < tileAttrs.Length; i++)
             {
                 byte value = (byte)(tileAttrs[i] | ((int)tileActions[i] << 4));
-                writer.Write(value);
+                fixedAttrs[i] = value;
+                // writer.Write(value);
             }
 
-            Utility.PadStream(writer.BaseStream);
+            // Utility.PadStream(writer.BaseStream);
         }
 
-        return options.Files["underworldTileAttrs.dat"];
+        return fixedAttrs;
     }
 
     private static byte[] ExtractUnderworldCellarTileAttrs(Options options)
@@ -1380,18 +1389,20 @@ public partial class LozExtractor
             }
         }
 
-        using (var writer = new BinaryWriter(options.AddStream("underworldCellarTileAttrs.dat")))
+        var fixedAttr = new byte[56];
+        // using (var writer = new BinaryWriter(options.AddStream("underworldCellarTileAttrs.dat")))
         {
             for (int i = 0; i < 56; i++)
             {
                 byte value = (byte)(tileAttrs[i] | ((int)tileActions[i] << 4));
-                writer.Write(value);
+                fixedAttr[i] = value;
+                // writer.Write(value);
             }
 
-            Utility.PadStream(writer.BaseStream);
+            // Utility.PadStream(writer.BaseStream);
         }
 
-        return options.Files["underworldCellarTileAttrs.dat"];
+        return fixedAttr;
     }
 
     private static ReadOnlySpan<byte> ExtractUnderworldTileBehaviors(Options options, BinaryReader reader)
@@ -1454,9 +1465,9 @@ public partial class LozExtractor
         // For stairs, only treat the top left corner specially.
         tileToBehaviorMap[0x70] = (byte)TileBehavior.Stairs;
 
-        string outPath = "uwTileBehaviors.dat";
-        options.AddFile(outPath, tileToBehaviorMap);
-        return ListResource<byte>.LoadList(options.Files[outPath], World.TileTypes);
+        // string outPath = "uwTileBehaviors.dat";
+        // options.AddFile(outPath, tileToBehaviorMap);
+        return ListResource<byte>.LoadList(tileToBehaviorMap, World.TileTypes);
     }
 
     private const int OWRoomCols = 0x15418 + 16;
@@ -1492,18 +1503,19 @@ public partial class LozExtractor
         }
 
         var filePath = "underworldRoomCols.dat";
-        using (var stream = options.AddStream(filePath))
+        var underworldRoomCols = new MemoryStream();
         {
             byte[] padding = new byte[4];
             for (int i = 0; i < 64; i++)
             {
-                stream.Write(roomCols, i * 12, 12);
-                stream.Write(padding, 0, padding.Length);
+                underworldRoomCols.Write(roomCols, i * 12, 12);
+                underworldRoomCols.Write(padding, 0, padding.Length);
             }
         }
 
         filePath = "underworldCols.tab";
-        using (var writer = options.AddBinaryWriter(filePath))
+        var underworldCols = new MemoryStream();
+        using (var writer = new BinaryWriter(underworldCols))
         {
             writer.Write((ushort)colTablePtrs.Length);
             for (int i = 0; i < colTablePtrs.Length; i++)
@@ -1512,7 +1524,7 @@ public partial class LozExtractor
                 writer.Write(ptr);
             }
 
-            writer.Write(colTables);
+            underworldCols.Write(colTables);
 
             Utility.PadStream(writer.BaseStream);
         }
@@ -1528,8 +1540,8 @@ public partial class LozExtractor
             roomCols = roomCols,
             colTablePtrs = colTablePtrs,
             colTables = colTables,
-            Table = TableResource<byte>.Load(options.Files[filePath]),
-            RoomCols = ListResource<RoomCols>.LoadList(options.Files["underworldRoomCols.dat"], uniqueRoomCount).ToArray()
+            Table = TableResource<byte>.Load(underworldCols.ToArray()),
+            RoomCols = ListResource<RoomCols>.LoadList(underworldRoomCols.ToArray(), uniqueRoomCount).ToArray()
         };
     }
 
@@ -1555,11 +1567,12 @@ public partial class LozExtractor
             colTables = reader.ReadBytes(34);
         }
 
-        var filePath = "underworldCellarRoomCols.dat";
-        options.AddFile(filePath, roomCols);
+        // var filePath = "underworldCellarRoomCols.dat";
+        // options.AddFile(filePath, roomCols);
 
-        filePath = "underworldCellarCols.tab";
-        using (var writer = options.AddBinaryWriter(filePath))
+        // filePath = "underworldCellarCols.tab";
+        var underworldCellarCols = new MemoryStream();
+        using (var writer = new BinaryWriter(underworldCellarCols))
         {
             writer.Write((ushort)colTablePtrs.Length);
             for (int i = 0; i < colTablePtrs.Length; i++)
@@ -1584,8 +1597,8 @@ public partial class LozExtractor
             roomCols = roomCols,
             colTablePtrs = colTablePtrs,
             colTables = colTables,
-            Table = TableResource<byte>.Load(options.Files[filePath]),
-            RoomCols = ListResource<RoomCols>.LoadList(options.Files["underworldCellarRoomCols.dat"], uniqueRoomCount).ToArray()
+            Table = TableResource<byte>.Load(underworldCellarCols.ToArray()),
+            RoomCols = ListResource<RoomCols>.LoadList(roomCols, uniqueRoomCount).ToArray()
         };
     }
 
@@ -1777,15 +1790,16 @@ public partial class LozExtractor
 
         var attrs = new List<RoomAttr>();
 
-        var filePath = "overworldRoomAttr.dat";
-        using (var writer = options.AddBinaryWriter(filePath))
+        // var filePath = "overworldRoomAttr.dat";
+        // using (var writer = options.AddBinaryWriter(filePath))
+        using (var writer = new BinaryWriter(new MemoryStream()))
         {
             for (int i = 0; i < 128; i++)
             {
                 attrs.Add(WriteConvertedOWRoomAttrs(writer, i, roomAttrs));
             }
 
-            Utility.PadStream(writer.BaseStream);
+            // Utility.PadStream(writer.BaseStream);
         }
 
         return attrs.ToArray();
@@ -1996,9 +2010,10 @@ public partial class LozExtractor
             roomAttrs = ReadUnderworldRoomAttrs(reader, uwLevelGroup);
         }
 
-        var filename = string.Format("underworldRoomAttr{0}.dat", uwLevelGroup);
-        var filePath = filename;
-        using (var writer = options.AddBinaryWriter(filePath))
+        // var filename = string.Format("underworldRoomAttr{0}.dat", uwLevelGroup);
+        // var filePath = filename;
+        var underworldRoomAttr = new MemoryStream();
+        using (var writer = new BinaryWriter(underworldRoomAttr))
         {
             for (int i = 0; i < 128; i++)
             {
@@ -2008,7 +2023,7 @@ public partial class LozExtractor
             Utility.PadStream(writer.BaseStream);
         }
 
-        return new RoomAttrLevelGroup(uwLevelGroup, ListResource<RoomAttr>.LoadList(options.Files[filename], 128).ToArray());
+        return new RoomAttrLevelGroup(uwLevelGroup, ListResource<RoomAttr>.LoadList(underworldRoomAttr.ToArray(), 128).ToArray());
     }
 
     private const int OWArmosStairsRoomCount = 6;
@@ -2360,10 +2375,11 @@ public partial class LozExtractor
 
     private static LevelInfoBlock ExtractOverworldInfo(Options options)
     {
-        var filePath = "overworldInfo.dat";
+        // var filePath = "overworldInfo.dat";
 
+        var overworldInfo = new MemoryStream();
         using (var reader = options.GetBinaryReader())
-        using (var writer = options.AddBinaryWriter(filePath))
+        using (var writer = new BinaryWriter(overworldInfo))
         {
             const int PaletteByteCount = 8 * 4;
 
@@ -2449,23 +2465,23 @@ public partial class LozExtractor
             Utility.PadStream(writer.BaseStream);
         }
 
-        var dir = new LevelDirectory
-        {
-            LevelInfoBlock = "overworldInfo.dat",
-            RoomCols = "overworldRoomCols.dat",
-            ColTables = "overworldCols.tab",
-            TileAttrs = "overworldTileAttrs.dat",
-            TilesImage = "overworldTiles.png",
-            PlayerImage = "playerItem.png",
-            PlayerSheet = "playerItemsSheet.tab",
-            RoomAttrs = "overworldRoomAttr.dat",
-            ObjLists = "objLists.tab",
-            Extra1 = "overworldRoomSparseAttr.tab"
-        };
-        WriteLevelDir(options, 0, 0, dir);
-        WriteLevelDir(options, 1, 0, dir);
+        // var dir = new LevelDirectory
+        // {
+        //     LevelInfoBlock = "overworldInfo.dat",
+        //     RoomCols = "overworldRoomCols.dat",
+        //     ColTables = "overworldCols.tab",
+        //     TileAttrs = "overworldTileAttrs.dat",
+        //     TilesImage = "overworldTiles.png",
+        //     PlayerImage = "playerItem.png",
+        //     PlayerSheet = "playerItemsSheet.tab",
+        //     RoomAttrs = "overworldRoomAttr.dat",
+        //     ObjLists = "objLists.tab",
+        //     Extra1 = "overworldRoomSparseAttr.tab"
+        // };
+        // WriteLevelDir(options, 0, 0, dir);
+        // WriteLevelDir(options, 1, 0, dir);
 
-        return ListResource<LevelInfoBlock>.LoadSingle(options.Files[filePath]);
+        return ListResource<LevelInfoBlock>.LoadSingle(overworldInfo.ToArray());
     }
 
     private static Dictionary<LevelGroupMap, LevelInfoBlock> ExtractUnderworldInfo(Options options)
@@ -2531,8 +2547,9 @@ public partial class LozExtractor
         var filePath = filename;
         int effectiveLevel = level;
 
+        var stream = new MemoryStream();
         using (var reader = options.GetBinaryReader())
-        using (var writer = options.AddBinaryWriter(filePath))
+        using (var writer = new BinaryWriter(stream))
         {
             int quest2DiffAddr = 0;
 
@@ -2673,27 +2690,27 @@ public partial class LozExtractor
 
         // TODO: Some of these are for the OW, until we extract the matching UW parts.
 
-        var dir = new LevelDirectory
-        {
-            LevelInfoBlock = filename,
-            RoomCols = "underworldRoomCols.dat",
-            ColTables = "underworldCols.tab",
-            TileAttrs = "underworldTileAttrs.dat",
-            TilesImage = "underworldTiles.png",
-            PlayerImage = "playerItem.png",
-            PlayerSheet = "playerItemsSheet.tab",
-            RoomAttrs = roomAttrFilename,
-            ObjLists = "objLists.tab",
-            Extra1 = "overworldRoomSparseAttr.tab"
-        };
-        WriteLevelDir(options, quest, level, dir);
-        return ListResource<LevelInfoBlock>.LoadSingle(options.Files[filePath]);
+        // var dir = new LevelDirectory
+        // {
+        //     LevelInfoBlock = filename,
+        //     RoomCols = "underworldRoomCols.dat",
+        //     ColTables = "underworldCols.tab",
+        //     TileAttrs = "underworldTileAttrs.dat",
+        //     TilesImage = "underworldTiles.png",
+        //     PlayerImage = "playerItem.png",
+        //     PlayerSheet = "playerItemsSheet.tab",
+        //     RoomAttrs = roomAttrFilename,
+        //     ObjLists = "objLists.tab",
+        //     Extra1 = "overworldRoomSparseAttr.tab"
+        // };
+        // WriteLevelDir(options, quest, level, dir);
+        return ListResource<LevelInfoBlock>.LoadSingle(stream.ToArray());
     }
 
     private static void WriteLevelDir(Options options, int quest, int level, LevelDirectory dir)
     {
-        var filePath = string.Format("levelDir_{0}_{1}.json", quest, level);
-        options.AddJson(filePath, dir);
+        // var filePath = string.Format("levelDir_{0}_{1}.json", quest, level);
+        // options.AddJson(filePath, dir);
     }
 
     private static void WriteFixedString(Stream stream, string s, int length)
@@ -3876,5 +3893,18 @@ public partial class LozExtractor
             writer.Write((ushort)items.Length);
             writer.Write(items);
         }
+    }
+
+    private static ListResource<T> GetListFile<T>(byte[] items)
+        where T : struct
+    {
+        var ms = new MemoryStream();
+        using (var writer = new BinaryWriter(ms))
+        {
+            writer.Write((ushort)items.Length);
+            writer.Write(items);
+        }
+
+        return ListResource<T>.Load(ms.ToArray());
     }
 }

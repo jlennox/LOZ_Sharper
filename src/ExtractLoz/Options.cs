@@ -89,6 +89,11 @@ namespace ExtractLoz
             return new OptionsStream(relativePath, this, false);
         }
 
+        public MemoryStream AddMemoryStream(string relativePath)
+        {
+            return new MemoryStream();
+        }
+
         public BinaryWriter AddBinaryWriter(string relativePath)
         {
             return new BinaryWriter(new OptionsStream(relativePath, this, false));
