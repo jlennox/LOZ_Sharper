@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using z1.IO;
 using z1.Render;
 
 namespace z1.Actors;
@@ -20,7 +21,7 @@ internal sealed class InteractiveGameObjectActor : Actor
     private readonly PushInteraction? _push;
     private bool _hasSoundPlayed;
     private bool _hasInteracted;
-    private Task? _deferredEvent;
+    private DeferredEvent? _deferredEvent;
     // This is used for when the code externally sets an interaction. It'll check on the following Update() if all the other criteria are met.
     private bool _hasPerformedInteraction = false;
 
@@ -344,12 +345,12 @@ internal sealed class PushInteraction
         {
             // This is all kind of complicated but here's how the original game behaves:
             //
-            // - When the object begins to move:
-            //  - Nothing shows on the ground below it (_removeBackground).
-            //  - The moving object is displayed with color 0 being transparent (MovingBlockActor).
-            // - Once it's completed moving:
-            //  - It's displayed once again as a background with no transparency (ReplaceWithBackground).
-            //  - Now what's under it appears (return _movingActor.HasFinishedMoving).
+            // When the object begins to move:
+            // - Nothing shows on the ground below it (_removeBackground).
+            // - The moving object is displayed with color 0 being transparent (MovingBlockActor).
+            // Once it's completed moving:
+            // - It's displayed once again as a background with no transparency (ReplaceWithBackground).
+            // - Now what's under it appears (return _movingActor.HasFinishedMoving).
 
             _interactive.Facing = dir;
 

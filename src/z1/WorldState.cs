@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using z1.Actors;
+using z1.IO;
 
 namespace z1;
 
@@ -15,7 +16,7 @@ internal struct PlayState
     public short LiftItemTimer;
     public ItemId LiftItemId;
     public int PersonWallY;
-    private TaskCompletionSource? _pondDryoutEvent;
+    private DeferredEventSource? _pondDryoutEvent;
 
     public void Reset()
     {
@@ -27,21 +28,22 @@ internal struct PlayState
         CancelPondDryoutEvent();
     }
 
-    public TaskCompletionSource CreatePondDryoutEvent()
+    public DeferredEvent CreatePondDryoutEvent()
     {
-        _pondDryoutEvent?.TrySetCanceled();
-        return _pondDryoutEvent = new TaskCompletionSource();
+        _pondDryoutEvent?.SetCompleted();
+        _pondDryoutEvent = new DeferredEventSource();
+        return _pondDryoutEvent.Event;
     }
 
     public void CompletePondDryoutEvent()
     {
-        _pondDryoutEvent?.TrySetResult();
+        _pondDryoutEvent?.SetCompleted();
         _pondDryoutEvent = null;
     }
 
     public void CancelPondDryoutEvent()
     {
-        _pondDryoutEvent?.TrySetCanceled();
+        _pondDryoutEvent?.SetCompleted();
         _pondDryoutEvent = null;
     }
 }
@@ -352,13 +354,6 @@ internal sealed class WorldState
     public WinGameState WinGame = new();
     public ContinueState Continue = new();
     public DeathState Death = new();
-}
-
-internal enum LevelBlock
-{
-    Width = 16,
-    Height = 8,
-    Rooms = 128,
 }
 
 internal sealed class RoomHistory
