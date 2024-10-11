@@ -85,9 +85,9 @@ internal static class Graphics
 
     private static readonly byte[] _paletteBuf;
     private static readonly int _paletteStride = _paletteBmpWidth * Unsafe.SizeOf<SKColor>();
-    private static readonly int[] _systemPalette = new int[Global.SysPaletteLength];
-    private static readonly int[] _grayscalePalette = new int[Global.SysPaletteLength];
-    private static int[] _activeSystemPalette = _systemPalette;
+    private static readonly uint[] _systemPalette = new uint[Global.SysPaletteLength];
+    private static readonly uint[] _grayscalePalette = new uint[Global.SysPaletteLength];
+    private static uint[] _activeSystemPalette = _systemPalette;
     private static readonly byte[] _palettes = new byte[Global.PaletteCount * Global.PaletteLength];
 
     public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];
@@ -112,7 +112,7 @@ internal static class Graphics
         GLSpriteShader.Initialize(gl);
         GLVertexArray.Initialize(gl);
 
-        var sysPal = ListResource<int>.LoadList(new Asset("pal.dat"), Global.SysPaletteLength).ToArray();
+        var sysPal = new Asset("Palette.json").ReadJson<uint[]>();
         LoadSystemPalette(sysPal);
 
         GraphicSheets.AddSheets([
@@ -158,7 +158,7 @@ internal static class Graphics
         return animation.LoadVariableLengthData<SpriteAnimation>((int)id);
     }
 
-    public static void LoadSystemPalette(int[] colorsArgb8)
+    public static void LoadSystemPalette(uint[] colorsArgb8)
     {
         colorsArgb8.CopyTo(_systemPalette.AsSpan());
 
@@ -191,10 +191,10 @@ internal static class Graphics
 
     public static void SetColor(Palette paletteIndex, int colorIndex, int colorArgb8) => SetColor(paletteIndex, colorIndex, (uint)colorArgb8);
 
-    public static void SetPalette(Palette paletteIndex, ReadOnlySpan<int> colorsArgb8)
+    public static void SetPalette(Palette paletteIndex, ReadOnlySpan<uint> colorsArgb8)
     {
         var y = (int)paletteIndex;
-        var line = MemoryMarshal.Cast<byte, int>(_paletteBuf.AsSpan()[(y * _paletteStride)..]);
+        var line = MemoryMarshal.Cast<byte, uint>(_paletteBuf.AsSpan()[(y * _paletteStride)..]);
 
         for (var x = 0; x < Global.PaletteLength; x++)
         {
@@ -204,7 +204,7 @@ internal static class Graphics
 
     public static void SetColorIndexed(Palette paletteIndex, int colorIndex, int sysColor)
     {
-        var colorArgb8 = 0;
+        uint colorArgb8 = 0;
         if (colorIndex != 0)
         {
             colorArgb8 = _activeSystemPalette[sysColor];
@@ -220,7 +220,7 @@ internal static class Graphics
 
     public static void SetPaletteIndexed(Palette paletteIndex, ReadOnlySpan<byte> sysColors)
     {
-        ReadOnlySpan<int> colorsArgb8 =
+        ReadOnlySpan<uint> colorsArgb8 =
         [
             0,
             _activeSystemPalette[sysColors[1]],
@@ -237,7 +237,7 @@ internal static class Graphics
     {
     }
 
-    public static void SwitchSystemPalette(int[] newSystemPalette)
+    public static void SwitchSystemPalette(uint[] newSystemPalette)
     {
         if (newSystemPalette == _activeSystemPalette) return;
 
@@ -246,7 +246,7 @@ internal static class Graphics
         for (var i = 0; i < Global.PaletteCount; i++)
         {
             var sysColors = GetPalette((Palette)i);
-            ReadOnlySpan<int> colorsArgb8 =
+            ReadOnlySpan<uint> colorsArgb8 =
             [
                 0,
                 _activeSystemPalette[sysColors[1]],

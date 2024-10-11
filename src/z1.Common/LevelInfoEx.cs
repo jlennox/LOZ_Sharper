@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Diagnostics;
+using System.Text.Json.Serialization;
 using z1.Common.Data;
 
 namespace z1.Common;
@@ -50,6 +51,30 @@ public sealed class WorldSettings
     public byte[][][] DeathPalette { get; set; }
 
     [TiledIgnore, JsonIgnore] public bool AllowWhirlwind => Options.HasFlag(WorldOptions.AllowWhirlwind);
+}
+
+[Flags]
+public enum SoundFlags
+{
+    None = 0,
+    PlayIfQuietSlot = 1,
+}
+
+[DebuggerDisplay("{Filename}")]
+public sealed class SongInformation
+{
+    public int Track { get; set; }
+    public int Start { get; set; }
+    public int End { get; set; }
+    public int Slot { get; set; }
+    public int Priority { get; set; }
+    public SoundFlags Flags { get; set; }
+    public string Filename { get; set; }
+
+    [JsonIgnore] public float StartSeconds => Start * (1 / 60f);
+    [JsonIgnore] public float EndSeconds => End * (1 / 60f);
+
+    [JsonIgnore] public bool PlayIfQuietSlot => Flags.HasFlag(SoundFlags.PlayIfQuietSlot);
 }
 
 public sealed class CavePaletteSet

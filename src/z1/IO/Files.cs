@@ -109,43 +109,6 @@ internal readonly struct TableResource<T>
     // }
 }
 
-internal readonly struct ListResource<T>
-    where T : struct
-{
-    public T this[int i]
-    {
-        get => _backing[i];
-        set => _backing[i] = value;
-    }
-
-    private readonly T[] _backing;
-
-    public ListResource(T[] backing)
-    {
-        _backing = backing;
-    }
-
-    public static ListResource<T> Load(string file) => Load(new Asset(file));
-    public static ListResource<T> Load(Asset file)
-    {
-        Span<byte> bytes = file.ReadAllBytes();
-        var length = BitConverter.ToInt16(bytes);
-        bytes = bytes[sizeof(short)..];
-        if (bytes.Length != length) throw new InvalidOperationException();
-        return new ListResource<T>(MemoryMarshal.Cast<byte, T>(bytes).ToArray());
-    }
-
-    public static ReadOnlySpan<T> LoadList(string file, int amount) => LoadList(new Asset(file), amount);
-    public static ReadOnlySpan<T> LoadList(Asset file, int amount)
-    {
-        Span<byte> bytes = file.ReadAllBytes();
-        return MemoryMarshal.Cast<byte, T>(bytes)[..amount];
-    }
-
-    public static T LoadSingle(string file) => LoadSingle(new Asset(file));
-    public static T LoadSingle(Asset file) => LoadList(file, 1)[0];
-}
-
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal unsafe struct LevelInfoBlock
 {

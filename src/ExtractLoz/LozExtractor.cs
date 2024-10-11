@@ -219,6 +219,20 @@ public partial class LozExtractor
             item.Filename = fields[6];
             return item;
         }
+
+        public SongInformation ToSongInformation()
+        {
+            return new SongInformation
+            {
+                Track = Track,
+                Start = Begin,
+                End = End,
+                Slot = Slot,
+                Priority = Priority,
+                Flags = (SoundFlags)Flags,
+                Filename = Filename,
+            };
+        }
     }
 
     private class NsfItem
@@ -239,23 +253,16 @@ public partial class LozExtractor
     {
         byte[] nsfImage = BuildMemoryNsf(options);
 
-        using (var inStream = GetResourceStream("ExtractLoz.Data." + tableFileBase + ".csv"))
-        using (var outWriter = new BinaryWriter(options.AddStream(tableFileBase + ".dat")))
+        var songs = new List<SongInformation>();
+        using var inStream = GetResourceStream("ExtractLoz.Data." + tableFileBase + ".csv");
+        var items = DatafileReader.ReadTable(inStream, SoundItem.ConvertFields);
+        foreach (var item in items)
         {
-            var items = DatafileReader.ReadTable(inStream, SoundItem.ConvertFields);
-            foreach (var item in items)
-            {
-                ExtractSoundFile(options, item, nsfImage);
-                outWriter.Write(item.Begin);
-                outWriter.Write(item.End);
-                outWriter.Write(item.Slot);
-                outWriter.Write(item.Priority);
-                outWriter.Write(item.Flags);
-                outWriter.Write((byte)0);
-                WriteFixedString(outWriter.BaseStream, item.Filename, 20);
-            }
-            Utility.PadStream(outWriter.BaseStream);
+            ExtractSoundFile(options, item, nsfImage);
+            songs.Add(item.ToSongInformation());
         }
+
+        options.AddJson(tableFileBase + ".json", songs.ToArray());
     }
 
     private static void ExtractSoundFile(Options options, SoundItem item, byte[] nsfImage)
@@ -332,13 +339,7 @@ public partial class LozExtractor
 
     private static void ExtractSystemPalette(Options options)
     {
-        using (var writer = new BinaryWriter(options.AddStream("pal.dat")))
-        {
-            foreach (var color in DefaultSystemPalette.Colors)
-            {
-                writer.Write(color);
-            }
-        }
+        options.AddJson("Palette.json", DefaultSystemPalette.Colors);
     }
 
     private static void ExtractFont(Options options)

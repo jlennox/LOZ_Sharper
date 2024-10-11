@@ -20,7 +20,7 @@ internal sealed class InteractiveGameObjectActor : Actor
     private readonly PushInteraction? _push;
     private bool _hasSoundPlayed;
     private bool _hasInteracted;
-    private Task? _awaitingEvent;
+    private Task? _deferredEvent;
     // This is used for when the code externally sets an interaction. It'll check on the following Update() if all the other criteria are met.
     private bool _hasPerformedInteraction = false;
 
@@ -44,11 +44,11 @@ internal sealed class InteractiveGameObjectActor : Actor
         if (!CheckRequirements()) return;
         if (!CheckItemRequirement()) return;
 
-        if (_awaitingEvent != null)
+        if (_deferredEvent != null)
         {
-            if (_awaitingEvent.IsCompleted)
+            if (_deferredEvent.IsCompleted)
             {
-                _awaitingEvent = null;
+                _deferredEvent = null;
                 SetInteracted(false);
             }
             return;
@@ -82,7 +82,7 @@ internal sealed class InteractiveGameObjectActor : Actor
     {
         if (Interactable.Effect.HasFlag(InteractionEffect.DryoutWater))
         {
-            _awaitingEvent = Game.World.DryoutWater();
+            _deferredEvent = Game.World.DryoutWater();
             return true;
         }
 
@@ -147,7 +147,7 @@ internal sealed class InteractiveGameObjectActor : Actor
     }
 
     // The result of this is a bit iffy. At this point, it's designed to know if the recorder should summon the whirlwind.
-    public bool PerformInteraction(Interaction interaction)
+    public override bool NontargetedAction(Interaction interaction)
     {
         if (Interactable.Interaction != interaction) return false;
         if (HasInteracted) return true;

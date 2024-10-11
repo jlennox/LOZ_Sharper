@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Text;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using z1.IO;
@@ -22,45 +20,6 @@ internal enum SongStream
 internal enum StopEffect
 {
     AmbientInstance = 4,
-}
-
-[Flags]
-internal enum SoundFlags
-{
-    None = 0,
-    PlayIfQuietSlot = 1,
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal unsafe struct SoundInfo
-{
-    // The loop beginning and end points in frames (1/60 seconds).
-    public short Start;
-    public short End;
-    public sbyte Slot;
-    public sbyte Priority;
-    public sbyte Flags;
-    public sbyte Reserved;
-    public fixed byte Filename[20];
-
-    public readonly float StartSeconds => Start * (1 / 60f);
-    public readonly float EndSeconds => End * (1 / 60f);
-
-    public readonly bool HasPlayIfQuietSlot => (Flags & (byte)SoundFlags.PlayIfQuietSlot) != 0;
-
-    public string GetFilename()
-    {
-        fixed (byte* p = Filename)
-        {
-            var span = new ReadOnlySpan<byte>(p, 20);
-            var length = span.IndexOf((byte)0);
-            if (length == -1) length = 20;
-            return Encoding.ASCII.GetString(p, length);
-        }
-    }
-
-    public Asset GetAsset() => new(GetFilename());
-    public Stream GetStream() => GetAsset().GetStream();
 }
 
 // This is a version of `AudioFileReader` modified to take a stream instead of a filename.
@@ -338,8 +297,8 @@ internal sealed class Sound
     private static readonly DebugLog _traceLog = new(nameof(Sound), DebugLogDestination.None);
 
     private readonly CachedSound[] _effectSamples = new CachedSound[Effects];
-    private readonly SoundInfo[] _effects;
-    private readonly SoundInfo[] _songs;
+    private readonly SongInformation[] _effects;
+    private readonly SongInformation[] _songs;
     private readonly NamedWaveFileReader[] _songFiles = new NamedWaveFileReader[Songs];
     private readonly EffectRequest?[] _effectRequests = new EffectRequest?[Instances];
     private readonly WaveOutEvent _waveOutDevice;
@@ -367,16 +326,16 @@ internal sealed class Sound
         _waveOutDevice.Init(_mixer);
         _waveOutDevice.Play();
 
-        _effects = ListResource<SoundInfo>.LoadList("Effects.dat", Effects).ToArray();
+        _effects = new Asset("Effects.json").ReadJson<SongInformation[]>();
         for (var i = 0; i < Effects; i++)
         {
-            _effectSamples[i] = new CachedSound(_effects[i].GetAsset());
+            _effectSamples[i] = new CachedSound(new Asset(_effects[i].Filename));
         }
 
-        _songs = ListResource<SoundInfo>.LoadList("Songs.dat", Songs).ToArray();
+        _songs = new Asset("Songs.json").ReadJson<SongInformation[]>();
         for (var i = 0; i < Songs; i++)
         {
-            _songFiles[i] = new NamedWaveFileReader(_songs[i].GetAsset());
+            _songFiles[i] = new NamedWaveFileReader(new Asset(_songs[i].Filename));
         }
 
         _isMuted = configuration.Mute;
@@ -498,7 +457,7 @@ internal sealed class Sound
 
             ref var instance = ref _playingEffectSamples[i];
 
-            var hasPlayIfQuietSlot = _effects[(int)soundId].HasPlayIfQuietSlot;
+            var hasPlayIfQuietSlot = _effects[(int)soundId].PlayIfQuietSlot;
             _traceLog.Write($"UpdateEffects({soundId}, {loop}), hasPlayIfQuietSlot={hasPlayIfQuietSlot}, instance={instance?.HasReachedEnd}");
             if (!hasPlayIfQuietSlot || (instance == null || instance.HasReachedEnd))
             {
@@ -568,6 +527,12 @@ internal sealed class Sound
          }
 
          PlaySongInternal(song, SongStream.EventSong, false, true);
+    }
+
+    public TimeSpan GetSongLength(SongId songId)
+    {
+        var song = _songs[(int)songId];
+        return TimeSpan.FromSeconds(song.EndSeconds - song.StartSeconds);
     }
 
     public void StopEffect(StopEffect effect) => StopEffect((int)effect);

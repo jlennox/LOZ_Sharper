@@ -5123,6 +5123,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
 
     private readonly int _childCount;
     private bool _updateBig;
+    private int _recorderUsed = 0;
 
     public override bool IsReoccuring => false;
 
@@ -5153,11 +5154,17 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
         return new DigdoggerActor(game, x, y, childCount);
     }
 
+    public override bool NontargetedAction(Interaction interaction)
+    {
+        _recorderUsed = 1;
+        return base.NontargetedAction(interaction);
+    }
+
     public override void Update()
     {
         if (!IsStunned)
         {
-            if (Game.World.RecorderUsed == 0)
+            if (_recorderUsed == 0)
             {
                 UpdateMove();
             }
@@ -5207,10 +5214,10 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
 
     private void UpdateSplit()
     {
-        if (Game.World.RecorderUsed == 1)
+        if (_recorderUsed == 1)
         {
             ObjTimer = 0x40;
-            Game.World.RecorderUsed = 2;
+            _recorderUsed = 2;
             return;
         }
 
@@ -5229,7 +5236,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
         }
         else
         {
-            Game.World.RecorderUsed = 1;
+            _recorderUsed = 1;
             Game.World.RoomObjCount += _childCount;
             for (var i = 1; i <= _childCount; i++)
             {

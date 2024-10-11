@@ -168,7 +168,6 @@ internal partial class World
 
     private void ClearRoomItemData()
     {
-        RecorderUsed = 0;
         CandleUsed = false;
         _summonedWhirlwind = false;
         _brightenRoom = false;

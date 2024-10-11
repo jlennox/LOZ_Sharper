@@ -119,7 +119,6 @@ internal sealed partial class World
     // JOE: TODO: Stick this on Player?
     public int FromUnderground;    // 5A
     public int ActiveShots;        // 34C
-    public int RecorderUsed;       // 51B
     public bool CandleUsed;         // 513
     // JOE: NOTE: Ultimately this (and others, like CandleUsed) needs to be owned by Player so that multiple Players are possible.
     public PlayerProfile Profile { get; private set; }
@@ -394,13 +393,7 @@ internal sealed partial class World
     public void UseRecorder()
     {
         Game.Sound.PushSong(SongId.Recorder);
-        SetObjectTimer(ObjectTimer.FluteMusic, 0x98);
-
-        // if (!IsOverworld())
-        // {
-        RecorderUsed = 1;
-        //     return;
-        // }
+        SetObjectTimer(ObjectTimer.RecorderMusic, 0x98);
 
         if (!IsPlaying()) return;
 
@@ -418,34 +411,13 @@ internal sealed partial class World
         foreach (var obj in GetObjects<InteractiveGameObjectActor>())
         {
             // If any action spots support the recorder, we should not summon the whirlwind.
-            if (obj.PerformInteraction(Interaction.Recorder)) shouldSummonWhirlwind = false;
+            if (obj.NontargetedAction(Interaction.Recorder)) shouldSummonWhirlwind = false;
         }
 
-        if (!shouldSummonWhirlwind || !CurrentWorld.Settings.AllowWhirlwind) return;
+        if (!shouldSummonWhirlwind) return;
+        if (!CurrentWorld.Settings.AllowWhirlwind) return;
 
         SummonWhirlwind();
-
-        // ReadOnlySpan<byte> roomIds = [0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72];
-        //
-        // var i = roomIds.IndexOf((byte)CurrentRoom);
-        // // The first one is level 7 entrance, the others are second quest only.
-        // var foundSecret = i switch
-        // {
-        //     0 => Profile.Quest == 0,
-        //     > 1 => Profile.Quest != 0,
-        //     _ => false
-        // };
-
-        // _traceLog.Write($"UseRecorder: {CurrentRoom:X2}, i:{i}, foundSecret:{foundSecret}");
-
-        // if (foundSecret)
-        // {
-        //     MakeFluteSecret();
-        // }
-        // else
-        // {
-        //     SummonWhirlwind();
-        // }
     }
 
     private void SummonWhirlwind()
@@ -1119,7 +1091,7 @@ internal sealed partial class World
     {
         Fade,
         Monster1,
-        FluteMusic,
+        RecorderMusic,
         Door
     }
 
@@ -1375,7 +1347,8 @@ internal sealed partial class World
         DecrementObjectTimers();
         DecrementStunTimers();
 
-        if (GetObjectTimer(ObjectTimer.FluteMusic) != 0) return;
+        // Freeze all things until the recorder music is finished.
+        if (GetObjectTimer(ObjectTimer.RecorderMusic) != 0) return;
 
         if (_pause == PauseState.FillingHearts)
         {
@@ -1404,12 +1377,15 @@ internal sealed partial class World
         for (var i = _objects.Count - 1; i >= 0; i--)
         {
             var obj = _objects[i];
-            if (!obj.IsDeleted)
+            if (obj.IsDeleted)
             {
-                if (obj.DecoratedUpdate())
-                {
-                    HandleNormalObjectDeath(obj);
-                }
+                _objects.RemoveAt(i);
+                continue;
+            }
+
+            if (obj.DecoratedUpdate())
+            {
+                HandleNormalObjectDeath(obj);
             }
         }
 

@@ -1165,6 +1165,8 @@ internal abstract class Actor
         return dir;
     }
 
+    public virtual bool NontargetedAction(Interaction interaction) => true;
+
     protected Direction GetSingleMoving()
     {
         var dirOrd = ((Direction)Moving).GetOrdinal();
