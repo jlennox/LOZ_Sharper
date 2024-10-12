@@ -852,6 +852,11 @@ public unsafe partial class LozExtractor
         var objId = (ObjType)roomAttr.MonsterListId;
         var isList = objId >= ObjType.Rock;
 
+        if (objId is >= ObjType.OneDodongo and < ObjType.Rock)
+        {
+            monsterCount = 1;
+        }
+
         if (resources.IsOverworld)
         {
             var owRoomAttrs = new OWRoomAttr(roomAttr);
