@@ -239,7 +239,7 @@ public unsafe partial class LozExtractor
                 visitedRooms.Add(currentRoom);
                 foreach (var (dir, offset) in checks)
                 {
-                    if (resources.LevelInfoBlock.FindCellarRoomIds(currentRoom, resources.RoomAttrs, out var left, out var right))
+                    if (resources.LevelInfoBlock.FindCellarRoomIds(currentRoom, resources.RoomAttrs, out var left, out var right, out _))
                     {
                         if (!visitedRooms.Contains(left)) nextRooms.Push(left);
                         if (!visitedRooms.Contains(right)) nextRooms.Push(right);
@@ -310,23 +310,6 @@ public unsafe partial class LozExtractor
 
             if (!resources.IsOverworld && !isCellar)
             {
-                if (resources.LevelInfoBlock.FindCellarRoomIds(roomId, resources.RoomAttrs, out var left, out var right))
-                {
-
-                    if (resources.LevelInfoBlock.LevelNumber == 1 && resources.QuestId == 0 && roomId == new RoomId(2, 2))
-                    {
-                    }
-
-                    // if (left != right && (left != roomId || right != roomId))
-                    {
-                        properties.Add(new TiledProperty(TiledRoomProperties.CellarStairsLeft, left.GetGameRoomId()));
-                        if (right != left)
-                        {
-                            properties.Add(new TiledProperty(TiledRoomProperties.CellarStairsRight, right.GetGameRoomId()));
-                        }
-                    }
-                }
-
                 var doors = TiledRoomProperties.DoorDirectionOrder
                     .Select(uwRoomAttrs.GetDoor)
                     .Select(t => t.ToString())
@@ -354,13 +337,6 @@ public unsafe partial class LozExtractor
                     {
                         roomOptions |= RoomFlags.HiddenFromMap;
                     }
-                }
-
-                if (resources.LevelInfoBlock.FindCellarItemRoomId(roomId, resources.RoomAttrs, out var itemRoomId))
-                {
-                    var itemRoomAttr = new UWRoomAttr(resources.RoomAttrs[itemRoomId.Id]);
-                    var roomItem = itemRoomAttr.GetItemId();
-                    properties.Add(TiledArgumentProperties.CreateArgument(TiledArgument.ItemId, roomItem.ToString()));
                 }
             }
 
@@ -599,7 +575,7 @@ public unsafe partial class LozExtractor
                     .Select(TransformObjectsIntoLayer)
                     .ToArray();
 
-                if (commonRoomName == "Item")
+                if (commonRoomName == CommonUnderworldRoomName.ItemCellar)
                 {
                     foreach (var layer in objectLayers)
                     {
@@ -617,8 +593,8 @@ public unsafe partial class LozExtractor
                 {
                     Width = commonBackgroundLayer.Width,
                     Height = commonBackgroundLayer.Height,
-                    TileWidth = 8,
-                    TileHeight = 8,
+                    TileWidth = World.TileWidth,
+                    TileHeight = World.TileHeight,
                     Layers = [commonBackgroundLayer, .. objectLayers],
                     TileSets = tilesets,
                     Properties = GetRoomProperties(resources, commonRoomId, 0, 0, commonRoomName, RoomFlags.ShowPreviousMap)

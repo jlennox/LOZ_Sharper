@@ -32,8 +32,6 @@ internal enum GameMode
 
     InitPlayCellar,
     InitPlayCave,
-
-    Max,
 }
 
 internal enum StunTimerSlot
@@ -44,11 +42,7 @@ internal enum StunTimerSlot
     EdgeObject
 }
 
-internal record Cell(byte Y, byte X)
-{
-    public const int MobPatchCellCount = 16;
-    public static Cell[] MakeMobPatchCell() => new Cell[MobPatchCellCount];
-}
+internal record Cell(byte Y, byte X);
 
 internal sealed partial class World
 {
@@ -413,7 +407,7 @@ internal sealed partial class World
         foreach (var obj in GetObjects<InteractiveGameObjectActor>())
         {
             // If any action spots support the recorder, we should not summon the whirlwind.
-            if (obj.NontargetedAction(Interaction.Recorder)) shouldSummonWhirlwind = false;
+            if (obj.NonTargetedAction(Interaction.Recorder)) shouldSummonWhirlwind = false;
         }
 
         if (!shouldSummonWhirlwind) return;
@@ -887,7 +881,12 @@ internal sealed partial class World
         if ((int)itemId >= (int)ItemId.MAX) return;
 
         GlobalFunctions.PlayItemSound(Game, itemId);
-        var profile = Profile;
+
+        if (itemId is ItemId.Compass or ItemId.Map)
+        {
+            Profile.SetDungeonItem(CurrentWorld.Settings.LevelNumber, itemId);
+            return;
+        }
 
         var equip = ItemToEquipment[itemId];
         var slot = equip.Slot;
@@ -895,7 +894,7 @@ internal sealed partial class World
 
         var max = -1;
         if (equip.MaxValue.HasValue) max = equip.MaxValue.Value;
-        if (equip.Max.HasValue) max = profile.Items[equip.Max.Value];
+        if (equip.Max.HasValue) max = Profile.Items[equip.Max.Value];
 
         if (slot == ItemSlot.RupeesToAdd)
         {
@@ -911,28 +910,28 @@ internal sealed partial class World
         }
         else if (slot is ItemSlot.Keys or ItemSlot.HeartContainers or ItemSlot.MaxBombs or ItemSlot.Bombs)
         {
-            value += (byte)profile.Items[slot];
+            value += (byte)Profile.Items[slot];
 
         }
         else if (itemId is ItemId.Compass or ItemId.Map)
         {
-            profile.SetDungeonItem(CurrentWorld.Settings.LevelNumber, itemId);
+            Profile.SetDungeonItem(CurrentWorld.Settings.LevelNumber, itemId);
             return;
         }
         else if (itemId == ItemId.TriforcePiece)
         {
             var bit = 1 << (CurrentWorld.Settings.LevelNumber - 1);
-            value = (byte)(profile.Items[ItemSlot.TriforcePieces] | bit);
-            profile.SetDungeonItem(CurrentWorld.Settings.LevelNumber, itemId);
+            value = (byte)(Profile.Items[ItemSlot.TriforcePieces] | bit);
+            Profile.SetDungeonItem(CurrentWorld.Settings.LevelNumber, itemId);
         }
 
         if (max > 0) value = Math.Min(value, max);
 
-        profile.Items[slot] = value;
+        Profile.Items[slot] = value;
 
         if (slot == ItemSlot.Ring)
         {
-            profile.SetPlayerColor();
+            Profile.SetPlayerColor();
             Graphics.UpdatePalettes();
         }
 
@@ -1152,7 +1151,16 @@ internal sealed partial class World
         return objAttr.Damage;
     }
 
-    public void LoadOverworldRoom(int x, int y) => LoadRoom(CurrentWorld.GameWorldMap.RoomGrid[x, y] ?? throw new Exception("Invalid room coordinates."));
+    public void LoadOverworldRoom(int x, int y)
+    {
+        var room = CurrentWorld.GameWorldMap.RoomGrid[x, y];
+        if (room == null)
+        {
+            Game.Toast($"Invalid room {x},{y}");
+            return;
+        }
+        LoadRoom(room);
+    }
 
     private void LoadRoom(GameRoom room)
     {
@@ -1590,14 +1598,7 @@ internal sealed partial class World
         if (_state.Play.Timer == 0)
         {
             _state.Play.AnimatingRoomColors = false;
-            // var posAttr = FindSparsePos(Sparse.Recorder, CurRoomId);
-            // if (posAttr != null)
-            // {
-            //     GetRoomCoord(posAttr.Value.pos, out var row, out var col);
-            //     SetMob(row * 2, col * 2, BlockObjType.MobStairs);
-            //     Game.Sound.PlayEffect(SoundEffect.Secret);
-            // }
-            _state.Play.CompletePondDryoutEvent();
+            _state.Play.CompleteWaterDryoutEvent();
             return;
         }
 
@@ -2128,7 +2129,7 @@ internal sealed partial class World
 
         _state.Play.AnimatingRoomColors = true;
         _state.Play.Timer = 88;
-        return _state.Play.CreatePondDryoutEvent();
+        return _state.Play.CreateWaterDryoutEvent();
     }
 
     private void MakeWhirlwind()
@@ -3208,10 +3209,19 @@ internal sealed partial class World
     }
 
     // JOE: Arg. Use this everywhere presumably?
-    private void LoadEntranceRoom(Entrance entrance, out int? destinationY)
+    private void LoadEntranceRoom(Entrance entrance, int? defaultX, int? defaultY, out int? destinationY)
     {
-        var room = _commonWorlds[entrance.DestinationType].GetRoomByName(entrance.Destination);
-        LoadMap(room, _state.PlayCave.Entrance);
+        var world = _commonWorlds[entrance.DestinationType];
+        var room = world.GetRoomByName(entrance.Destination);
+
+        if (entrance.Arguments != null)
+        {
+            // This must happen before LoadMap creates the objects.
+            room.InitializeInteractiveGameObjects(entrance.Arguments);
+        }
+
+        LoadMap(room, entrance);
+
         destinationY = null;
         var pos = entrance.EntryPosition;
         if (pos != null)
@@ -3221,6 +3231,16 @@ internal sealed partial class World
             destinationY = pos.TargetY;
             if (pos.Facing != Direction.None) Player.Facing = pos.Facing;
         }
+        else
+        {
+            if (defaultX != null) Player.X = defaultX.Value;
+            if (defaultY != null) Player.Y = defaultY.Value;
+        }
+    }
+
+    private void ReturnToPreviousEntrance()
+    {
+
     }
 
     private void DrawStairsState()
@@ -3287,7 +3307,7 @@ internal sealed partial class World
         static void PlayCellarLoadRoom(Game game, ref PlayCellarState state)
         {
             var entrance = state.Entrance ?? throw new Exception();
-            game.World.LoadEntranceRoom(entrance, out var targetY);
+            game.World.LoadEntranceRoom(entrance, 0x30, 0x44, out var targetY);
 
             state.TargetY = targetY ?? 0x60;
             state.Substate = PlayCellarState.Substates.FadeIn;
@@ -3391,10 +3411,11 @@ internal sealed partial class World
                 return;
             }
 
+            var palette = game.World.CurrentWorld.Settings.InCellarPalette;
             for (var i = 0; i < LevelInfoBlock.FadePals; i++)
             {
                 var step = state.FadeStep;
-                Graphics.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.InCellarPalette[step][i]);
+                Graphics.SetPaletteIndexed((Palette)i + 2, palette[step][i]);
             }
             Graphics.UpdatePalettes();
             state.FadeTimer = 9;
@@ -3411,8 +3432,8 @@ internal sealed partial class World
             var room = game.World.GetNextRoom(game.Player.Facing, out var entry);
 
             var nextRoomId = game.Player.X < 0x80
-                ? room.CellarStairsLeftRoomId
-                : room.CellarStairsRightRoomId;
+                ? entry.FromEntrance.Arguments?.ExitLeft
+                : entry.FromEntrance.Arguments?.ExitRight;
 
             if (nextRoomId == null)
             {
@@ -3440,10 +3461,11 @@ internal sealed partial class World
                 return;
             }
 
+            var palette = game.World.CurrentWorld.Settings.OutOfCellarPalette;
             for (var i = 0; i < LevelInfoBlock.FadePals; i++)
             {
                 var step = state.FadeStep;
-                Graphics.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.OutOfCellarPalette[step][i]);
+                Graphics.SetPaletteIndexed((Palette)i + 2, palette[step][i]);
             }
             Graphics.UpdatePalettes();
             state.FadeTimer = 9;
@@ -3558,12 +3580,12 @@ internal sealed partial class World
 
         static void PlayCaveLoadRoom(Game game, ref PlayCaveState state)
         {
-            // JOE: TODO: MAP REWRITE var paletteSet = _extraData.CavePalette;
+            var paletteSet = game.World._extraData.CavePalette;
             // var caveLayout = FindSparseFlag(Sparse.Shortcut, CurrentRoom) ? CaveType.Shortcut : CaveType.Items;
 
             // LoadCaveRoom(caveLayout);
             var entrance = state.Entrance ?? throw new Exception();
-            game.World.LoadEntranceRoom(entrance, out var targetY);
+            game.World.LoadEntranceRoom(entrance, 0x70, 0xDD, out var targetY);
 
             state.Substate = PlayCaveState.Substates.Walk;
             state.TargetY = targetY ?? 0xD5;
@@ -3572,7 +3594,7 @@ internal sealed partial class World
 
             for (var i = 0; i < 2; i++)
             {
-                // JOE: TODO: MAP REWRITE Graphics.SetPaletteIndexed((Palette)i + 2, paletteSet.GetByIndex(i));
+                Graphics.SetPaletteIndexed((Palette)i + 2, paletteSet.GetByIndex(i));
             }
             Graphics.UpdatePalettes();
         }

@@ -442,14 +442,13 @@ internal sealed class SubmenuType
 
     private void DrawCurrentSelection(int top)
     {
-        var profile = _game.World.Profile;
-        var curSlot = profile.SelectedItem;
+        var curSlot = _game.World.Profile.SelectedItem;
+        if (curSlot == 0) return;
 
-        if (curSlot != 0)
-        {
-            var itemId = GlobalFunctions.ItemValueToItemId(_game, curSlot);
-            GlobalFunctions.DrawItemWide(_game.World.Game, itemId, CurItemX, CurItemY + top);
-        }
+        var itemId = GlobalFunctions.ItemValueToItemId(_game, curSlot);
+        if (itemId == ItemId.None) return;
+
+        GlobalFunctions.DrawItemWide(_game.World.Game, itemId, CurItemX, CurItemY + top);
     }
 
     private static readonly ImmutableArray<TriforcePieceSpec> _pieceSpecs = [

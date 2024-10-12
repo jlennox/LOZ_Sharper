@@ -1165,7 +1165,7 @@ internal abstract class Actor
         return dir;
     }
 
-    public virtual bool NontargetedAction(Interaction interaction) => true;
+    public virtual bool NonTargetedAction(Interaction interaction) => true;
 
     protected Direction GetSingleMoving()
     {

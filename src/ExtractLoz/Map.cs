@@ -393,10 +393,11 @@ internal sealed class MapExtractor
 
         var caveId = owRoomAttrs.GetCaveId();
         var questId = owRoomAttrs.QuestNumber();
-        string? caveName = null;
+        string caveName = "something broken here";
         GameWorldType? caveType = null;
         CaveSpec? caveSpec = null;
         EntryPosition? caveEntryPosition = null;
+        RoomArguments? arguments = null;
         if (resources.IsOverworld)
         {
             if ((int)caveId < 9)
@@ -413,11 +414,33 @@ internal sealed class MapExtractor
         }
         else
         {
-            var hasCellar = resources.LevelInfoBlock.FindCellarRoomIds(roomId, resources.RoomAttrs, out var left, out var right);
-            caveName = hasCellar && left == right ? CommonUnderworldRoomName.ItemCellar : CommonUnderworldRoomName.Transport;
             caveType = GameWorldType.UnderworldCommon;
-            var entryX = roomId == left ? 0x30 : 0xC0;
-            caveEntryPosition = new EntryPosition(entryX, 0x60, Direction.Down, 0x60);
+            if (resources.LevelInfoBlock.FindCellarRoomIds(
+                roomId, resources.RoomAttrs, out var left, out var right, out var cellarAttrs))
+            {
+                var isItemRoom = left == right;
+                caveName = isItemRoom ? CommonUnderworldRoomName.ItemCellar : CommonUnderworldRoomName.Transport;
+                var entryX = roomId == left ? 0x30 : 0xC0;
+                caveEntryPosition = new EntryPosition(entryX, 0x60, Direction.Down, 0x60);
+
+                if (resources.LevelInfoBlock.LevelNumber == 1 && resources.QuestId == 0 && roomId == new RoomId(2, 2))
+                {
+                }
+
+                arguments ??= new RoomArguments
+                {
+                    ExitLeft = left.GetGameRoomId()
+                };
+
+                if (isItemRoom)
+                {
+                    arguments.ItemId = cellarAttrs.GetItemId();
+                }
+                else
+                {
+                    arguments.ExitRight = right.GetGameRoomId();
+                }
+            }
         }
 
         var caveEntrance = new Entrance
@@ -428,6 +451,7 @@ internal sealed class MapExtractor
             EntryPosition = caveEntryPosition,
             Cave = caveSpec,
             BlockType = BlockType.Stairs,
+            Arguments = arguments,
         };
 
         Entrance EntranceWith(BlockType type)
@@ -501,25 +525,20 @@ internal sealed class MapExtractor
                 var block = resources.LevelInfoBlock;
                 var pos = block.GetShortcutPosition(posIndex);
 
-                if (secret is Secret.FoesItem or Secret.LastBoss)
+                var requirement = secret is Secret.FoesItem or Secret.LastBoss
+                    ? InteractionRequirements.AllEnemiesDefeated
+                    : InteractionRequirements.None;
+
+                // I have no idea why this is required and it really shouldn't be.
+                var yItemOffset = isCellar ? 4 * TileHeight : 0;
+
+                AddInteractionP(GetTileCoords(pos.X, pos.Y + yItemOffset), TileAction.Item, new InteractableBlock
                 {
-                    AddInteractionP(GetTileCoords(pos.X, pos.Y), TileAction.Item, new InteractableBlock
-                    {
-                        Interaction = Interaction.None,
-                        Requirements = InteractionRequirements.AllEnemiesDefeated,
-                        Item = new RoomItem { Item = uwItemId },
-                        Persisted = true,
-                    });
-                }
-                else
-                {
-                    AddInteractionP(GetTileCoords(pos.X, pos.Y), TileAction.Item, new InteractableBlock
-                    {
-                        Interaction = Interaction.None,
-                        Item = new RoomItem { Item = uwItemId, IsRoomItem = true },
-                        Persisted = true,
-                    });
-                }
+                    Interaction = Interaction.None,
+                    Requirements = requirement,
+                    Item = new RoomItem { Item = uwItemId },
+                    Persisted = true,
+                });
             }
 
             if (secret == Secret.BlockStairs)
@@ -652,7 +671,6 @@ internal sealed class MapExtractor
                     { TileAction.Stairs, Interaction.None },
                     { TileAction.Bomb, Interaction.Bomb },
                     { TileAction.Burn, Interaction.Burn },
-                    { TileAction.Recorder, Interaction.Recorder },
                     { TileAction.Ghost, Interaction.Touch },
                     { TileAction.Armos, Interaction.TouchOnce },
                     { TileAction.PushHeadstone, Interaction.Push },
@@ -694,8 +712,6 @@ internal sealed class MapExtractor
                         interaction.Entrance = EntranceWith(BlockType.Cave);
                     }
 
-                    var actionQuestId = questId;
-
                     switch (action)
                     {
                         case TileAction.Cave or TileAction.Bomb or TileAction.Burn:
@@ -736,26 +752,9 @@ internal sealed class MapExtractor
                             interaction.Repeatable = true;
                             interaction.ItemRequirement = new InteractionItemRequirement(ItemSlot.Raft, 1);
                             break;
-
-                        case TileAction.Recorder:
-                            ReadOnlySpan<int> roomIds = [0x42, 0x06, 0x29, 0x2B, 0x30, 0x3A, 0x3C, 0x58, 0x60, 0x6E, 0x72];
-
-                            var i = roomIds.IndexOf(roomId.Id);
-                            // The first one is level 7 entrance, the others are second quest only.
-                            actionQuestId = i switch
-                            {
-                                0 => 1,
-                                > 0 => 2,
-                                _ => throw new Exception()
-                            };
-                            if (actionQuestId == 1)
-                            {
-                                interaction.Effect |= InteractionEffect.DryoutWater;
-                            }
-                            break;
                     }
 
-                    AddInteractionWithQuest(columnX, rowIndexY, actionQuestId, action, interaction);
+                    AddInteraction(columnX, rowIndexY, action, interaction);
                 }
 
                 // if (lastAction != null && !lastAction.CanRepeat(newaction))
@@ -823,30 +822,6 @@ internal sealed class MapExtractor
         // }
         //
         // tileactions.RemoveAll(toremove.Contains);
-
-        if (!isOverworld) // JOE: TODO: && !isCellar
-        {
-            // if (uwRoomAttrs.HasBlock())
-            // {
-            //     for (var c = _startCol; c < _startCol + _colCount; c += 2)
-            //     {
-            //         var tileRef = _tileMaps[_curTileMapIndex].Refs(UWBlockRow, c);
-            //         if (tileRef == (byte)BlockObjType.TileBlock)
-            //         {
-            //             ActionFuncs[(int)TileAction.Block](UWBlockRow, c, TileInteraction.Load);
-            //             break;
-            //         }
-            //     }
-            // }
-        }
-
-        // for (var i = 0; i < RoomRows * RoomColumns; i++)
-        // {
-        //     var t = map.Refs(i);
-        //     map.Behaviors(i) = _tileBehaviors[t];
-        // }
-
-        // PatchTileBehaviors();
 
         // I now think it's correcter to just use the room flag and then allow it to be negated on a tile by tile basis.
         tileactions = tileactions.Where(t => t.Action != TileAction.Ladder).ToList();
@@ -1176,19 +1151,20 @@ internal unsafe struct LevelInfoBlock
         return result;
     }
 
-    public bool FindCellarRoomIds(RoomId mainRoomId, RoomAttr[] roomAttrs, out RoomId left, out RoomId right)
+    public bool FindCellarRoomIds(RoomId mainRoomId, RoomAttr[] roomAttrs, out RoomId left, out RoomId right, out UWRoomAttr cellarAttrs)
     {
         for (var i = 0; i < LevelCellarCount; i++)
         {
             var cellarRoomId = CellarRoomIds[i];
             if (cellarRoomId >= 0x80) break;
 
-            var uwRoomAttrs = new UWRoomAttr(roomAttrs[cellarRoomId]);
-            left = new RoomId(uwRoomAttrs.GetLeftCellarExitRoomId());
-            right = new RoomId(uwRoomAttrs.GetRightCellarExitRoomId());
+            cellarAttrs = new UWRoomAttr(roomAttrs[cellarRoomId]);
+            left = new RoomId(cellarAttrs.GetLeftCellarExitRoomId());
+            right = new RoomId(cellarAttrs.GetRightCellarExitRoomId());
             if (mainRoomId == left || mainRoomId == right) return true;
         }
 
+        cellarAttrs = default;
         left = new RoomId(0);
         right = new RoomId(0);
         return false;

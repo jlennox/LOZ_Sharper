@@ -358,8 +358,6 @@ internal sealed class GameRoom
 
     // Old zelda stuff that needs to be refactored in action objects and stuff.
     public int? FireballLayout { get; }
-    public string? CellarStairsLeftRoomId { get; set; }
-    public string? CellarStairsRightRoomId { get; set; }
 
     // I'm not super fond of how these checks work. These should likely be moved over to flags.
     public bool IsCellar => World.Settings.WorldType == GameWorldType.UnderworldCommon;
@@ -406,8 +404,6 @@ internal sealed class GameRoom
         }
 
         FireballLayout = map.GetIntPropertyOrNull(TiledRoomProperties.FireballLayout);
-        CellarStairsLeftRoomId = map.GetProperty(TiledRoomProperties.CellarStairsLeft);
-        CellarStairsRightRoomId = map.GetProperty(TiledRoomProperties.CellarStairsRight);
 
         // Stores the entire map's worth of behaviors merged from all sources, with coinciding indexes to the tiles.
         var behaviors = new TileBehavior[Width * Height];
@@ -511,6 +507,14 @@ internal sealed class GameRoom
         _unmodifiedRoomMap = RoomMap.Clone();
 
         IsTriforceRoom = InteractiveGameObjects.Any(t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
+    }
+
+    public void InitializeInteractiveGameObjects(RoomArguments arguments)
+    {
+        foreach (var obj in InteractiveGameObjects)
+        {
+            obj.Interaction.Initialize(arguments);
+        }
     }
 
     public void Reset()

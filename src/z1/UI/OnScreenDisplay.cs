@@ -15,7 +15,7 @@ internal sealed class OnScreenDisplay
     public void Toast(string text)
     {
         _log.Write("Toast", text);
-        _osds.Add(new Entry(text, TimeSpan.FromSeconds(5), Stopwatch.StartNew()));
+        _osds.Add(new Entry(text, TimeSpan.FromSeconds(3), Stopwatch.StartNew()));
     }
 
     public void Draw()

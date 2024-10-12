@@ -148,7 +148,7 @@ internal sealed class InteractiveGameObjectActor : Actor
     }
 
     // The result of this is a bit iffy. At this point, it's designed to know if the recorder should summon the whirlwind.
-    public override bool NontargetedAction(Interaction interaction)
+    public override bool NonTargetedAction(Interaction interaction)
     {
         if (Interactable.Interaction != interaction) return false;
         if (HasInteracted) return true;

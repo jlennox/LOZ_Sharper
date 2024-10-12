@@ -369,6 +369,8 @@ public enum TileAction
     Ghost,
     Armos,
     PushBlock,
+
+    // These ones aren't real :)
     Recorder,
     RecorderDestination,
     Item,

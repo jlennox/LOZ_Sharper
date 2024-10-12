@@ -5154,10 +5154,10 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
         return new DigdoggerActor(game, x, y, childCount);
     }
 
-    public override bool NontargetedAction(Interaction interaction)
+    public override bool NonTargetedAction(Interaction interaction)
     {
         _recorderUsed = 1;
-        return base.NontargetedAction(interaction);
+        return base.NonTargetedAction(interaction);
     }
 
     public override void Update()

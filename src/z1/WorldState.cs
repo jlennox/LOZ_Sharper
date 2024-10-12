@@ -16,7 +16,7 @@ internal struct PlayState
     public short LiftItemTimer;
     public ItemId LiftItemId;
     public int PersonWallY;
-    private DeferredEventSource? _pondDryoutEvent;
+    private DeferredEventSource? _waterDryoutEvent;
 
     public void Reset()
     {
@@ -25,26 +25,26 @@ internal struct PlayState
         LiftItemTimer = 0;
         LiftItemId = 0;
         PersonWallY = 0;
-        CancelPondDryoutEvent();
+        CancelWaterDryoutEvent();
     }
 
-    public DeferredEvent CreatePondDryoutEvent()
+    public DeferredEvent CreateWaterDryoutEvent()
     {
-        _pondDryoutEvent?.SetCompleted();
-        _pondDryoutEvent = new DeferredEventSource();
-        return _pondDryoutEvent.Event;
+        _waterDryoutEvent?.SetCompleted();
+        _waterDryoutEvent = new DeferredEventSource();
+        return _waterDryoutEvent.Event;
     }
 
-    public void CompletePondDryoutEvent()
+    public void CompleteWaterDryoutEvent()
     {
-        _pondDryoutEvent?.SetCompleted();
-        _pondDryoutEvent = null;
+        _waterDryoutEvent?.SetCompleted();
+        _waterDryoutEvent = null;
     }
 
-    public void CancelPondDryoutEvent()
+    public void CancelWaterDryoutEvent()
     {
-        _pondDryoutEvent?.SetCompleted();
-        _pondDryoutEvent = null;
+        _waterDryoutEvent?.SetCompleted();
+        _waterDryoutEvent = null;
     }
 }
 
@@ -106,7 +106,6 @@ internal struct PlayCaveState
     public ObjectState? ObjectState;
     public int Timer;
     public int TargetY;
-    // public SpritePriority playerPriority; // JOE: Unused in C++.
 }
 
 [DebuggerDisplay("{Substate}")]

@@ -329,13 +329,13 @@ internal sealed class Sound
         _effects = new Asset("Effects.json").ReadJson<SongInformation[]>();
         for (var i = 0; i < Effects; i++)
         {
-            _effectSamples[i] = new CachedSound(new Asset("Audio/" + _effects[i].Filename));
+            _effectSamples[i] = new CachedSound(new Asset("Audio", _effects[i].Filename));
         }
 
         _songs = new Asset("Songs.json").ReadJson<SongInformation[]>();
         for (var i = 0; i < Songs; i++)
         {
-            _songFiles[i] = new NamedWaveFileReader(new Asset("Audio/" + _songs[i].Filename));
+            _songFiles[i] = new NamedWaveFileReader(new Asset("Audio", _songs[i].Filename));
         }
 
         _isMuted = configuration.Mute;

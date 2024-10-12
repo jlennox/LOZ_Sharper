@@ -33,8 +33,6 @@ public static class TiledRoomProperties
     // Underworld
     public const string UnderworldDoors = nameof(UnderworldDoors);
     public const string FireballLayout = nameof(FireballLayout);
-    public const string CellarStairsLeft = nameof(CellarStairsLeft);
-    public const string CellarStairsRight = nameof(CellarStairsRight);
 
     public static readonly ImmutableArray<Direction> DoorDirectionOrder = [Direction.Right, Direction.Left, Direction.Down, Direction.Up];
 }
@@ -50,15 +48,6 @@ public static class TiledObjectProperties
 
     // TileBehavior
     public const string TileBehavior = nameof(TileBehavior);
-
-    public static TiledProperty CreateArgument(string name, string value)
-    {
-        return new TiledProperty
-        {
-            Name = $"Argument.{name}",
-            Value = value,
-        };
-    }
 }
 
 public enum TiledArgument
@@ -228,29 +217,45 @@ public enum InteractionEffect
     DryoutWater,
 }
 
-public sealed class InteractableBlock
+public abstract class InteractableBase
 {
     public Interaction Interaction { get; set; }
     public InteractionItemRequirement? ItemRequirement { get; set; }
     public InteractionRequirements Requirements { get; set; }
     public RoomItem? Item { get; set; }
-    // How a push block appears as it moves.
-    public BlockType? ApparanceBlock { get; set; }
-    public Entrance? Entrance { get; set; }
     public InteractionEffect Effect { get; set; }
     // These are root level, not inside CaveSpec, so that we can have an array via multiple properties.
     public CaveShopItem[]? CaveItems { get; set; }
-    public ObjType? SpawnedType { get; set; }
-    public Raft? Raft { get; set; }
     public bool Repeatable { get; set; }
     public bool Persisted { get; set; }
     public string? Reveals { get; set; }
-    public RoomArguments? ArgumentsIn { get; set; }
+    [TiledIgnore, JsonIgnore] public RoomArguments? ArgumentsIn { get; set; }
+}
 
+public sealed class RoomInteractable : InteractableBase
+{
+}
+
+public sealed class InteractableBlock : InteractableBase
+{
+    // How a push block appears as it moves.
+    public BlockType? ApparanceBlock { get; set; }
+    public Entrance? Entrance { get; set; }
+    // These are root level, not inside CaveSpec, so that we can have an array via multiple properties.
+    public ObjType? SpawnedType { get; set; }
+    public Raft? Raft { get; set; }
+
+    [TiledIgnore, JsonIgnore]
+    private bool _isRoomItemFromArgument = false;
+
+    // I really hate how this works. There's the problem that if we change the argument id, that the next time we enter
+    // the room, it won't be ArgumentItemId and will behave wrong.
     public void Initialize(RoomArguments arguments)
     {
-        if (Item?.Item == ItemId.ArgumentItemId)
+        ArgumentsIn = arguments;
+        if (Item != null && (Item.Item == ItemId.ArgumentItemId || _isRoomItemFromArgument))
         {
+            _isRoomItemFromArgument = true;
             Item.Item = ArgumentsIn?.ItemId ?? throw new Exception($"{nameof(ItemId.ArgumentItemId)} is used but no argument provided.");
         }
     }

@@ -166,53 +166,6 @@ internal sealed class GameCheats
         }
     }
 
-    public sealed class CaveSpawnCheat : RegexCheat
-    {
-        private static readonly Regex _full = new(@"^c([\w|\d]{1,10});$", DefaultRegexOptions);
-        private static readonly Regex _partial = new(@"^c([\w|\d]{0,10})?;?$", DefaultRegexOptions);
-
-        protected override Regex FullMatch => _full;
-        protected override Regex PartialMatch => _partial;
-
-        public override void RunPayload(Game game, string[] args)
-        {
-            var target = args[0];
-            CaveId? caveId = target.ToLowerInvariant() switch
-            {
-                "wood" => CaveId.Cave1,
-                "any" => CaveId.Cave2,
-                "white" => CaveId.Cave3WhiteSword,
-                "magic" => CaveId.Cave4MagicSword,
-                "sc" => CaveId.Cave5Shortcut,
-                "gam" => CaveId.Cave7,
-                "mug" => CaveId.Cave8,
-                "med" => CaveId.Cave11MedicineShop,
-                "hint" => CaveId.Cave12LostHillsHint,
-                "hint2" => CaveId.Cave13LostWoodsHint,
-                "shop" => CaveId.Cave15,
-                "shop2" => CaveId.Cave14,
-                "shop3" => CaveId.Cave16,
-                "shop4" => CaveId.Cave17,
-                _ => null,
-            };
-
-            if (int.TryParse(target, out var num))
-            {
-                caveId = CaveId.Cave1 + num - 1;
-            }
-
-            if (caveId == null)
-            {
-                game.Toast("Invalid cave. " + string.Join(", ", args));
-                return;
-            }
-
-            // Need to be sure all the objects are flushed.
-            game.World.KillAllObjects();
-            // JOE: TODO: MAP REWRITE game.World.MakeCaveObjects(caveId.Value);
-        }
-    }
-
     public sealed class SpawnCheat : RegexCheat
     {
         private static readonly Regex _full = new(@"^s(\w{1,15});$", DefaultRegexOptions);
@@ -394,7 +347,6 @@ internal sealed class GameCheats
     private readonly ImmutableArray<Cheat> _cheats = [
         new OverworldWarpCheat(),
         new DungeonWarpCheat(),
-        new CaveSpawnCheat(),
         new GodModeCheat(),
         new ItemCheat(),
         new ClearSecretsCheat(),

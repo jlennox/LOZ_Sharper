@@ -9,6 +9,9 @@ namespace z1;
 
 // Sharper bugs (minor):
 // * Can't hit the underworld cave people.
+// * For one frame when leaving a cave, player appears in the wrong spot.
+// * Compass does not work unless you have the map.
+// * FoesDoor isn't a thing yet.
 
 // Sharper:
 // * Rectify MarginRight.

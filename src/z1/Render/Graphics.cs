@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
@@ -29,7 +28,6 @@ internal enum TileSheet
     Boss3468,
     Boss9,
     Font,
-    Max,
 }
 
 internal sealed class ImageSheet

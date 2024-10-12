@@ -780,7 +780,6 @@ public sealed class TiledProjectCustomProperty
 
     public static IEnumerable<TiledProjectCustomProperty> From(params Type[] types)
     {
-        var id = 0;
         var hasSeen = new HashSet<Type>();
         var toevaluate = new Stack<Type>(types);
 
@@ -793,13 +792,13 @@ public sealed class TiledProjectCustomProperty
             var innerType = type.GetInnerType();
             if (innerType.IsEnum)
             {
-                yield return FromEnum(type, id++);
+                yield return FromEnum(type);
                 continue;
             }
 
             if (type == typeof(string)) continue;
 
-            yield return FromClass(innerType, id++, out var nestedTypes);
+            yield return FromClass(innerType, out var nestedTypes);
 
             foreach (var nestedType in nestedTypes)
             {
@@ -808,7 +807,7 @@ public sealed class TiledProjectCustomProperty
         }
     }
 
-    private static TiledProjectCustomProperty FromEnum(Type type, int id)
+    private static TiledProjectCustomProperty FromEnum(Type type)
     {
         var names = Enum.GetNames(type)
             .Where(name => !(type.GetField(name) ?? throw new Exception())
@@ -818,7 +817,6 @@ public sealed class TiledProjectCustomProperty
 
         return new TiledProjectCustomProperty
         {
-            Id = id,
             Name = type.Name,
             StorageType = "string",
             Type = TiledProjectCustomPropertyType.Enum,
@@ -827,7 +825,7 @@ public sealed class TiledProjectCustomProperty
         };
     }
 
-    private static TiledProjectCustomProperty FromClass(Type type, int id, out Type[] nestedTypes)
+    private static TiledProjectCustomProperty FromClass(Type type, out Type[] nestedTypes)
     {
         var properties = type
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -885,7 +883,6 @@ public sealed class TiledProjectCustomProperty
 
         return new TiledProjectCustomProperty
         {
-            Id = id,
             Name = type.Name,
             Type = TiledProjectCustomPropertyType.Class,
             Members = members,
