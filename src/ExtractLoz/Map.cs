@@ -494,6 +494,7 @@ internal sealed class MapExtractor
             var rec = recorderPosition.Value.GetRoomCoord();
             AddInteractionWithQuest(rec.X * 2, rec.Y * 2, actionQuestId, TileAction.Recorder, new InteractableBlock
             {
+                Name = nameof(TileAction.Recorder),
                 Interaction = Interaction.Recorder,
                 Entrance = caveEntrance,
                 Effect = effect,
@@ -509,6 +510,7 @@ internal sealed class MapExtractor
                 var item = roomItem.Value;
                 AddInteractionP(GetTileCoords(item.X, item.Y), TileAction.Item, new InteractableBlock
                 {
+                    Name = nameof(TileAction.Item),
                     Interaction = Interaction.None,
                     Item = new RoomItem { Item = item.AsItemId }
                 });
@@ -529,14 +531,20 @@ internal sealed class MapExtractor
                     ? InteractionRequirements.AllEnemiesDefeated
                     : InteractionRequirements.None;
 
+                var effect = secret is Secret.FoesItem or Secret.FoesDoor
+                    ? InteractionEffect.OpenShutterDoors
+                    : InteractionEffect.None;
+
                 // I have no idea why this is required and it really shouldn't be.
                 var yItemOffset = isCellar ? 4 * TileHeight : 0;
 
                 AddInteractionP(GetTileCoords(pos.X, pos.Y + yItemOffset), TileAction.Item, new InteractableBlock
                 {
+                    Name = nameof(TileAction.Item),
                     Interaction = Interaction.None,
                     Requirements = requirement,
                     Item = new RoomItem { Item = uwItemId },
+                    Effect = effect,
                     Persisted = true,
                 });
             }
@@ -545,6 +553,7 @@ internal sealed class MapExtractor
             {
                 AddInteractionP(GetTileCoords(0xD0, 0x60), TileAction.Stairs, new InteractableBlock
                 {
+                    Name = nameof(TileAction.Stairs),
                     Interaction = Interaction.Revealed,
                     Entrance = EntranceWith(BlockType.Stairs),
                 });
@@ -554,6 +563,7 @@ internal sealed class MapExtractor
             {
                 AddInteraction(RoomTileWidth / 2 - 1, RoomTileHeight / 2 - 1, TileAction.Item, new InteractableBlock
                 {
+                    Name = nameof(TileAction.Item),
                     Interaction = Interaction.None,
                     Item = new RoomItem { Item = ItemId.TriforcePiece },
                     Persisted = true,
@@ -576,6 +586,7 @@ internal sealed class MapExtractor
             {
                 Secret.BlockStairs => new InteractableBlock
                 {
+                    Name = nameof(TileAction.Push),
                     Interaction = Interaction.Push,
                     ApparanceBlock = BlockType.Block,
                     Repeatable = false,
@@ -583,6 +594,7 @@ internal sealed class MapExtractor
                 },
                 Secret.BlockDoor => new InteractableBlock
                 {
+                    Name = nameof(TileAction.Push),
                     Interaction = Interaction.Push,
                     ApparanceBlock = BlockType.Block,
                     Repeatable = false,
@@ -592,6 +604,7 @@ internal sealed class MapExtractor
                 },
                 Secret.None => new InteractableBlock
                 {
+                    Name = nameof(TileAction.Push),
                     Interaction = Interaction.Push,
                     ApparanceBlock = BlockType.Block,
                     Repeatable = false,
@@ -610,6 +623,7 @@ internal sealed class MapExtractor
             GetRoomCoord(stairsPos, out var stairsRow, out var stairsCol);
             AddInteraction(stairsCol * 2, stairsRow * 2, TileAction.Cave, new InteractableBlock
             {
+                Name = "Shortcut",
                 Interaction = Interaction.None,
                 Entrance = EntranceWith(BlockType.Cave),
             });
@@ -683,6 +697,7 @@ internal sealed class MapExtractor
                 {
                     var interaction = new InteractableBlock
                     {
+                        Name = action.ToString(),
                         Interaction = interactionType,
                     };
 

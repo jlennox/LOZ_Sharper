@@ -207,7 +207,7 @@ internal sealed class PersonActor : Actor
         if (base.Delete())
         {
             if (_spec.DoesControlsBlockingWall) Game.World.SetPersonWallY(0);
-            if (_spec.DoesControlsShutters) Game.World.OpenShutters();
+            if (_spec.DoesControlsShutters) Game.World.TriggerShutters(); // JOE: NOTE: In the original code, this was OpenShutters.
             foreach (var item in _itemActors) item.Delete();
             return true;
         }

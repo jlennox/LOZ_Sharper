@@ -114,9 +114,14 @@ internal partial class World
 
     private void LoadLayout(GameRoom room)
     {
-        foreach (var actionObject in room.InteractiveGameObjects)
+        foreach (var interactableBlock in room.InteractableBlockObjects)
         {
-            _objects.Add(new InteractiveGameObjectActor(Game, actionObject));
+            _objects.Add(new InteractableBlockActor(Game, interactableBlock));
+        }
+
+        foreach (var roomInteraction in room.RoomInteractions)
+        {
+            _objects.Add(new RoomInteractionActor(Game, roomInteraction));
         }
     }
 

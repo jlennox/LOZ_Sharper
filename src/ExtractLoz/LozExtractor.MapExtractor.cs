@@ -47,24 +47,24 @@ public unsafe partial class LozExtractor
 
     private static readonly Dictionary<LevelGroupMap, int> _levelGroupMap = new()
     {
-        { new(0, 1), 0 },
-        { new(0, 2), 0 },
-        { new(0, 3), 0 },
-        { new(0, 4), 0 },
-        { new(0, 5), 0 },
-        { new(0, 6), 0 },
-        { new(0, 7), 1 },
-        { new(0, 8), 1 },
-        { new(0, 9), 1 },
-        { new(1, 1), 2 },
-        { new(1, 2), 2 },
-        { new(1, 3), 2 },
-        { new(1, 4), 2 },
-        { new(1, 5), 2 },
-        { new(1, 6), 2 },
-        { new(1, 7), 3 },
-        { new(1, 8), 3 },
-        { new(1, 9), 3 },
+        { new LevelGroupMap(0, 1), 0 },
+        { new LevelGroupMap(0, 2), 0 },
+        { new LevelGroupMap(0, 3), 0 },
+        { new LevelGroupMap(0, 4), 0 },
+        { new LevelGroupMap(0, 5), 0 },
+        { new LevelGroupMap(0, 6), 0 },
+        { new LevelGroupMap(0, 7), 1 },
+        { new LevelGroupMap(0, 8), 1 },
+        { new LevelGroupMap(0, 9), 1 },
+        { new LevelGroupMap(1, 1), 2 },
+        { new LevelGroupMap(1, 2), 2 },
+        { new LevelGroupMap(1, 3), 2 },
+        { new LevelGroupMap(1, 4), 2 },
+        { new LevelGroupMap(1, 5), 2 },
+        { new LevelGroupMap(1, 6), 2 },
+        { new LevelGroupMap(1, 7), 3 },
+        { new LevelGroupMap(1, 8), 3 },
+        { new LevelGroupMap(1, 9), 3 },
     };
     private static byte[,] _wallTileMap = null;
     private static string[] _textTable = null;
@@ -290,6 +290,7 @@ public unsafe partial class LozExtractor
             var owRoomAttrs = new OWRoomAttr(roomAttr);
             var uwRoomAttrs = new UWRoomAttr(roomAttr);
             var isCellar = resources.IsCellarRoom(roomId);
+            var roomInteractions = new List<RoomInteraction>();
 
             properties.Add(new TiledProperty(TiledRoomProperties.Id, name ?? roomId.GetGameRoomId()));
 
@@ -406,6 +407,17 @@ public unsafe partial class LozExtractor
                 if (ambientSoundInt != 0) ambientSound = SoundEffect.BossRoar1 + ambientSoundInt - 1;
                 if (resources.LevelInfoBlock.BossRoomId == roomId.Id) roomOptions |= RoomFlags.IsBossRoom;
                 if (uwRoomAttrs.IsDark()) roomOptions |= RoomFlags.IsDark;
+
+                if (uwRoomAttrs.GetSecret() == Secret.FoesDoor)
+                {
+                    roomInteractions.Add(new RoomInteraction
+                    {
+                        Name = "FoesDoor",
+                        Interaction = Interaction.None,
+                        Requirements = InteractionRequirements.AllEnemiesDefeated,
+                        Effect = InteractionEffect.OpenShutterDoors,
+                    });
+                }
             }
 
             if (resources.FindSparseFlag(roomId, Sparse.Ladder)) roomOptions |= RoomFlags.IsLadderAllowed;
@@ -413,6 +425,15 @@ public unsafe partial class LozExtractor
             {
                 properties.Add(TiledProperty.ForClass(TiledRoomProperties.EntryPosition, new EntryPosition(World.StartX, resources.LevelInfoBlock.StartY, Direction.Up)));
                 roomOptions |= RoomFlags.IsEntryRoom;
+            }
+
+            if (roomInteractions.Count > 0)
+            {
+                var interactions = new RoomInteractions
+                {
+                    Interactions = roomInteractions.ToArray(),
+                };
+                properties.AddRange(TiledPropertySerializer<RoomInteractions>.Serialize(interactions));
             }
 
             properties.Add(TiledProperty.ForClass(TiledRoomProperties.RoomSettings, new RoomSettings

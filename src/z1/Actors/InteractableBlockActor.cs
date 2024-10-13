@@ -4,46 +4,60 @@ using z1.Render;
 
 namespace z1.Actors;
 
-[DebuggerDisplay("{GameObject.Name} ({X},{Y})")]
-internal sealed class InteractiveGameObjectActor : Actor
+
+[DebuggerDisplay("{Interactable.Name} ({X},{Y})")]
+internal abstract class InteractableActor<T> : Actor
+    where T : InteractableBase
 {
-    private const int MaxSpawnCount = 16;
+    protected enum UpdateState { None, HasInteracted, Check }
 
-    public InteractableBlock Interactable => GameObject.Interaction;
-    public InteractiveGameObject GameObject { get; }
+    public T Interactable { get; }
 
-    private bool HasInteracted => (_state.HasInteracted && Interactable.Persisted)
+    protected bool HasInteracted => (State.HasInteracted && Interactable.Persisted)
         || _hasInteracted
         || Interactable.Interaction == Interaction.None;
+    protected readonly ObjectState State;
 
-    private readonly ObjectState _state;
-    private readonly RaftInteraction? _raft;
-    private readonly PushInteraction? _push;
     private bool _hasSoundPlayed;
     private bool _hasInteracted;
     private DeferredEvent? _deferredEvent;
     // This is used for when the code externally sets an interaction. It'll check on the following Update() if all the other criteria are met.
-    private bool _hasPerformedInteraction = false;
+    private bool _hasPerformedInteraction;
+    // This is to avoid a virtual call in the initializer.
+    // NOTE: This might be better off setting _hasInteracted, and having CheckRequirements pass if that's set.
+    private bool _setInteracted;
 
-    public InteractiveGameObjectActor(Game game, InteractiveGameObject gameObject)
-        : base(game, ObjType.Block, gameObject.X, gameObject.Y + World.TileMapBaseY)
+    protected InteractableActor(Game game, T interactable, int x, int y)
+        : base(game, ObjType.Block, x, y + World.TileMapBaseY)
     {
-        GameObject = gameObject;
-        _state = game.World.Profile.GetObjectFlags(game.World.CurrentRoom, gameObject);
+        Interactable = interactable;
+        State = game.World.Profile.GetObjectFlags(game.World.CurrentRoom, interactable.Name);
         Decoration = 0;
 
-        _raft = RaftInteraction.Create(game, this);
-        _push = PushInteraction.Create(game, this);
-
-        if (HasInteracted) SetInteracted(true);
+        // This used to use _setInteracted, but that failed because things set to None then would not check if the
+        // Requirements are met. The idea behind _setInteracted was that it wouldn't check requirements, incase you
+        // trigger something, then lose that. IE, later in the quest you lose the item and that's ok. But we can
+        // recross this bridge when and if it comes up again.
+        if (HasInteracted) _hasPerformedInteraction = true;
     }
 
     public void DebugSetInteracted() => SetInteracted(false);
 
     public override void Update()
     {
-        if (!CheckRequirements()) return;
-        if (!CheckItemRequirement()) return;
+        if (_setInteracted)
+        {
+            _setInteracted = false;
+            SetInteracted(true);
+        }
+
+        UpdateCore();
+    }
+
+    protected virtual UpdateState UpdateCore()
+    {
+        if (!CheckRequirements()) return UpdateState.None;
+        if (!CheckItemRequirement()) return UpdateState.None;
 
         if (_deferredEvent != null)
         {
@@ -52,25 +66,21 @@ internal sealed class InteractiveGameObjectActor : Actor
                 _deferredEvent = null;
                 SetInteracted(false);
             }
-            return;
+            return UpdateState.None;
         }
 
-        if (HasInteracted)
-        {
-            UpdateCaveEntrance();
-            _raft?.Update();
-            return;
-        }
-
-        if (CheckBombable() || CheckBurnable() || CheckCover() || (_push?.Check() ?? false) || _hasPerformedInteraction)
+        if (_hasPerformedInteraction)
         {
             _hasPerformedInteraction = false;
-            if (CheckDeferredEvent()) return;
+            if (CheckDeferredEvent()) return UpdateState.None;
             SetInteracted(false);
+            return UpdateState.HasInteracted;
         }
+
+        return HasInteracted ? UpdateState.HasInteracted : UpdateState.Check;
     }
 
-    private void OptionalSound(bool initializing)
+    protected void OptionalSound(bool initializing)
     {
         if (initializing || _hasSoundPlayed) return;
         _hasSoundPlayed = true;
@@ -90,14 +100,106 @@ internal sealed class InteractiveGameObjectActor : Actor
         return false;
     }
 
-    private void SetInteracted(bool initializing)
+    protected virtual void SetInteracted(bool initializing)
     {
         _hasInteracted = true;
 
         if (Interactable.Persisted)
         {
-            _state.HasInteracted = true;
+            State.HasInteracted = true;
         }
+
+        if (Interactable.Effect.HasFlag(InteractionEffect.OpenShutterDoors))
+        {
+            OptionalSound(initializing);
+            Game.World.TriggerShutters();
+        }
+    }
+
+    // The result of this is a bit iffy. At this point, it's designed to know if the recorder should summon the whirlwind.
+    public override bool NonTargetedAction(Interaction interaction)
+    {
+        if (Interactable.Interaction != interaction) return false;
+        if (HasInteracted) return true;
+        _hasPerformedInteraction = true;
+        return true;
+    }
+
+    private bool CheckRequirements()
+    {
+        if (Interactable.Requirements.HasFlag(InteractionRequirements.AllEnemiesDefeated))
+        {
+            if (Game.World.HasLivingObjects()) return false;
+        }
+
+        return true;
+    }
+
+    private bool CheckItemRequirement()
+    {
+        var requirement = Interactable.ItemRequirement;
+        if (requirement == null) return true;
+        var actualValue = Game.World.GetItem(requirement.ItemSlot);
+        return actualValue >= requirement.ItemLevel;
+    }
+}
+
+internal sealed class RoomInteractionActor : InteractableActor<RoomInteraction>
+{
+    public RoomInteractionActor(Game game, RoomInteraction interactable)
+        : base(game, interactable, 0, 0)
+    {
+    }
+
+    public override void Draw() { }
+}
+
+[DebuggerDisplay("{GameObject.Name} ({X},{Y})")]
+internal sealed class InteractableBlockActor : InteractableActor<InteractableBlock>
+{
+    private const int MaxSpawnCount = 16;
+
+    public InteractableBlockObject GameObject { get; }
+
+    private readonly RaftInteraction? _raft;
+    private readonly PushInteraction? _push;
+
+    public InteractableBlockActor(Game game, InteractableBlockObject gameObject)
+        : base(game, gameObject.Interaction, gameObject.X, gameObject.Y)
+    {
+        GameObject = gameObject;
+
+        _raft = RaftInteraction.Create(game, this);
+        _push = PushInteraction.Create(game, this);
+    }
+
+    protected override UpdateState UpdateCore()
+    {
+        switch (base.UpdateCore())
+        {
+            case UpdateState.None:
+                return UpdateState.None;
+
+            case UpdateState.HasInteracted:
+                UpdateCaveEntrance();
+                _raft?.Update();
+                return UpdateState.HasInteracted;
+
+            case UpdateState.Check:
+                if (CheckBombable() || CheckBurnable() || CheckCover() || (_push?.Check() ?? false))
+                {
+                    SetInteracted(false);
+                    return UpdateState.HasInteracted;
+                }
+                return UpdateState.Check;
+        }
+
+        throw new UnreachableException();
+    }
+
+    protected override void SetInteracted(bool initializing)
+    {
+        base.SetInteracted(initializing);
 
         if (Interactable.Entrance.IsValid())
         {
@@ -119,12 +221,12 @@ internal sealed class InteractiveGameObjectActor : Actor
             OptionalSound(initializing);
         }
 
-        if (Interactable.Item != null && !_state.ItemGot)
+        if (Interactable.Item != null && !State.ItemGot)
         {
             var itemId = Interactable.Item.Item;
             var flags = Interactable.Item.IsRoomItem ? ItemObjActorOptions.IsRoomItem : ItemObjActorOptions.None;
             var itemActor = new ItemObjActor(Game, itemId, flags, X, Y);
-            itemActor.OnTouched += _ => _state.ItemGot = true;
+            itemActor.OnTouched += _ => State.ItemGot = true;
             Game.World.AddObject(itemActor);
             OptionalSound(initializing);
         }
@@ -139,21 +241,6 @@ internal sealed class InteractiveGameObjectActor : Actor
                     X / World.TileWidth, Y / World.TileHeight - World.BaseRows);
             }
         }
-
-        if (Interactable.Effect.HasFlag(InteractionEffect.OpenShutterDoors))
-        {
-            OptionalSound(initializing);
-            Game.World.OpenShutters();
-        }
-    }
-
-    // The result of this is a bit iffy. At this point, it's designed to know if the recorder should summon the whirlwind.
-    public override bool NonTargetedAction(Interaction interaction)
-    {
-        if (Interactable.Interaction != interaction) return false;
-        if (HasInteracted) return true;
-        _hasPerformedInteraction = true;
-        return true;
     }
 
     private void UpdateCaveEntrance()
@@ -167,25 +254,7 @@ internal sealed class InteractiveGameObjectActor : Actor
         if (Game.World.FromUnderground != 0) return;
 
         if (!Game.World.Player.DoesCover(this)) return;
-        Game.World.GotoStairs(TileBehavior.Cave, caveEntrance, _state);
-    }
-
-    private bool CheckRequirements()
-    {
-        if (Interactable.Requirements.HasFlag(InteractionRequirements.AllEnemiesDefeated))
-        {
-            if (Game.World.HasLivingObjects()) return false;
-        }
-
-        return true;
-    }
-
-    private bool CheckItemRequirement()
-    {
-        var requirement = Interactable.ItemRequirement;
-        if (requirement == null) return true;
-        var actualValue = Game.World.GetItem(requirement.ItemSlot);
-        return actualValue >= requirement.ItemLevel;
+        Game.World.GotoStairs(TileBehavior.Cave, caveEntrance, State);
     }
 
     private bool CheckBombable()
@@ -236,7 +305,7 @@ internal sealed class PushInteraction
     private int _pushTimer;
 
     private readonly Game _game;
-    private readonly InteractiveGameObjectActor _interactive;
+    private readonly InteractableBlockActor _interactive;
     private readonly int _width;
     private readonly int _height;
     private readonly int _timerLimit;
@@ -247,7 +316,7 @@ internal sealed class PushInteraction
     private MovingBlockActor? _movingActor;
 
     public PushInteraction(
-        Game game, InteractiveGameObjectActor interactive,
+        Game game, InteractableBlockActor interactive,
         Interaction interaction, int width, int height)
     {
         _game = game;
@@ -287,7 +356,7 @@ internal sealed class PushInteraction
         }
     }
 
-    public static PushInteraction? Create(Game game, InteractiveGameObjectActor interactive)
+    public static PushInteraction? Create(Game game, InteractableBlockActor interactive)
     {
         var gameobj = interactive.GameObject;
         if (gameobj.Interaction.Interaction
@@ -397,15 +466,15 @@ internal sealed class PushInteraction
 internal sealed class RaftInteraction
 {
     private readonly Game _game;
-    private readonly InteractiveGameObjectActor _interactive;
+    private readonly InteractableBlockActor _interactive;
     private readonly Raft _raft;
-    private readonly InteractiveGameObject _gameObject;
+    private readonly InteractableBlockObject _gameObject;
     private readonly SpriteImage _raftImage;
     private readonly Point _raftOpposite;
 
     private Direction? _raftDirection;
 
-    public RaftInteraction(Game game, InteractiveGameObjectActor interactive)
+    public RaftInteraction(Game game, InteractableBlockActor interactive)
     {
         _game = game;
         _interactive = interactive;
@@ -423,7 +492,7 @@ internal sealed class RaftInteraction
         };
     }
 
-    public static RaftInteraction? Create(Game game, InteractiveGameObjectActor interactive)
+    public static RaftInteraction? Create(Game game, InteractableBlockActor interactive)
     {
         if (interactive.GameObject.Interaction.Raft != null)
         {

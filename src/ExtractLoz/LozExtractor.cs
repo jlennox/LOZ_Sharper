@@ -2707,30 +2707,6 @@ public partial class LozExtractor
         return ListResource<LevelInfoBlock>.LoadSingle(stream.ToArray());
     }
 
-    private static void WriteLevelDir(Options options, int quest, int level, LevelDirectory dir)
-    {
-        // var filePath = string.Format("levelDir_{0}_{1}.json", quest, level);
-        // options.AddJson(filePath, dir);
-    }
-
-    private static void WriteFixedString(Stream stream, string s, int length)
-    {
-        if (s == null)
-            s = "";
-        if (s.Length >= length)
-            throw new ArgumentException("s");
-
-        var bytes = System.Text.Encoding.ASCII.GetBytes(s);
-        stream.Write(bytes, 0, bytes.Length);
-
-        int lenToWrite = length - bytes.Length;
-
-        for (int i = 0; i < lenToWrite; i++)
-        {
-            stream.WriteByte(0);
-        }
-    }
-
     private delegate void ReadTranslateDelegate(BinaryReader reader, BinaryWriter writer);
 
     public sealed class ObjectAttr

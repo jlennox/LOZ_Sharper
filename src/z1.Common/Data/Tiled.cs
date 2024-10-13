@@ -957,7 +957,7 @@ public static class TiledPropertySerializer<T>
         {
             var innerType = type.GetInnerType(out _, out var isNullable);
 
-            if (innerType.IsClass)
+            if (innerType.IsClass && innerType != typeof(string))
             {
                 return tiledProperty?.ClassValue;
             }

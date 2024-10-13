@@ -210,7 +210,7 @@ internal sealed class GameWorldMap
 [DebuggerDisplay("{Name}")]
 internal sealed class GameWorld
 {
-    public string Id => Name; // not sure if these will remain the same.
+    public string UniqueId => Name; // not sure if these will remain the same.
     public string Name { get; }
     public GameRoom[] Rooms { get; }
     public GameRoom EntryRoom { get; }
@@ -305,14 +305,15 @@ internal sealed class GameWorld
 
     public GameRoom GetRoomById(string id)
     {
-        return Rooms.FirstOrDefault(t => id.IEquals(t.Id))
+        return Rooms.FirstOrDefault(t => id.IEquals(t.UniqueId))
             ?? throw new Exception($"Unable to find room id \"{id}\" in world \"{Name}\"");
     }
 }
 
-[DebuggerDisplay("{World.Id}/{Id} ({Name})")]
+[DebuggerDisplay("{World.UniqueId}/{UniqueId} ({Name})")]
 internal sealed class GameRoom
 {
+    public string UniqueId { get; }
     public string Id { get; }
     public GameWorld World { get; }
     public TiledWorldEntry WorldEntry { get; }
@@ -332,7 +333,8 @@ internal sealed class GameRoom
     private GameMapTileLayer? PaletteLayer { get; }
     private GameMapTileLayer? BehaviorLayer { get; }
     public GameMapObjectLayer ObjectLayer { get; }
-    public ImmutableArray<InteractiveGameObject> InteractiveGameObjects { get; set; }
+    public ImmutableArray<InteractableBlockObject> InteractableBlockObjects { get; set; }
+    public ImmutableArray<RoomInteraction> RoomInteractions { get; set; }
     public bool HasUnderworldDoors { get; }
     public Dictionary<Direction, DoorType> UnderworldDoors { get; } = [];
     public ImmutableArray<MonsterEntry> Monsters { get; set; }
@@ -387,6 +389,7 @@ internal sealed class GameRoom
         RoomMap = new RoomTileMap(Width, Height);
 
         Id = map.GetProperty(TiledRoomProperties.Id) ?? throw new Exception("Room has no room id.");
+        UniqueId = $"{world.UniqueId}/{Id}";
         Monsters = MonsterEntry.ParseMonsters(map.GetProperty(TiledRoomProperties.Monsters), out var zoraCount);
         ZoraCount = zoraCount;
         MonstersEnter = map.GetBooleanProperty(TiledRoomProperties.MonstersEnter);
@@ -457,7 +460,9 @@ internal sealed class GameRoom
 
         Layers = layers.ToArray();
         ObjectLayer = new GameMapObjectLayer(this, objectLayers.SelectMany(t => t.Objects ?? []));
-        InteractiveGameObjects = ObjectLayer.Objects.OfType<InteractiveGameObject>().ToImmutableArray();
+        InteractableBlockObjects = ObjectLayer.Objects.OfType<InteractableBlockObject>().ToImmutableArray();
+        var roomInteractions = TiledPropertySerializer<RoomInteractions>.Deserialize(map);
+        RoomInteractions = roomInteractions.Interactions.ToImmutableArray();
 
         BackgroundLayer ??= Layers.FirstOrDefault()
             ?? throw new Exception($"Unable to find background layer for map {name}");
@@ -506,14 +511,19 @@ internal sealed class GameRoom
         _waterTileCount = CountWaterTiles();
         _unmodifiedRoomMap = RoomMap.Clone();
 
-        IsTriforceRoom = InteractiveGameObjects.Any(t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
+        IsTriforceRoom = InteractableBlockObjects.Any(t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
     }
 
     public void InitializeInteractiveGameObjects(RoomArguments arguments)
     {
-        foreach (var obj in InteractiveGameObjects)
+        foreach (var obj in InteractableBlockObjects)
         {
             obj.Interaction.Initialize(arguments);
+        }
+
+        foreach (var obj in RoomInteractions)
+        {
+            obj.Initialize(arguments);
         }
     }
 
@@ -622,7 +632,7 @@ internal sealed class GameRoom
         return true;
     }
 
-    public override string ToString() => $"{World.Name}/{Id} ({Name})";
+    public override string ToString() => $"{World.Name}/{UniqueId} ({Name})";
 }
 
 internal sealed class GameMapTileLayer
@@ -759,10 +769,10 @@ internal sealed class RoomTileMap
 [DebuggerDisplay("{Name}")]
 internal sealed class GameMapReference
 {
-    public InteractiveGameObject MapObject { get; }
+    public InteractableBlockObject MapObject { get; }
     public string Name { get; }
 
-    public GameMapReference(InteractiveGameObject mapObject, string name)
+    public GameMapReference(InteractableBlockObject mapObject, string name)
     {
         MapObject = mapObject;
         Name = name;
@@ -770,13 +780,13 @@ internal sealed class GameMapReference
 }
 
 [DebuggerDisplay("{Name}")]
-internal sealed class InteractiveGameObject : GameMapObject
+internal sealed class InteractableBlockObject : GameMapObject
 {
     public string Id { get; }
 
     public InteractableBlock Interaction { get; set; }
 
-    public InteractiveGameObject(GameRoom room, TiledLayerObject layerObject, InteractableBlock interaction) : base(room, layerObject)
+    public InteractableBlockObject(GameRoom room, TiledLayerObject layerObject, InteractableBlock interaction) : base(room, layerObject)
     {
         var idProperty = layerObject.GetProperty(TiledRoomProperties.Id);
         Interaction = interaction;
@@ -837,7 +847,7 @@ internal sealed class GameMapObjectLayer
                         cavespec.Items = interactable.CaveItems;
                     }
 
-                    list.Add(new InteractiveGameObject(room, obj, interactable));
+                    list.Add(new InteractableBlockObject(room, obj, interactable));
                     break;
             }
         }

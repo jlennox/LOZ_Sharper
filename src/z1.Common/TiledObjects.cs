@@ -219,21 +219,21 @@ public enum InteractionEffect
 
 public abstract class InteractableBase
 {
+    public required string Name { get; init; }
     public Interaction Interaction { get; set; }
     public InteractionItemRequirement? ItemRequirement { get; set; }
     public InteractionRequirements Requirements { get; set; }
-    public RoomItem? Item { get; set; }
     public InteractionEffect Effect { get; set; }
-    // These are root level, not inside CaveSpec, so that we can have an array via multiple properties.
-    public CaveShopItem[]? CaveItems { get; set; }
-    public bool Repeatable { get; set; }
     public bool Persisted { get; set; }
     public string? Reveals { get; set; }
     [TiledIgnore, JsonIgnore] public RoomArguments? ArgumentsIn { get; set; }
+
+    public abstract void Initialize(RoomArguments arguments);
 }
 
-public sealed class RoomInteractable : InteractableBase
+public sealed class RoomInteraction : InteractableBase
 {
+    public override void Initialize(RoomArguments arguments) { }
 }
 
 public sealed class InteractableBlock : InteractableBase
@@ -241,16 +241,19 @@ public sealed class InteractableBlock : InteractableBase
     // How a push block appears as it moves.
     public BlockType? ApparanceBlock { get; set; }
     public Entrance? Entrance { get; set; }
-    // These are root level, not inside CaveSpec, so that we can have an array via multiple properties.
     public ObjType? SpawnedType { get; set; }
     public Raft? Raft { get; set; }
+    public RoomItem? Item { get; set; }
+    // These are root level, not inside CaveSpec, so that we can have an array via multiple properties.
+    public CaveShopItem[]? CaveItems { get; set; }
+    public bool Repeatable { get; set; }
 
     [TiledIgnore, JsonIgnore]
-    private bool _isRoomItemFromArgument = false;
+    private bool _isRoomItemFromArgument;
 
     // I really hate how this works. There's the problem that if we change the argument id, that the next time we enter
     // the room, it won't be ArgumentItemId and will behave wrong.
-    public void Initialize(RoomArguments arguments)
+    public override void Initialize(RoomArguments arguments)
     {
         ArgumentsIn = arguments;
         if (Item != null && (Item.Item == ItemId.ArgumentItemId || _isRoomItemFromArgument))
@@ -303,6 +306,12 @@ public sealed class RoomSettings
     [TiledIgnore, JsonIgnore] public bool IsDark => Options.HasFlag(RoomFlags.IsDark);
     [TiledIgnore, JsonIgnore] public bool HideMap => Options.HasFlag(RoomFlags.ShowPreviousMap);
     [TiledIgnore, JsonIgnore] public bool HiddenFromMap => Options.HasFlag(RoomFlags.HiddenFromMap);
+}
+
+[TiledClass]
+public sealed class RoomInteractions
+{
+    public required RoomInteraction[] Interactions { get; init; }
 }
 
 [TiledClass]
