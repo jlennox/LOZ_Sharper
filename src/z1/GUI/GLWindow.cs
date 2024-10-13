@@ -16,11 +16,15 @@ namespace z1.GUI;
 
 internal sealed class GLWindow : IDisposable
 {
+    private readonly bool _headless;
     private const float AnalogThreshold = .8f;
 
     private static readonly DebugLog _log = new(nameof(GLWindow));
 
     public Game Game = null!;
+
+    public WaitHandle OnloadEvent => _onloadEvent.WaitHandle;
+    private readonly ManualResetEventSlim _onloadEvent = new();
 
     public bool IsFullScreen => _window?.WindowBorder == WindowBorder.Hidden;
 
@@ -35,10 +39,12 @@ internal sealed class GLWindow : IDisposable
     private ImGuiController _controller;
     private System.Drawing.Rectangle _windowedRect;
     private bool _showMenu = false;
+    private bool _lastShowMenu = false;
     private bool _lastKeyWasAlt = false;
 
-    public GLWindow()
+    public GLWindow(bool headless = false)
     {
+        _headless = headless;
         try
         {
             Asset.Initialize();
@@ -67,8 +73,9 @@ internal sealed class GLWindow : IDisposable
         _window.FocusChanged += OnFocusChanged;
         _window.Initialize();
         _window.SetWindowIcon([EmbeddedResource.GetWindowIcon()]);
-        _window.Run();
         _windowedRect = _window.GetRect();
+
+        if (!headless) _window.Run();
     }
 
     private void OnLoad()
@@ -97,6 +104,8 @@ internal sealed class GLWindow : IDisposable
         _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);
 
         UpdateViewport();
+
+        _onloadEvent.Set();
     }
 
     private void OnFramebufferResize(Vector2D<int> size)
@@ -274,6 +283,12 @@ internal sealed class GLWindow : IDisposable
     {
         _showMenu = _lastKeyWasAlt && key is Key.AltLeft or Key.AltRight && !_showMenu;
 
+        if (_showMenu && !_lastShowMenu)
+        {
+            GLWindowGui.Update();
+            _lastShowMenu = _showMenu;
+        }
+
         Game.Input.UnsetKey(GetKeyMapping(kb, key));
     }
     #endregion
@@ -324,6 +339,8 @@ internal sealed class GLWindow : IDisposable
 
     private void Render(double deltaSeconds)
     {
+        if (_headless) return;
+
         var gl = _gl ?? throw new Exception();
         var window = _window ?? throw new Exception();
 

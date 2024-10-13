@@ -1,5 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Text.Json;
 using z1.Actors;
+using z1.Common.IO;
 using z1.IO;
 using z1.UI;
 
@@ -26,12 +28,16 @@ internal sealed class Game
     public Input Input { get; }
     public GameCheats GameCheats { get; }
     public GameConfiguration Configuration { get; } = SaveFolder.Configuration;
-    public Random Random { get; } = new(); // Do not use for things like particle effects, this is the seedable random.
+    public Random Random { get; private set; } // Do not use for things like particle effects, this is the seedable random.
     public OnScreenDisplay OnScreenDisplay { get; } = new();
     public DebugInfo DebugInfo { get; }
     public PregameMenu Menu { get; }
 
     public int FrameCounter { get; private set; }
+
+    public GameRecording Recording { get; }
+    public GamePlayback? Playback { get; }
+    public bool Headless { get; }
 
     public Game()
     {
@@ -41,6 +47,19 @@ internal sealed class Game
         Sound = new Sound(Configuration.Audio);
         DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
         Menu = new PregameMenu(this, SaveFolder.Profiles.Profiles);
+        var seed = Random.Shared.Next();
+        Recording = new GameRecording(this, seed);
+        Random = new Random(seed);
+    }
+
+    public Game(GameRecordingState playback, bool headless = false) : this()
+    {
+        Headless = headless;
+        if (headless) Sound.SetMute(true);
+
+        Random = new Random(playback.Seed);
+        Playback = new GamePlayback(this, playback);
+        Menu.StartWorld(PlayerProfile.CreateForRecording());
     }
 
     public void Start(PlayerProfile profile)
@@ -52,17 +71,47 @@ internal sealed class Game
     {
         ++FrameCounter;
 
+        if (Playback is { Enabled: true } && !Playback.Playback(this))
+        {
+            Playback.Enabled = false;
+            Toast("Recording: Playback ended.");
+        }
+
         CheckInput();
         if (!Menu.UpdateIfActive()) World.Update();
         Sound.Update();
         GameCheats.Update();
+        Recording.Record();
 
         // Input comes last because it marks the buttons as old. We read them on a callback which happens async.
         Input.Update();
     }
 
+    private void CheckFunctions()
+    {
+        if (Input.IsFunctionPressing(FunctionButton.BeginRecording))
+        {
+            Recording.BeginRecording();
+            Toast("Recording: Enabled");
+        }
+
+        if (Input.IsFunctionPressing(FunctionButton.WriteRecording))
+        {
+            Recording.WriteRecording();
+            Toast("Recording: Saved");
+        }
+
+        if (Input.IsFunctionPressing(FunctionButton.WriteRecordingAssert))
+        {
+            Recording.AddAssertion();
+            Toast("Recording: Created assertion");
+        }
+    }
+
     private void CheckInput()
     {
+        CheckFunctions();
+
         if (Input.IsButtonPressing(GameButton.AudioDecreaseVolume))
         {
             var volume = Sound.DecreaseVolume();
@@ -89,6 +138,8 @@ internal sealed class Game
 
     public void Draw()
     {
+        if (Headless) return;
+
         if (!Menu.DrawIfActive()) World.Draw();
         OnScreenDisplay.Draw();
         DebugInfo.Draw();

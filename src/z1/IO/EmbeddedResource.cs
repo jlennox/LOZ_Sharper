@@ -8,7 +8,7 @@ using z1.Common.IO;
 
 namespace z1.IO;
 
-internal sealed class EmbeddedResource
+internal static class EmbeddedResource
 {
     private static readonly ImmutableArray<string> _resourceNames = [.. Assembly.GetExecutingAssembly().GetManifestResourceNames()];
 

@@ -1,8 +1,9 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
+using System.Text.Json;
 using ImGuiNET;
-using Silk.NET.SDL;
 using z1.Actors;
+using z1.Common.IO;
 using z1.IO;
 using z1.UI;
 
@@ -93,6 +94,8 @@ internal static class GLWindowGui
         }
     }
 
+    private static string[] _recordingFiles = Filenames.GetNewestRecordingFiles(10).ToArray();
+
     static void DrawMenuItem(string name, PropertyInfo property, object target)
     {
         // Not the most efficient way to do it, but this is rarely rendered.
@@ -101,6 +104,11 @@ internal static class GLWindowGui
             property.SetValue(target, !(bool)property.GetValue(target));
             SaveFolder.SaveConfiguration();
         }
+    }
+
+    public static void Update()
+    {
+        _recordingFiles = Filenames.GetNewestRecordingFiles(10).ToArray();
     }
 
     public static void DrawMenu(GLWindow window)
@@ -113,7 +121,7 @@ internal static class GLWindowGui
             DrawDisplayMenu(game, window);
             DrawAudioMenu(game);
             DrawEnhancementsMenu(game);
-            DrawDebugMenu(game);
+            DrawDebugMenu(window, game);
             DrawWarpMenu(game);
             DrawSpawnMenu(game);
             DrawPersonMenu(game);
@@ -207,97 +215,100 @@ internal static class GLWindowGui
                 Debug.WriteLine("Exception " + e);
             }
         }
-
-        if (ImGui.BeginMenu("SpawnOW"))
+        if (ImGui.BeginMenu("Spawn"))
         {
-            if (ImGui.MenuItem("Armos")) Spawn(game, ObjType.Armos);
-            if (ImGui.MenuItem("FlyingGhini")) Spawn(game, ObjType.FlyingGhini);
-            if (ImGui.MenuItem("Ghini")) Spawn(game, ObjType.Ghini);
-            if (ImGui.MenuItem("Leever (Blue)")) Spawn(game, ObjType.BlueLeever);
-            if (ImGui.MenuItem("Leever (Red)")) Spawn(game, ObjType.RedLeever);
-            if (ImGui.MenuItem("Lynel (Blue)")) Spawn(game, ObjType.BlueLynel);
-            if (ImGui.MenuItem("Lynel (Red)")) Spawn(game, ObjType.RedLynel);
-            if (ImGui.MenuItem("Moblin (Blue)")) Spawn(game, ObjType.BlueMoblin);
-            if (ImGui.MenuItem("Moblin (Red)")) Spawn(game, ObjType.RedMoblin);
-            if (ImGui.BeginMenu("Octorock"))
+            if (ImGui.BeginMenu("Overworld"))
             {
-                if (ImGui.MenuItem("Octorock (Blue)")) Spawn(game, ObjType.BlueSlowOctorock);
-                if (ImGui.MenuItem("Octorock (Red)")) Spawn(game, ObjType.RedSlowOctorock);
-                if (ImGui.MenuItem("Octorock (Fast, Blue)")) Spawn(game, ObjType.BlueFastOctorock);
-                if (ImGui.MenuItem("Octorock (Fast, Red)")) Spawn(game, ObjType.RedFastOctorock);
+                if (ImGui.MenuItem("Armos")) Spawn(game, ObjType.Armos);
+                if (ImGui.MenuItem("FlyingGhini")) Spawn(game, ObjType.FlyingGhini);
+                if (ImGui.MenuItem("Ghini")) Spawn(game, ObjType.Ghini);
+                if (ImGui.MenuItem("Leever (Blue)")) Spawn(game, ObjType.BlueLeever);
+                if (ImGui.MenuItem("Leever (Red)")) Spawn(game, ObjType.RedLeever);
+                if (ImGui.MenuItem("Lynel (Blue)")) Spawn(game, ObjType.BlueLynel);
+                if (ImGui.MenuItem("Lynel (Red)")) Spawn(game, ObjType.RedLynel);
+                if (ImGui.MenuItem("Moblin (Blue)")) Spawn(game, ObjType.BlueMoblin);
+                if (ImGui.MenuItem("Moblin (Red)")) Spawn(game, ObjType.RedMoblin);
+                if (ImGui.BeginMenu("Octorock"))
+                {
+                    if (ImGui.MenuItem("Octorock (Blue)")) Spawn(game, ObjType.BlueSlowOctorock);
+                    if (ImGui.MenuItem("Octorock (Red)")) Spawn(game, ObjType.RedSlowOctorock);
+                    if (ImGui.MenuItem("Octorock (Fast, Blue)")) Spawn(game, ObjType.BlueFastOctorock);
+                    if (ImGui.MenuItem("Octorock (Fast, Red)")) Spawn(game, ObjType.RedFastOctorock);
+                    ImGui.EndMenu();
+                }
+                if (ImGui.MenuItem("Peahat")) Spawn(game, ObjType.Peahat);
+                if (ImGui.MenuItem("Tektite (Blue)")) Spawn(game, ObjType.BlueTektite);
+                if (ImGui.MenuItem("Tektite (Red)")) Spawn(game, ObjType.RedTektite);
+                if (ImGui.MenuItem("Zora")) Spawn(game, ObjType.Zora);
+                ImGui.Separator();
+                if (ImGui.MenuItem("Boulder")) Spawn(game, ObjType.Boulder);
+                if (ImGui.MenuItem("Boulders")) Spawn(game, ObjType.Boulders);
+                // if (ImGui.MenuItem("Merchant")) Spawn(game, ObjType.Merchant);
+                // if (ImGui.MenuItem("Moblin (Friendly)")) Spawn(game, ObjType.FriendlyMoblin);
+                // if (ImGui.MenuItem("OldMan")) Spawn(game, ObjType.OldMan);
+                // if (ImGui.MenuItem("OldWoman")) Spawn(game, ObjType.OldWoman);
+                if (ImGui.MenuItem("PondFairy")) Spawn(game, ObjType.PondFairy);
+                if (ImGui.MenuItem("Whirlwind")) Spawn(game, ObjType.Whirlwind);
+
                 ImGui.EndMenu();
             }
-            if (ImGui.MenuItem("Peahat")) Spawn(game, ObjType.Peahat);
-            if (ImGui.MenuItem("Tektite (Blue)")) Spawn(game, ObjType.BlueTektite);
-            if (ImGui.MenuItem("Tektite (Red)")) Spawn(game, ObjType.RedTektite);
-            if (ImGui.MenuItem("Zora")) Spawn(game, ObjType.Zora);
-            ImGui.Separator();
-            if (ImGui.MenuItem("Boulder")) Spawn(game, ObjType.Boulder);
-            if (ImGui.MenuItem("Boulders")) Spawn(game, ObjType.Boulders);
-            // if (ImGui.MenuItem("Merchant")) Spawn(game, ObjType.Merchant);
-            // if (ImGui.MenuItem("Moblin (Friendly)")) Spawn(game, ObjType.FriendlyMoblin);
-            // if (ImGui.MenuItem("OldMan")) Spawn(game, ObjType.OldMan);
-            // if (ImGui.MenuItem("OldWoman")) Spawn(game, ObjType.OldWoman);
-            if (ImGui.MenuItem("PondFairy")) Spawn(game, ObjType.PondFairy);
-            if (ImGui.MenuItem("Whirlwind")) Spawn(game, ObjType.Whirlwind);
 
-            ImGui.EndMenu();
-        }
+            if (ImGui.BeginMenu("Underworld"))
+            {
+                if (ImGui.MenuItem("Bubble1")) Spawn(game, ObjType.Bubble1);
+                if (ImGui.MenuItem("Bubble2")) Spawn(game, ObjType.Bubble2);
+                if (ImGui.MenuItem("Bubble3")) Spawn(game, ObjType.Bubble3);
+                if (ImGui.MenuItem("Darknut (Blue)")) Spawn(game, ObjType.BlueDarknut);
+                if (ImGui.MenuItem("Darknut (Red)")) Spawn(game, ObjType.RedDarknut);
+                if (ImGui.MenuItem("Gel")) Spawn(game, ObjType.Gel);
+                if (ImGui.MenuItem("Gibdo")) Spawn(game, ObjType.Gibdo);
+                if (ImGui.MenuItem("Goriya (Blue)")) Spawn(game, ObjType.BlueGoriya);
+                if (ImGui.MenuItem("Goriya (Red)")) Spawn(game, ObjType.RedGoriya);
+                if (ImGui.MenuItem("Keese (Black)")) Spawn(game, ObjType.BlackKeese);
+                if (ImGui.MenuItem("Keese (Blue)")) Spawn(game, ObjType.BlueKeese);
+                if (ImGui.MenuItem("Keese (Red)")) Spawn(game, ObjType.RedKeese);
+                if (ImGui.MenuItem("LikeLike")) Spawn(game, ObjType.LikeLike);
+                if (ImGui.MenuItem("PolsVoice")) Spawn(game, ObjType.PolsVoice);
+                if (ImGui.MenuItem("Rope")) Spawn(game, ObjType.Rope);
+                if (ImGui.MenuItem("Stalfos")) Spawn(game, ObjType.Stalfos);
+                if (ImGui.MenuItem("Vire")) Spawn(game, ObjType.Vire);
+                if (ImGui.MenuItem("Wallmaster")) Spawn(game, ObjType.Wallmaster);
+                if (ImGui.MenuItem("Wizzrobe (Blue)")) Spawn(game, ObjType.BlueWizzrobe);
+                if (ImGui.MenuItem("Wizzrobe (Red)")) Spawn(game, ObjType.RedWizzrobe);
+                if (ImGui.MenuItem("Zol")) Spawn(game, ObjType.Zol);
+                ImGui.Separator();
+                if (ImGui.MenuItem("Grumble")) Spawn(game, ObjType.Grumble);
+                if (ImGui.MenuItem("Patra1")) Spawn(game, ObjType.Patra1);
+                if (ImGui.MenuItem("Patra2")) Spawn(game, ObjType.Patra2);
+                if (ImGui.MenuItem("RupieStash")) Spawn(game, ObjType.RupieStash);
+                if (ImGui.MenuItem("StandingFire")) Spawn(game, ObjType.StandingFire);
+                if (ImGui.MenuItem("Trap")) Spawn(game, ObjType.Trap);
+                if (ImGui.MenuItem("TrapSet4")) Spawn(game, ObjType.TrapSet4);
+                ImGui.Separator();
+                if (ImGui.MenuItem("Digdogger1")) Spawn(game, ObjType.Digdogger1);
+                if (ImGui.MenuItem("Digdogger2")) Spawn(game, ObjType.Digdogger2);
+                if (ImGui.MenuItem("Digdogger (Little)")) Spawn(game, ObjType.LittleDigdogger);
+                if (ImGui.MenuItem("Lamnola (Blue)")) Spawn(game, ObjType.BlueLamnola);
+                if (ImGui.MenuItem("Lamnola (Red)")) Spawn(game, ObjType.RedLamnola);
+                if (ImGui.MenuItem("Manhandla")) Spawn(game, ObjType.Manhandla);
+                if (ImGui.MenuItem("Moldorm")) Spawn(game, ObjType.Moldorm);
+                ImGui.Separator();
+                if (ImGui.MenuItem("Aquamentus")) Spawn(game, ObjType.Aquamentus);
+                if (ImGui.MenuItem("Dodongo (one)")) Spawn(game, ObjType.OneDodongo);
+                if (ImGui.MenuItem("Dodongos (three)")) Spawn(game, ObjType.ThreeDodongos);
+                if (ImGui.MenuItem("Gleeok1")) Spawn(game, ObjType.Gleeok1);
+                if (ImGui.MenuItem("Gleeok2")) Spawn(game, ObjType.Gleeok2);
+                if (ImGui.MenuItem("Gleeok3")) Spawn(game, ObjType.Gleeok3);
+                if (ImGui.MenuItem("Gleeok4")) Spawn(game, ObjType.Gleeok4);
+                if (ImGui.MenuItem("Gohma (Blue)")) Spawn(game, ObjType.BlueGohma);
+                if (ImGui.MenuItem("Gohma (Red)")) Spawn(game, ObjType.RedGohma);
+                ImGui.Separator();
+                if (ImGui.MenuItem("Ganon")) Spawn(game, ObjType.Ganon);
+                if (ImGui.MenuItem("GuardFire")) Spawn(game, ObjType.GuardFire);
+                if (ImGui.MenuItem("Princess")) Spawn(game, ObjType.Princess);
 
-        if (ImGui.BeginMenu("SpawnUW"))
-        {
-            if (ImGui.MenuItem("Bubble1")) Spawn(game, ObjType.Bubble1);
-            if (ImGui.MenuItem("Bubble2")) Spawn(game, ObjType.Bubble2);
-            if (ImGui.MenuItem("Bubble3")) Spawn(game, ObjType.Bubble3);
-            if (ImGui.MenuItem("Darknut (Blue)")) Spawn(game, ObjType.BlueDarknut);
-            if (ImGui.MenuItem("Darknut (Red)")) Spawn(game, ObjType.RedDarknut);
-            if (ImGui.MenuItem("Gel")) Spawn(game, ObjType.Gel);
-            if (ImGui.MenuItem("Gibdo")) Spawn(game, ObjType.Gibdo);
-            if (ImGui.MenuItem("Goriya (Blue)")) Spawn(game, ObjType.BlueGoriya);
-            if (ImGui.MenuItem("Goriya (Red)")) Spawn(game, ObjType.RedGoriya);
-            if (ImGui.MenuItem("Keese (Black)")) Spawn(game, ObjType.BlackKeese);
-            if (ImGui.MenuItem("Keese (Blue)")) Spawn(game, ObjType.BlueKeese);
-            if (ImGui.MenuItem("Keese (Red)")) Spawn(game, ObjType.RedKeese);
-            if (ImGui.MenuItem("LikeLike")) Spawn(game, ObjType.LikeLike);
-            if (ImGui.MenuItem("PolsVoice")) Spawn(game, ObjType.PolsVoice);
-            if (ImGui.MenuItem("Rope")) Spawn(game, ObjType.Rope);
-            if (ImGui.MenuItem("Stalfos")) Spawn(game, ObjType.Stalfos);
-            if (ImGui.MenuItem("Vire")) Spawn(game, ObjType.Vire);
-            if (ImGui.MenuItem("Wallmaster")) Spawn(game, ObjType.Wallmaster);
-            if (ImGui.MenuItem("Wizzrobe (Blue)")) Spawn(game, ObjType.BlueWizzrobe);
-            if (ImGui.MenuItem("Wizzrobe (Red)")) Spawn(game, ObjType.RedWizzrobe);
-            if (ImGui.MenuItem("Zol")) Spawn(game, ObjType.Zol);
-            ImGui.Separator();
-            if (ImGui.MenuItem("Grumble")) Spawn(game, ObjType.Grumble);
-            if (ImGui.MenuItem("Patra1")) Spawn(game, ObjType.Patra1);
-            if (ImGui.MenuItem("Patra2")) Spawn(game, ObjType.Patra2);
-            if (ImGui.MenuItem("RupieStash")) Spawn(game, ObjType.RupieStash);
-            if (ImGui.MenuItem("StandingFire")) Spawn(game, ObjType.StandingFire);
-            if (ImGui.MenuItem("Trap")) Spawn(game, ObjType.Trap);
-            if (ImGui.MenuItem("TrapSet4")) Spawn(game, ObjType.TrapSet4);
-            ImGui.Separator();
-            if (ImGui.MenuItem("Digdogger1")) Spawn(game, ObjType.Digdogger1);
-            if (ImGui.MenuItem("Digdogger2")) Spawn(game, ObjType.Digdogger2);
-            if (ImGui.MenuItem("Digdogger (Little)")) Spawn(game, ObjType.LittleDigdogger);
-            if (ImGui.MenuItem("Lamnola (Blue)")) Spawn(game, ObjType.BlueLamnola);
-            if (ImGui.MenuItem("Lamnola (Red)")) Spawn(game, ObjType.RedLamnola);
-            if (ImGui.MenuItem("Manhandla")) Spawn(game, ObjType.Manhandla);
-            if (ImGui.MenuItem("Moldorm")) Spawn(game, ObjType.Moldorm);
-            ImGui.Separator();
-            if (ImGui.MenuItem("Aquamentus")) Spawn(game, ObjType.Aquamentus);
-            if (ImGui.MenuItem("Dodongo (one)")) Spawn(game, ObjType.OneDodongo);
-            if (ImGui.MenuItem("Dodongos (three)")) Spawn(game, ObjType.ThreeDodongos);
-            if (ImGui.MenuItem("Gleeok1")) Spawn(game, ObjType.Gleeok1);
-            if (ImGui.MenuItem("Gleeok2")) Spawn(game, ObjType.Gleeok2);
-            if (ImGui.MenuItem("Gleeok3")) Spawn(game, ObjType.Gleeok3);
-            if (ImGui.MenuItem("Gleeok4")) Spawn(game, ObjType.Gleeok4);
-            if (ImGui.MenuItem("Gohma (Blue)")) Spawn(game, ObjType.BlueGohma);
-            if (ImGui.MenuItem("Gohma (Red)")) Spawn(game, ObjType.RedGohma);
-            ImGui.Separator();
-            if (ImGui.MenuItem("Ganon")) Spawn(game, ObjType.Ganon);
-            if (ImGui.MenuItem("GuardFire")) Spawn(game, ObjType.GuardFire);
-            if (ImGui.MenuItem("Princess")) Spawn(game, ObjType.Princess);
-
+                ImGui.EndMenu();
+            }
             ImGui.EndMenu();
         }
     }
@@ -411,17 +422,39 @@ internal static class GLWindowGui
         }
     }
 
-
-    private static void DrawDebugMenu(Game game)
+    private static void DrawDebugMenu(GLWindow window, Game game)
     {
 #if !DEBUG
         return;
 #endif
 
+        static void Replay(GLWindow window, string filename)
+        {
+            var json = File.ReadAllText(filename);
+            var recording = JsonSerializer.Deserialize<GameRecordingState>(json) ?? throw new Exception();
+            window.Game = new Game(recording);
+        }
+
         if (ImGui.BeginMenu("Debug"))
         {
             if (ImGui.MenuItem("Clear secrets")) game.GameCheats.TriggerCheat<GameCheats.ClearSecretsCheat>();
             if (ImGui.MenuItem("Clear history")) game.GameCheats.TriggerCheat<GameCheats.ClearHistoryCheat>();
+
+            ImGui.SeparatorText("Recording");
+
+            if (ImGui.MenuItem("Start recording", !game.Recording.Enabled)) game.Input.SetFunction(FunctionButton.BeginRecording);
+            if (ImGui.MenuItem("Write assertion", game.Recording.Enabled)) game.Input.SetFunction(FunctionButton.WriteRecordingAssert);
+            if (ImGui.MenuItem("Write recording", game.Recording.Enabled)) game.Input.SetFunction(FunctionButton.WriteRecording);
+
+            if (ImGui.BeginMenu("Playback"))
+            {
+                foreach (var file in _recordingFiles)
+                {
+                    if (ImGui.MenuItem(Path.GetFileNameWithoutExtension(file))) Replay(window, file);
+                }
+
+                ImGui.EndMenu();
+            }
 
             ImGui.EndMenu();
         }

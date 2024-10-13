@@ -653,11 +653,11 @@ internal sealed class PlayerSwordActor : Actor
             {
                 ObjType.MagicWave => (
                     MagicWaveProjectile.PlayerCount(Game),
-                    Game.World.GetItem(ItemSlot.MaxConcurrentMagicWaves),
+                    Game.World.GetItem(ItemSlot.MaxConcurrentProjectiles),
                     SoundEffect.MagicWave),
                 ObjType.PlayerSwordShot => (
                     PlayerSwordProjectile.PlayerCount(Game),
-                    Game.World.GetItem(ItemSlot.MaxConcurrentSwordShots),
+                    Game.World.GetItem(ItemSlot.MaxConcurrentProjectiles),
                     SoundEffect.SwordWave),
                 _ => throw new Exception(type.ToString())
             };

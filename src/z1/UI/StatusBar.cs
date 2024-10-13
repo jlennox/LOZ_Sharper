@@ -287,7 +287,7 @@ internal sealed class StatusBar
         var profile = _world.Profile;
         if (profile.SelectedItem == 0) return;
 
-        var itemValue = profile.Items[profile.SelectedItem];
+        var itemValue = profile.GetItem(profile.SelectedItem);
         if (itemValue == 0) return;
 
         var itemId = GlobalFunctions.ItemValueToItemId(profile.SelectedItem, itemValue);

@@ -54,6 +54,13 @@ internal enum GameButton
     AudioDecreaseVolume,
 }
 
+internal enum FunctionButton
+{
+    BeginRecording,
+    WriteRecording,
+    WriteRecordingAssert,
+}
+
 internal static class InputButtonsExtensions
 {
     public static Direction GetDirection(this HashSet<GameButton> buttons)
@@ -78,11 +85,13 @@ internal readonly struct InputButtons
 {
     public readonly HashSet<GameButton> Buttons;
     public readonly HashSet<char> Characters;
+    public readonly HashSet<FunctionButton> Functions;
 
     public InputButtons()
     {
         Buttons = new HashSet<GameButton>();
         Characters = new HashSet<char>();
+        Functions = new HashSet<FunctionButton>();
     }
 
     public bool Set(GameButton value) => Buttons.Add(value);
@@ -101,6 +110,8 @@ internal readonly struct InputButtons
         other.Buttons.UnionWith(Buttons);
         other.Characters.Clear();
         other.Characters.UnionWith(Characters);
+        other.Functions.Clear();
+        other.Functions.UnionWith(Functions);
     }
 }
 
@@ -124,57 +135,79 @@ internal sealed class Input
         return new HashSet<GameButton>(_inputState.Buttons);
     }
 
+    public HashSet<GameButton> GetButtonsUnsafe()
+    {
+        // JOE: This is a massive simplification of the C++ code. I may have borked something?
+        return _inputState.Buttons;
+    }
+
     private bool SetGameButton<TKey>(IReadOnlyDictionary<TKey, GameButton> map, TKey key)
         where TKey : notnull
     {
+        return SetGameButton(map, _inputState.Buttons, key);
+    }
+
+    private bool SetGameButton<TKey, TButton>(IReadOnlyDictionary<TKey, TButton> map, HashSet<TButton> buttons, TKey key)
+        where TKey : notnull
+    {
         if (!map.TryGetValue(key, out var button)) return false;
-        var didSet = _inputState.Set(button);
+        var didSet = buttons.Add(button);
         _traceLog.Write($"{nameof(SetGameButton)} button:{button} didSet:{didSet}");
         return true;
     }
 
-    private bool UnsetGameButton<TKey>(IReadOnlyDictionary<TKey, GameButton> map, TKey key)
+    private bool UnsetGameButton<TKey, TButton>(IReadOnlyDictionary<TKey, TButton> map, HashSet<TButton> buttons, TKey key)
         where TKey : notnull
     {
         if (!map.TryGetValue(key, out var button)) return false;
-        var didRemove = _inputState.Remove(button);
+        var didRemove = buttons.Remove(button);
         _traceLog.Write($"{nameof(UnsetGameButton)} button:{button} didRemove:{didRemove}");
         return true;
     }
 
     public bool SetKey(KeyboardMapping map)
     {
-        if (SetGameButton(_configuration.Keyboard, map)) return true;
+        if (SetGameButton(_configuration.Keyboard, _inputState.Buttons, map)) return true;
+        if (SetGameButton(_configuration.Functions, _inputState.Functions, map)) return true;
         SetLetter(map.Key.GetKeyCharacter());
         return false;
     }
 
-    public bool UnsetKey(KeyboardMapping map)
+    public bool UnsetKey(KeyboardMapping input)
     {
-        // We need to clear any game input that's using this key. IE, if mute is set to control+m,
-        // then the user releases ctrl, then the user releases m, we're not seeing "control+m", we're
-        // seeing each action.
         var found = false;
-        foreach (var kv in _configuration.Keyboard)
+
+        // TODO: Fix copy pasta.
+        foreach (var (test, button) in _configuration.Keyboard)
         {
-            if (kv.Key.Key == map.Key || (kv.Key.HasModifiers && kv.Key.Modifiers.HasFlag(map.Modifiers)))
+            if (test.ShouldUnset(input))
             {
-                var didRemove = _inputState.Remove(kv.Value);
-                _traceLog.Write($"{nameof(UnsetKey)} button:{kv.Value} didRemove:{didRemove}");
+                var didRemove = _inputState.Remove(button);
+                _traceLog.Write($"{nameof(UnsetKey)} button:{button} didRemove:{didRemove}");
+                found = true;
+            }
+        }
+
+        foreach (var (test, button) in _configuration.Functions)
+        {
+            if (test.ShouldUnset(input))
+            {
+                var didRemove = _inputState.Functions.Remove(button);
+                _traceLog.Write($"{nameof(UnsetKey)} button:{button} didRemove:{didRemove}");
                 found = true;
             }
         }
 
         // Always unset the character, as it's always being released regardless of being a game input.
-        UnsetLetter(map.Key.GetKeyCharacter());
+        UnsetLetter(input.Key.GetKeyCharacter());
         return found;
     }
 
-    public bool SetGamepadButton(ButtonName button) => SetGameButton(_configuration.Gamepad, (GamepadButton)button);
-    public bool UnsetGamepadButton(ButtonName button) => UnsetGameButton(_configuration.Gamepad, (GamepadButton)button);
+    public bool SetGamepadButton(ButtonName button) => SetGameButton(_configuration.Gamepad, _inputState.Buttons, (GamepadButton)button);
+    public bool UnsetGamepadButton(ButtonName button) => UnsetGameButton(_configuration.Gamepad, _inputState.Buttons, (GamepadButton)button);
 
-    public bool SetGamepadButton(GamepadButton button) => SetGameButton(_configuration.Gamepad, button);
-    public bool UnsetGamepadButton(GamepadButton button) => UnsetGameButton(_configuration.Gamepad, button);
+    public bool SetGamepadButton(GamepadButton button) => SetGameButton(_configuration.Gamepad, _inputState.Buttons, button);
+    public bool UnsetGamepadButton(GamepadButton button) => UnsetGameButton(_configuration.Gamepad, _inputState.Buttons, button);
 
     public bool ToggleGamepadButton(GamepadButton button, bool set) => set ? SetGamepadButton(button) : UnsetGamepadButton(button);
 
@@ -207,12 +240,27 @@ internal sealed class Input
         }
     }
 
+    public bool SetFunction(FunctionButton function) => _inputState.Functions.Add(function);
+
+    public bool IsFunctionPressing(FunctionButton function) => GetFunctionButton(function) == ButtonState.Pressing;
+
     private ButtonState GetButton(GameButton button)
     {
-        var isDown = _inputState.Has(button);
-        var wasDown = _oldInputState.Has(button);
+        return GetButtonState(_inputState.Buttons, _oldInputState.Buttons, button);
+    }
 
-        return (isDown, wasDown) switch {
+    private ButtonState GetFunctionButton(FunctionButton button)
+    {
+        return GetButtonState(_inputState.Functions, _oldInputState.Functions, button);
+    }
+
+    private static ButtonState GetButtonState<T>(HashSet<T> current, HashSet<T> old, T button)
+    {
+        var isDown = current.Contains(button);
+        var wasDown = old.Contains(button);
+
+        return (isDown, wasDown) switch
+        {
             (false, false) => ButtonState.Lifted,
             (true, false) => ButtonState.Pressing,
             (false, true) => ButtonState.Releasing,

@@ -12,6 +12,10 @@ namespace z1;
 // * For one frame when leaving a cave, player appears in the wrong spot.
 // * Compass does not work unless you have the map.
 // * FoesDoor isn't a thing yet.
+// * Objects should approximate the original update order. IE, bombs update after monsters.
+// * Skeleton no longer carries key.
+// * Make RoomState/DungeonItems require a quest.
+// * Make AllTriforce an item requirement.
 
 // Sharper:
 // * Rectify MarginRight.

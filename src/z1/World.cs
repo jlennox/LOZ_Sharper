@@ -404,7 +404,7 @@ internal sealed partial class World
         // - The whirlwind enters the screen.
 
         var shouldSummonWhirlwind = true;
-        foreach (var obj in GetObjects<InteractiveGameObjectActor>())
+        foreach (var obj in GetObjects<InteractableBlockActor>())
         {
             // If any action spots support the recorder, we should not summon the whirlwind.
             if (obj.NonTargetedAction(Interaction.Recorder)) shouldSummonWhirlwind = false;
@@ -730,15 +730,15 @@ internal sealed partial class World
         {
             if (Profile.SelectedItem is ItemSlot.Arrow or ItemSlot.Bow)
             {
-                if (Profile.Items[ItemSlot.Arrow] != 0
-                    && Profile.Items[ItemSlot.Bow] != 0)
+                if (Profile.GetItem(ItemSlot.Arrow) != 0
+                    && Profile.GetItem(ItemSlot.Bow) != 0)
                 {
                     break;
                 }
             }
             else
             {
-                if (Profile.Items[Profile.SelectedItem] != 0)
+                if (Profile.GetItem(Profile.SelectedItem) != 0)
                 {
                     break;
                 }
@@ -838,7 +838,7 @@ internal sealed partial class World
     }
 
     public bool HasItem(ItemSlot itemSlot) => GetItem(itemSlot) > 0;
-    public int GetItem(ItemSlot itemSlot) => Profile.Items[itemSlot];
+    public int GetItem(ItemSlot itemSlot) => Profile.GetItem(itemSlot);
     public void SetItem(ItemSlot itemSlot, int value) => Profile.Items[itemSlot] = value;
 
     private void PostRupeeChange(int value, ItemSlot itemSlot)
@@ -849,7 +849,7 @@ internal sealed partial class World
         }
 
         var profile = Profile;
-        var curValue = profile.Items[itemSlot];
+        var curValue = profile.GetItem(itemSlot);
         var newValue = Math.Clamp(curValue + value, 0, 255);
 
         switch (itemSlot)
@@ -882,9 +882,9 @@ internal sealed partial class World
 
         GlobalFunctions.PlayItemSound(Game, itemId);
 
-        if (itemId is ItemId.Compass or ItemId.Map)
+        if (itemId is ItemId.Compass or ItemId.Map or ItemId.TriforcePiece)
         {
-            Profile.SetDungeonItem(CurrentWorld.Settings.LevelNumber, itemId);
+            Profile.SetDungeonItem(CurrentWorld, itemId);
             return;
         }
 
@@ -894,7 +894,7 @@ internal sealed partial class World
 
         var max = -1;
         if (equip.MaxValue.HasValue) max = equip.MaxValue.Value;
-        if (equip.Max.HasValue) max = Profile.Items[equip.Max.Value];
+        if (equip.Max.HasValue) max = Profile.GetItem(equip.Max.Value);
 
         if (slot == ItemSlot.RupeesToAdd)
         {
@@ -910,19 +910,14 @@ internal sealed partial class World
         }
         else if (slot is ItemSlot.Keys or ItemSlot.HeartContainers or ItemSlot.MaxBombs or ItemSlot.Bombs)
         {
-            value += (byte)Profile.Items[slot];
+            value += (byte)Profile.GetItem(slot);
 
-        }
-        else if (itemId is ItemId.Compass or ItemId.Map)
-        {
-            Profile.SetDungeonItem(CurrentWorld.Settings.LevelNumber, itemId);
-            return;
         }
         else if (itemId == ItemId.TriforcePiece)
         {
             var bit = 1 << (CurrentWorld.Settings.LevelNumber - 1);
             value = (byte)(Profile.Items[ItemSlot.TriforcePieces] | bit);
-            Profile.SetDungeonItem(CurrentWorld.Settings.LevelNumber, itemId);
+            Profile.SetDungeonItem(CurrentWorld, itemId);
         }
 
         if (max > 0) value = Math.Min(value, max);
@@ -950,8 +945,8 @@ internal sealed partial class World
         }
     }
 
-    public bool HasCurrentMap() => Profile.GetDungeonItem(CurrentWorld.Settings.LevelNumber, ItemId.Map);
-    public bool HasCurrentCompass() => Profile.GetDungeonItem(CurrentWorld.Settings.LevelNumber, ItemId.Compass);
+    public bool HasCurrentMap() => Profile.GetDungeonItem(CurrentWorld, ItemId.Map);
+    public bool HasCurrentCompass() => Profile.GetDungeonItem(CurrentWorld, ItemId.Compass);
 
     private bool GetEffectiveDoorState(GameRoom room, Direction doorDir)
     {
@@ -1017,7 +1012,12 @@ internal sealed partial class World
         return _state.Play.LiftItemId != 0;
     }
 
-    public void OpenShutters()
+    public void TriggerShutters()
+    {
+        _triggerShutters = true;
+    }
+
+    private void OpenShutters()
     {
         _tempShutters = true;
         _tempShutterRoom = CurrentRoom;
@@ -1878,12 +1878,12 @@ internal sealed partial class World
     {
         if ((Game.FrameCounter & 1) != 0) return;
 
-        var rupeesToAdd = Profile.Items[ItemSlot.RupeesToAdd];
-        var rupeesToSubtract = Profile.Items[ItemSlot.RupeesToSubtract];
+        var rupeesToAdd = Profile.GetItem(ItemSlot.RupeesToAdd);
+        var rupeesToSubtract = Profile.GetItem(ItemSlot.RupeesToSubtract);
 
         if (rupeesToAdd > 0 && rupeesToSubtract == 0)
         {
-            if (Profile.Items[ItemSlot.Rupees] < 255)
+            if (Profile.GetItem(ItemSlot.Rupees) < 255)
             {
                 Profile.Items[ItemSlot.Rupees]++;
             }
@@ -1896,7 +1896,7 @@ internal sealed partial class World
         }
         else if (rupeesToAdd == 0 && rupeesToSubtract > 0)
         {
-            if (Profile.Items[ItemSlot.Rupees] > 0)
+            if (Profile.GetItem(ItemSlot.Rupees) > 0)
             {
                 Profile.Items[ItemSlot.Rupees]--;
             }
@@ -1908,8 +1908,8 @@ internal sealed partial class World
             Game.Sound.PlayEffect(SoundEffect.Character);
         }
 
-        if (Profile.Items[ItemSlot.RupeesToAdd] > 0) Profile.Items[ItemSlot.RupeesToAdd]--;
-        if (Profile.Items[ItemSlot.RupeesToSubtract] > 0) Profile.Items[ItemSlot.RupeesToSubtract]--;
+        if (Profile.GetItem(ItemSlot.RupeesToAdd) > 0) Profile.Items[ItemSlot.RupeesToAdd]--;
+        if (Profile.GetItem(ItemSlot.RupeesToSubtract) > 0) Profile.Items[ItemSlot.RupeesToSubtract]--;
     }
 
     private void UpdateLiftItem()

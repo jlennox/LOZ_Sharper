@@ -182,16 +182,19 @@ internal sealed class PlayerProfile
     public const int MaxNameLength = 8;
     public const int DefaultHeartCount = 3;
     public const int DefaultMaxBombCount = 8;
-    public const int DefaultBombCount = 2;
-    public const int DefaultFireCount = 2;
-    public const int DefaultBoomerangCount = 2;
-    public const int DefaultArrowCount = 2;
-    public const int DefaultShotCount = 2;
+    public const int DefaultMaxConcurrentProjectiles = 2;
     public const int DefaultMaxRupees = 2;
     public const int DefaultMaxBombs = 8;
 
+    private static readonly Dictionary<ItemSlot, int> _defaultItems = new()
+    {
+        [ItemSlot.HeartContainers] = DefaultHeartCount,
+        [ItemSlot.MaxConcurrentProjectiles] = DefaultMaxConcurrentProjectiles,
+        [ItemSlot.MaxRupees] = DefaultMaxRupees,
+        [ItemSlot.MaxBombs] = DefaultMaxBombs,
+    };
+
     public int Version { get; set; }
-    public Guid Id { get; set; }
     public string? Name { get; set; }
     public int Index { get; set; }
     public int Quest { get; set; }
@@ -201,41 +204,32 @@ internal sealed class PlayerProfile
     public int Hearts { get; set; }
     public Dictionary<ItemSlot, int> Items { get; set; }
     public PlayerStatistics Statistics { get; set; }
-    public Dictionary<string, Dictionary<string, PersistedRoomState>> RoomFlags { get; set; }
-    public Dictionary<int, DungeonItems> DungeonItems { get; set; }
+    public Dictionary<string, PersistedRoomState> RoomState { get; set; } // Key: GameRoom.UniqueId
+    public Dictionary<string, DungeonItems> DungeonItems { get; set; } // Key: GameWorld.UniqueId
     public TimeSpan Playtime { get; set; } // JOE: TODO
 
     public PlayerProfile()
     {
     }
 
+    public static PlayerProfile CreateForRecording()
+    {
+        var profile = new PlayerProfile();
+        profile.Initialize();
+        return profile;
+    }
+
     public void Initialize()
     {
         if (Hearts < DefaultHeartCount) Hearts = DefaultHeartCount;
-        Items ??= new Dictionary<ItemSlot, int>();
-        RoomFlags ??= [];
+        Items ??= [];
+        RoomState ??= [];
         Statistics ??= new PlayerStatistics();
-        DungeonItems ??= new Dictionary<int, DungeonItems>();
-        if (Id == default) Id = Guid.NewGuid();
+        DungeonItems ??= [];
 
-        foreach (var slot in Enum.GetValues<ItemSlot>())
+        foreach (var (slot, def) in _defaultItems)
         {
-            if (!Items.ContainsKey(slot))
-            {
-                Items[slot] = slot switch
-                {
-                    ItemSlot.HeartContainers => DefaultHeartCount,
-                    ItemSlot.MaxConcurrentBombs => DefaultBombCount,
-                    ItemSlot.MaxConcurrentFire => DefaultFireCount,
-                    ItemSlot.MaxConcurrentBoomerangs => DefaultBoomerangCount,
-                    ItemSlot.MaxConcurrentArrows => DefaultArrowCount,
-                    ItemSlot.MaxConcurrentSwordShots => DefaultShotCount,
-                    ItemSlot.MaxConcurrentMagicWaves => DefaultShotCount,
-                    ItemSlot.MaxRupees => DefaultMaxRupees,
-                    ItemSlot.MaxBombs => DefaultMaxBombs,
-                    _ => 0,
-                };
-            }
+            Items.TryAdd(slot, def);
         }
 
         Statistics.Initialize();
@@ -243,49 +237,49 @@ internal sealed class PlayerProfile
 
     public PersistedRoomState GetRoomFlags(GameRoom room)
     {
-        if (!RoomFlags.TryGetValue(room.World.Id, out var worldFlags))
-        {
-            worldFlags = new Dictionary<string, PersistedRoomState>();
-            RoomFlags[room.World.Id] = worldFlags;
-        }
-
-        if (!worldFlags.TryGetValue(room.Id, out var roomFlags))
+        if (!RoomState.TryGetValue(room.UniqueId, out var roomFlags))
         {
             roomFlags = new PersistedRoomState();
-            worldFlags[room.Id] = roomFlags;
+            RoomState[room.World.UniqueId] = roomFlags;
         }
 
         return roomFlags;
     }
 
-    public ObjectState GetObjectFlags(GameRoom room, InteractiveGameObject obj)
+    public ObjectState GetObjectFlags(GameRoom room, InteractableBlockObject obj)
     {
-        var roomflags = GetRoomFlags(room);
-        return roomflags.GetObjectState(obj.Id);
+        return GetObjectFlags(room, obj.Id);
     }
 
-    public DungeonItems GetDungeonItems(int dungeon)
+    public ObjectState GetObjectFlags(GameRoom room, string id)
     {
-        if (!DungeonItems.TryGetValue(dungeon, out var items))
+        var roomflags = GetRoomFlags(room);
+        return roomflags.GetObjectState(id);
+    }
+
+    public DungeonItems GetDungeonItems(GameWorld dungeon)
+    {
+        if (!DungeonItems.TryGetValue(dungeon.UniqueId, out var items))
         {
             items = new DungeonItems();
             items.Initialize();
-            DungeonItems[dungeon] = items;
+            DungeonItems[dungeon.UniqueId] = items;
         }
 
         return items;
     }
 
-    public void SetDungeonItem(int dungeon, ItemId item) => GetDungeonItems(dungeon).Set(item);
-    public bool GetDungeonItem(int dungeon, ItemId item)
+    public void SetDungeonItem(GameWorld dungeon, ItemId item) => GetDungeonItems(dungeon).Set(item);
+    public bool GetDungeonItem(GameWorld dungeon, ItemId item)
     {
-        if (dungeon == 0) return false; // overworld.
+        if (dungeon.IsOverworld) return false;
+
         return GetDungeonItems(dungeon).Get(item);
     }
 
     public void AddItem(ItemSlot itemSlot, int amount)
     {
-        var have = Items[itemSlot];
+        var have = GetItem(itemSlot);
         var max = GetMax(itemSlot);
         Items[itemSlot] = Math.Clamp(have + amount, 0, max);
     }
@@ -294,7 +288,7 @@ internal sealed class PlayerProfile
     {
         ReadOnlySpan<byte> palette = [0x29, 0x32, 0x16];
 
-        var value = Items[ItemSlot.Ring];
+        var value = GetItem(ItemSlot.Ring);
         Graphics.SetColorIndexed(Palette.Player, 1, palette[value]);
     }
 
@@ -311,7 +305,7 @@ internal sealed class PlayerProfile
     public static PlayerProfile MakeDefault() => new();
     public static List<PlayerProfile> MakeDefaults() => new();
 
-    public int GetItem(ItemSlot slot) => Items[slot];
+    public int GetItem(ItemSlot slot) => Items.GetValueOrDefault(slot);
     public bool HasItem(ItemSlot slot) => GetItem(slot) != 0;
     public bool PreventDarkRooms(Game game) => game.Enhancements.RedCandleLightsDarkRooms && GetItem(ItemSlot.Candle) >= 2;
     public int GetMaxHeartsValue() => GetMaxHeartsValue(Items[ItemSlot.HeartContainers]);

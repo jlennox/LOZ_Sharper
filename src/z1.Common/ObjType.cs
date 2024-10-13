@@ -301,7 +301,7 @@ public enum ItemSlot
     Keys,
     HeartContainers,
     [TiledIgnore] PartialHeart_Unused,
-    TriforcePieces,
+    [TiledIgnore] TriforcePieces,
     PowerTriforce,
     Boomerang,
     MagicShield,
@@ -310,12 +310,7 @@ public enum ItemSlot
     RupeesToSubtract,
 
     // Added
-    MaxConcurrentBombs,
-    MaxConcurrentFire,
-    MaxConcurrentBoomerangs,
-    MaxConcurrentArrows,
-    MaxConcurrentSwordShots,
-    MaxConcurrentMagicWaves,
+    MaxConcurrentProjectiles,
     MaxRupees,
 }
 

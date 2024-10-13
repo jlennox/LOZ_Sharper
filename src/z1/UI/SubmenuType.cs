@@ -205,8 +205,8 @@ internal sealed class SubmenuType
 
         if (itemSlot == ItemSlot.Arrow)
         {
-            if (profile.Items[ItemSlot.Arrow] != 0
-                && profile.Items[ItemSlot.Bow] != 0)
+            if (profile.GetItem(ItemSlot.Arrow) != 0
+                && profile.GetItem(ItemSlot.Bow) != 0)
             {
                 var arrowId = GlobalFunctions.ItemValueToItemId(_game, ItemSlot.Arrow);
                 return arrowId;
@@ -216,13 +216,13 @@ internal sealed class SubmenuType
         {
             if (itemSlot == ItemSlot.Letter)
             {
-                if (profile.Items[ItemSlot.Potion] != 0)
+                if (profile.GetItem(ItemSlot.Potion) != 0)
                 {
                     itemSlot = ItemSlot.Potion;
                 }
             }
 
-            var itemValue = profile.Items[itemSlot];
+            var itemValue = profile.GetItem(itemSlot);
             if (itemValue != 0)
             {
                 var itemId = GlobalFunctions.ItemValueToItemId(itemSlot, itemValue);
@@ -392,12 +392,12 @@ internal sealed class SubmenuType
 
             if (i == _arrowBowUISlot)
             {
-                if (profile.Items[ItemSlot.Arrow] != 0)
+                if (profile.GetItem(ItemSlot.Arrow) != 0)
                 {
                     itemId = GlobalFunctions.ItemValueToItemId(_game, ItemSlot.Arrow);
                     GlobalFunctions.DrawItemNarrow(_game.World.Game, itemId, x, y);
                 }
-                if (profile.Items[ItemSlot.Bow] != 0)
+                if (profile.GetItem(ItemSlot.Bow) != 0)
                 {
                     GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Bow, x + 8, y);
                 }
@@ -430,7 +430,7 @@ internal sealed class SubmenuType
         for (var i = 0; i < PassiveItemCount; i++)
         {
             var slot = _passiveItems[i].ItemSlot;
-            var value = profile.Items[slot];
+            var value = profile.GetItem(slot);
 
             if (value != 0)
             {

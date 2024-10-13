@@ -208,7 +208,7 @@ internal sealed class GameCheats
         public override void RunPayload(Game game, string[] args)
         {
             game.World.KillAllObjects();
-            foreach (var obj in game.World.GetObjects<InteractiveGameObjectActor>())
+            foreach (var obj in game.World.GetObjects<InteractableBlockActor>())
             {
                 obj.DebugSetInteracted();
             }
@@ -242,7 +242,7 @@ internal sealed class GameCheats
             if (profile == null) return;
             var containers = profile.GetItem(ItemSlot.HeartContainers);
             profile.Hearts = PlayerProfile.GetMaxHeartsValue(containers);
-            profile.Items[ItemSlot.Bombs] = profile.GetItem(ItemSlot.MaxBombs);
+            profile.AddItem(ItemSlot.Bombs, profile.GetItem(ItemSlot.MaxBombs));
             game.Toast("Health refilled.");
         }
     }
@@ -260,18 +260,15 @@ internal sealed class GameCheats
     {
         public override void RunPayload(Game game, string[] args)
         {
-            foreach (var (_, world) in game.World.Profile.RoomFlags)
+            foreach (var (_, state) in game.World.Profile.RoomState)
             {
-                foreach (var (_, flag) in world)
+                state.SecretState = false;
+                state.ShortcutState = false;
+                state.ItemState = false;
+                foreach (var (_, obj) in state.ObjectState)
                 {
-                    flag.SecretState = false;
-                    flag.ShortcutState = false;
-                    flag.ItemState = false;
-                    foreach (var (_, obj) in flag.ObjectState)
-                    {
-                        obj.HasInteracted = false;
-                        obj.ItemGot = false;
-                    }
+                    obj.HasInteracted = false;
+                    obj.ItemGot = false;
                 }
             }
             game.Toast("Secrets cleared.");
@@ -301,21 +298,72 @@ internal sealed class GameCheats
             game.World.AddItem(ItemId.MagicSword);
             game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
-            profile.Items[ItemSlot.Rupees] += 100;
-            profile.Items[ItemSlot.Bombs] = 98;
-            profile.Items[ItemSlot.Keys] = 98;
-            profile.Items[ItemSlot.HeartContainers] = 16;
+            profile.AddItem(ItemSlot.Rupees, 100);
+            profile.AddItem(ItemSlot.Bombs, 98);
+            profile.AddItem(ItemSlot.Keys, 98);
+            profile.AddItem(ItemSlot.HeartContainers, 16);
             profile.Hearts = PlayerProfile.GetMaxHeartsValue(16);
             profile.SelectedItem = ItemSlot.Bombs;
 
-            for (var i = 0; i < 10; ++i)
+            foreach (var (_, items) in profile.DungeonItems)
             {
-                var items = profile.GetDungeonItems(i);
                 items.Set(ItemId.Compass);
                 items.Set(ItemId.Map);
+                items.Set(ItemId.TriforcePiece);
             }
 
             game.Toast("All items added.");
+        }
+    }
+
+    // Designed to be more stable, for the purpose of recordings.
+    public sealed class BasicItemsCheat() : SingleWordCheat("idbasic", true)
+    {
+        public override void RunPayload(Game game, string[] args)
+        {
+            void IncSlot(ItemSlot slot, int max)
+            {
+                game.World.SetItem(slot, int.Min(max, game.World.GetItem(slot) + 1));
+            }
+
+            var profile = game.World.Profile;
+            if (profile == null) return;
+            game.World.AddItem(ItemId.MagicShield);
+            game.World.AddItem(ItemId.Food);
+            game.World.AddItem(ItemId.Raft);
+            game.World.AddItem(ItemId.Ladder);
+            game.World.AddItem(ItemId.Bow);
+            game.World.AddItem(ItemId.Bracelet);
+            game.World.AddItem(ItemId.Letter);
+            game.World.AddItem(ItemId.Recorder);
+            game.World.AddItem(ItemId.Book);
+            game.World.AddItem(ItemId.Rod);
+            IncSlot(ItemSlot.Arrow, 2);
+            IncSlot(ItemSlot.Boomerang, 2);
+            IncSlot(ItemSlot.Candle, 2);
+            IncSlot(ItemSlot.Sword, 3);
+            IncSlot(ItemSlot.Ring, 2);
+            profile.AddItem(ItemSlot.Rupees, 100);
+            profile.AddItem(ItemSlot.Bombs, 8);
+            profile.AddItem(ItemSlot.Keys, 4);
+            profile.AddItem(ItemSlot.HeartContainers, 8);
+            profile.Hearts = PlayerProfile.GetMaxHeartsValue(8);
+
+            game.Toast("Basic items added.");
+        }
+    }
+
+    public sealed class RevertItemsCheat() : SingleWordCheat("idrevert", true)
+    {
+        public override void RunPayload(Game game, string[] args)
+        {
+            var profile = game.World.Profile;
+            if (profile == null) return;
+
+            profile.Items.Clear();
+            profile.Initialize();
+
+            game.Toast("Items removed.");
         }
     }
 
@@ -341,6 +389,8 @@ internal sealed class GameCheats
         }
     }
 
+    public event Action<Type, string[]> RanCheat;
+
     private readonly Game _game;
     private readonly Input _input;
 
@@ -352,6 +402,8 @@ internal sealed class GameCheats
         new ClearSecretsCheat(),
         new ClearHistoryCheat(),
         new ItemsCheat(),
+        new BasicItemsCheat(),
+        new RevertItemsCheat(),
         new MyPosCheat(),
         new PosAllCheat(),
         new KillAllCheat(),
@@ -377,6 +429,7 @@ internal sealed class GameCheats
             if (cheat.OnKeyPressed(chr, out var args))
             {
                 cheat.RunPayload(_game, args);
+                RanCheat?.Invoke(cheat.GetType(), args);
             }
         }
     }
@@ -398,6 +451,19 @@ internal sealed class GameCheats
             if (cheat is T t)
             {
                 t.RunPayload(_game, []);
+                RanCheat?.Invoke(cheat.GetType(), []);
+            }
+        }
+    }
+
+    public void TriggerCheat(string typeName, string[] arguments)
+    {
+        foreach (var cheat in _cheats)
+        {
+            if (cheat.GetType().Name == typeName)
+            {
+                cheat.RunPayload(_game, arguments);
+                RanCheat?.Invoke(cheat.GetType(), arguments);
             }
         }
     }

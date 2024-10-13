@@ -4,6 +4,7 @@ using Silk.NET.Input;
 using z1.IO;
 using KeyboardMap = System.Collections.Generic.Dictionary<z1.UI.KeyboardMapping, z1.GameButton>;
 using GamepadMap = System.Collections.Generic.Dictionary<z1.UI.GamepadButton, z1.GameButton>;
+using FunctionMap = System.Collections.Generic.Dictionary<z1.UI.KeyboardMapping, z1.FunctionButton>;
 
 namespace z1.UI;
 
@@ -159,6 +160,14 @@ internal readonly record struct KeyboardMapping(Key Key, KeyboardModifiers Modif
 {
     public bool HasModifiers => Modifiers != KeyboardModifiers.None;
 
+    public bool ShouldUnset(KeyboardMapping input)
+    {
+        // We need to clear any game input that's using this key. IE, if mute is set to control+m,
+        // then the user releases ctrl, then the user releases m, we're not seeing "control+m", we're
+        // seeing each action.
+        return Key == input.Key || (HasModifiers && Modifiers.HasFlag(input.Modifiers));
+    }
+
     public class Converter : JsonConverter<KeyboardMapping>
     {
         private static string GetJsonString(KeyboardMapping map)
@@ -286,8 +295,18 @@ internal sealed class InputConfiguration
 #endif
     };
 
+    private static readonly FunctionMap _defaultFunctionMap = new()
+    {
+#if DEBUG
+        { new KeyboardMapping(Key.F6), FunctionButton.BeginRecording },
+        { new KeyboardMapping(Key.F8), FunctionButton.WriteRecording },
+        { new KeyboardMapping(Key.F12), FunctionButton.WriteRecordingAssert },
+#endif
+    };
+
     public KeyboardMap Keyboard { get; set; }
     public GamepadMap Gamepad { get; set; }
+    public FunctionMap Functions { get; set; }
 
     public InputConfiguration()
     {
@@ -297,5 +316,6 @@ internal sealed class InputConfiguration
     {
         Keyboard ??= new KeyboardMap(_defaultKeyboardMap);
         Gamepad ??= new GamepadMap(_defaultGamepadMap);
+        Functions ??= new FunctionMap(_defaultFunctionMap);
     }
 }
