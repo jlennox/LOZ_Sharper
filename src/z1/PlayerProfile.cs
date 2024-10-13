@@ -240,7 +240,7 @@ internal sealed class PlayerProfile
         if (!RoomState.TryGetValue(room.UniqueId, out var roomFlags))
         {
             roomFlags = new PersistedRoomState();
-            RoomState[room.World.UniqueId] = roomFlags;
+            RoomState[room.UniqueId] = roomFlags;
         }
 
         return roomFlags;

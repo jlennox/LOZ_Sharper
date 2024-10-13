@@ -13,7 +13,7 @@ internal partial class World
             ? "Overworld.world"
             : $"Level{Profile.Quest:D2}_{level:D2}.world"; // JOE: TODO: Make this logic generic.
 
-        CurrentWorld = new GameWorld(Game, new Asset($"Maps/{levelDirName}").ReadJson<TiledWorld>(), $"Maps/{levelDirName}", Profile.Quest);
+        CurrentWorld = new GameWorld(Game, new Asset($"Maps", levelDirName).ReadJson<TiledWorld>(), $"Maps/{levelDirName}", Profile.Quest);
         // _directory = new Asset($"levelDir_{Profile.Quest}_{level}.json").ReadJson<LevelDirectory>();
         // _infoBlock = ListResource<LevelInfoBlock>.LoadSingle(_directory.LevelInfoBlock);
 
@@ -114,9 +114,19 @@ internal partial class World
 
     private void LoadLayout(GameRoom room)
     {
-        foreach (var interactableBlock in room.InteractableBlockObjects)
+        foreach (var block in room.InteractableBlockObjects)
         {
-            _objects.Add(new InteractableBlockActor(Game, interactableBlock));
+            // This is unfortunately needed so that bad guys as they spawn in can see the items to "hold" them
+            // when possible in the underworld.
+            if (block.Interaction.IsItemOnly())
+            {
+                var options = block.Interaction.Item!.IsRoomItem ? ItemObjActorOptions.IsRoomItem : ItemObjActorOptions.None;
+                _objects.Add(new ItemObjActor(Game, block.Interaction.Item.Item, options, block.X, block.Y));
+            }
+            else
+            {
+                _objects.Add(new InteractableBlockActor(Game, block));
+            }
         }
 
         foreach (var roomInteraction in room.RoomInteractions)

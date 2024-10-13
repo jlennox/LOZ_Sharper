@@ -262,6 +262,15 @@ public sealed class InteractableBlock : InteractableBase
             Item.Item = ArgumentsIn?.ItemId ?? throw new Exception($"{nameof(ItemId.ArgumentItemId)} is used but no argument provided.");
         }
     }
+
+    public bool IsItemOnly()
+    {
+        return Item != null && Interaction == Interaction.None
+            && ItemRequirement == null && Requirements == InteractionRequirements.None
+            && Effect == InteractionEffect.None && Reveals == null
+            && ApparanceBlock == null && Entrance == null
+            && SpawnedType == null && Raft == null && (CaveItems == null || CaveItems.Length == 0);
+    }
 }
 
 [TiledClass]

@@ -424,7 +424,7 @@ internal sealed class GameRoom
             var tileset = map.TileSets[i];
             var filename = Path.GetFileName(tileset.Source);
             var tilesetName = Path.GetFileNameWithoutExtension(filename);
-            var source = new Asset("Maps/" + filename);
+            var source = new Asset("Maps", filename);
             TileSets[i] = new GameTileSet(tilesetName, i, source.ReadJson<TiledTileSet>());
         }
 

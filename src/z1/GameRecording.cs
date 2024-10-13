@@ -3,24 +3,18 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using z1.Actors;
 using z1.Common.IO;
 
 namespace z1;
 
-internal interface IGameRecordingAssertion
-{
-    bool Assert(object actual, [MaybeNullWhen(true)] out string error);
-}
-
 internal readonly struct RecordingError<T>(T Expected, T Actual)
 {
     public override string ToString() => JsonSerializer.Serialize(this);
 }
 
-internal abstract class GameRecordingObjectAssertion<T> : IGameRecordingAssertion
+internal abstract class GameRecordingObjectAssertion<T>
 {
     public bool Assert(object actual, [MaybeNullWhen(true)] out string error)
     {

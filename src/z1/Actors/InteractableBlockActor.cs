@@ -4,7 +4,6 @@ using z1.Render;
 
 namespace z1.Actors;
 
-
 [DebuggerDisplay("{Interactable.Name} ({X},{Y})")]
 internal abstract class InteractableActor<T> : Actor
     where T : InteractableBase
