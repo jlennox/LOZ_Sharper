@@ -11,10 +11,6 @@ internal sealed class Game
 {
     private static readonly DebugLog _log = new(nameof(Game));
 
-    public Player Player;
-
-    public readonly Sound Sound;
-
     public static class Cheats
     {
         public static bool SpeedUp = false;
@@ -25,6 +21,8 @@ internal sealed class Game
     public GameEnhancements Enhancements => Configuration.Enhancements;
 
     public World World { get; private set; }
+    public Player Player { get; set; }
+    public ISound Sound { get; }
     public Input Input { get; }
     public GameCheats GameCheats { get; }
     public GameConfiguration Configuration { get; } = SaveFolder.Configuration;
@@ -55,7 +53,7 @@ internal sealed class Game
     public Game(GameRecordingState playback, bool headless = false) : this()
     {
         Headless = headless;
-        if (headless) Sound.SetMute(true);
+        if (headless) Sound = new NullSound();
 
         Random = new Random(playback.Seed);
         Playback = new GamePlayback(this, playback);

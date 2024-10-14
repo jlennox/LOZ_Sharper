@@ -281,7 +281,47 @@ internal sealed class NamedWaveFileReader
     public static implicit operator WaveFileReader(NamedWaveFileReader named) => named.WaveFileReader;
 }
 
-internal sealed class Sound
+internal interface ISound
+{
+    void SetVolume(int volume);
+    int IncreaseVolume();
+    int DecreaseVolume();
+    bool ToggleMute();
+    void SetMute(bool mute);
+    void SetMuteSongs(bool mute);
+    void PlayEffect(SoundEffect id, bool loop = false, int instance = -1);
+    void PlaySong(SongId song, SongStream stream, bool loop);
+    void PushSong(SongId song);
+    void StopEffect(StopEffect effect);
+    void StopEffect(int effectId);
+    void StopEffects();
+    void Pause();
+    void Unpause();
+    void StopAll();
+    void Update();
+}
+
+internal sealed class NullSound : ISound
+{
+    public void SetVolume(int volume) { }
+    public int IncreaseVolume() => 0;
+    public int DecreaseVolume() => 0;
+    public bool ToggleMute() => false;
+    public void SetMute(bool mute) { }
+    public void SetMuteSongs(bool mute) { }
+    public void PlayEffect(SoundEffect id, bool loop = false, int instance = -1) { }
+    public void PlaySong(SongId song, SongStream stream, bool loop) { }
+    public void PushSong(SongId song) { }
+    public void StopEffect(StopEffect effect) { }
+    public void StopEffect(int effectId) { }
+    public void StopEffects() { }
+    public void Pause() { }
+    public void Unpause() { }
+    public void StopAll() { }
+    public void Update() { }
+}
+
+internal sealed class Sound : ISound
 {
     public const int AmbientInstance = 4;
 
@@ -527,12 +567,6 @@ internal sealed class Sound
          }
 
          PlaySongInternal(song, SongStream.EventSong, false, true);
-    }
-
-    public TimeSpan GetSongLength(SongId songId)
-    {
-        var song = _songs[(int)songId];
-        return TimeSpan.FromSeconds(song.EndSeconds - song.StartSeconds);
     }
 
     public void StopEffect(StopEffect effect) => StopEffect((int)effect);

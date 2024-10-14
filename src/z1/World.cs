@@ -2482,7 +2482,7 @@ internal sealed partial class World
     }
 
     // Returns false if the next room should stay the same as the current room.
-    private static bool CalcMazeStayPut(MazeRoom? maze, Sound sound, Direction dir, ref int currentMazeStep)
+    private static bool CalcMazeStayPut(MazeRoom? maze, ISound sound, Direction dir, ref int currentMazeStep)
     {
         if (maze == null) return false;
 

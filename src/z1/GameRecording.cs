@@ -16,11 +16,6 @@ internal readonly struct RecordingError<T>(T Expected, T Actual)
 
 internal abstract class GameRecordingObjectAssertion<T>
 {
-    public bool Assert(object actual, [MaybeNullWhen(true)] out string error)
-    {
-        return Assert((T)actual, out error);
-    }
-
     public abstract bool Assert(T actual, [MaybeNullWhen(true)] out string error);
 
     // This is awful, but it's only used for assertions in test playbacks.
@@ -101,23 +96,43 @@ internal abstract class GameRecordingObjectAssertion<T>
     }
 }
 
+internal readonly record struct GameRecordingObjectActorValues
+{
+    public readonly ObjType ObjType;
+    public readonly int X;
+    public readonly int Y;
+
+    public GameRecordingObjectActorValues(Actor actor)
+    {
+        ObjType = actor.ObjType;
+        X = actor.X;
+        Y = actor.Y;
+    }
+
+    public static GameRecordingObjectActorValues[] From(IEnumerable<Actor> actors)
+    {
+        return actors.Select(t => new GameRecordingObjectActorValues(t)).ToArray();
+    }
+}
+
 internal sealed class GameRecordingObjectActorAssertion : GameRecordingObjectAssertion<IEnumerable<Actor>>
 {
-    public ObjType[] ObjTypes { get; set; }
+    public GameRecordingObjectActorValues[] Values { get; set; }
 
     public GameRecordingObjectActorAssertion() { }
 
     public GameRecordingObjectActorAssertion(IEnumerable<Actor> actors)
     {
-        ObjTypes = actors.Select(t => t.ObjType).ToArray();
+        Values = GameRecordingObjectActorValues.From(actors);
     }
 
     public override bool Assert(IEnumerable<Actor> actuals, [MaybeNullWhen(true)] out string error)
     {
-        var actualTypes = ObjTypes = actuals.Select(t => t.ObjType).ToArray();
-        if (!actualTypes.SequenceEqual(ObjTypes))
+        var actualTypes = GameRecordingObjectActorValues.From(actuals);
+        if (!actualTypes.SequenceEqual(Values))
         {
-            error = "Object types do not match:" + new RecordingError<ObjType[]>(ObjTypes, actualTypes);
+            var errorDescription =  new RecordingError<GameRecordingObjectActorValues[]>(Values, actualTypes);
+            error = "Object types do not match:" + errorDescription;
             return false;
         }
 
