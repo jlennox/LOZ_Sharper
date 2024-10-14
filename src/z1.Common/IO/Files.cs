@@ -10,6 +10,8 @@ public static class Filenames
     public const string Font = "font.png";
     public const string FontAddendum = "font-addendum.png";
 
+    public const string DoorTiles = "DoorTiles.json";
+
     private static readonly string _executableDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location ?? throw new Exception());
 
     public static string FormatLevelWorld(int quest, int level) => $"Level{quest:D2}_{level:D2}.world";

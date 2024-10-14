@@ -12,10 +12,10 @@ internal abstract class InteractableActor<T> : Actor
 
     public T Interactable { get; }
 
+    protected readonly ObjectState State;
     protected bool HasInteracted => (State.HasInteracted && Interactable.Persisted)
         || _hasInteracted
         || Interactable.Interaction == Interaction.None;
-    protected readonly ObjectState State;
 
     private bool _hasSoundPlayed;
     private bool _hasInteracted;
@@ -25,6 +25,7 @@ internal abstract class InteractableActor<T> : Actor
     // This is to avoid a virtual call in the initializer.
     // NOTE: This might be better off setting _hasInteracted, and having CheckRequirements pass if that's set.
     private bool _setInteracted;
+    private bool _initializerSetInteracted;
 
     protected InteractableActor(Game game, T interactable, int x, int y)
         : base(game, ObjType.Block, x, y + World.TileMapBaseY)
@@ -37,7 +38,7 @@ internal abstract class InteractableActor<T> : Actor
         // Requirements are met. The idea behind _setInteracted was that it wouldn't check requirements, incase you
         // trigger something, then lose that. IE, later in the quest you lose the item and that's ok. But we can
         // recross this bridge when and if it comes up again.
-        if (HasInteracted) _hasPerformedInteraction = true;
+        if (HasInteracted) _initializerSetInteracted = true;
     }
 
     public void DebugSetInteracted() => SetInteracted(false);
@@ -68,11 +69,12 @@ internal abstract class InteractableActor<T> : Actor
             return UpdateState.None;
         }
 
-        if (_hasPerformedInteraction)
+        if (_hasPerformedInteraction || _initializerSetInteracted)
         {
             _hasPerformedInteraction = false;
             if (CheckDeferredEvent()) return UpdateState.None;
-            SetInteracted(false);
+            SetInteracted(_initializerSetInteracted);
+            _initializerSetInteracted = false;
             return UpdateState.HasInteracted;
         }
 

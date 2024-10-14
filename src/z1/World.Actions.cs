@@ -4,8 +4,6 @@ namespace z1;
 
 internal partial class World
 {
-    private static readonly ImmutableArray<byte> _levelGroups = [0, 0, 1, 1, 0, 1, 0, 1, 2];
-
     public readonly record struct EquipValue(ItemSlot Slot, byte Value, ItemSlot? Max = null, int? MaxValue = null);
 
     // The item ID to item slot map is at $6B14, and copied to RAM at $72A4.
@@ -52,18 +50,20 @@ internal partial class World
     private readonly record struct DoorStateBehaviors(TileBehavior Closed, TileBehavior Open)
     {
         public TileBehavior GetBehavior(bool isOpen) => isOpen ? Open : Closed;
-    }
 
-    private static readonly ImmutableArray<DoorStateBehaviors> _doorBehaviors = [
-        new DoorStateBehaviors(TileBehavior.Doorway, TileBehavior.Doorway),     // Open
-        new DoorStateBehaviors(TileBehavior.Wall, TileBehavior.Wall),           // Wall (None)
-        new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Door),           // False Wall
-        new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Door),           // False Wall 2
-        new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Door),           // Bombable
-        new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Doorway),        // Key
-        new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Doorway),        // Key 2
-        new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Doorway)         // Shutter
-    ];
+        public static DoorStateBehaviors Get(DoorType type) => type switch
+        {
+            DoorType.Open => new DoorStateBehaviors(TileBehavior.Doorway, TileBehavior.Doorway),
+            DoorType.Wall => new DoorStateBehaviors(TileBehavior.Wall, TileBehavior.Wall),
+            DoorType.FalseWall => new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Door),
+            DoorType.FalseWall2 => new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Door),
+            DoorType.Bombable => new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Door),
+            DoorType.Key => new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Doorway),
+            DoorType.Key2 => new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Doorway),
+            DoorType.Shutter => new DoorStateBehaviors(TileBehavior.Door, TileBehavior.Doorway),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported door type.")
+        };
+    }
 
     private static readonly Dictionary<Direction, Point> _doorMiddles = new() {
         { Direction.Right, new Point(0xE0, 0x98) },
@@ -72,117 +72,57 @@ internal partial class World
         { Direction.Up, new Point(0x80, 0x60) },
     };
 
-    private readonly record struct DoorPosition(int SourceY, int X, int Y);
-
-    private static readonly Dictionary<Direction, DoorPosition> _doorPos = new() {
-        { Direction.Right, new DoorPosition(64, 224, 136) },
-        { Direction.Left, new DoorPosition(96, 0,   136) },
-        { Direction.Down, new DoorPosition(0, 112, 208) },
-        { Direction.Up, new DoorPosition(32, 112, 64) },
-    };
-
-    private enum DoorState { Open, Locked, Shutter, Wall, Bombed, None }
-
     private readonly record struct DoorStateFaces(DoorState Closed, DoorState Open)
     {
-        public DoorState GetState(bool isOpen) => isOpen ? Open : Closed;
+        private static DoorStateFaces GetDoorFace(DoorType type) => type switch
+        {
+            DoorType.Open => new DoorStateFaces(DoorState.Open, DoorState.Open),
+            DoorType.Wall => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
+            DoorType.FalseWall => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
+            DoorType.FalseWall2 => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
+            DoorType.Bombable => new DoorStateFaces(DoorState.Wall, DoorState.Bombed),
+            DoorType.Key => new DoorStateFaces(DoorState.Locked, DoorState.Open),
+            DoorType.Key2 => new DoorStateFaces(DoorState.Locked, DoorState.Open),
+            DoorType.Shutter => new DoorStateFaces(DoorState.Shutter, DoorState.Open),
+            DoorType.None => new DoorStateFaces(DoorState.None, DoorState.None),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported door type.")
+        };
+
+        public static DoorState GetState(DoorType type, bool isOpen)
+        {
+            var face = GetDoorFace(type);
+            return isOpen ? face.Open : face.Closed;
+        }
     }
 
-    private static DoorStateFaces GetDoorFace(DoorType type) => type switch
+    private readonly record struct DoorCorner(Point EntranceCorner, Point Behind, Point TileCornerOffset)
     {
-        DoorType.Open => new DoorStateFaces(DoorState.Open, DoorState.Open),
-        DoorType.Wall => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
-        DoorType.FalseWall => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
-        DoorType.FalseWall2 => new DoorStateFaces(DoorState.Wall, DoorState.Wall),
-        DoorType.Bombable => new DoorStateFaces(DoorState.Wall, DoorState.Bombed),
-        DoorType.Key => new DoorStateFaces(DoorState.Locked, DoorState.Open),
-        DoorType.Key2 => new DoorStateFaces(DoorState.Locked, DoorState.Open),
-        DoorType.Shutter => new DoorStateFaces(DoorState.Shutter, DoorState.Open),
-        DoorType.None => new DoorStateFaces(DoorState.None, DoorState.None),
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported door type.")
-    };
+        public static DoorCorner Get(Direction dir) => dir switch
+        {
+            Direction.Right => new DoorCorner(new Point(0x1C, 0x0A), new Point(0x1E, 0x0A), new Point(0, -1)),
+            Direction.Left => new DoorCorner(new Point(0x02, 0x0A), new Point(0x00, 0x0A), new Point(-1, -1)),
+            Direction.Down => new DoorCorner(new Point(0x0F, 0x12), new Point(0x0F, 0x14), new Point(-1, 0)),
+            Direction.Up => new DoorCorner(new Point(0x0F, 0x02), new Point(0x0F, 0x00), new Point(-1, -1)),
+            _ => throw new ArgumentOutOfRangeException(nameof(dir), dir, "Unsupported direction.")
+        };
+    }
 
-    private static readonly ImmutableArray<Cell> _doorCorners = [
-        new Cell(0x0A, 0x1C),
-        new Cell(0x0A, 0x02),
-        new Cell(0x12, 0x0F),
-        new Cell(0x02, 0x0F)
-    ];
-
-    private static readonly ImmutableArray<Cell> _behindDoorCorners = [
-        new Cell(0x0A, 0x1E),
-        new Cell(0x0A, 0x00),
-        new Cell(0x14, 0x0F),
-        new Cell(0x00, 0x0F)
-    ];
-
-    private delegate void TileActionDel(int tileY, int tileX, TileInteraction interaction);
-
-    private TileActionDel GetTileActionFunction(TileAction action) => action switch
+    private void RunTileBehavior(TileBehavior behavior, int tileY, int tileX, TileInteraction interaction)
     {
-        TileAction.None => NoneTileAction,
-        TileAction.Push => PushTileAction,
-        TileAction.Bomb => BombTileAction,
-        TileAction.Burn => BurnTileAction,
-        TileAction.PushHeadstone => HeadstoneTileAction,
-        TileAction.Ladder => LadderTileAction,
-        TileAction.Raft => RaftTileAction,
-        TileAction.Cave => CaveTileAction,
-        TileAction.Stairs => StairsTileAction,
-        TileAction.Ghost => GhostTileAction,
-        TileAction.Armos => ArmosTileAction,
-        TileAction.PushBlock => BlockTileAction,
-        TileAction.Recorder => RecorderTileAction,
+        switch (behavior)
+        {
+            case TileBehavior.GenericWalkable: /* no-op */ break;
+            case TileBehavior.Sand: /* no-op */ break;
+            case TileBehavior.SlowStairs: /* no-op */ break;
+            case TileBehavior.Stairs: /* no-op */ break;
 
-        TileAction.RecorderDestination => NoneTileAction,
-        TileAction.Item => NoneTileAction,
-
-        _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown action type.")
-    };
-
-    private ImmutableArray<TileActionDel> BehaviorFuncs => [
-        NoneTileAction,
-        NoneTileAction,
-        NoneTileAction,
-        StairsTileAction,
-        NoneTileAction,
-
-        NoneTileAction,
-        NoneTileAction,
-        CaveTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        GhostTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        ArmosTileAction,
-        DoorTileAction,
-        NoneTileAction
-    ];
+            case TileBehavior.Doorway: /* no-op */ break;
+            case TileBehavior.Water: /* no-op */ break;
+            case TileBehavior.GenericSolid: /* no-op */ break;
+            case TileBehavior.Cave: /* no-op */ break;
+            case TileBehavior.Door: DoorTileAction(tileY, tileX, interaction); break;
+            case TileBehavior.Wall: /* no-op */ break;
+            default: throw new ArgumentOutOfRangeException(nameof(behavior), behavior, "Unsupported tile behavior.");
+        }
+    }
 }

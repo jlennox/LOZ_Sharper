@@ -624,16 +624,17 @@ public partial class LozExtractor
 
             bmp = new Bitmap(16 * 16, 11 * 16);
 
-            ExtractUnderworldWalls(reader, bmp);
+            ExtractUnderworldWalls(reader, bmp, out var doorTiles);
+            options.AddJson(Filenames.DoorTiles, doorTiles);
 
-            options.AddFile("underworldWalls.png", bmp, ImageFormat.Png);
+            // options.AddFile("underworldWalls.png", bmp, ImageFormat.Png);
             bmp.Dispose();
 
             bmp = new Bitmap(16 * 16, 16 * 16);
 
             ExtractUnderworldDoors(reader, bmp);
 
-            options.AddFile("underworldDoors.png", bmp, ImageFormat.Png);
+            // options.AddFile("underworldDoors.png", bmp, ImageFormat.Png);
             bmp.Dispose();
 
             ExtractUnderworldMobs(options, reader);
@@ -703,10 +704,70 @@ public partial class LozExtractor
     private const int Walls = 0x15fa0 + 16;
     private const int WallTileCount = 78;
 
-    private static byte[,] ExtractUnderworldWalls(BinaryReader reader, Bitmap bmp)
+    private readonly record struct DoorCorner(Point Corner, Point Behind)
     {
-        reader.BaseStream.Position = Walls;
-        var wallTiles = reader.ReadBytes(WallTileCount);
+        public static DoorCorner Get(Direction dir) => dir switch
+        {
+            Direction.Right => new DoorCorner(new Point(0x1C, 0x0A), new Point(0x1E, 0x0A)),
+            Direction.Left => new DoorCorner(new Point(0x02, 0x0A), new Point(0x00, 0x0A)),
+            Direction.Down => new DoorCorner(new Point(0x0F, 0x12), new Point(0x0F, 0x14)),
+            Direction.Up => new DoorCorner(new Point(0x0F, 0x02), new Point(0x0F, 0x00)),
+            _ => throw new ArgumentOutOfRangeException(nameof(dir), dir, "Unsupported direction.")
+        };
+    }
+
+    private const int DoorTileCount = 12;
+    private const int DoorUpOpen = 0x15FEE + 16;
+
+    private static byte[,] ExtractUnderworldWalls(BinaryReader reader, Bitmap bmp, out DoorTileIndex doortiles)
+    {
+        var doorTypes = new[] { DoorState.Open, DoorState.Locked, DoorState.Shutter, DoorState.Wall, DoorState.Bombed};
+        var doorDirections = new[] { Direction.Right, Direction.Left, Direction.Down, Direction.Up };
+        var doorbytes = reader.ReadBytesFrom(DoorUpOpen, doorTypes.Length * DoorTileCount * doorDirections.Length);
+        doortiles = new();
+        foreach (var direction in doorDirections)
+        {
+            foreach (var type in doorTypes)
+            {
+                var entry = new DoorTileIndexKey(direction, type);
+                var isHorizontal = direction is Direction.Left or Direction.Right;
+                var (width, height) = isHorizontal ? (3, 4) : (4, 3);
+                var bytes = new TiledTile[width * height];
+
+                var doorBytesIndex = 0;
+
+                if (isHorizontal)
+                {
+                    // These store 2 of each row first.
+                    for (var yoffset = 0; yoffset < 4; yoffset += 2)
+                    {
+                        for (var x = 0; x < width; x++)
+                        {
+                            for (var y = 0; y < 2; y++)
+                            {
+                                bytes[(y + yoffset) * width + x] = TiledTile.Create(doorbytes[doorBytesIndex], 1);
+                                doorBytesIndex++;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    for (var x = 0; x < width; x++)
+                    {
+                        for (var y = 0; y < height; y++)
+                        {
+                            bytes[y * width + x] = TiledTile.Create(doorbytes[doorBytesIndex], 1);
+                            doorBytesIndex++;
+                        }
+                    }
+                }
+                doorbytes = doorbytes[DoorTileCount..];
+                doortiles.Add(entry, new DoorTileIndexEntry(bytes, width, height));
+            }
+        }
+
+        var wallTiles = reader.ReadBytesFrom(Walls, WallTileCount);
 
         var colors = GetPaletteStandInColors();
         int row = 0;
@@ -749,6 +810,8 @@ public partial class LozExtractor
             }
         }
 
+        // 0xF6: the brick pattern around the outer rim.
+
         for (int i = 0; i < 32; i++)
         {
             map[0, i] = 0xF6;
@@ -773,6 +836,19 @@ public partial class LozExtractor
                 }
             }
         }
+
+        // for (var i = 0; i < 4; ++i)
+        // {
+        //     var asdasd = map[9, i];
+        //     map[10, i] = map[4, 1];
+        // }
+
+        // byte[22, 32];
+
+        var asd = string.Join("\n", Enumerable.Range(0, 22)
+            .Select(t =>
+                string.Join(",", Enumerable.Range(0, 32).Select(q => map[t, q].ToString("X2")))));
+
 
         using (var g = Graphics.FromImage(bmp))
         {
@@ -1214,10 +1290,10 @@ public partial class LozExtractor
                 behavior = TileBehavior.Cave;
             else if (action == TileAction.Stairs)
                 behavior = TileBehavior.Stairs;
-            else if (action == TileAction.Ghost)
-                behavior = TileBehavior.Ghost0;
-            else if (action == TileAction.Armos)
-                behavior = TileBehavior.Armos0;
+            // else if (action == TileAction.Ghost)
+            //     behavior = TileBehavior.Ghost0;
+            // else if (action == TileAction.Armos)
+            //     behavior = TileBehavior.Armos0;
             else
                 continue;
 

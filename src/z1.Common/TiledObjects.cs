@@ -265,6 +265,8 @@ public sealed class InteractableBlock : InteractableBase
 
     public bool IsItemOnly()
     {
+        // TODO: This isn't my happy place. We really should just have an item type instead of reusing plain
+        // interactable blocks.
         return Item != null && Interaction == Interaction.None
             && ItemRequirement == null && Requirements == InteractionRequirements.None
             && Effect == InteractionEffect.None && Reveals == null

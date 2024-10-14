@@ -135,7 +135,7 @@ internal static class GlobalFunctions
 
     public static ItemId ItemValueToItemId(Game game, ItemSlot slot)
     {
-        return ItemValueToItemId(slot, game.World.Profile.Items[slot]);
+        return ItemValueToItemId(slot, game.World.Profile.GetItem(slot));
     }
 
     public static Actor MakeProjectile(Game game, ObjType type, int x, int y, Direction moving, Actor actor)

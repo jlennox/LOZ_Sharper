@@ -24,7 +24,8 @@ internal sealed class FoodActor : Actor
         }
 
         // This is how food attracts some monsters.
-        var roomObjId = Game.World.RoomObj?.ObjType ?? ObjType.None;
+        // var roomObjId = Game.World.RoomObj?.ObjType ?? ObjType.None;
+        var roomObjId = Game.World.GetObject<MonsterActor>()?.ObjType ?? ObjType.None;
 
         // JOE: TODO: Wire up to actor.IsAttrackedToMeat
 

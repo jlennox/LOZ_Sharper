@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using z1.Common.Data;
 
@@ -429,42 +431,8 @@ public enum TileBehavior
     Water,
     GenericSolid,
     Cave,
-    Ghost0,
-    Ghost1,
-    Ghost2,
-    Ghost3,
-    Ghost4,
-    Ghost5,
-    Ghost6,
-    Ghost7,
-    Ghost8,
-    Ghost9,
-    GhostA,
-    GhostB,
-    GhostC,
-    GhostD,
-    GhostE,
-    GhostF,
-    Armos0,
-    Armos1,
-    Armos2,
-    Armos3,
-    Armos4,
-    Armos5,
-    Armos6,
-    Armos7,
-    Armos8,
-    Armos9,
-    ArmosA,
-    ArmosB,
-    ArmosC,
-    ArmosD,
-    ArmosE,
-    ArmosF,
     Door,
     Wall,
-
-    Max,
 
     FirstWalkable = GenericWalkable,
     FirstSolid = Doorway,
@@ -612,3 +580,39 @@ public static class CommonUnderworldRoomName
     public const string ItemCellar = nameof(ItemCellar);
     public const string Transport = nameof(Transport);
 }
+
+public enum DoorState { Open, Locked, Shutter, Wall, Bombed, None }
+
+[JsonConverter(typeof(Converter))]
+public readonly record struct DoorTileIndexKey(Direction Direction, DoorState Type)
+{
+    public class Converter : JsonConverter<DoorTileIndexKey>
+    {
+        public override void WriteAsPropertyName(Utf8JsonWriter writer, [DisallowNull] DoorTileIndexKey value, JsonSerializerOptions options)
+        {
+            writer.WritePropertyName($"{value.Direction}/{value.Type}");
+        }
+
+        public override DoorTileIndexKey ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var s = reader.GetString();
+            var parser = new StringParser();
+            var direction = parser.ExpectEnum<Direction>(s);
+            parser.ExpectChar(s, '/');
+            var type = parser.ExpectEnum<DoorState>(s);
+            return new DoorTileIndexKey(direction, type);
+        }
+
+        public override DoorTileIndexKey Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            return default;
+        }
+
+        public override void Write(Utf8JsonWriter writer, DoorTileIndexKey value, JsonSerializerOptions options) { }
+    }
+}
+
+// Sadly, we can't json serialize TiledTile[,]
+public readonly record struct DoorTileIndexEntry(TiledTile[] Tiles, int Width, int Height);
+
+public sealed class DoorTileIndex : Dictionary<DoorTileIndexKey, DoorTileIndexEntry>;

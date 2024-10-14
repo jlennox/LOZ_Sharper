@@ -661,7 +661,8 @@ internal sealed class GanonActor : BlueWizzrobeBase
         }
         else if (_dyingTimer == 0xA0)
         {
-            Game.World.AddUWRoomItem();
+            // JOE: TODO: This seems like it needs to be fixed after the map rewrite...
+            // Game.World.AddUWRoomItem();
             var triforce = Game.World.GetObject<ItemObjActor>() ?? throw new Exception();
             triforce.X = X;
             triforce.Y = Y;
@@ -3623,7 +3624,7 @@ internal sealed class PolsVoiceActor : MonsterActor
             if (!collision.Collides) return;
         }
 
-        if (World.CollidesWall(collision.TileBehavior))
+        if (collision.TileBehavior.CollidesWall())
         {
             Facing = Facing.GetOppositeDirection();
 
@@ -3853,7 +3854,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
 
         // This isn't quite the same as the original game, because the original contrasted
         // blocks and water together with everything else.
-        return World.CollidesWall(collision.TileBehavior) ? 1 : 2;
+        return collision.TileBehavior.CollidesWall() ? 1 : 2;
     }
 
     private void UpdateComing()

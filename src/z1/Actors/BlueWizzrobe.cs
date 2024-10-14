@@ -236,7 +236,7 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
         // This isn't quite the same as the original game, because the original contrasted
         // blocks and water together with everything else.
-        return World.CollidesWall(collision.TileBehavior)
+        return collision.TileBehavior.CollidesWall()
             ? WizzrobeTileCollisionResult.WallCollision
             : WizzrobeTileCollisionResult.OtherCollision;
     }

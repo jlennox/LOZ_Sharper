@@ -20,9 +20,9 @@ internal sealed class PersistedRoomState
     public bool ShortcutState { get; set; } // Overworld
     public bool SecretState { get; set; } // Overworld
     public bool VisitState { get; set; } // Underworld
-    public Dictionary<Direction, bool> DoorState { get; set; } = []; // Underworld
-    public bool GetDoorState(Direction dir) => DoorState.TryGetValue(dir, out var state) && state;
-    public bool SetDoorState(Direction dir) => DoorState[dir] = true;
+    public Dictionary<Direction, DoorState> DoorState { get; set; } = []; // Underworld
+    public bool IsDoorOpen(Direction dir) => DoorState.TryGetValue(dir, out var state) && state == Common.DoorState.Open;
+    public void SetDoorState(Direction dir, DoorState state) => DoorState[dir] = state;
     public int ObjectCount { get; set; }
     public Dictionary<string, ObjectState> ObjectState { get; set; } = [];
 

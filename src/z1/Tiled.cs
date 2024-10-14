@@ -353,7 +353,7 @@ internal sealed class GameRoom
     public bool HasTriforce => IsTriforceRoom && !PersistedRoomState.ItemState;
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
-    public PersistedRoomState PersistedRoomState => GetRoomFlags();
+    public PersistedRoomState PersistedRoomState => _roomState.Value;
 
     // JOE: TODO: Uh, this feels wrong...?
     public int LevelKillCount { get; set; }
@@ -366,8 +366,8 @@ internal sealed class GameRoom
     public bool IsCave => World.Settings.WorldType == GameWorldType.OverworldCommon;
 
     private readonly Game _game;
-    // private readonly GameMapObject[] _ownedObjects;
     private readonly int _waterTileCount;
+    private readonly Lazy<PersistedRoomState> _roomState;
 
     public GameRoom(Game game, GameWorld world, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
     {
@@ -376,6 +376,8 @@ internal sealed class GameRoom
 
         _game = game;
         World = world;
+
+        _roomState = new Lazy<PersistedRoomState>(() => _game.World.Profile.GetRoomFlags(this));
 
         WorldEntry = worldEntry;
         Name = name;
@@ -533,11 +535,6 @@ internal sealed class GameRoom
 
         // The room map is edited at playtime. Any persisted changes need to be re-applied as the room loads.
         _unmodifiedRoomMap.CopyTo(RoomMap);
-    }
-
-    public PersistedRoomState GetRoomFlags()
-    {
-        return _game.World.Profile.GetRoomFlags(this);
     }
 
     private int CountWaterTiles()
@@ -712,6 +709,30 @@ internal sealed class RoomTileMap
         Behaviors.CopyTo((Span<TileBehavior>)clone.Behaviors);
     }
 
+    public void Blit(TiledTile[,] source, int destX, int destY)
+    {
+        for (var y = 0; y < source.GetLength(1); y++)
+        {
+            for (var x = 0; x < source.GetLength(0); x++)
+            {
+                this[destX + x, destY + y] = source[x, y];
+            }
+        }
+    }
+
+    public void Blit(TiledTile[] source, int srcWidth, int srcHeight, int destX, int destY)
+    {
+        var srcIndex = 0;
+        for (var y = 0; y < srcHeight; y++)
+        {
+            for (var x = 0; x < srcWidth; x++)
+            {
+                this[destX + x, destY + y] = source[srcIndex];
+                srcIndex++;
+            }
+        }
+    }
+
     public ref TiledTile Tile(int index) => ref Tiles[index];
     public ref TiledTile Tile(int tileX, int tileY) => ref Tiles[tileY * Width + tileX];
     public ref TileBehavior Behavior(int tileX, int tileY) => ref Behaviors[tileY * Width + tileX];
@@ -740,6 +761,8 @@ internal sealed class RoomTileMap
             && Behavior(tileX, tileY + 1) == behavior
             && Behavior(tileX + 1, tileY + 1) == behavior;
     }
+
+    public void SetBlockBehavior(Point point, TileBehavior behavior) => SetBlockBehavior(point.X, point.Y, behavior);
 
     public void SetBlockBehavior(int tileX, int tileY, TileBehavior behavior)
     {

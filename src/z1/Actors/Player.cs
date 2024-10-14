@@ -882,7 +882,7 @@ internal sealed class Player : Actor, IThrower
         var profile = Game.World.Profile;
         if (profile.SelectedItem == 0) return 0;
 
-        var itemValue = profile.Items[profile.SelectedItem];
+        var itemValue = profile.GetItem(profile.SelectedItem);
         if (itemValue == 0) return 0;
 
         if (profile.SelectedItem == ItemSlot.Rod)

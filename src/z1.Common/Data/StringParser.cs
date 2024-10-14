@@ -130,6 +130,12 @@ public ref struct StringParser
         return false;
     }
 
+    public T ExpectEnum<T>(ReadOnlySpan<char> s) where T : struct, Enum
+    {
+        if (!TryExpectEnum<T>(s, out var value)) throw new Exception($"Expected enum type {typeof(T).Name} at position {Index} in \"{s}\"");
+        return value;
+    }
+
     public ReadOnlySpan<char> ReadRemaining(ReadOnlySpan<char> s)
     {
         var start = Index;

@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using static ExtractLoz.MapExtractor;
 #pragma warning disable CA1416
@@ -68,11 +69,12 @@ public unsafe partial class LozExtractor
     };
     private static byte[,] _wallTileMap = null;
     private static string[] _textTable = null;
+    private static DoorTileIndex _doorTileMaps;
 
     private static void ExtractTiledMaps(Options options)
     {
         using var reader = options.GetBinaryReader();
-        _wallTileMap ??= ExtractUnderworldWalls(reader, new Bitmap(300, 300));
+        _wallTileMap ??= ExtractUnderworldWalls(reader, new Bitmap(300, 300), out _doorTileMaps);
         _textTable ??= ExtractText(options);
 
         var overworldResources = ExtractOverworldTiledMaps(options);
@@ -207,7 +209,7 @@ public unsafe partial class LozExtractor
 
     private static void ExtractTiledMap(Options options, MapResources resources, string name)
     {
-        var extractor = new MapExtractor(resources, _wallTileMap);
+        var extractor = new MapExtractor(resources, _wallTileMap, _doorTileMaps);
         var isOverworld = resources.IsOverworld;
 
         var questObjects = Enumerable.Range(0, 3).Select(_ => new List<TiledLayerObject>()).ToArray();
@@ -951,6 +953,30 @@ internal static class Extensions
             return true;
         }
         return false;
+    }
+
+    public static byte[] ReadBytesFrom(this BinaryReader reader, int location, int bytecount)
+    {
+        reader.BaseStream.Position = location;
+        return reader.ReadBytes(bytecount);
+    }
+
+    public static string HexDump(this byte[,] bin)
+    {
+        var xlength = bin.GetLength(0);
+        var ylength = bin.GetLength(1);
+        var sb = new StringBuilder(xlength & ylength * 3 + 5);
+        for (var y = 0; y < ylength; y++)
+        {
+            for (var x = 0; x < xlength; x++)
+            {
+                if (x > 0) sb.Append(',');
+                sb.Append(bin[x, y].ToString("X2"));
+            }
+            sb.Append('\n');
+        }
+
+        return sb.ToString();
     }
 }
 

@@ -232,6 +232,7 @@ internal sealed class MapExtractor
 {
     private readonly MapResources _resources;
     private readonly byte[,] _wallTileMap;
+    private readonly DoorTileIndex _doorTileIndex;
 
     private delegate void LoadMobDelegate(ref TileMap map, MapResources resources, int row, int col, int squareIndex);
 
@@ -306,10 +307,11 @@ internal sealed class MapExtractor
     private int _marginBottom;
     private int _marginTop;
 
-    public MapExtractor(MapResources resources, byte[,] wallTileMap)
+    public MapExtractor(MapResources resources, byte[,] wallTileMap, DoorTileIndex doorTileIndex)
     {
         _resources = resources;
         _wallTileMap = wallTileMap;
+        _doorTileIndex = doorTileIndex;
     }
 
     public unsafe TileMap LoadLayout(RoomId roomId, out ActionableTiles[] actions)
@@ -876,12 +878,13 @@ internal sealed class MapExtractor
                     if (mapped != 0)
                     {
                         var wallTile = TiledTile.Create(mapped, tileset);
-                        var halfY = (lastRow / 2) - 2;
-                        var halfX = (lastCol / 2) - 2;
-                        if ((rowY >= halfY && rowY <= halfY + 3) || (columnX >= halfX && columnX <= halfX + 3))
-                        {
-                            wallTile = TiledTile.Empty;
-                        }
+                        // This would leave the draws undrawn, but there's no good reason to do that, and valid reasons not to.
+                        // var halfY = (lastRow / 2) - 2;
+                        // var halfX = (lastCol / 2) - 2;
+                        // if ((rowY >= halfY && rowY <= halfY + 3) || (columnX >= halfX && columnX <= halfX + 3))
+                        // {
+                        //     wallTile = TiledTile.Empty;
+                        // }
                         tiles.Add(wallTile);
                         continue;
                     }
@@ -890,6 +893,17 @@ internal sealed class MapExtractor
                 tiles.Add(tileRef == 0 ? TiledTile.Empty : TiledTile.Create(tileRef, tileset));
             }
         }
+
+        // var doorbin = _doorTileIndex[new DoorTileIndexKey(Direction.Right, DoorState.Wall)];
+        //
+        // for (var y = 0; y < ylength; y++)
+        // {
+        //     for (var x = 0; x < xlength; x++)
+        //     {
+        //         // var tile = doorbin[x, y];
+        //         // tiles[y * RoomTileWidth + x] = tile;
+        //     }
+        // }
 
         return tiles.ToArray();
     }

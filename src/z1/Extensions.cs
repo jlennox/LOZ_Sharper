@@ -222,4 +222,7 @@ internal static class Extensions
     }
 
     public static bool IsLockedType(this DoorType type) => type is DoorType.Bombable or DoorType.Key or DoorType.Key2;
+
+    public static bool CollidesWall(this TileBehavior behavior) => behavior is TileBehavior.Wall or TileBehavior.Doorway or TileBehavior.Door;
+    public static bool CollidesTile(this TileBehavior behavior) => behavior >= TileBehavior.FirstSolid;
 }

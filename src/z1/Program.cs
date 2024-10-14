@@ -13,6 +13,7 @@ namespace z1;
 // * Compass does not work unless you have the map.
 // * Objects should approximate the original update order. IE, bombs update after monsters.
 // * Make AllTriforce an item requirement.
+// * Bad guys can bop link into the top wall in dungeons.
 
 // Sharper:
 // * Rectify MarginRight.
@@ -39,6 +40,7 @@ namespace z1;
 // To check:
 // * Boss noises when next to boss room.
 // * Recorder does not work in caves/cellars/underworld.
+// * If food attracts monsters.
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.

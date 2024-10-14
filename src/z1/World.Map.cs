@@ -103,11 +103,14 @@ internal partial class World
         room.Reset();
         LoadLayout(room);
 
+        var roomState = room.PersistedRoomState;
+
         if (room.HasUnderworldDoors)
         {
             foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
             {
                 UpdateDoorTileBehavior(room, direction);
+                UpdateDoorTiles(room, direction, roomState);
             }
         }
     }
@@ -121,7 +124,7 @@ internal partial class World
             if (block.Interaction.IsItemOnly())
             {
                 var options = block.Interaction.Item!.IsRoomItem ? ItemObjActorOptions.IsRoomItem : ItemObjActorOptions.None;
-                _objects.Add(new ItemObjActor(Game, block.Interaction.Item.Item, options, block.X, block.Y));
+                _objects.Add(new ItemObjActor(Game, block.Interaction.Item.Item, options, block.X, block.Y + TileMapBaseY));
             }
             else
             {
@@ -183,13 +186,13 @@ internal partial class World
             {
                 if (xtile < _startCol || xtile >= endCol) continue;
 
-                var tileRef = room.RoomMap.Tile(xtile, ytile);
+                var tileRef = DrawHitDetection
+                    ? TiledTile.Create((int)room.RoomMap.Behavior(xtile, ytile) + 1)
+                    : room.RoomMap.Tile(xtile, ytile);
                 var palette = (ytile is < 4 or >= 18 || xtile is < 4 or >= 28) ? outerPalette : innerPalette;
                 room.DrawTile(tileRef, x, y, palette);
             }
         }
-
-        DrawDoors(room, false, offsetX, offsetY);
 
         Graphics.End();
     }

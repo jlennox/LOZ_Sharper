@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using z1.Actors;
+using z1.Common.IO;
 using z1.IO;
 using z1.Render;
 using z1.UI;
@@ -102,6 +103,7 @@ internal sealed partial class World
     private static readonly DebugLog _log = new(nameof(World), DebugLogDestination.DebugBuildsOnly);
 
     public Game Game { get; }
+    public bool DrawHitDetection { get; set; }
     public Player Player => Game.Player;
     public SubmenuType Menu;
     public int RoomObjCount;           // 34E
@@ -134,7 +136,6 @@ internal sealed partial class World
     public int MarginLeft;
     public int MarginBottom;
     public int MarginTop;
-    private GLImage _doorsBmp;
 
     private GameMode _lastMode;
     private GameMode _curMode;
@@ -175,6 +176,7 @@ internal sealed partial class World
     private int _longTimer;
     private readonly Dictionary<StunTimerSlot, int> _stunTimers = new();
     private readonly List<ObjType> _pendingEdgeSpawns = new();
+    private readonly DoorTileIndex _doorTileIndex;
 
     private int _triggeredDoorCmd;   // 54
     private Direction _triggeredDoorDir;   // 55
@@ -200,6 +202,8 @@ internal sealed partial class World
         CurrentWorld = _overworldWorld;
         _commonWorlds[GameWorldType.OverworldCommon] = GameWorld.Load(game, "Maps/OverworldCommon.world", 1);
         _commonWorlds[GameWorldType.UnderworldCommon] = GameWorld.Load(game, "Maps/UnderworldCommon.world", 1);
+        _doorTileIndex = new Asset(Filenames.DoorTiles).ReadJson<DoorTileIndex>();
+
 
         _roomHistory = new RoomHistory(game, RoomHistoryLength);
         _statusBar = new StatusBar(this);
@@ -239,14 +243,12 @@ internal sealed partial class World
     private void Validate()
     {
         // Ensure there's one defined for each.
-        foreach (var action in Enum.GetValues<TileAction>()) GetTileActionFunction(action);
-        foreach (var action in Enum.GetValues<DoorType>()) GetDoorFace(action);
+        foreach (var action in Enum.GetValues<DoorType>()) DoorStateFaces.GetState(action, true);
     }
 
     private void Init(PlayerProfile profile)
     {
         _extraData = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
-        _doorsBmp = Graphics.CreateImage(new Asset("underworldDoors.png"));
 
         Profile = profile;
         Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHeartCount);
@@ -533,20 +535,14 @@ internal sealed partial class World
     public int GetStunTimer(StunTimerSlot slot) => _stunTimers.GetValueOrDefault(slot);
     public void SetStunTimer(StunTimerSlot slot, int value) => _stunTimers[slot] = value;
     public void PushTile(int row, int col) => InteractTile(row, col, TileInteraction.Push);
-    // private void TouchTile(int row, int col) => InteractTile(row, col, TileInteraction.Touch);
-    // public void CoverTile(int row, int col) => InteractTile(row, col, TileInteraction.Cover);
 
     private void InteractTile(int row, int col, TileInteraction interaction)
     {
         if (row < 0 || col < 0 || row >= ScreenTileHeight || col >= ScreenTileWidth) return;
 
         var behavior = GetTileBehavior(row, col);
-        var behaviorFunc = BehaviorFuncs[(int)behavior];
-        behaviorFunc(row, col, interaction);
+        RunTileBehavior(behavior, row, col, interaction);
     }
-
-    public static bool CollidesWall(TileBehavior behavior) => behavior is TileBehavior.Wall or TileBehavior.Doorway or TileBehavior.Door;
-    private static bool CollidesTile(TileBehavior behavior) => behavior >= TileBehavior.FirstSolid;
 
     public TileCollision CollidesWithTileStill(int x, int y)
     {
@@ -620,7 +616,7 @@ internal sealed partial class World
             }
         }
 
-        return new TileCollision(CollidesTile(behavior), behavior, hitFineCol, fineRow);
+        return new TileCollision(behavior.CollidesTile(), behavior, hitFineCol, fineRow);
     }
 
     public TileCollision PlayerCoversTile(int x, int y)
@@ -794,47 +790,24 @@ internal sealed partial class World
         // JOE: TODO: MAP REWRITE SetMapObject(tileY * 2, tileX * 2, BlockObjType.Stairs);
     }
 
-    private void DrawDoors(GameRoom room, bool above, int offsetX, int offsetY)
+    private DoorState GetDoorState(GameRoom room, Direction doorDir, PersistedRoomState roomState)
     {
-        if (!room.HasUnderworldDoors) return;
-
-        var outerPalette = CurrentRoom.Settings.OuterPalette;
-        var baseY = above ? DoorOverlayBaseY : DoorUnderlayBaseY;
-        var flags = CurrentRoom.PersistedRoomState;
-
-        foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
+        var doorType = room.UnderworldDoors[doorDir];
+        var doorState = roomState.IsDoorOpen(doorDir);
+        if (_tempShutterDoorDir != 0
+            && room == _tempShutterRoom
+            && doorType == DoorType.Shutter)
         {
-            var doorType = room.UnderworldDoors[direction];
-            var doorState = flags.GetDoorState(direction);
-            if (_tempShutterDoorDir != 0
-                && room == _tempShutterRoom
-                && doorType == DoorType.Shutter)
-            {
-                if (direction == _tempShutterDoorDir)
-                {
-                    doorState = true;
-                }
-            }
-            if (doorType == DoorType.Shutter && _tempShutters && _tempShutterRoom == room)
+            if (doorDir == _tempShutterDoorDir)
             {
                 doorState = true;
             }
-            var doorfaces = GetDoorFace(doorType);
-            var doorface = doorfaces.GetState(doorState);
-            if (doorface == DoorState.None) continue;
-
-            var doorPos = _doorPos[direction];
-            Graphics.DrawImage(
-                _doorsBmp,
-                DoorWidth * (int)doorface,
-                doorPos.SourceY + baseY,
-                DoorWidth,
-                DoorHeight,
-                doorPos.X + offsetX,
-                doorPos.Y + offsetY,
-                outerPalette,
-                0);
         }
+        if (doorType == DoorType.Shutter && _tempShutters && _tempShutterRoom == room)
+        {
+            doorState = true;
+        }
+        return DoorStateFaces.GetState(doorType, doorState);
     }
 
     public bool HasItem(ItemSlot itemSlot) => GetItem(itemSlot) > 0;
@@ -952,7 +925,7 @@ internal sealed partial class World
     {
         // TODO: the original game does it a little different, by looking at $EE.
         var type = room.UnderworldDoors[doorDir];
-        return room.PersistedRoomState.GetDoorState(doorDir)
+        return room.PersistedRoomState.IsDoorOpen(doorDir)
             || (type == DoorType.Shutter && _tempShutters && room == _tempShutterRoom) // JOE: I think doing object instance comparisons is fine?
             || (_tempShutterDoorDir == doorDir && room == _tempShutterRoom);
     }
@@ -1023,13 +996,17 @@ internal sealed partial class World
         _tempShutterRoom = CurrentRoom;
         Game.Sound.PlayEffect(SoundEffect.Door);
 
+        var roomState = CurrentRoom.PersistedRoomState;
+
         foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
         {
             if (CurrentRoom.UnderworldDoors[direction] == DoorType.Shutter)
             {
                 UpdateDoorTileBehavior(CurrentRoom, direction);
             }
+            UpdateDoorTiles(CurrentRoom, direction, roomState);
         }
+
     }
 
     public void IncrementKilledObjectCount(bool allowBombDrop)
@@ -1164,86 +1141,39 @@ internal sealed partial class World
 
     private void LoadRoom(GameRoom room)
     {
-        // This feels like a mess :/
         CurrentRoom = room;
         CurrentWorld = room.World;
 
         LoadMap(room);
-
-        if (IsOverworld())
-        {
-            if (room.PersistedRoomState.ShortcutState)
-            {
-                // JOE: TODO: MAP REWRITE if (FindSparseFlag(Sparse.Shortcut, roomId))
-                // JOE: TODO: MAP REWRITE {
-                // JOE: TODO: MAP REWRITE     ShowShortcutStairs(room);
-                // JOE: TODO: MAP REWRITE }
-            }
-
-            // if (!CurrentRoom.PersistedRoomState.ItemState)
-            {
-                // JOE: TODO: OBJECT REWRITE if (CurrentRoom.TryGetActionObject(TileAction.Item, out var itemObject))
-                // JOE: TODO: OBJECT REWRITE {
-                // JOE: TODO: OBJECT REWRITE     itemObject.GetScreenTileCoordinates(out var tileX, out var tileY);
-                // JOE: TODO: OBJECT REWRITE     var itemId = itemObject.ItemId ?? throw new Exception($"Item object at {tileX},{tileY} has no item ID in \"{room.Id}\" in world \"{CurrentWorld.Name}\"");
-                // JOE: TODO: OBJECT REWRITE     var itemObj = new ItemObjActor(Game, itemId, true, tileX, tileY);
-                // JOE: TODO: OBJECT REWRITE     AddOnlyObjectOfType(itemObj);
-                // JOE: TODO: OBJECT REWRITE }
-            }
-        }
-        else
-        {
-            // if (!CurrentRoom.PersistedRoomState.ItemState)
-            // {
-            //     if (room.Secret is not (Secret.FoesItem or Secret.LastBoss))
-            //     {
-            //         AddUWRoomItem(room);
-            //     }
-            // }
-        }
-    }
-
-    public void AddUWRoomItem() => AddUWRoomItem(CurrentRoom);
-
-    private void AddUWRoomItem(GameRoom room)
-    {
-        // JOE: TODO: MAP REWRITE var itemId = room.ItemId;
-        // JOE: TODO: MAP REWRITE
-        // JOE: TODO: MAP REWRITE if (itemId != ItemId.None)
-        // JOE: TODO: MAP REWRITE {
-        // JOE: TODO: MAP REWRITE     var pos = room.ItemPosition;
-        // JOE: TODO: MAP REWRITE     var itemObj = new ItemObjActor(Game, itemId, ItemObjActorOptions.IsRoomItem, pos.X, pos.Y);
-        // JOE: TODO: MAP REWRITE     AddOnlyObjectOfType(itemObj);
-        // JOE: TODO: MAP REWRITE
-        // JOE: TODO: MAP REWRITE     if (room.Secret is Secret.FoesItem or Secret.LastBoss)
-        // JOE: TODO: MAP REWRITE     {
-        // JOE: TODO: MAP REWRITE         Game.Sound.PlayEffect(SoundEffect.RoomItem);
-        // JOE: TODO: MAP REWRITE     }
-        // JOE: TODO: MAP REWRITE }
-    }
-
-    private void LoadCaveRoom(Entrance entrance)
-    {
-        // JOE: TODO: Major rewrite here.
-        // LoadLayout((int)uniqueRoomId); // JOE: TODO: Map rewrite. This feels super wrong.
     }
 
     private void UpdateDoorTileBehavior(GameRoom room, Direction doorDir)
     {
         var map = CurrentRoom.RoomMap;
-        var doorOrd = doorDir.GetOrdinal();
-        var corner = _doorCorners[doorOrd];
+        var (corner, behindCorner, _) = DoorCorner.Get(doorDir);
         var type = room.UnderworldDoors[doorDir];
-        var effectiveDoorState = GetEffectiveDoorState(room, doorDir);
-        var behavior = _doorBehaviors[(int)type].GetBehavior(effectiveDoorState);
+        if (type == DoorType.None) return;
 
-        map.SetBlockBehavior(corner.X, corner.Y, behavior);
+        var effectiveDoorState = GetEffectiveDoorState(room, doorDir);
+        var behavior = DoorStateBehaviors.Get(type).GetBehavior(effectiveDoorState);
+
+        map.SetBlockBehavior(corner,  behavior);
+        map.SetBlock(corner.X, corner.Y, TiledTile.Empty);
 
         if (behavior == TileBehavior.Doorway)
         {
-            corner = _behindDoorCorners[doorOrd];
-            map.SetBlockBehavior(corner.X, corner.Y, behavior);
+            map.SetBlockBehavior(behindCorner, behavior);
         }
+    }
+
+    private void UpdateDoorTiles(GameRoom room, Direction doorDir, PersistedRoomState roomState)
+    {
+        var map = room.RoomMap;
+        var state = GetDoorState(room, doorDir, roomState);
+        var (corner, _, drawOffset) = DoorCorner.Get(doorDir);
+        var tiles = _doorTileIndex[new DoorTileIndexKey(doorDir, state)];
+        var drawat = corner + drawOffset;
+        map.Blit(tiles.Tiles, tiles.Width, tiles.Height, drawat.X, drawat.Y);
     }
 
     private void Pause()
@@ -1527,7 +1457,7 @@ internal sealed partial class World
             OpenShutters();
         }
 
-        var flags = CurrentRoom.PersistedRoomState;
+        var roomState = CurrentRoom.PersistedRoomState;
 
         foreach (var dir in TiledRoomProperties.DoorDirectionOrder)
         {
@@ -1535,7 +1465,7 @@ internal sealed partial class World
 
             var type = CurrentRoom.UnderworldDoors[dir];
             if (!type.IsLockedType()) continue;
-            if (flags.GetDoorState(dir)) continue;
+            if (roomState.IsDoorOpen(dir)) continue;
 
             var oppositeDir = dir.GetOppositeDirection();
             if (!TryGetNextRoom(CurrentRoom, dir, out var nextRoom))
@@ -1544,13 +1474,14 @@ internal sealed partial class World
                 return;
             }
 
-            flags.SetDoorState(dir);
-            nextRoom.PersistedRoomState.SetDoorState(oppositeDir);
+            roomState.SetDoorState(dir, DoorState.Open);
+            nextRoom.PersistedRoomState.SetDoorState(oppositeDir, DoorState.Open);
             if (type != DoorType.Bombable)
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);
             }
             UpdateDoorTileBehavior(CurrentRoom, dir);
+            UpdateDoorTiles(CurrentRoom, dir, roomState);
         }
 
         _triggeredDoorCmd = 0;
@@ -1640,7 +1571,7 @@ internal sealed partial class World
                 var doorType = CurrentRoom.UnderworldDoors[direction];
                 if (doorType != DoorType.Bombable) continue;
 
-                var doorState = CurrentRoom.PersistedRoomState.GetDoorState(direction);
+                var doorState = CurrentRoom.PersistedRoomState.IsDoorOpen(direction);
                 if (doorState) continue;
 
                 var doorMiddle = _doorMiddles[direction];
@@ -1770,7 +1701,7 @@ internal sealed partial class World
         {
             if (RoomObjCount != 0)
             {
-                if (_roomKillCount == 0 || (RoomObj != null && RoomObj.IsReoccuring))
+                if (_roomKillCount == 0 || RoomObj is { IsReoccuring: true })
                 {
                     if (_roomKillCount < RoomObjCount)
                     {
@@ -1956,8 +1887,6 @@ internal sealed partial class World
         }
 
         objOverPlayer?.DecoratedDraw();
-
-        DrawDoors(CurrentRoom, true, 0, 0);
     }
 
     private void DrawSubmenu()
@@ -1968,7 +1897,6 @@ internal sealed partial class World
             DrawMap(CurrentRoom, 0, _submenuOffsetY);
         }
 
-        DrawDoors(CurrentRoom, true, 0, _submenuOffsetY);
         Menu.Draw(_submenuOffsetY);
     }
 
@@ -2206,7 +2134,7 @@ internal sealed partial class World
             var col = (x / 8);
             var behavior = GetTileBehavior(row, col);
 
-            if (behavior != TileBehavior.Sand && !CollidesTile(behavior)) break;
+            if (behavior != TileBehavior.Sand && !behavior.CollidesTile()) break;
             if (y == _edgeY && x == _edgeX) break;
         }
 
@@ -2679,6 +2607,7 @@ internal sealed partial class World
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);
                 UpdateDoorTileBehavior(CurrentRoom, origShutterDoorDir);
+                UpdateDoorTiles(CurrentRoom, origShutterDoorDir, CurrentRoom.PersistedRoomState);
             }
 
             _statusBar.EnableFeatures(StatusBarFeatures.All, true);
@@ -3927,30 +3856,6 @@ internal sealed partial class World
         GlobalFunctions.DrawChar(Chars.FullHeart, 0x40, y, Palette.Red);
     }
 
-    private GameRoom? FindCellarRoomId(GameRoom mainRoom, out bool isLeft)
-    {
-        isLeft = false;
-        // JOE: TODO: REWRITE for (var i = 0; i < LevelInfoBlock.LevelCellarCount; i++)
-        // JOE: TODO: REWRITE {
-        // JOE: TODO: REWRITE     var cellarRoomId = _infoBlock.CellarRoomIds[i];
-        // JOE: TODO: REWRITE     if (cellarRoomId >= 0x80) break;
-        // JOE: TODO: REWRITE
-        // JOE: TODO: REWRITE     if (mainRoom.Id == mainRoom.CellarStairsLeftRoomId)
-        // JOE: TODO: REWRITE     {
-        // JOE: TODO: REWRITE         isLeft = true;
-        // JOE: TODO: REWRITE         return cellarRoomId;
-        // JOE: TODO: REWRITE     }
-        // JOE: TODO: REWRITE
-        // JOE: TODO: REWRITE     if (mainRoomId == uwRoomAttrs.GetRightCellarExitRoomId())
-        // JOE: TODO: REWRITE     {
-        // JOE: TODO: REWRITE         isLeft = false;
-        // JOE: TODO: REWRITE         return cellarRoomId;
-        // JOE: TODO: REWRITE     }
-        // JOE: TODO: REWRITE }
-
-        return null;
-    }
-
     private void DrawRoomNoObjects(SpritePriority playerPriority = SpritePriority.AboveBg)
     {
         ClearScreen();
@@ -3966,171 +3871,6 @@ internal sealed partial class World
         {
             Game.Player.Draw();
         }
-
-        // if (IsUWMain(CurrentRoom))
-        {
-            DrawDoors(CurrentRoom, true, 0, 0);
-        }
-    }
-
-    private static void NoneTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        // Nothing to do. Should never be called.
-        // Debugger.Break(); // JOE: TODO: This was called. I burned myself with the red candle.
-    }
-
-    private void PushTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction != TileInteraction.Load) return;
-
-        var rock = new RockObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
-        SetBlockObj(rock);
-    }
-
-    private void BombTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction != TileInteraction.Load) return;
-
-        if (CurrentRoom.PersistedRoomState.SecretState)
-        {
-            SetMapObject(tileY, tileX, BlockType.Cave);
-            return;
-        }
-
-        var rockWall = new RockWallActor(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
-        SetBlockObj(rockWall);
-    }
-
-    private void BurnTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction != TileInteraction.Load) return;
-
-        if (CurrentRoom.PersistedRoomState.SecretState)
-        {
-            SetMapObject(tileY, tileX, BlockType.Stairs);
-            return;
-        }
-
-        var tree = new TreeActor(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
-        SetBlockObj(tree);
-    }
-
-    private void HeadstoneTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction != TileInteraction.Load) return;
-
-        var headstone = new HeadstoneObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
-        SetBlockObj(headstone);
-    }
-
-    private void LadderTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction != TileInteraction.Touch) return;
-
-        Debug.WriteLine("Touch water: {0}, {1}", tileY, tileX);
-    }
-
-    private void RaftTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        // TODO: instantiate the Dock here on Load interaction, and set its position.
-
-        if (interaction != TileInteraction.Cover) return;
-
-        Debug.WriteLine("Cover dock: {0}, {1}", tileY, tileX);
-
-        // JOE: TODO: This appears to do nothing?
-        // if (GetItem(ItemSlot.Raft) == 0) return;
-        // if (!FindSparseFlag(Sparse.Dock, CurrentRoom)) return;
-    }
-
-    private void CaveTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction != TileInteraction.Cover) return;
-
-        if (IsOverworld())
-        {
-            var behavior = GetTileBehavior(tileY, tileX);
-            // JOE: TODO: OBJECT REWRITE var stairsTo = CurrentRoom.GetActionObject(TileAction.Cave, tileX, tileY);
-            // JOE: TODO: OBJECT REWRITE GotoStairs(behavior, stairsTo);
-        }
-
-        Debug.WriteLine("Cover cave: {0}, {1}", tileY, tileX);
-    }
-
-    private void StairsTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction != TileInteraction.Cover) return;
-
-        if (GetMode() == GameMode.Play)
-        {
-            // JOE: TODO: OBJECT REWRITEvar stairsTo = CurrentRoom.GetActionObject(TileAction.Stairs, tileX, tileY);
-            // JOE: TODO: OBJECT REWRITEGotoStairs(TileBehavior.Stairs, stairsTo);
-        }
-
-        Debug.WriteLine("Cover stairs: {0}, {1}", tileY, tileX);
-    }
-
-    public void GhostTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction == TileInteraction.Push) Debug.WriteLine("Push headstone: {0}, {1}", tileY, tileX);
-
-        // CommonMakeObjectAction(ObjType.FlyingGhini, tileY, tileX, interaction, ref _ghostCount, _ghostCells);
-    }
-
-    public void ArmosTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction == TileInteraction.Push) Debug.WriteLine("Push armos: {0}, {1}", tileY, tileX);
-
-        // CommonMakeObjectAction(ObjType.Armos, tileY, tileX, interaction, ref _armosCount, _armosCells);
-    }
-
-    public void CommonMakeObjectAction(
-        ObjType type, int tileY, int tileX, TileInteraction interaction, ref int patchCount, Cell[] patchCells)
-    {
-        switch (interaction)
-        {
-            case TileInteraction.Load:
-                if (patchCount < 16)
-                {
-                    patchCells[patchCount] = new Cell((byte)tileY, (byte)tileX);
-                    patchCount++;
-                }
-                break;
-
-            case TileInteraction.Push:
-                var map = CurrentRoom.RoomMap;
-                var behavior = map.Behavior(tileX, tileY);
-
-                if (tileY > 0 && map.Behavior(tileX, tileY - 1) == behavior)
-                {
-                    tileY--;
-                }
-                if (tileX > 0 && map.Behavior(tileX - 1, tileY) == behavior)
-                {
-                    tileX--;
-                }
-
-                // JOE: TODO: Screen conversion. MakeActivatedObject seems to believe these are normal x/y?
-                MakeActivatedObject(type, tileX, tileY);
-                break;
-        }
-    }
-
-    public Actor? CommonMakeObjectAction(ObjType type, int tileX, int tileY)
-    {
-        var map = CurrentRoom.RoomMap;
-        var behavior = map.Behavior(tileX, tileY);
-
-        if (tileY > 0 && map.Behavior(tileX, tileY - 1) == behavior)
-        {
-            tileY--;
-        }
-        if (tileX > 0 && map.Behavior(tileX - 1, tileY) == behavior)
-        {
-            tileX--;
-        }
-
-        return MakeActivatedObject(type, tileX, tileY);
     }
 
     public Actor? MakeActivatedObject(ObjType type, int tileX, int tileY)
@@ -4159,23 +3899,6 @@ internal sealed partial class World
         activatedObj.ObjTimer = 0x40;
 
         return activatedObj;
-    }
-
-    public void BlockTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        if (interaction != TileInteraction.Load) return;
-
-        var block = new BlockObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
-        SetBlockObj(block);
-    }
-
-    public void RecorderTileAction(int tileY, int tileX, TileInteraction interaction)
-    {
-        // JOE: TODO
-        if (interaction != TileInteraction.Load) return;
-
-        var block = new BlockObj(Game, tileX * TileWidth, TileMapBaseY + tileY * TileHeight);
-        SetBlockObj(block);
     }
 
     public void DoorTileAction(int tileY, int tileX, TileInteraction interaction)

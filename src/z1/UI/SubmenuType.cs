@@ -535,7 +535,7 @@ internal sealed class SubmenuType
             if (!room.UnderworldDoors.TryGetValue(direction, out var doorType)) continue;
 
             var isLockedType = doorType.IsLockedType();
-            if (doorType == DoorType.Open || (isLockedType && flags.GetDoorState(direction)))
+            if (doorType == DoorType.Open || (isLockedType && flags.IsDoorOpen(direction)))
             {
                 doorSum |= doorBit;
             }
