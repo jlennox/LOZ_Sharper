@@ -117,14 +117,14 @@ internal sealed class PersonActor : Actor
 
         if (spec.Items != null)
         {
-            var itemOptions = ItemObjActorOptions.IsRoomItem;
-            if (PersonType == PersonType.Shop) itemOptions |= ItemObjActorOptions.LiftOverhead;
+            var itemOptions = ItemObjectOptions.IsRoomItem;
+            if (_spec.IsPickUp) itemOptions |= ItemObjectOptions.LiftOverhead;
 
             for (var i = 0; i < spec.Items.Length; ++i)
             {
                 var caveItem = spec.Items[i];
                 var location = _itemLocations[i];
-                var item = game.World.AddItem(caveItem.ItemId, location.X, location.Y, itemOptions) as ItemObjActor;
+                var item = game.World.AddItemActor(caveItem.ItemId, location.X, location.Y, itemOptions) as ItemObjActor;
                 if (item == null) continue;
 
                 _itemActors.Add(item);
@@ -340,7 +340,8 @@ internal sealed class PersonActor : Actor
         HandlePickUpHint(item);
 
         // JOE: NOTE: This should ultimately go...? Or it needs to handle all the conditions.
-        Game.World.AddItem(item.ItemId, item.ItemAmount);
+        // This was causing double pickups from shops, but I am not certain it's not needed.
+        // Game.World.AddItem(item.ItemId, item.ItemAmount);
 
         if (item.FillItem != null)
         {

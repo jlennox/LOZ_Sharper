@@ -908,7 +908,7 @@ internal sealed partial class World
 
     public Actor DebugSpawnItem(ItemId itemId)
     {
-        return AddItem(itemId, Game.Player.X, Game.Player.Y - TileHeight);
+        return AddItemActor(itemId, Game.Player.X, Game.Player.Y - TileHeight);
     }
 
     public void DebugSpawnCave(Func<CaveSpec[], CaveSpec> getSpec)
@@ -1145,7 +1145,7 @@ internal sealed partial class World
         var (corner, _, drawOffset) = DoorCorner.Get(doorDir);
         var tiles = _doorTileIndex[new DoorTileIndexKey(doorDir, state)];
         var drawat = corner + drawOffset;
-        map.Blit(tiles.Tiles, tiles.Width, tiles.Height, drawat.X, drawat.Y);
+        map.Blit(tiles.Entries, tiles.Width, tiles.Height, drawat.X, drawat.Y);
     }
 
     private void Pause()
@@ -1788,7 +1788,7 @@ internal sealed partial class World
         {
             if (Profile.GetItem(ItemSlot.Rupees) < 255)
             {
-                Profile.Items[ItemSlot.Rupees]++;
+                Profile.IncreaseItem(ItemSlot.Rupees, 1);
             }
             else
             {
@@ -1801,7 +1801,7 @@ internal sealed partial class World
         {
             if (Profile.GetItem(ItemSlot.Rupees) > 0)
             {
-                Profile.Items[ItemSlot.Rupees]--;
+                Profile.IncreaseItem(ItemSlot.Rupees, -1);
             }
             else
             {
@@ -1811,8 +1811,8 @@ internal sealed partial class World
             Game.Sound.PlayEffect(SoundEffect.Character);
         }
 
-        if (Profile.GetItem(ItemSlot.RupeesToAdd) > 0) Profile.Items[ItemSlot.RupeesToAdd]--;
-        if (Profile.GetItem(ItemSlot.RupeesToSubtract) > 0) Profile.Items[ItemSlot.RupeesToSubtract]--;
+        if (Profile.GetItem(ItemSlot.RupeesToAdd) > 0) Profile.IncreaseItem(ItemSlot.RupeesToAdd, -1);
+        if (Profile.GetItem(ItemSlot.RupeesToSubtract) > 0) Profile.IncreaseItem(ItemSlot.RupeesToSubtract, -1);
     }
 
     private void UpdateLiftItem()
@@ -2192,7 +2192,7 @@ internal sealed partial class World
             itemId = (ItemId)dropItems[classIndex];
         }
 
-        AddItem(itemId, x, y);
+        AddItemActor(itemId, x, y);
     }
 
     private void FillHeartsStep()
@@ -3924,7 +3924,7 @@ internal sealed partial class World
         }
     }
 
-    public Actor AddItem(ItemId itemId, int x, int y, ItemObjActorOptions options = ItemObjActorOptions.None)
+    public Actor AddItemActor(ItemId itemId, int x, int y, ItemObjectOptions options = ItemObjectOptions.None)
     {
         Actor actor = itemId == ItemId.Fairy
             ? new FairyActor(Game, x, y)

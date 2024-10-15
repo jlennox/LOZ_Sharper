@@ -612,7 +612,22 @@ public readonly record struct DoorTileIndexKey(Direction Direction, DoorState Ty
     }
 }
 
-// Sadly, we can't json serialize TiledTile[,]
-public readonly record struct DoorTileIndexEntry(TiledTile[] Tiles, int Width, int Height);
+// Sadly, we can't json serialize T[,]
+public readonly record struct Array2D<T>(T[] Entries, int Width, int Height)
+{
+    public T this[int x, int y] => Entries[y * Width + x];
 
-public sealed class DoorTileIndex : Dictionary<DoorTileIndexKey, DoorTileIndexEntry>;
+    public Span<T> Row(int y) => Entries.AsSpan(y * Width, Width);
+
+    public void Blit(Array2D<T> source, int x, int y)
+    {
+        for (var srcY = 0; srcY < source.Height; srcY++)
+        {
+            var sourceRow = source.Row(srcY);
+            var destRow = Row(y + srcY);
+            sourceRow.CopyTo(destRow[x..]);
+        }
+    }
+}
+
+public sealed class DoorTileIndex : Dictionary<DoorTileIndexKey, Array2D<TiledTile>>;

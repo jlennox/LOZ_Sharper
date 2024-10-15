@@ -123,7 +123,7 @@ internal partial class World
             // when possible in the underworld.
             if (block.Interaction.IsItemOnly())
             {
-                var options = block.Interaction.Item!.IsRoomItem ? ItemObjActorOptions.IsRoomItem : ItemObjActorOptions.None;
+                var options = block.Interaction.Item!.Options;
                 _objects.Add(new ItemObjActor(Game, block.Interaction.Item.Item, options, block.X, block.Y + TileMapBaseY));
             }
             else

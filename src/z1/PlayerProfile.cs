@@ -307,6 +307,7 @@ internal sealed class PlayerProfile
 
     public int GetItem(ItemSlot slot) => Items.GetValueOrDefault(slot);
     public bool HasItem(ItemSlot slot) => GetItem(slot) != 0;
+    public void IncreaseItem(ItemSlot slot, int amount) => Items[slot] = GetItem(slot) + amount;
     public bool PreventDarkRooms(Game game) => game.Enhancements.RedCandleLightsDarkRooms && GetItem(ItemSlot.Candle) >= 2;
     public int GetMaxHeartsValue() => GetMaxHeartsValue(Items[ItemSlot.HeartContainers]);
     public static int GetMaxHeartsValue(int heartContainers) => (heartContainers << 8) - 1;

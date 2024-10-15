@@ -50,39 +50,6 @@ public static class TiledObjectProperties
     public const string TileBehavior = nameof(TileBehavior);
 }
 
-public enum TiledArgument
-{
-    None,
-    ItemId,
-    CellarStairsLeft,
-    CellarStairsRight,
-}
-
-public static class TiledArgumentProperties
-{
-    private static string GetPropertyName(TiledArgument name) => $"Argument.{name}";
-
-    public static TiledProperty CreateArgument(TiledArgument name, string value)
-    {
-        return new TiledProperty
-        {
-            Name = GetPropertyName(name),
-            Value = value,
-        };
-    }
-
-    public static TiledProperty? GetArgument(this IHasTiledProperties tiled, TiledArgument name)
-    {
-        return tiled.GetPropertyEntry(GetPropertyName(name));
-    }
-
-    public static TiledProperty ExpectArgument(this IHasTiledProperties tiled, TiledArgument name)
-    {
-        return tiled.GetPropertyEntry(GetPropertyName(name))
-            ?? throw new Exception($"Unable to find argument \"{name}\"");
-    }
-}
-
 public static class TiledTileSetTileProperties
 {
     public static readonly TileBehavior DefaultTileBehavior = TileBehavior.GenericWalkable;
@@ -205,16 +172,20 @@ public sealed class InteractionItemRequirement
 [Flags]
 [JsonConverter(typeof(TiledJsonSelectableEnumConverter<InteractionRequirements>))]
 [TiledSelectableEnum]
-public enum InteractionRequirements { None, AllEnemiesDefeated }
+public enum InteractionRequirements
+{
+    None = 0,
+    AllEnemiesDefeated = 1 << 0
+}
 
 [Flags]
 [JsonConverter(typeof(JsonStringEnumConverter))]
 [TiledSelectableEnum]
 public enum InteractionEffect
 {
-    None,
-    OpenShutterDoors,
-    DryoutWater,
+    None = 0,
+    OpenShutterDoors = 1 << 0,
+    DryoutWater = 1 << 1,
 }
 
 public abstract class InteractableBase
@@ -275,11 +246,22 @@ public sealed class InteractableBlock : InteractableBase
     }
 }
 
+[Flags]
+[JsonConverter(typeof(TiledJsonSelectableEnumConverter<InteractionRequirements>))]
+[TiledSelectableEnum]
+public enum ItemObjectOptions
+{
+    None = 0,
+    IsRoomItem = 1 << 0,
+    LiftOverhead = 1 << 1,
+    BecomesInactive = 1 << 2,
+}
+
 [TiledClass]
 public sealed class RoomItem
 {
     public ItemId Item { get; set; }
-    public bool IsRoomItem { get; set; } // UW only.
+    public ItemObjectOptions Options { get; set; }
 }
 
 [Flags]

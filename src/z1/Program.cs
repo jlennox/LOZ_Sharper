@@ -14,6 +14,18 @@ namespace z1;
 // * Objects should approximate the original update order. IE, bombs update after monsters.
 // * Make AllTriforce an item requirement.
 // * Bad guys can bop link into the top wall in dungeons.
+// * Octorok's in room NW of vanilla start seem to twitch when on the bottom row. They try to turn downward, can't,
+//   and flicker back to the left immediately.
+// * Warp caves appear before pushing rock. They also appear as cave, not stairs.
+// * Do not save cave on waterfall graphic.
+// * Set caves prior to scrolling, otherwise they only appear after scrolling has finished.
+// * Fix potion shop.
+// * Track the old spawn in time values and compare to the new. New ones seem longer.
+// * Does not lift cellar items overhead.
+// * Exits cellar in wrong place. Needs / 2 on X, and + basey on y?
+// * Spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
+
+// Know behavior changes:
 // * You can spawn multiple armos at the same time at the level 6 entrance where they are next to each other.
 //   In the normal game, only one will spawn at a time. This is because it early exits in the "is touching" loop
 //   when it finds a match. It is not "only one can spawn in at a time." This might be an acknowledged behavior difference.

@@ -1,7 +1,5 @@
 ﻿using System.Collections.Immutable;
-using System.ComponentModel.DataAnnotations;
 using SkiaSharp;
-using z1.IO;
 using z1.Render;
 
 namespace z1.UI;

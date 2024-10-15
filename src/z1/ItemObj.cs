@@ -86,7 +86,11 @@ internal class BlockActor : Actor, IHasCollision
 }
 
 [Flags]
-internal enum MovingBlockActorOptions { None, ReplaceWithBackground }
+internal enum MovingBlockActorOptions
+{
+    None = 0,
+    ReplaceWithBackground = 1 << 0,
+}
 
 internal class MovingBlockActor : BlockActor
 {
@@ -710,9 +714,6 @@ internal sealed class PlayerSwordActor : Actor
     }
 }
 
-[Flags]
-internal enum ItemObjActorOptions { None, IsRoomItem, LiftOverhead, BecomesInactive }
-
 internal sealed class ItemObjActor : Actor
 {
     // How long items are on the floor before they disappear.
@@ -724,13 +725,13 @@ internal sealed class ItemObjActor : Actor
     public bool TouchEnabled { get; set; } = true;
 
     private readonly ItemId _itemId;
-    private readonly ItemObjActorOptions _options;
+    private readonly ItemObjectOptions _options;
     private int _timer;
 
     // Can return false to prevent the item from being picked up. IE, if the player couldn't afford it in a shop.
     public event Func<ItemObjActor, bool>? OnTouched;
 
-    public ItemObjActor(Game game, ItemId itemId, ItemObjActorOptions options, int x, int y)
+    public ItemObjActor(Game game, ItemId itemId, ItemObjectOptions options, int x, int y)
         : base(game, ObjType.Item, x, y)
     {
         Decoration = 0;
@@ -738,7 +739,7 @@ internal sealed class ItemObjActor : Actor
         _itemId = itemId;
         _options = options;
 
-        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
+        if (!_options.HasFlag(ItemObjectOptions.IsRoomItem))
         {
             _timer = DespawnTime;
         }
@@ -757,7 +758,7 @@ internal sealed class ItemObjActor : Actor
 
     private void OptionalDelete()
     {
-        if (_options.HasFlag(ItemObjActorOptions.BecomesInactive))
+        if (_options.HasFlag(ItemObjectOptions.BecomesInactive))
         {
             TouchEnabled = false;
             return;
@@ -773,7 +774,7 @@ internal sealed class ItemObjActor : Actor
             return true;
         }
 
-        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
+        if (!_options.HasFlag(ItemObjectOptions.IsRoomItem))
         {
             var weapons = Game.World.GetObjects(static t => t is PlayerSwordActor or BoomerangProjectile or ArrowProjectile);
             foreach (var obj in weapons)
@@ -790,7 +791,7 @@ internal sealed class ItemObjActor : Actor
 
     public override void Update()
     {
-        if (!_options.HasFlag(ItemObjActorOptions.IsRoomItem))
+        if (!_options.HasFlag(ItemObjectOptions.IsRoomItem))
         {
             _timer--;
             switch (_timer)
@@ -824,7 +825,7 @@ internal sealed class ItemObjActor : Actor
         {
             Game.World.GotoEndLevel();
         }
-        else if (_options.HasFlag(ItemObjActorOptions.LiftOverhead))
+        else if (_options.HasFlag(ItemObjectOptions.LiftOverhead))
         {
             Game.World.LiftItem(_itemId);
             Game.Sound.PushSong(SongId.ItemLift);
@@ -839,7 +840,7 @@ internal sealed class ItemObjActor : Actor
 
     public override void Draw()
     {
-        if (_options.HasFlag(ItemObjActorOptions.IsRoomItem) || _timer < SpawnInTimeLastTimer || (_timer & 2) != 0)
+        if (_options.HasFlag(ItemObjectOptions.IsRoomItem) || _timer < SpawnInTimeLastTimer || (_timer & 2) != 0)
         {
             GlobalFunctions.DrawItemWide(Game, _itemId, X, Y);
         }

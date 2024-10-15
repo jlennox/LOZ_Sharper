@@ -607,6 +607,7 @@ public unsafe partial class LozExtractor
                             if (obj.GetClass<RoomItem>(nameof(InteractableBlock.Item)) is { } roomItem)
                             {
                                 roomItem.Item = ItemId.ArgumentItemId;
+                                roomItem.Options |= ItemObjectOptions.LiftOverhead;
                             }
                         }
                     }

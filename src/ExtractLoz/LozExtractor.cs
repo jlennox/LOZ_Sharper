@@ -763,7 +763,7 @@ public partial class LozExtractor
                     }
                 }
                 doorbytes = doorbytes[DoorTileCount..];
-                doortiles.Add(entry, new DoorTileIndexEntry(bytes, width, height));
+                doortiles.Add(entry, new Array2D<TiledTile>(bytes, width, height));
             }
         }
 

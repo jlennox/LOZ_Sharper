@@ -242,7 +242,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
         if (Interactable.Item != null && !State.ItemGot)
         {
             var itemId = Interactable.Item.Item;
-            var flags = Interactable.Item.IsRoomItem ? ItemObjActorOptions.IsRoomItem : ItemObjActorOptions.None;
+            var flags = Interactable.Item.Options;
             var itemActor = new ItemObjActor(Game, itemId, flags, X, Y);
             itemActor.OnTouched += _ => State.ItemGot = true;
             Game.World.AddObject(itemActor);
