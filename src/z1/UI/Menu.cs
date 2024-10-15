@@ -216,7 +216,7 @@ internal sealed class ProfileSelectMenu : Menu
             {
                 GlobalFunctions.DrawString($"{profile.Deaths,3}", 0x48, y + 8, 0);
                 GlobalFunctions.DrawString(profile.Name, 0x48, y, 0);
-                var totalHearts = profile.GetItem(ItemSlot.HeartContainers);
+                var totalHearts = profile.Items.Get(ItemSlot.HeartContainers);
                 var heartsValue = PlayerProfile.GetMaxHeartsValue(totalHearts);
                 GlobalFunctions.DrawHearts(heartsValue, totalHearts, 0x90, y + 8);
                 DrawFileIcon(profile, 0x30, y, profile.Quest);
@@ -410,7 +410,7 @@ internal sealed class RegisterMenu : Menu
         if (_profile.Name == null)
         {
             _profile.Name = "";
-            _profile.Hearts = PlayerProfile.DefaultHeartCount;
+            _profile.Hearts = PersistedItems.DefaultHeartCount;
         }
         _profile.Name += ch;
         MoveNextNamePosition();

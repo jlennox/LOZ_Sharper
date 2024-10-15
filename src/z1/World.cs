@@ -251,7 +251,7 @@ internal sealed partial class World
         _extraData = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
 
         Profile = profile;
-        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHeartCount);
+        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PersistedItems.DefaultHeartCount);
 
         GotoLoadLevel(0, true);
     }
@@ -698,15 +698,15 @@ internal sealed partial class World
         {
             if (Profile.SelectedItem is ItemSlot.Arrow or ItemSlot.Bow)
             {
-                if (Profile.GetItem(ItemSlot.Arrow) != 0
-                    && Profile.GetItem(ItemSlot.Bow) != 0)
+                if (Profile.Items.Get(ItemSlot.Arrow) != 0
+                    && Profile.Items.Get(ItemSlot.Bow) != 0)
                 {
                     break;
                 }
             }
             else
             {
-                if (Profile.GetItem(Profile.SelectedItem) != 0)
+                if (Profile.Items.Get(Profile.SelectedItem) != 0)
                 {
                     break;
                 }
@@ -783,8 +783,8 @@ internal sealed partial class World
     }
 
     public bool HasItem(ItemSlot itemSlot) => GetItem(itemSlot) > 0;
-    public int GetItem(ItemSlot itemSlot) => Profile.GetItem(itemSlot);
-    public void SetItem(ItemSlot itemSlot, int value) => Profile.Items[itemSlot] = value;
+    public int GetItem(ItemSlot itemSlot) => Profile.Items.Get(itemSlot);
+    public void SetItem(ItemSlot itemSlot, int value) => Profile.Items.Set(itemSlot, value);
 
     private void PostRupeeChange(int value, ItemSlot itemSlot)
     {
@@ -793,17 +793,16 @@ internal sealed partial class World
             throw new ArgumentOutOfRangeException(nameof(itemSlot), itemSlot, "Invalid itemSlot for PostRupeeChange.");
         }
 
-        var profile = Profile;
-        var curValue = profile.GetItem(itemSlot);
+        var curValue = Profile.Items.Get(itemSlot);
         var newValue = Math.Clamp(curValue + value, 0, 255);
 
         switch (itemSlot)
         {
-            case ItemSlot.RupeesToAdd: profile.Statistics.RupeesCollected += value; break;
-            case ItemSlot.RupeesToSubtract: profile.Statistics.RupeesSpent += value; break;
+            case ItemSlot.RupeesToAdd: Profile.Statistics.RupeesCollected += value; break;
+            case ItemSlot.RupeesToSubtract: Profile.Statistics.RupeesSpent += value; break;
         }
 
-        profile.Items[itemSlot] = newValue;
+        Profile.Items.Set(itemSlot, newValue);
     }
 
     public void PostRupeeWin(int value) => PostRupeeChange(value, ItemSlot.RupeesToAdd);
@@ -811,13 +810,12 @@ internal sealed partial class World
 
     public void FillHearts(int heartValue)
     {
-        var profile = Profile;
-        var maxHeartValue = profile.Items[ItemSlot.HeartContainers] << 8;
+        var maxHeartValue = Profile.Items.Get(ItemSlot.HeartContainers) << 8;
 
-        profile.Hearts += heartValue;
-        if (profile.Hearts >= maxHeartValue)
+        Profile.Hearts += heartValue;
+        if (Profile.Hearts >= maxHeartValue)
         {
-            profile.Hearts = maxHeartValue - 1;
+            Profile.Hearts = maxHeartValue - 1;
         }
     }
 
@@ -839,7 +837,7 @@ internal sealed partial class World
 
         var max = -1;
         if (equip.MaxValue.HasValue) max = equip.MaxValue.Value;
-        if (equip.Max.HasValue) max = Profile.GetItem(equip.Max.Value);
+        if (equip.Max.HasValue) max = Profile.Items.GetMax(equip.Max.Value);
 
         if (slot == ItemSlot.RupeesToAdd)
         {
@@ -855,19 +853,19 @@ internal sealed partial class World
         }
         else if (slot is ItemSlot.Keys or ItemSlot.HeartContainers or ItemSlot.MaxBombs or ItemSlot.Bombs)
         {
-            value += (byte)Profile.GetItem(slot);
+            value += (byte)Profile.Items.Get(slot);
 
         }
         else if (itemId == ItemId.TriforcePiece)
         {
-            var bit = 1 << (CurrentWorld.Settings.LevelNumber - 1);
-            value = (byte)(Profile.Items[ItemSlot.TriforcePieces] | bit);
+            // var bit = 1 << (CurrentWorld.Settings.LevelNumber - 1);
+            // value = (byte)(Profile.Items[ItemSlot.TriforcePieces] | bit);
             Profile.SetDungeonItem(CurrentWorld, itemId);
         }
 
         if (max > 0) value = Math.Min(value, max);
 
-        Profile.Items[slot] = value;
+        Profile.Items.Set(slot, value);
 
         if (slot == ItemSlot.Ring)
         {
@@ -886,7 +884,7 @@ internal sealed partial class World
         var val = GetItem(itemSlot);
         if (val != 0)
         {
-            Profile.Items[itemSlot] = val - 1;
+            Profile.Items.Set(itemSlot, val - 1);
         }
     }
 
@@ -1781,38 +1779,38 @@ internal sealed partial class World
     {
         if ((Game.FrameCounter & 1) != 0) return;
 
-        var rupeesToAdd = Profile.GetItem(ItemSlot.RupeesToAdd);
-        var rupeesToSubtract = Profile.GetItem(ItemSlot.RupeesToSubtract);
+        var rupeesToAdd = Profile.Items.Get(ItemSlot.RupeesToAdd);
+        var rupeesToSubtract = Profile.Items.Get(ItemSlot.RupeesToSubtract);
 
         if (rupeesToAdd > 0 && rupeesToSubtract == 0)
         {
-            if (Profile.GetItem(ItemSlot.Rupees) < 255)
+            if (Profile.Items.Get(ItemSlot.Rupees) < 255)
             {
-                Profile.IncreaseItem(ItemSlot.Rupees, 1);
+                Profile.Items.Add(ItemSlot.Rupees, 1);
             }
             else
             {
-                Profile.Items[ItemSlot.RupeesToAdd] = 0;
+                Profile.Items.Set(ItemSlot.RupeesToAdd, 0);
             }
 
             Game.Sound.PlayEffect(SoundEffect.Character);
         }
         else if (rupeesToAdd == 0 && rupeesToSubtract > 0)
         {
-            if (Profile.GetItem(ItemSlot.Rupees) > 0)
+            if (Profile.Items.Get(ItemSlot.Rupees) > 0)
             {
-                Profile.IncreaseItem(ItemSlot.Rupees, -1);
+                Profile.Items.Add(ItemSlot.Rupees, -1);
             }
             else
             {
-                Profile.Items[ItemSlot.RupeesToSubtract] = 0;
+                Profile.Items.Set(ItemSlot.RupeesToSubtract, 0);
             }
 
             Game.Sound.PlayEffect(SoundEffect.Character);
         }
 
-        if (Profile.GetItem(ItemSlot.RupeesToAdd) > 0) Profile.IncreaseItem(ItemSlot.RupeesToAdd, -1);
-        if (Profile.GetItem(ItemSlot.RupeesToSubtract) > 0) Profile.IncreaseItem(ItemSlot.RupeesToSubtract, -1);
+        if (Profile.Items.Get(ItemSlot.RupeesToAdd) > 0) Profile.Items.Add(ItemSlot.RupeesToAdd, -1);
+        if (Profile.Items.Get(ItemSlot.RupeesToSubtract) > 0) Profile.Items.Add(ItemSlot.RupeesToSubtract, -1);
     }
 
     private void UpdateLiftItem()
@@ -3782,7 +3780,7 @@ internal sealed partial class World
                         // So, that the OW song is played in the Enter mode.
                         FromUnderground = 2;
                         Game.Player.Initialize();
-                        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PlayerProfile.DefaultHeartCount);
+                        Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PersistedItems.DefaultHeartCount);
                         Unpause(); // It's easy for select+start to also pause the game, and that's confusing.
                         GotoUnfurl(true);
                         break;

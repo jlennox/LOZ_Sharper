@@ -129,7 +129,7 @@ internal sealed class Player : Actor, IThrower
         // because foes will check invincibilityTimer AND the clock item.
         // I suspect that the original game did this in the drawing code.
         var profile = Game.World.Profile ?? throw new Exception();
-        if (profile.HasItem(ItemSlot.Clock))
+        if (profile.Items.Has(ItemSlot.Clock))
         {
             InvincibilityTimer += 0x10;
         }
@@ -716,7 +716,7 @@ internal sealed class Player : Actor, IThrower
             Game.Sound.PlayEffect(SoundEffect.PlayerHit);
         }
 
-        var ringValue = Game.World.Profile.GetItem(ItemSlot.Ring);
+        var ringValue = Game.World.Profile.Items.Get(ItemSlot.Ring);
 
         damage >>= ringValue;
 
@@ -882,7 +882,7 @@ internal sealed class Player : Actor, IThrower
         var profile = Game.World.Profile;
         if (profile.SelectedItem == 0) return 0;
 
-        var itemValue = profile.GetItem(profile.SelectedItem);
+        var itemValue = profile.Items.Get(profile.SelectedItem);
         if (itemValue == 0) return 0;
 
         if (profile.SelectedItem == ItemSlot.Rod)

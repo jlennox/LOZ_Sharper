@@ -247,7 +247,7 @@ public sealed class InteractableBlock : InteractableBase
 }
 
 [Flags]
-[JsonConverter(typeof(TiledJsonSelectableEnumConverter<InteractionRequirements>))]
+[JsonConverter(typeof(TiledJsonSelectableEnumConverter<ItemObjectOptions>))]
 [TiledSelectableEnum]
 public enum ItemObjectOptions
 {

@@ -721,7 +721,7 @@ public partial class LozExtractor
 
     private static byte[,] ExtractUnderworldWalls(BinaryReader reader, Bitmap bmp, out DoorTileIndex doortiles)
     {
-        var doorTypes = new[] { DoorState.Open, DoorState.Locked, DoorState.Shutter, DoorState.Wall, DoorState.Bombed};
+        var doorTypes = new[] { DoorState.Open, DoorState.Locked, DoorState.Shutter, DoorState.Wall, DoorState.Bombed };
         var doorDirections = new[] { Direction.Right, Direction.Left, Direction.Down, Direction.Up };
         var doorbytes = reader.ReadBytesFrom(DoorUpOpen, doorTypes.Length * DoorTileCount * doorDirections.Length);
         doortiles = new();
@@ -733,7 +733,6 @@ public partial class LozExtractor
                 var isHorizontal = direction is Direction.Left or Direction.Right;
                 var (width, height) = isHorizontal ? (3, 4) : (4, 3);
                 var bytes = new TiledTile[width * height];
-
                 var doorBytesIndex = 0;
 
                 if (isHorizontal)

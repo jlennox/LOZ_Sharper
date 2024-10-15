@@ -226,8 +226,8 @@ internal partial class World
 
                     // JOE: TODO: I think this conversion is ok...
                     Profile.Quest = 1;
-                    Profile.Items[ItemSlot.HeartContainers] = PlayerProfile.DefaultHeartCount;
-                    Profile.Items[ItemSlot.MaxBombs] = PlayerProfile.DefaultMaxBombCount;
+                    Profile.Items.Set(ItemSlot.HeartContainers, PersistedItems.DefaultHeartCount);
+                    Profile.Items.Set(ItemSlot.MaxBombs, PersistedItems.DefaultMaxBombCount);
                     SaveFolder.SaveProfiles();
 
                     Game.Sound.StopAll();

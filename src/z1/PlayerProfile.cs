@@ -176,14 +176,12 @@ internal sealed record RoomDirectory(string WorldName, string RoomName)
     }
 }
 
-[DebuggerDisplay("{Name} ({Hearts})")]
-internal sealed class PlayerProfile
+internal sealed class PersistedItems
 {
-    public const int MaxNameLength = 8;
     public const int DefaultHeartCount = 3;
     public const int DefaultMaxBombCount = 8;
     public const int DefaultMaxConcurrentProjectiles = 2;
-    public const int DefaultMaxRupees = 2;
+    public const int DefaultMaxRupees = 255;
     public const int DefaultMaxBombs = 8;
 
     private static readonly Dictionary<ItemSlot, int> _defaultItems = new()
@@ -194,6 +192,52 @@ internal sealed class PlayerProfile
         [ItemSlot.MaxBombs] = DefaultMaxBombs,
     };
 
+    // Sadly, we can't keep this private, otherwise the json serializer won't be able to serialize it.
+    [JsonInclude]
+    internal Dictionary<ItemSlot, int> Items { get; set; } = [];
+
+    public int Get(ItemSlot slot) => Items.GetValueOrDefault(slot);
+    public bool Has(ItemSlot slot) => Get(slot) != 0;
+    public void Set(ItemSlot slot, int value) => Items[slot] = value;
+    public void Reset()
+    {
+        Items.Clear();
+        Initialize();
+    }
+
+    public void Add(ItemSlot itemSlot, int amount)
+    {
+        var have = Get(itemSlot);
+        var max = GetMax(itemSlot);
+        Items[itemSlot] = Math.Clamp(have + amount, 0, max);
+    }
+
+    public int GetMax(ItemSlot slot)
+    {
+        return slot switch
+        {
+            ItemSlot.Bombs => Items[ItemSlot.MaxBombs],
+            ItemSlot.Rupees => Items[ItemSlot.MaxRupees],
+            _ => 0xFF,
+        };
+    }
+
+    public void Initialize()
+    {
+        Items ??= [];
+
+        foreach (var (slot, def) in _defaultItems)
+        {
+            Items.TryAdd(slot, def);
+        }
+    }
+}
+
+[DebuggerDisplay("{Name} ({Hearts})")]
+internal sealed class PlayerProfile
+{
+    public const int MaxNameLength = 8;
+
     public int Version { get; set; }
     public string? Name { get; set; }
     public int Index { get; set; }
@@ -202,7 +246,7 @@ internal sealed class PlayerProfile
     public ItemSlot SelectedItem { get; set; }
     [JsonIgnore] // This is current HP which is runtime only, not saved. Max heart count is ItemSlot.HeartContainers
     public int Hearts { get; set; }
-    public Dictionary<ItemSlot, int> Items { get; set; }
+    public PersistedItems Items { get; set; }
     public PlayerStatistics Statistics { get; set; }
     public Dictionary<string, PersistedRoomState> RoomState { get; set; } // Key: GameRoom.UniqueId
     public Dictionary<string, DungeonItems> DungeonItems { get; set; } // Key: GameWorld.UniqueId
@@ -221,17 +265,13 @@ internal sealed class PlayerProfile
 
     public void Initialize()
     {
-        if (Hearts < DefaultHeartCount) Hearts = DefaultHeartCount;
-        Items ??= [];
+        if (Hearts < PersistedItems.DefaultHeartCount) Hearts = PersistedItems.DefaultHeartCount;
+        Items ??= new PersistedItems();
         RoomState ??= [];
         Statistics ??= new PlayerStatistics();
         DungeonItems ??= [];
 
-        foreach (var (slot, def) in _defaultItems)
-        {
-            Items.TryAdd(slot, def);
-        }
-
+        Items.Initialize();
         Statistics.Initialize();
     }
 
@@ -277,41 +317,21 @@ internal sealed class PlayerProfile
         return GetDungeonItems(dungeon).Get(item);
     }
 
-    public void AddItem(ItemSlot itemSlot, int amount)
-    {
-        var have = GetItem(itemSlot);
-        var max = GetMax(itemSlot);
-        Items[itemSlot] = Math.Clamp(have + amount, 0, max);
-    }
-
     public void SetPlayerColor()
     {
         ReadOnlySpan<byte> palette = [0x29, 0x32, 0x16];
 
-        var value = GetItem(ItemSlot.Ring);
+        var value = Items.Get(ItemSlot.Ring);
         Graphics.SetColorIndexed(Palette.Player, 1, palette[value]);
-    }
-
-    public int GetMax(ItemSlot slot)
-    {
-        return slot switch
-        {
-            ItemSlot.Bombs => Items[ItemSlot.MaxBombs],
-            ItemSlot.Rupees => Items[ItemSlot.MaxRupees],
-            _ => 0xFF,
-        };
     }
 
     public static PlayerProfile MakeDefault() => new();
     public static List<PlayerProfile> MakeDefaults() => new();
 
-    public int GetItem(ItemSlot slot) => Items.GetValueOrDefault(slot);
-    public bool HasItem(ItemSlot slot) => GetItem(slot) != 0;
-    public void IncreaseItem(ItemSlot slot, int amount) => Items[slot] = GetItem(slot) + amount;
-    public bool PreventDarkRooms(Game game) => game.Enhancements.RedCandleLightsDarkRooms && GetItem(ItemSlot.Candle) >= 2;
-    public int GetMaxHeartsValue() => GetMaxHeartsValue(Items[ItemSlot.HeartContainers]);
+    public bool PreventDarkRooms(Game game) => game.Enhancements.RedCandleLightsDarkRooms && Items.Get(ItemSlot.Candle) >= 2;
+    public int GetMaxHeartsValue() => GetMaxHeartsValue(Items.Get(ItemSlot.HeartContainers));
     public static int GetMaxHeartsValue(int heartContainers) => (heartContainers << 8) - 1;
-    public bool IsFullHealth() => Hearts >= (Items[ItemSlot.HeartContainers] << 8) - 0x80;
+    public bool IsFullHealth() => Hearts >= (Items.Get(ItemSlot.HeartContainers) << 8) - 0x80;
 }
 
 internal static class PlayerProfileExtensions

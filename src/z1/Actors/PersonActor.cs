@@ -308,7 +308,7 @@ internal sealed class PersonActor : Actor
             {
                 var newValue = actual - caveItem.Cost;
                 // This is to emulate the zombie player game behavior.
-                if (caveItem.Costing == ItemSlot.HeartContainers && newValue <= PlayerProfile.DefaultHeartCount)
+                if (caveItem.Costing == ItemSlot.HeartContainers && newValue <= PersistedItems.DefaultHeartCount)
                 {
                     Game.World.Profile.Hearts = 0;
                 }
@@ -341,11 +341,11 @@ internal sealed class PersonActor : Actor
 
         // JOE: NOTE: This should ultimately go...? Or it needs to handle all the conditions.
         // This was causing double pickups from shops, but I am not certain it's not needed.
-        // Game.World.AddItem(item.ItemId, item.ItemAmount);
+        // Game.World.Add(item.ItemId, item.ItemAmount);
 
         if (item.FillItem != null)
         {
-            var max = Game.World.Profile.GetMax(item.FillItem.Value);
+            var max = Game.World.Profile.Items.GetMax(item.FillItem.Value);
             Game.World.SetItem(item.FillItem.Value, max);
         }
         // ChosenIndex = index;

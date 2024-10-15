@@ -240,9 +240,9 @@ internal sealed class GameCheats
         {
             var profile = game.World.Profile;
             if (profile == null) return;
-            var containers = profile.GetItem(ItemSlot.HeartContainers);
+            var containers = profile.Items.Get(ItemSlot.HeartContainers);
             profile.Hearts = PlayerProfile.GetMaxHeartsValue(containers);
-            profile.AddItem(ItemSlot.Bombs, profile.GetItem(ItemSlot.MaxBombs));
+            profile.Items.Add(ItemSlot.Bombs, profile.Items.Get(ItemSlot.MaxBombs));
             game.Toast("Health refilled.");
         }
     }
@@ -298,10 +298,10 @@ internal sealed class GameCheats
             game.World.AddItem(ItemId.MagicSword);
             game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
-            profile.AddItem(ItemSlot.Rupees, 100);
-            profile.AddItem(ItemSlot.Bombs, 98);
-            profile.AddItem(ItemSlot.Keys, 98);
-            profile.AddItem(ItemSlot.HeartContainers, 16);
+            profile.Items.Add(ItemSlot.Rupees, 100);
+            profile.Items.Add(ItemSlot.Bombs, 98);
+            profile.Items.Add(ItemSlot.Keys, 98);
+            profile.Items.Add(ItemSlot.HeartContainers, 16);
             profile.Hearts = PlayerProfile.GetMaxHeartsValue(16);
             profile.SelectedItem = ItemSlot.Bombs;
 
@@ -343,27 +343,25 @@ internal sealed class GameCheats
             IncSlot(ItemSlot.Candle, 2);
             IncSlot(ItemSlot.Sword, 3);
             IncSlot(ItemSlot.Ring, 2);
-            profile.AddItem(ItemSlot.Rupees, 100);
-            profile.AddItem(ItemSlot.Bombs, 8);
-            profile.AddItem(ItemSlot.Keys, 4);
-            profile.AddItem(ItemSlot.HeartContainers, 8);
+            profile.Items.Add(ItemSlot.Rupees, 100);
+            profile.Items.Add(ItemSlot.Bombs, 8);
+            profile.Items.Add(ItemSlot.Keys, 4);
+            profile.Items.Add(ItemSlot.HeartContainers, 8);
             profile.Hearts = PlayerProfile.GetMaxHeartsValue(8);
 
             game.Toast("Basic items added.");
         }
     }
 
-    public sealed class RevertItemsCheat() : SingleWordCheat("idrevert", true)
+    public sealed class RevertItemsCheat() : SingleWordCheat("idreset", true)
     {
         public override void RunPayload(Game game, string[] args)
         {
             var profile = game.World.Profile;
             if (profile == null) return;
 
-            profile.Items.Clear();
-            profile.Initialize();
-
-            game.Toast("Items removed.");
+            profile.Items.Reset();
+            game.Toast("Items reset.");
         }
     }
 
