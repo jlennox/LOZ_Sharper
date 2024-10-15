@@ -221,6 +221,18 @@ internal static class Extensions
         };
     }
 
+    public static TileType GetTileType(this BlockType block)
+    {
+        return block switch
+        {
+            BlockType.Ground => TileType.Ground,
+            BlockType.Rock => TileType.Rock,
+            BlockType.Headstone => TileType.Headstone,
+            BlockType.Block => TileType.Block,
+            _ => throw new Exception($"BlockType {block} has no associated TileType.")
+        };
+    }
+
     public static bool IsLockedType(this DoorType type) => type is DoorType.Bombable or DoorType.Key or DoorType.Key2;
 
     public static bool CollidesWall(this TileBehavior behavior) => behavior is TileBehavior.Wall or TileBehavior.Doorway or TileBehavior.Door;

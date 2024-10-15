@@ -308,7 +308,7 @@ public sealed class RoomSettings
     public SoundEffect? AmbientSound { get; set; }
     public RoomFlags Options { get; set; }
     // Only used when something is destroyed or moved.
-    public TileType FloorTile { get; set; }
+    public BlockType FloorTile { get; set; }
 
     [TiledIgnore, JsonIgnore] public bool PlaysSecretChime => Options.HasFlag(RoomFlags.PlaysSecretChime);
     [TiledIgnore, JsonIgnore] public bool IsEntryRoom => Options.HasFlag(RoomFlags.IsEntryRoom);

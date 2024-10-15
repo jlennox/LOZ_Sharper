@@ -444,7 +444,7 @@ public unsafe partial class LozExtractor
                 OuterPalette = outerPalette,
                 Options = roomOptions,
                 AmbientSound = ambientSound,
-                FloorTile = resources.IsOverworld ? TileType.Ground : TileType.Tile
+                FloorTile = resources.IsOverworld ? BlockType.Ground : BlockType.Tile
             }));
 
             return properties.ToArray();

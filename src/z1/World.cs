@@ -451,26 +451,24 @@ internal sealed partial class World
         return GetTileBehavior(tileY, tileX);
     }
 
-    public void SetMapObjectXY(int x, int y, TileType mobIndex) => SetMapObjectXY(x, y, (BlockType)mobIndex);
-
-    public void SetMapObjectXY(int x, int y, BlockType mobIndex)
+    public void SetMapObjectXY(int x, int y, BlockType block)
     {
         var fineTileX = x / TileWidth;
         var fineTileY = (y - TileMapBaseY) / TileHeight;
 
         if (fineTileX is < 0 or >= ScreenTileWidth || fineTileY is < 0 or >= ScreenTileHeight) return;
 
-        SetMapObject(fineTileY, fineTileX, mobIndex);
+        SetMapObject(fineTileY, fineTileX, block);
     }
 
-    private void SetMapObject(int tileY, int tileX, BlockType mobIndex)
+    private void SetMapObject(int tileY, int tileX, BlockType block)
     {
         var map = CurrentRoom.RoomMap;
         // _loadMapObjectFunc(ref map, tileY, tileX, (byte)mobIndex); // JOE: FIXME: BlockObjTypes
         // map.SetBlock(tileX, tileY, new TiledTile(1));
-        if (!CurrentRoom.TryGetBlockObjectTiles(mobIndex, out var tileObject))
+        if (!CurrentRoom.TryGetBlockObjectTiles(block, out var tileObject))
         {
-            throw new Exception($"Unable to locate BlockObjType {mobIndex}");
+            throw new Exception($"Unable to locate BlockObjType {block}");
         }
 
         map.SetBlock(tileX, tileY, tileObject);
@@ -649,32 +647,6 @@ internal sealed partial class World
         }
 
         return new TileCollision(false, behavior, hitFineCol, hitFineRow);
-    }
-
-    public void OnActivatedArmos(int x, int y)
-    {
-        // JOE: TODO: MAP REWRITE var pos = FindSparsePos2(Sparse.ArmosStairs, CurrentRoom);
-        // JOE: TODO: MAP REWRITE
-        // JOE: TODO: MAP REWRITE if (pos != null && x == pos.Value.x && y == pos.Value.y)
-        // JOE: TODO: MAP REWRITE {
-        // JOE: TODO: MAP REWRITE     SetMapObjectXY(x, y, BlockObjType.Stairs);
-        // JOE: TODO: MAP REWRITE     Game.Sound.PlayEffect(SoundEffect.Secret);
-        // JOE: TODO: MAP REWRITE }
-        // JOE: TODO: MAP REWRITE else
-        // JOE: TODO: MAP REWRITE {
-        // JOE: TODO: MAP REWRITE     SetMapObjectXY(x, y, BlockObjType.Ground);
-        // JOE: TODO: MAP REWRITE }
-        // JOE: TODO: MAP REWRITE
-        // JOE: TODO: MAP REWRITE if (!CurrentRoom.PersistedRoomState.ItemState)
-        // JOE: TODO: MAP REWRITE {
-        // JOE: TODO: MAP REWRITE     var roomItem = FindSparseItem(Sparse.ArmosItem, CurrentRoom);
-        // JOE: TODO: MAP REWRITE
-        // JOE: TODO: MAP REWRITE     if (roomItem != null && x == roomItem.Value.x && y == roomItem.Value.y)
-        // JOE: TODO: MAP REWRITE     {
-        // JOE: TODO: MAP REWRITE         var itemObj = new ItemObjActor(Game, roomItem.Value.AsItemId, true, roomItem.Value.x, roomItem.Value.y);
-        // JOE: TODO: MAP REWRITE         AddOnlyObjectOfType(itemObj);
-        // JOE: TODO: MAP REWRITE     }
-        // JOE: TODO: MAP REWRITE }
     }
 
     public void OnTouchedPowerTriforce()

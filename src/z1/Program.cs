@@ -14,6 +14,9 @@ namespace z1;
 // * Objects should approximate the original update order. IE, bombs update after monsters.
 // * Make AllTriforce an item requirement.
 // * Bad guys can bop link into the top wall in dungeons.
+// * You can spawn multiple armos at the same time at the level 6 entrance where they are next to each other.
+//   In the normal game, only one will spawn at a time. This is because it early exits in the "is touching" loop
+//   when it finds a match. It is not "only one can spawn in at a time." This might be an acknowledged behavior difference.
 
 // Sharper:
 // * Rectify MarginRight.

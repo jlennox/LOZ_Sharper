@@ -5488,6 +5488,8 @@ internal sealed class GohmaActor : MonsterActor
     }
 }
 
+internal enum ArmosState { Spawning, Entered }
+
 internal sealed class ArmosActor : ChaseWalkerActor
 {
     private static readonly ImmutableArray<AnimationId> _armosAnimMap = [
@@ -5499,7 +5501,7 @@ internal sealed class ArmosActor : ChaseWalkerActor
 
     private static readonly WalkerSpec _armosSpec = new(_armosAnimMap, 12, Palette.Red, StandardSpeed);
 
-    private int _state;
+    private ArmosState _state;
 
     public ArmosActor(Game game, int x, int y)
         : base(game, ObjType.Armos, WorldLevel.Overworld, _armosSpec, x, y)
@@ -5516,13 +5518,12 @@ internal sealed class ArmosActor : ChaseWalkerActor
 
     public override void Update()
     {
-        if (_state == 0)
+        if (_state == ArmosState.Spawning)
         {
             // ORIGINAL: Can hit the player, but not get hit.
             if (ObjTimer == 0)
             {
-                _state++;
-                Game.World.OnActivatedArmos(X, Y);
+                _state = ArmosState.Entered;
             }
 
             return;
@@ -5547,7 +5548,7 @@ internal sealed class ArmosActor : ChaseWalkerActor
 
     public override void Draw()
     {
-        if (_state == 0)
+        if (_state == ArmosState.Spawning)
         {
             if ((ObjTimer & 1) == 1)
             {

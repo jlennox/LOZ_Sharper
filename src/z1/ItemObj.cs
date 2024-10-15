@@ -40,14 +40,15 @@ internal class BlockActor : Actor, IHasCollision
 {
     public bool EnableDraw { get; set; }
 
-    protected readonly BlockType Tile;
+    protected readonly TileType Tile;
 
     private readonly int _width;
     private readonly int _height;
     private readonly TileSheet _tileSheet;
+    private readonly TileType _tileType;
 
     public BlockActor(
-        Game game, ObjType type, BlockType tile, int x, int y,
+        Game game, ObjType type, TileType tile, int x, int y,
         int width = World.BlockWidth, int height = World.BlockHeight)
         : base(game, type, x, y)
     {
@@ -93,16 +94,18 @@ internal class MovingBlockActor : BlockActor
 
     public event Action<MovingBlockActor>? OnFinishedMoving;
 
+    private readonly BlockType _block;
     private readonly Point _moveTo;
     private readonly MovingBlockActorOptions _options;
     private bool _triggerEvent;
 
     public MovingBlockActor(
-        Game game, ObjType type, BlockType tile, Point moveTo, MovingBlockActorOptions options,
+        Game game, ObjType type, BlockType block, Point moveTo, MovingBlockActorOptions options,
         int x, int y, int width = World.BlockWidth, int height = World.BlockHeight)
-        : base(game, type, tile, x, y, width, height)
+        : base(game, type, block.GetTileType(), x, y, width, height)
     {
         Decoration = 0;
+        _block = block;
         _moveTo = moveTo;
         _options = options;
     }
@@ -128,7 +131,7 @@ internal class MovingBlockActor : BlockActor
 
     public void ReplaceWithBackground()
     {
-        Game.World.SetMapObjectXY(X, Y, Tile);
+        Game.World.SetMapObjectXY(X, Y, _block);
         Delete();
     }
 }

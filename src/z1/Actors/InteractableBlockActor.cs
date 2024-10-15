@@ -164,6 +164,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
 
     private readonly RaftInteraction? _raft;
     private readonly PushInteraction? _push;
+    private Actor? _stillSpawningActor;
 
     public InteractableBlockActor(Game game, InteractableBlockObject gameObject)
         : base(game, gameObject.Interaction, gameObject.X, gameObject.Y)
@@ -183,6 +184,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
 
             case UpdateState.HasInteracted:
                 UpdateCaveEntrance();
+                UpdateSpawnedActorBlockRemoval();
                 _raft?.Update();
                 return UpdateState.HasInteracted;
 
@@ -196,6 +198,21 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
         }
 
         throw new UnreachableException();
+    }
+
+    private void UpdateSpawnedActorBlockRemoval()
+    {
+        // I'm not the biggest fan of how this works but it's not actually far off from correct.
+        // When an armos is spawned, their block stays present until they finish spawning in.
+        if (_push == null) return;
+        if (_stillSpawningActor == null) return;
+        if (_push.BackgroundRemoval != BackgroundRemoval.Deferred) return;
+
+        if (_stillSpawningActor.ObjTimer == 0)
+        {
+            _push.RemoveBackground();
+            _stillSpawningActor = null; // Stop this from being re-entered.
+        }
     }
 
     protected override void SetInteracted(bool initializing)
@@ -237,7 +254,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
             var count = Game.World.GetObjects().Count(t => t.ObjType == Interactable.SpawnedType.Value);
             if (count < MaxSpawnCount)
             {
-                Game.World.MakeActivatedObject(
+                _stillSpawningActor = Game.World.MakeActivatedObject(
                     Interactable.SpawnedType.Value,
                     X / World.TileWidth, Y / World.TileHeight - World.BaseRows);
             }
@@ -301,9 +318,12 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
     }
 }
 
+public enum BackgroundRemoval { None, Immediate, Deferred }
+
 internal sealed class PushInteraction
 {
     private int _pushTimer;
+
 
     private readonly Game _game;
     private readonly InteractableBlockActor _interactive;
@@ -312,9 +332,10 @@ internal sealed class PushInteraction
     private readonly int _timerLimit;
     private readonly bool _allowHorizontal;
     private readonly bool _requireAlignment;
-    private readonly bool _removeBackground;
+    public readonly BackgroundRemoval BackgroundRemoval;
     private readonly bool _movesBlock;
     private MovingBlockActor? _movingActor;
+    private bool _hasRemovedBackground;
 
     public PushInteraction(
         Game game, InteractableBlockActor interactive,
@@ -326,8 +347,8 @@ internal sealed class PushInteraction
         _height = height;
         _allowHorizontal = true;
         _requireAlignment = true;
-        _removeBackground = true;
         _movesBlock = true;
+        BackgroundRemoval = BackgroundRemoval.Immediate;
 
         switch (interaction)
         {
@@ -343,14 +364,17 @@ internal sealed class PushInteraction
             case Interaction.Touch:
                 _timerLimit = 1;
                 _requireAlignment = false;
-                _removeBackground = false;
                 _movesBlock = false;
+                BackgroundRemoval = BackgroundRemoval.None;
                 break;
 
             case Interaction.TouchOnce:
                 _timerLimit = 1;
                 _requireAlignment = false;
                 _movesBlock = false;
+                BackgroundRemoval = interactive.Interactable.Repeatable
+                    ? BackgroundRemoval.Immediate
+                    : BackgroundRemoval.Deferred;
                 break;
 
             default: throw new Exception();
@@ -369,6 +393,15 @@ internal sealed class PushInteraction
         return null;
     }
 
+    public void RemoveBackground()
+    {
+        if (_hasRemovedBackground) throw new Exception();
+        _hasRemovedBackground = true;
+
+        var tile = _game.World.CurrentRoom.Settings.FloorTile;
+        _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, tile);
+    }
+
     public bool Check()
     {
         if (_movingActor != null) return _movingActor.HasFinishedMoving;
@@ -385,7 +418,7 @@ internal sealed class PushInteraction
         var playerY = _game.Player.Y + 3;
         var pushed = false;
 
-        if (!_requireAlignment)
+        if (_requireAlignment)
         {
             pushed = dir.IsVertical()
                 ? _interactive.X == playerX && Math.Abs(_interactive.Y - playerY) <= World.BlockHeight
@@ -424,10 +457,9 @@ internal sealed class PushInteraction
 
             _interactive.Facing = dir;
 
-            if (_removeBackground)
+            if (BackgroundRemoval == BackgroundRemoval.Immediate)
             {
-                var tile = _game.World.CurrentRoom.Settings.FloorTile;
-                _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, tile);
+                RemoveBackground();
             }
 
             if (_movesBlock)
