@@ -202,7 +202,7 @@ public enum CaveId
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum CaveDwellerType
+public enum DwellerType
 {
     None = ObjType.None,
     OldMan = ObjType.OldMan,

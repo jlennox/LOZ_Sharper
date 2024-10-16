@@ -34,4 +34,15 @@ public static class Filenames
             .OrderByDescending(File.GetCreationTime)
             .Take(limit);
     }
+
+    public static void ExpectSafe(ReadOnlySpan<char> s)
+    {
+        foreach (var c in s)
+        {
+            if (c is '/' or '\\' or ':' or '*' or '?' or '"' or '<' or '>' or '|')
+            {
+                throw new ArgumentException("Invalid character in filename.");
+            }
+        }
+    }
 }

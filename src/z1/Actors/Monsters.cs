@@ -73,8 +73,8 @@ internal abstract class WalkerActor : MonsterActor
 
     private readonly TileSheet _tileSheet;
 
-    protected WalkerActor(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
-        : base(game, type, x, y)
+    protected WalkerActor(World world, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
+        : base(world, type, x, y)
     {
         _tileSheet = level.GetNpcTileSheet();
         Spec = spec;
@@ -173,7 +173,7 @@ internal abstract class WalkerActor : MonsterActor
     {
         if (TileOffset == 0)
         {
-            if (Game.World.CollidesWithTileMoving(X, Y, Facing, false)) return false;
+            if (World.CollidesWithTileMoving(X, Y, Facing, false)) return false;
         }
 
         if (CheckWorldMargin(Facing) == Direction.None) return false;
@@ -191,8 +191,8 @@ internal abstract class WalkerActor : MonsterActor
 
 internal abstract class ChaseWalkerActor : WalkerActor
 {
-    protected ChaseWalkerActor(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
-        : base(game, type, level, spec, x, y)
+    protected ChaseWalkerActor(World world, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
+        : base(world, type, level, spec, x, y)
     {
     }
 
@@ -224,7 +224,7 @@ internal abstract class ChaseWalkerActor : WalkerActor
         // ORIGINAL: If player.state = $FF, then skip all this, go to the end (moving := Facing).
         //           But, I don't see how the player can get in that state.
 
-        var observedPos = Game.World.GetObservedPlayerPos();
+        var observedPos = World.GetObservedPlayerPos();
         var xDiff = Math.Abs(X - observedPos.X);
         var yDiff = Math.Abs(Y - observedPos.Y);
         int maxDiff;
@@ -257,8 +257,8 @@ internal abstract class ChaseWalkerActor : WalkerActor
 
 internal abstract class DelayedWanderer : WandererWalkerActor
 {
-    protected DelayedWanderer(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
-        : base(game, type, level, spec, turnRate, x, y)
+    protected DelayedWanderer(World world, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
+        : base(world, type, level, spec, turnRate, x, y)
     {
         InitCommonFacing();
         InitCommonStateTimer();
@@ -276,8 +276,8 @@ internal abstract class WandererWalkerActor : WalkerActor
     private byte _turnTimer;
     private readonly byte _turnRate;
 
-    protected WandererWalkerActor(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
-        : base(game, type, level, spec, x, y)
+    protected WandererWalkerActor(World world, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
+        : base(world, type, level, spec, x, y)
     {
         _turnRate = (byte)turnRate;
     }
@@ -338,7 +338,7 @@ internal abstract class WandererWalkerActor : WalkerActor
         }
         else
         {
-            var playerPos = Game.World.GetObservedPlayerPos();
+            var playerPos = World.GetObservedPlayerPos();
 
             if (Math.Abs(X - playerPos.X) < 9)
             {
@@ -404,19 +404,19 @@ internal sealed class OctorokActor : DelayedWanderer
     private static readonly WalkerSpec _redSlowOctorockSpec = new(_octorockAnimMap, 12, Palette.Red, StandardSpeed, ShotFromOctorock);
     private static readonly WalkerSpec _redFastOctorockSpec = new(_octorockAnimMap, 12, Palette.Red, FastSpeed, ShotFromOctorock);
 
-    private OctorokActor(Game game, ObjType type, WalkerSpec spec, int turnRate, int x, int y)
-        : base(game, type, WorldLevel.Overworld, spec, turnRate, x, y)
+    private OctorokActor(World world, ObjType type, WalkerSpec spec, int turnRate, int x, int y)
+        : base(world, type, WorldLevel.Overworld, spec, turnRate, x, y)
     {
     }
 
-    public static OctorokActor Make(Game game, ActorColor color, bool isFast, int x, int y)
+    public static OctorokActor Make(World world, ActorColor color, bool isFast, int x, int y)
     {
         return (color, isFast) switch
         {
-            (ActorColor.Blue, false) => new OctorokActor(game, ObjType.BlueSlowOctorock, _blueSlowOctorockSpec, 0xA0, x, y),
-            (ActorColor.Blue, true) => new OctorokActor(game, ObjType.BlueFastOctorock, _blueFastOctorockSpec, 0xA0, x, y),
-            (ActorColor.Red, false) => new OctorokActor(game, ObjType.RedSlowOctorock, _redSlowOctorockSpec, 0x70, x, y),
-            (ActorColor.Red, true) => new OctorokActor(game, ObjType.RedFastOctorock, _redFastOctorockSpec, 0x70, x, y),
+            (ActorColor.Blue, false) => new OctorokActor(world, ObjType.BlueSlowOctorock, _blueSlowOctorockSpec, 0xA0, x, y),
+            (ActorColor.Blue, true) => new OctorokActor(world, ObjType.BlueFastOctorock, _blueFastOctorockSpec, 0xA0, x, y),
+            (ActorColor.Red, false) => new OctorokActor(world, ObjType.RedSlowOctorock, _redSlowOctorockSpec, 0x70, x, y),
+            (ActorColor.Red, true) => new OctorokActor(world, ObjType.RedFastOctorock, _redFastOctorockSpec, 0x70, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(OctorokActor)}."),
         };
     }
@@ -476,8 +476,8 @@ internal sealed class GanonActor : BlueWizzrobeBase
     private readonly SpriteAnimator _cloudAnimator;
     private readonly SpriteImage _pileImage;
 
-    public GanonActor(Game game, int x, int y)
-        : base(game, ObjType.Ganon, x, y)
+    public GanonActor(World world, int x, int y)
+        : base(world, ObjType.Ganon, x, y)
     {
         InvincibilityMask = 0xFA;
 
@@ -556,7 +556,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
     private void UpdateHoldDark()
     {
-        Game.World.LiftItem(ItemId.TriforcePiece, 0);
+        World.LiftItem(ItemId.TriforcePiece, 0);
 
         if (Game.Player.ObjTimer != 0)
         {
@@ -570,9 +570,9 @@ internal sealed class GanonActor : BlueWizzrobeBase
         }
         else
         {
-            Game.World.FadeIn();
+            World.FadeIn();
 
-            if (Game.World.GetFadeStep() == 0)
+            if (World.GetFadeStep() == 0)
             {
                 _state = GanonState.HoldLight;
                 Game.Player.ObjTimer = 0xC0;
@@ -583,12 +583,12 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
     private void UpdateHoldLight()
     {
-        Game.World.LiftItem(ItemId.TriforcePiece, 0);
+        World.LiftItem(ItemId.TriforcePiece, 0);
 
         if (Game.Player.ObjTimer == 0)
         {
             Game.Player.SetState(PlayerState.Idle);
-            Game.World.LiftItem(ItemId.None);
+            World.LiftItem(ItemId.None);
             Game.Sound.PlaySong(SongId.Level9, SongStream.MainSong, true);
             Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance);
             _state = GanonState.Active;
@@ -662,11 +662,11 @@ internal sealed class GanonActor : BlueWizzrobeBase
         else if (_dyingTimer == 0xA0)
         {
             // JOE: TODO: This seems like it needs to be fixed after the map rewrite...
-            // Game.World.AddUWRoomItem();
-            var triforce = Game.World.GetObject<ItemObjActor>() ?? throw new Exception();
+            // World.AddUWRoomItem();
+            var triforce = World.GetObject<ItemObjActor>() ?? throw new Exception();
             triforce.X = X;
             triforce.Y = Y;
-            Game.World.IncrementRoomKillCount();
+            World.IncrementRoomKillCount();
             Game.Sound.PlayEffect(SoundEffect.RoomItem);
         }
     }
@@ -682,7 +682,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         if (_lastHitTimer != 0)
         {
-            var itemValue = Game.World.GetItem(ItemSlot.Arrow);
+            var itemValue = World.GetItem(ItemSlot.Arrow);
             if (itemValue == 2)
             {
                 // The original checks the state of the arrow here and leaves if <> $10.
@@ -825,24 +825,24 @@ internal sealed class PrincessActor : MonsterActor
     private int _state;
     private readonly SpriteImage _image;
 
-    private PrincessActor(Game game, int x = PrincessX, int y = PrincessY)
-        : base(game, ObjType.Princess, x, y)
+    private PrincessActor(World world, int x = PrincessX, int y = PrincessY)
+        : base(world, ObjType.Princess, x, y)
     {
         _image = new SpriteImage(TileSheet.Boss9, AnimationId.B3_Princess_Stand);
     }
 
-    public static PrincessActor Make(Game game)
+    public static PrincessActor Make(World world)
     {
         ReadOnlySpan<byte> xs = [0x60, 0x70, 0x80, 0x90];
         ReadOnlySpan<byte> ys = [0xB5, 0x9D, 0x9D, 0xB5];
 
         for (var i = 0; i < xs.Length; i++)
         {
-            var fire = new GuardFireActor(game, xs[i], ys[i]);
-            game.World.AddObject(fire);
+            var fire = new GuardFireActor(world, xs[i], ys[i]);
+            world.AddObject(fire);
         }
 
-        return new PrincessActor(game);
+        return new PrincessActor(world);
     }
 
     public override void Update()
@@ -873,7 +873,7 @@ internal sealed class PrincessActor : MonsterActor
             if (ObjTimer == 0)
             {
                 player.SetState(PlayerState.Idle);
-                Game.World.WinGame();
+                World.WinGame();
             }
         }
     }
@@ -889,8 +889,8 @@ internal sealed class StandingFireActor : MonsterActor
     public override bool IsReoccuring => false;
     private readonly SpriteAnimator _animator;
 
-    public StandingFireActor(Game game, int x, int y)
-        : base(game, ObjType.StandingFire, x, y)
+    public StandingFireActor(World world, int x, int y)
+        : base(world, ObjType.StandingFire, x, y)
     {
         _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Fire)
         {
@@ -916,8 +916,8 @@ internal sealed class GuardFireActor : MonsterActor
     public override bool IsReoccuring => false;
     private readonly SpriteAnimator _animator;
 
-    public GuardFireActor(Game game, int x, int y)
-        : base(game, ObjType.GuardFire, x, y)
+    public GuardFireActor(World world, int x, int y)
+        : base(world, ObjType.GuardFire, x, y)
     {
         _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Fire)
         {
@@ -932,8 +932,8 @@ internal sealed class GuardFireActor : MonsterActor
         CheckCollisions();
         if (Decoration != 0)
         {
-            var dummy = new DeadDummyActor(Game, X, Y, Decoration);
-            Game.World.AddOnlyObject(this, dummy);
+            var dummy = new DeadDummyActor(World, X, Y, Decoration);
+            World.AddOnlyObject(this, dummy);
         }
     }
 
@@ -945,10 +945,10 @@ internal sealed class GuardFireActor : MonsterActor
 
 internal sealed class RupeeStashActor : MonsterActor
 {
-    private RupeeStashActor(Game game, int x, int y)
-        : base(game, ObjType.RupieStash, x, y) { }
+    private RupeeStashActor(World world, int x, int y)
+        : base(world, ObjType.RupieStash, x, y) { }
 
-    public static RupeeStashActor Make(Game game)
+    public static RupeeStashActor Make(World world)
     {
         ReadOnlySpan<Point> points = [
             new(0x78, 0x70), new(0x70, 0x80), new(0x80, 0x80), new(0x60, 0x90), new(0x70, 0x90), new(0x80, 0x90),
@@ -957,9 +957,9 @@ internal sealed class RupeeStashActor : MonsterActor
         RupeeStashActor? first = null;
         foreach (var point in points)
         {
-            var rupee = new RupeeStashActor(game, point.X, point.Y);
+            var rupee = new RupeeStashActor(world, point.X, point.Y);
             first ??= rupee;
-            game.World.AddObject(rupee);
+            world.AddObject(rupee);
         }
 
         return first ?? throw new Exception();
@@ -973,8 +973,8 @@ internal sealed class RupeeStashActor : MonsterActor
 
         if (distanceX <= 8 && distanceY <= 8)
         {
-            Game.World.PostRupeeWin(1);
-            Game.World.IncrementRoomKillCount();
+            World.PostRupeeWin(1);
+            World.IncrementRoomKillCount();
             Delete();
         }
     }
@@ -999,8 +999,8 @@ internal sealed class FairyActor : FlyingActor
     private int _timer;
 
     // JOE: TODO: Fairy is an "item," not an actor. IS this a problem?
-    public FairyActor(Game game, int x, int y)
-        : base(game, ObjType.Item, _fairySpec, x, y)
+    public FairyActor(World world, int x, int y)
+        : base(world, ObjType.Item, _fairySpec, x, y)
     {
         _timer = 0xFF;
 
@@ -1028,14 +1028,14 @@ internal sealed class FairyActor : FlyingActor
 
         ReadOnlySpan<Actor> canPickupFairy = [
             Game.Player,
-            .. Game.World.GetObjects<BoomerangProjectile>(static t => t.IsPlayerWeapon)
+            .. World.GetObjects<BoomerangProjectile>(static t => t.IsPlayerWeapon)
         ];
 
         foreach (var obj in canPickupFairy)
         {
             if (!obj.IsDeleted && TouchesObject(obj))
             {
-                Game.World.AddItem(ItemId.Fairy);
+                World.AddItem(ItemId.Fairy);
                 Delete();
                 break;
             }
@@ -1079,8 +1079,8 @@ internal sealed class PondFairyActor : MonsterActor
     private PondFairyState _pondFairyState;
     private readonly SpriteAnimator _animator;
 
-    public PondFairyActor(Game game, int x = PondFairyX, int y = PondFairyY)
-        : base(game, ObjType.PondFairy, x, y)
+    public PondFairyActor(World world, int x = PondFairyX, int y = PondFairyY)
+        : base(world, ObjType.PondFairy, x, y)
     {
         _animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Fairy)
         {
@@ -1142,21 +1142,21 @@ internal sealed class PondFairyActor : MonsterActor
             }
         }
 
-        var profile = Game.World.Profile;
+        var profile = World.Profile;
         var maxHeartsValue = profile.GetMaxHeartsValue();
 
         Game.Sound.PlayEffect(SoundEffect.Character);
 
         if (profile.Hearts < maxHeartsValue)
         {
-            Game.World.FillHearts(6);
+            World.FillHearts(6);
         }
         else if (_heartState[7] != 0)
         {
             _pondFairyState = PondFairyState.Healed;
             var player = Game.Player;
             player.SetState(PlayerState.Idle);
-            Game.World.SwordBlocked = false;
+            World.SwordBlocked = false;
         }
     }
 
@@ -1188,8 +1188,8 @@ internal sealed class PondFairyActor : MonsterActor
 
 internal sealed class DeadDummyActor : MonsterActor
 {
-    public DeadDummyActor(Game game, int x, int y, byte decoration = 0)
-        : base(game, ObjType.DeadDummy, x, y)
+    public DeadDummyActor(World world, int x, int y, byte decoration = 0)
+        : base(world, ObjType.DeadDummy, x, y)
     {
         Decoration = decoration;
     }
@@ -1205,8 +1205,8 @@ internal sealed class DeadDummyActor : MonsterActor
 
 internal abstract class StdWanderer : WandererWalkerActor
 {
-    protected StdWanderer(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
-        : base(game, type, level, spec, turnRate, x, y)
+    protected StdWanderer(World world, ObjType type, WorldLevel level, WalkerSpec spec, int turnRate, int x, int y)
+        : base(world, type, level, spec, turnRate, x, y)
     {
     }
 }
@@ -1222,8 +1222,8 @@ internal sealed class GhiniActor : WandererWalkerActor
 
     private static readonly WalkerSpec _ghiniSpec = new(_ghiniAnimMap, 12, Palette.Blue, StandardSpeed);
 
-    public GhiniActor(Game game, int x, int y)
-        : base(game, ObjType.Ghini, WorldLevel.Overworld, _ghiniSpec, 0xFF, x, y)
+    public GhiniActor(World world, int x, int y)
+        : base(world, ObjType.Ghini, WorldLevel.Overworld, _ghiniSpec, 0xFF, x, y)
     {
         InitCommonFacing();
         InitCommonStateTimer();
@@ -1238,7 +1238,7 @@ internal sealed class GhiniActor : WandererWalkerActor
 
         if (Decoration != 0)
         {
-            foreach (var flying in Game.World.GetObjects<FlyingGhiniActor>())
+            foreach (var flying in World.GetObjects<FlyingGhiniActor>())
             {
                 // JOE: TODO: Is this a death state?
                 flying.Decoration = 0x11;
@@ -1260,8 +1260,8 @@ internal sealed class GibdoActor : StdWanderer
 
     public override bool CanHoldRoomItem => true;
 
-    public GibdoActor(Game game, int x, int y)
-        : base(game, ObjType.Gibdo, WorldLevel.Underworld, _gibdoSpec, 0x80, x, y)
+    public GibdoActor(World world, int x, int y)
+        : base(world, ObjType.Gibdo, WorldLevel.Underworld, _gibdoSpec, 0x80, x, y)
     {
     }
 }
@@ -1278,8 +1278,8 @@ internal sealed class DarknutActor : StdWanderer
     private static readonly WalkerSpec _redDarknutSpec = new(_darknutAnimMap, 16, Palette.Red, StandardSpeed);
     private static readonly WalkerSpec _blueDarknutSpec = new(_darknutAnimMap, 16, Palette.Blue, 0x28);
 
-    private DarknutActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, WorldLevel.Underworld, spec, 0x80, x, y)
+    private DarknutActor(World world, ObjType type, WalkerSpec spec, int x, int y)
+        : base(world, type, WorldLevel.Underworld, spec, 0x80, x, y)
     {
         if (type is not (ObjType.RedDarknut or ObjType.BlueDarknut))
         {
@@ -1289,12 +1289,12 @@ internal sealed class DarknutActor : StdWanderer
         InvincibilityMask = 0xF6;
     }
 
-    public static DarknutActor Make(Game game, ActorColor type, int x, int y)
+    public static DarknutActor Make(World world, ActorColor type, int x, int y)
     {
         return type switch
         {
-            ActorColor.Red => new DarknutActor(game, ObjType.RedDarknut, _redDarknutSpec, x, y),
-            ActorColor.Blue => new DarknutActor(game, ObjType.BlueDarknut, _blueDarknutSpec, x, y),
+            ActorColor.Red => new DarknutActor(world, ObjType.RedDarknut, _redDarknutSpec, x, y),
+            ActorColor.Blue => new DarknutActor(world, ObjType.BlueDarknut, _blueDarknutSpec, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, $"Invalid type for {nameof(DarknutActor)}.")
         };
     }
@@ -1321,8 +1321,8 @@ internal sealed class StalfosActor : StdWanderer
 
     public override bool CanHoldRoomItem => true;
 
-    public StalfosActor(Game game, int x, int y)
-        : base(game, ObjType.Stalfos, WorldLevel.Underworld, _stalfosSpec, 0x80, x, y)
+    public StalfosActor(World world, int x, int y)
+        : base(world, ObjType.Stalfos, WorldLevel.Underworld, _stalfosSpec, 0x80, x, y)
     {
     }
 
@@ -1332,7 +1332,7 @@ internal sealed class StalfosActor : StdWanderer
         CheckCollisions();
         Animator.Advance();
 
-        if (Game.World.Profile.Quest == 1)
+        if (false) // JOE: TODO: QUEST World.Profile.Quest == 1)
         {
             TryShooting();
         }
@@ -1354,8 +1354,8 @@ internal sealed class GelActor : WandererWalkerActor
 
     private int _state; // JOE: TODO: Enumify this.
 
-    public GelActor(Game game, ObjType type, int x, int y, Direction dir, byte fraction)
-        : base(game, type, WorldLevel.Underworld, _gelSpec, 0x20, x, y)
+    public GelActor(World world, ObjType type, int x, int y, Direction dir, byte fraction)
+        : base(world, type, WorldLevel.Underworld, _gelSpec, 0x20, x, y)
     {
         if (type is not (ObjType.Gel or ObjType.ChildGel))
         {
@@ -1440,8 +1440,8 @@ internal sealed class ZolActor : WandererWalkerActor
 
     private int _state;
 
-    public ZolActor(Game game, int x, int y)
-        : base(game, ObjType.Zol, WorldLevel.Underworld, _zolSpec, 0x20, x, y)
+    public ZolActor(World world, int x, int y)
+        : base(world, ObjType.Zol, WorldLevel.Underworld, _zolSpec, 0x20, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -1513,14 +1513,14 @@ internal sealed class ZolActor : WandererWalkerActor
         ReadOnlySpan<Direction> sVDirs = [Direction.Down, Direction.Up];
 
         Delete();
-        Game.World.RoomObjCount++;
+        World.RoomObjCount++;
 
         var orthoDirs = Facing.IsHorizontal() ? sVDirs : sHDirs;
 
         for (var i = 0; i < 2; i++)
         {
-            var gel = new GelActor(Game, ObjType.ChildGel, X, Y, orthoDirs[i], Fraction);
-            Game.World.AddObject(gel);
+            var gel = new GelActor(World, ObjType.ChildGel, X, Y, orthoDirs[i], Fraction);
+            World.AddObject(gel);
             gel.ObjTimer = 0;
         }
     }
@@ -1539,8 +1539,8 @@ internal sealed class BubbleActor : WandererWalkerActor
 
     public override bool CountsAsLiving => false;
 
-    public BubbleActor(Game game, ObjType type, int x, int y)
-        : base(game, type, WorldLevel.Underworld, _bubbleSpec, 0x40, x, y)
+    public BubbleActor(World world, ObjType type, int x, int y)
+        : base(world, type, WorldLevel.Underworld, _bubbleSpec, 0x40, x, y)
     {
         if (type is not (ObjType.Bubble1 or ObjType.Bubble2 or ObjType.Bubble3))
         {
@@ -1559,11 +1559,11 @@ internal sealed class BubbleActor : WandererWalkerActor
         {
             if (ObjType == ObjType.Bubble1)
             {
-                Game.World.SetStunTimer(StunTimerSlot.NoSword, 0x10);
+                World.SetStunTimer(StunTimerSlot.NoSword, 0x10);
             }
             else
             {
-                Game.World.SwordBlocked = ObjType == ObjType.Bubble3;
+                World.SwordBlocked = ObjType == ObjType.Bubble3;
             }
 
             // The sword blocked state is cleared by touching blue bubbles (Bubble2)
@@ -1602,8 +1602,8 @@ internal sealed class VireActor : WandererWalkerActor
 
     private int _state;
 
-    public VireActor(Game game, int x, int y)
-        : base(game, ObjType.Vire, WorldLevel.Underworld, _vireSpec, 0x80, x, y)
+    public VireActor(World world, int x, int y)
+        : base(world, ObjType.Vire, WorldLevel.Underworld, _vireSpec, 0x80, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -1655,12 +1655,12 @@ internal sealed class VireActor : WandererWalkerActor
     private void UpdateSplit()
     {
         Delete();
-        Game.World.RoomObjCount++;
+        World.RoomObjCount++;
 
         for (var i = 0; i < 2; i++)
         {
-            var keese = KeeseActor.Make(Game, ActorColor.Red, X, Y);
-            Game.World.AddObject(keese);
+            var keese = KeeseActor.Make(World, ActorColor.Red, X, Y);
+            World.AddObject(keese);
             keese.Facing = Facing;
             keese.ObjTimer = 0;
         }
@@ -1685,8 +1685,8 @@ internal sealed class LikeLikeActor : WandererWalkerActor
     private int _framesHeld;
     private IDisposable? _paralyzedToken;
 
-    public LikeLikeActor(Game game, int x, int y)
-        : base(game, ObjType.LikeLike, WorldLevel.Underworld, _likeLikeSpec, 0x80, x, y)
+    public LikeLikeActor(World world, int x, int y)
+        : base(world, ObjType.LikeLike, WorldLevel.Underworld, _likeLikeSpec, 0x80, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -1730,7 +1730,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
         _framesHeld++;
         if (_framesHeld >= 0x60)
         {
-            Game.World.SetItem(ItemSlot.MagicShield, 0);
+            World.SetItem(ItemSlot.MagicShield, 0);
             _framesHeld = 0xC0;
         }
 
@@ -1767,8 +1767,8 @@ internal abstract class DigWanderer : WandererWalkerActor
         AnimationId.OW_Mound
     ];
 
-    protected DigWanderer(Game game, ObjType type, WorldLevel level, ImmutableArray<WalkerSpec> specs, ImmutableArray<int> stateTimes, int x, int y)
-        : base(game, type, level, specs[0], 0xA0, x, y)
+    protected DigWanderer(World world, ObjType type, WorldLevel level, ImmutableArray<WalkerSpec> specs, ImmutableArray<int> stateTimes, int x, int y)
+        : base(world, type, level, specs[0], 0xA0, x, y)
     {
         ObjTimer = 0;
         _stateSpecs = specs;
@@ -1833,8 +1833,8 @@ internal sealed class ZoraActor : DigWanderer
 
     private static readonly ImmutableArray<int> _zoraStateTimes = [2, 0x20, 0x0F, 0x22, 0x10, 0x60];
 
-    public ZoraActor(Game game, int x, int y)
-        : base(game, ObjType.Zora, WorldLevel.Overworld, _zoraSpecs, _zoraStateTimes, x, y)
+    public ZoraActor(World world, int x, int y)
+        : base(world, ObjType.Zora, WorldLevel.Overworld, _zoraSpecs, _zoraStateTimes, x, y)
     {
         ObjTimer = (byte)StateTimes[0];
         Decoration = 0;
@@ -1842,7 +1842,7 @@ internal sealed class ZoraActor : DigWanderer
 
     public override void Update()
     {
-        if (Game.World.HasItem(ItemSlot.Clock)) return;
+        if (World.HasItem(ItemSlot.Clock)) return;
 
         UpdateDig();
 
@@ -1851,10 +1851,10 @@ internal sealed class ZoraActor : DigWanderer
             if (ObjTimer == 1)
             {
                 var player = Game.Player;
-                var cell = Game.World.CurrentRoom.GetRandomWaterTile();
+                var cell = World.CurrentRoom.GetRandomWaterTile();
 
-                X = cell.X * World.TileWidth;
-                Y = cell.Y * World.TileHeight - 3;
+                X = cell.X * z1.World.TileWidth;
+                Y = cell.Y * z1.World.TileHeight - 3;
 
                 Facing = player.Y >= Y ? Direction.Down : Direction.Up;
             }
@@ -1901,8 +1901,8 @@ internal sealed class BlueLeeverActor : DigWanderer
 
     private static readonly ImmutableArray<int> _blueLeeverStateTimes = [0x80, 0x20, 0x0F, 0xFF, 0x10, 0x60];
 
-    public BlueLeeverActor(Game game, int x, int y)
-        : base(game, ObjType.BlueLeever, WorldLevel.Overworld, _blueLeeverSpecs, _blueLeeverStateTimes, x, y)
+    public BlueLeeverActor(World world, int x, int y)
+        : base(world, ObjType.BlueLeever, WorldLevel.Overworld, _blueLeeverSpecs, _blueLeeverStateTimes, x, y)
     {
         Decoration = 0;
         InitCommonStateTimer();
@@ -1950,8 +1950,8 @@ internal sealed class RedLeeverActor : Actor
     private int _state;
     private WalkerSpec _spec;
 
-    public RedLeeverActor(Game game, int x, int y)
-        : base(game, ObjType.RedLeever, x, y)
+    public RedLeeverActor(World world, int x, int y)
+        : base(world, ObjType.RedLeever, x, y)
     {
         Decoration = 0;
         Facing = Direction.Right;
@@ -1966,7 +1966,7 @@ internal sealed class RedLeeverActor : Actor
         // No need to InitCommonFacing, because the Facing is changed with every update.
         SetFacingAnimation();
 
-        Game.World.SetStunTimer(StunTimerSlot.RedLeever, 5);
+        World.SetStunTimer(StunTimerSlot.RedLeever, 5);
     }
 
     public override void Update()
@@ -1975,9 +1975,9 @@ internal sealed class RedLeeverActor : Actor
 
         if (_state == 0)
         {
-            if (_count >= 2 || Game.World.GetStunTimer(StunTimerSlot.RedLeever) != 0) return;
+            if (_count >= 2 || World.GetStunTimer(StunTimerSlot.RedLeever) != 0) return;
             if (!TargetPlayer()) return;
-            Game.World.SetStunTimer(StunTimerSlot.RedLeever, 2);
+            World.SetStunTimer(StunTimerSlot.RedLeever, 2);
             advanceState = true;
         }
         else if (_state == 3)
@@ -1988,7 +1988,7 @@ internal sealed class RedLeeverActor : Actor
             }
             else if (!IsStunned)
             {
-                if (Game.World.CollidesWithTileMoving(X, Y, Facing, false)
+                if (World.CollidesWithTileMoving(X, Y, Facing, false)
                     || CheckWorldMargin(Facing) == Direction.None)
                 {
                     advanceState = true;
@@ -2086,7 +2086,7 @@ internal sealed class RedLeeverActor : Actor
         }
 
         if (y < 0x5D) return false;
-        if (Game.World.CollidesWithTileStill(x, y)) return false;
+        if (World.CollidesWithTileStill(x, y)) return false;
 
         Facing = Facing.GetOppositeDirection();
         X = x;
@@ -2124,8 +2124,8 @@ internal abstract class FlyingActor : MonsterActor
 
     protected readonly FlyerSpec Spec;
 
-    protected FlyingActor(Game game, ObjType type, FlyerSpec spec, int x, int y)
-        : base(game, type, x, y)
+    protected FlyingActor(World world, ObjType type, FlyerSpec spec, int x, int y)
+        : base(world, type, x, y)
     {
         Spec = spec;
         Animator = new SpriteAnimator(spec.Sheet, spec.AnimationMap[0])
@@ -2312,8 +2312,8 @@ internal abstract class FlyingActor : MonsterActor
 
 internal abstract class StdFlyerActor : FlyingActor
 {
-    protected StdFlyerActor(Game game, ObjType type, FlyerSpec spec, int x, int y, Direction facing)
-        : base(game, type, spec, x, y)
+    protected StdFlyerActor(World world, ObjType type, FlyerSpec spec, int x, int y, Direction facing)
+        : base(world, type, spec, x, y)
     {
         Facing = facing;
     }
@@ -2330,8 +2330,8 @@ internal sealed class PeahatActor : StdFlyerActor
 
     private static readonly FlyerSpec _peahatSpec = new(_peahatAnimMap, TileSheet.NpcsOverworld, Palette.Red, 0xA0);
 
-    public PeahatActor(Game game, int x, int y)
-        : base(game, ObjType.Peahat, _peahatSpec, x, y, Direction.Up)
+    public PeahatActor(World world, int x, int y)
+        : base(world, ObjType.Peahat, _peahatSpec, x, y, Direction.Up)
     {
         Decoration = 0;
         CurSpeed = 0x1F;
@@ -2378,8 +2378,8 @@ internal sealed class FlyingGhiniActor : FlyingActor
 
     private FlyingGhiniState _ghiniState;
 
-    public FlyingGhiniActor(Game game, int x, int y)
-        : base(game, ObjType.FlyingGhini, _flyingGhiniSpec, x, y)
+    public FlyingGhiniActor(World world, int x, int y)
+        : base(world, ObjType.FlyingGhini, _flyingGhiniSpec, x, y)
     {
         Decoration = 0;
         Facing = Direction.Up;
@@ -2394,7 +2394,7 @@ internal sealed class FlyingGhiniActor : FlyingActor
             return;
         }
 
-        if (!Game.World.HasItem(ItemSlot.Clock))
+        if (!World.HasItem(ItemSlot.Clock))
         {
             UpdateStateAndMove();
         }
@@ -2449,27 +2449,27 @@ internal sealed class KeeseActor : FlyingActor
     private static readonly FlyerSpec _redKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.Red, 0xC0);
     private static readonly FlyerSpec _blackKeeseSpec = new(_keeseAnimMap, TileSheet.NpcsUnderworld, Palette.SeaPal, 0xC0);
 
-    private KeeseActor(Game game, ObjType type, FlyerSpec spec, int startSpeed, int x, int y)
-        : base(game, type, spec, x, y)
+    private KeeseActor(World world, ObjType type, FlyerSpec spec, int startSpeed, int x, int y)
+        : base(world, type, spec, x, y)
     {
         CurSpeed = startSpeed;
         Facing = Game.Random.GetDirection8();
     }
 
-    public static KeeseActor Make(Game game, ActorColor color, int x, int y)
+    public static KeeseActor Make(World world, ActorColor color, int x, int y)
     {
         return color switch {
-            ActorColor.Red => new KeeseActor(game, ObjType.RedKeese, _redKeeseSpec, 0x7F, x, y),
-            ActorColor.Blue => new KeeseActor(game, ObjType.BlueKeese, _blueKeeseSpec, 0x1F, x, y),
-            ActorColor.Black => new KeeseActor(game, ObjType.BlackKeese, _blackKeeseSpec, 0x7F, x, y),
+            ActorColor.Red => new KeeseActor(world, ObjType.RedKeese, _redKeeseSpec, 0x7F, x, y),
+            ActorColor.Blue => new KeeseActor(world, ObjType.BlueKeese, _blueKeeseSpec, 0x1F, x, y),
+            ActorColor.Black => new KeeseActor(world, ObjType.BlackKeese, _blackKeeseSpec, 0x7F, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(KeeseActor)}.")
         };
     }
 
     public override void Update()
     {
-        if (!Game.World.HasItem(ItemSlot.Clock)
-            && !Game.World.IsLiftingItem())
+        if (!World.HasItem(ItemSlot.Clock)
+            && !World.IsLiftingItem())
         {
             UpdateStateAndMove();
         }
@@ -2520,8 +2520,8 @@ internal sealed class MoldormActor : FlyingActor
 
     public override bool IsReoccuring => false;
 
-    private MoldormActor(Game game, MoldormActor? head, int x, int y, Direction facing = Direction.None)
-        : base(game, ObjType.Moldorm, _moldormSpec, x, y)
+    private MoldormActor(World world, MoldormActor? head, int x, int y, Direction facing = Direction.None)
+        : base(world, ObjType.Moldorm, _moldormSpec, x, y)
     {
         _head = head;
         Decoration = 0;
@@ -2534,7 +2534,7 @@ internal sealed class MoldormActor : FlyingActor
     }
 
     public static MoldormActor MakeSet(
-        Game game,
+        World world,
         int x = 0x80,
         int y = 0x70,
         int count = Count,
@@ -2547,21 +2547,21 @@ internal sealed class MoldormActor : FlyingActor
 
         for (var moldormCount = 0; moldormCount < count; moldormCount++)
         {
-            var head = new MoldormActor(game, null, x, y, game.Random.GetDirection8());
-            game.World.AddObject(head);
+            var head = new MoldormActor(world, null, x, y, world.Game.Random.GetDirection8());
+            world.AddObject(head);
             firstMoldorm ??= head;
 
             for (var i = 0; i < length; i++)
             {
-                var bodyPart = new MoldormActor(game, head, x, y);
+                var bodyPart = new MoldormActor(world, head, x, y);
                 head._bodyParts.Add(bodyPart);
-                game.World.AddObject(bodyPart);
+                world.AddObject(bodyPart);
             }
 
             head._bodyParts.Add(head);
         }
 
-        game.World.RoomObjCount += count * length;
+        world.RoomObjCount += count * length;
 
         return firstMoldorm ?? throw new Exception();
     }
@@ -2570,7 +2570,7 @@ internal sealed class MoldormActor : FlyingActor
     {
         if (Facing == Direction.None) return;
 
-        if (!Game.World.HasItem(ItemSlot.Clock))
+        if (!World.HasItem(ItemSlot.Clock))
         {
             UpdateStateAndMove();
         }
@@ -2611,8 +2611,8 @@ internal sealed class MoldormActor : FlyingActor
         Decoration = 0;
 
         // ...then kill the tail-most piece by replacing with a dummy.
-        var dummy = new DeadDummyActor(Game, X, Y);
-        Game.World.AddOnlyObject(tailmost, dummy);
+        var dummy = new DeadDummyActor(World, X, Y);
+        World.AddOnlyObject(tailmost, dummy);
         head._bodyParts.RemoveAt(0);
     }
 
@@ -2717,8 +2717,8 @@ internal sealed class PatraActor : FlyingActor
 
     public override bool IsReoccuring => false;
 
-    private PatraActor(Game game, ObjType type, int x, int y)
-        : base(game, type, _patraSpec, x, y)
+    private PatraActor(World world, ObjType type, int x, int y)
+        : base(world, type, _patraSpec, x, y)
     {
         InvincibilityMask = 0xFE;
         Facing = Direction.Up;
@@ -2730,7 +2730,7 @@ internal sealed class PatraActor : FlyingActor
         Array.Fill(PatraState, 0);
     }
 
-    public static PatraActor MakePatra(Game game, PatraType patraType, int x = PatraX, int y = PatraY)
+    public static PatraActor MakePatra(World world, PatraType patraType, int x = PatraX, int y = PatraY)
     {
         var type = patraType switch
         {
@@ -2739,14 +2739,14 @@ internal sealed class PatraActor : FlyingActor
             _ => throw new ArgumentOutOfRangeException(nameof(patraType), patraType, "patraType unknown."),
         };
 
-        var patra = new PatraActor(game, type, x, y);
-        game.World.AddObject(patra);
+        var patra = new PatraActor(world, type, x, y);
+        world.AddObject(patra);
 
         // Index 0 is used for the parent.
         for (var i = 1; i <= ChildPatraCount; i++)
         {
-            var child = PatraChildActor.Make(game, patra, i, patraType);
-            game.World.AddObject(child);
+            var child = PatraChildActor.Make(world, patra, i, patraType);
+            world.AddObject(child);
         }
 
         return patra;
@@ -2771,7 +2771,7 @@ internal sealed class PatraActor : FlyingActor
         _xMove = X - origX;
         _yMove = Y - origY;
 
-        var foundChild = Game.World.GetObjects<PatraChildActor>().Any();
+        var foundChild = World.GetObjects<PatraChildActor>().Any();
 
         if (foundChild)
         {
@@ -2814,8 +2814,8 @@ internal sealed class PatraChildActor : MonsterActor
 
     public override bool IsReoccuring => false;
 
-    private PatraChildActor(Game game, PatraActor parent, int index, ObjType type, int x, int y)
-        : base(game, type, x, y)
+    private PatraChildActor(World world, PatraActor parent, int index, ObjType type, int x, int y)
+        : base(world, type, x, y)
     {
         if (type is not (ObjType.PatraChild1 or ObjType.PatraChild2))
         {
@@ -2836,7 +2836,7 @@ internal sealed class PatraChildActor : MonsterActor
         };
     }
 
-    public static PatraChildActor Make(Game game, PatraActor parent, int index, PatraType patraType, int x = 0, int y = 0)
+    public static PatraChildActor Make(World world, PatraActor parent, int index, PatraType patraType, int x = 0, int y = 0)
     {
         var objtype = patraType switch
         {
@@ -2845,7 +2845,7 @@ internal sealed class PatraChildActor : MonsterActor
             _ => throw new ArgumentOutOfRangeException(nameof(patraType), patraType, "patraType unknown."),
         };
 
-        return new PatraChildActor(game, parent, index, objtype, x, y);
+        return new PatraChildActor(world, parent, index, objtype, x, y);
     }
 
     private static short ShiftMult(int mask, int addend, int shiftCount)
@@ -2882,8 +2882,8 @@ internal sealed class PatraChildActor : MonsterActor
         CheckCollisions();
         if (Decoration != 0)
         {
-            var dummy = new DeadDummyActor(Game, X, Y);
-            Game.World.AddOnlyObject(this, dummy);
+            var dummy = new DeadDummyActor(World, X, Y);
+            World.AddOnlyObject(this, dummy);
         }
     }
 
@@ -3005,8 +3005,8 @@ internal abstract class JumperActor : MonsterActor
     private readonly JumperSpec _spec;
     private readonly TileSheet _tilesheet;
 
-    protected JumperActor(Game game, ObjType type, WorldLevel level, JumperSpec spec, int x, int y)
-        : base(game, type, x, y)
+    protected JumperActor(World world, ObjType type, WorldLevel level, JumperSpec spec, int x, int y)
+        : base(world, type, x, y)
     {
         _spec = spec;
         _tilesheet = level.GetNpcTileSheet();
@@ -3017,7 +3017,7 @@ internal abstract class JumperActor : MonsterActor
             DurationFrames = spec.AnimationTimer
         };
 
-        Facing = game.Random.GetRandom(JumperStartDirs);
+        Facing = world.Game.Random.GetRandom(JumperStartDirs);
         ObjTimer = (byte)((int)Facing * 4);
 
         if (this is BoulderActor)
@@ -3217,8 +3217,8 @@ internal sealed class BoulderActor : JumperActor
 
     private static readonly JumperSpec _boulderSpec = new(_boulderAnimMap, 12, -1, Palette.Red, -2, _boulderSpeeds);
 
-    public BoulderActor(Game game, int x, int y)
-        : base(game, ObjType.Boulder, WorldLevel.Overworld, _boulderSpec, x, y)
+    public BoulderActor(World world, int x, int y)
+        : base(world, ObjType.Boulder, WorldLevel.Overworld, _boulderSpec, x, y)
     {
     }
 }
@@ -3238,8 +3238,8 @@ internal sealed class TektiteActor : JumperActor
     private static readonly JumperSpec _blueTektiteSpec = new(_tektiteAnimMap, 32, 1, Palette.Blue, -3, _blueTektiteSpeeds);
     private static readonly JumperSpec _redTektiteSpec = new(_tektiteAnimMap, 32, 1, Palette.Red, -4, _redTektiteSpeeds);
 
-    private TektiteActor(Game game, ObjType type, JumperSpec spec, int x, int y)
-        : base(game, type, WorldLevel.Overworld, spec, x, y)
+    private TektiteActor(World world, ObjType type, JumperSpec spec, int x, int y)
+        : base(world, type, WorldLevel.Overworld, spec, x, y)
     {
         if (type is not (ObjType.BlueTektite or ObjType.RedTektite))
         {
@@ -3247,12 +3247,12 @@ internal sealed class TektiteActor : JumperActor
         }
     }
 
-    public static TektiteActor Make(Game game, ActorColor color, int x, int y)
+    public static TektiteActor Make(World world, ActorColor color, int x, int y)
     {
         return color switch
         {
-            ActorColor.Blue => new TektiteActor(game, ObjType.BlueTektite, _blueTektiteSpec, x, y),
-            ActorColor.Red => new TektiteActor(game, ObjType.RedTektite, _redTektiteSpec, x, y),
+            ActorColor.Blue => new TektiteActor(world, ObjType.BlueTektite, _blueTektiteSpec, x, y),
+            ActorColor.Red => new TektiteActor(world, ObjType.RedTektite, _redTektiteSpec, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(TektiteActor)}.")
         };
     }
@@ -3264,10 +3264,10 @@ internal sealed class BouldersActor : MonsterActor
 
     public static int Count;
 
-    public BouldersActor(Game game, int x, int y)
-        : base(game, ObjType.Boulders, x, y)
+    public BouldersActor(World world, int x, int y)
+        : base(world, ObjType.Boulders, x, y)
     {
-        var facing = (int)game.Random.GetRandom(JumperActor.JumperStartDirs);
+        var facing = (int)world.Game.Random.GetRandom(JumperActor.JumperStartDirs);
         ObjTimer = (byte)(facing * 4);
         Decoration = 0;
     }
@@ -3278,7 +3278,7 @@ internal sealed class BouldersActor : MonsterActor
 
         if (Count < MaxBoulders)
         {
-            var playerPos = Game.World.GetObservedPlayerPos();
+            var playerPos = World.GetObservedPlayerPos();
             const int y = World.WorldLimitTop;
             var x = Game.Random.GetByte();
 
@@ -3292,8 +3292,8 @@ internal sealed class BouldersActor : MonsterActor
                 x |= 0x80;
             }
 
-            var boulder = new BoulderActor(Game, x, y);
-            Game.World.AddObject(boulder);
+            var boulder = new BoulderActor(World, x, y);
+            World.AddObject(boulder);
 
             ObjTimer = (byte)Game.Random.Next(32);
 
@@ -3333,14 +3333,14 @@ internal sealed class TrapActor : MonsterActor
 
     public override bool CountsAsLiving => false;
 
-    private TrapActor(Game game, int trapIndex, int x, int y)
-        : base(game, ObjType.Trap, x, y)
+    private TrapActor(World world, int trapIndex, int x, int y)
+        : base(world, ObjType.Trap, x, y)
     {
         _trapIndex = trapIndex;
         _image = new SpriteImage(TileSheet.NpcsUnderworld, AnimationId.UW_Trap);
     }
 
-    public static TrapActor MakeSet(Game game, int count)
+    public static TrapActor MakeSet(World world, int count)
     {
         Debug.Assert(count is >= 1 and <= 6);
         count = Math.Clamp(count, 1, 6);
@@ -3348,9 +3348,9 @@ internal sealed class TrapActor : MonsterActor
         TrapActor? first = null;
         for (var i = 0; i < count; i++)
         {
-            var obj = new TrapActor(game, i, _trapPos[i].X, _trapPos[i].Y);
+            var obj = new TrapActor(world, i, _trapPos[i].X, _trapPos[i].Y);
             first ??= obj;
-            game.World.AddObject(obj);
+            world.AddObject(obj);
         }
 
         return first ?? throw new Exception(); ;
@@ -3471,8 +3471,8 @@ internal sealed class RopeActor : MonsterActor
     private int _speed;
     private readonly SpriteAnimator _animator;
 
-    public RopeActor(Game game, int x, int y)
-        : base(game, ObjType.Rope, x, y)
+    public RopeActor(World world, int x, int y)
+        : base(world, ObjType.Rope, x, y)
     {
         _animator = new SpriteAnimator
         {
@@ -3483,9 +3483,9 @@ internal sealed class RopeActor : MonsterActor
         InitCommonFacing();
         SetFacingAnimation();
 
-        var profile = Game.World.Profile;
+        var profile = World.Profile;
 
-        HP = (byte)(profile.Quest == 0 ? 0x10 : 0x40);
+        HP = (byte)0x10; // JOE: TODO: QUEST  (profile.Quest == 0 ? 0x10 : 0x40);
     }
 
     public override void Update()
@@ -3548,8 +3548,8 @@ internal sealed class RopeActor : MonsterActor
 
     public override void Draw()
     {
-        var profile = Game.World.Profile;
-        var pal = profile.Quest == 0
+        var profile = World.Profile;
+        var pal = true // JOE: TODO: QUEST profile.Quest == 0
             ? CalcPalette(Palette.Red)
             : Palette.Player + (Game.FrameCounter & 3);
 
@@ -3577,8 +3577,8 @@ internal sealed class PolsVoiceActor : MonsterActor
     private int _targetY;
     private readonly SpriteAnimator _animator;
 
-    public PolsVoiceActor(Game game, int x, int y)
-        : base(game, ObjType.PolsVoice, x, y)
+    public PolsVoiceActor(World world, int x, int y)
+        : base(world, ObjType.PolsVoice, x, y)
     {
         InitCommonFacing();
 
@@ -3615,12 +3615,12 @@ internal sealed class PolsVoiceActor : MonsterActor
         var x = X;
         var y = Y;
 
-        var collision = Game.World.CollidesWithTileStill(x, y);
+        var collision = World.CollidesWithTileStill(x, y);
         if (!collision.Collides)
         {
             x += 0xE;
             y += 6;
-            collision = Game.World.CollidesWithTileStill(x, y);
+            collision = World.CollidesWithTileStill(x, y);
             if (!collision.Collides) return;
         }
 
@@ -3737,8 +3737,8 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
 
     private readonly SpriteAnimator _animator;
 
-    public RedWizzrobeActor(Game game, int x, int y)
-        : base(game, ObjType.RedWizzrobe, x, y)
+    public RedWizzrobeActor(World world, int x, int y)
+        : base(world, ObjType.RedWizzrobe, x, y)
     {
         Decoration = 0;
         ObjTimer = 0;
@@ -3751,7 +3751,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
 
     public override void Update()
     {
-        if (Game.World.HasItem(ItemSlot.Clock))
+        if (World.HasItem(ItemSlot.Clock))
         {
             // Force them visible.
             _stateTimer = 2 << 6;
@@ -3825,7 +3825,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
     {
         if (_stateTimer == 0xB0)
         {
-            if (!Game.World.HasItem(ItemSlot.Clock))
+            if (!World.HasItem(ItemSlot.Clock))
             {
                 Game.Sound.PlayEffect(SoundEffect.MagicWave);
                 Shoot(ObjType.MagicWave2, X, Y, Facing);
@@ -3846,7 +3846,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
         x += _allWizzrobeCollisionXOffsets[(int)ord];
         y += _allWizzrobeCollisionYOffsets[(int)ord];
 
-        var collision = Game.World.CollidesWithTileStill(x, y);
+        var collision = World.CollidesWithTileStill(x, y);
         if (!collision.Collides)
         {
             return 0;
@@ -3915,8 +3915,8 @@ internal sealed class LamnolaActor : MonsterActor
     private readonly List<LamnolaActor> _bodyParts = new(); // Only available on heads.
     private readonly int _speed;
 
-    private LamnolaActor(Game game, ObjType type, LamnolaActor? head, int x, int y)
-        : base(game, type, x, y)
+    private LamnolaActor(World world, ObjType type, LamnolaActor? head, int x, int y)
+        : base(world, type, x, y)
     {
         _head = head;
         Decoration = 0;
@@ -3932,7 +3932,7 @@ internal sealed class LamnolaActor : MonsterActor
     }
 
     public static LamnolaActor MakeSet(
-        Game game,
+        World world,
         ActorColor color,
         int x = 0x40,
         int y = 0x8D,
@@ -3953,22 +3953,22 @@ internal sealed class LamnolaActor : MonsterActor
 
         for (var lamnolaCount = 0; lamnolaCount < count; lamnolaCount++)
         {
-            var head = new LamnolaActor(game, objtype, null, x, y) { Facing = Direction.Up };
+            var head = new LamnolaActor(world, objtype, null, x, y) { Facing = Direction.Up };
             first ??= head;
-            game.World.AddObject(head);
+            world.AddObject(head);
 
             for (var i = 0; i < length; i++)
             {
-                var body = new LamnolaActor(game, objtype, head, x, y);
+                var body = new LamnolaActor(world, objtype, head, x, y);
                 head._bodyParts.Add(body);
-                game.World.AddObject(body);
+                world.AddObject(body);
             }
 
             // In the NES game logic, the head was the last part. They're killed in order, so it makes sense.
             head._bodyParts.Add(head);
         }
 
-        game.World.RoomObjCount += count * length;
+        world.RoomObjCount += count * length;
 
         return first ?? throw new Exception();
     }
@@ -3977,7 +3977,7 @@ internal sealed class LamnolaActor : MonsterActor
     {
         if (Facing == Direction.None) return;
 
-        if (!Game.World.HasItem(ItemSlot.Clock))
+        if (!World.HasItem(ItemSlot.Clock))
         {
             MoveSimple(Facing, _speed);
 
@@ -4068,7 +4068,7 @@ internal sealed class LamnolaActor : MonsterActor
             Facing = dir;
 
             if (CheckWorldMargin(Facing) != Direction.None
-                && !Game.World.CollidesWithTileMoving(X, Y, Facing, false))
+                && !World.CollidesWithTileMoving(X, Y, Facing, false))
             {
                 break;
             }
@@ -4115,8 +4115,8 @@ internal sealed class LamnolaActor : MonsterActor
         Decoration = 0;
 
         // ...then kill the tail-most piece by replacing with a dummy.
-        var dummy = new DeadDummyActor(Game, X, Y);
-        Game.World.AddOnlyObject(tailmost, dummy);
+        var dummy = new DeadDummyActor(World, X, Y);
+        World.AddOnlyObject(tailmost, dummy);
         head._bodyParts.RemoveAt(0);
     }
 }
@@ -4143,8 +4143,8 @@ internal sealed class WallmasterActor : MonsterActor
     private bool _holdingPlayer;
     private readonly SpriteAnimator _animator;
 
-    public WallmasterActor(Game game, int x, int y)
-        : base(game, ObjType.Wallmaster, x, y)
+    public WallmasterActor(World world, int x, int y)
+        : base(world, ObjType.Wallmaster, x, y)
     {
         Decoration = 0;
         ObjTimer = 0;
@@ -4214,7 +4214,7 @@ internal sealed class WallmasterActor : MonsterActor
 
     private void UpdateIdle()
     {
-        if (Game.World.GetObjectTimer(World.ObjectTimer.Monster1) != 0) return;
+        if (World.GetObjectTimer(z1.World.ObjectTimer.Monster1) != 0) return;
 
         var player = Game.Player;
 
@@ -4257,7 +4257,7 @@ internal sealed class WallmasterActor : MonsterActor
 
         _state = 1;
         _tilesCrossed = 0;
-        Game.World.SetObjectTimer(World.ObjectTimer.Monster1, 0x60);
+        World.SetObjectTimer(z1.World.ObjectTimer.Monster1, 0x60);
         Facing = (Direction)(_wallmasterDirs[_dirIndex] & 0x0F);
         TileOffset = 0;
     }
@@ -4287,7 +4287,7 @@ internal sealed class WallmasterActor : MonsterActor
                     if (_holdingPlayer)
                     {
                         player.SetState(PlayerState.Idle);
-                        Game.World.UnfurlLevel();
+                        World.GotoUnfurl();
                     }
                     return;
                 }
@@ -4329,8 +4329,8 @@ internal sealed class AquamentusActor : MonsterActor
 
     public override bool IsReoccuring => false;
 
-    public AquamentusActor(Game game, int x = AquamentusX, int y = AquamentusY)
-        : base(game, ObjType.Aquamentus, x, y)
+    public AquamentusActor(World world, int x = AquamentusX, int y = AquamentusY)
+        : base(world, ObjType.Aquamentus, x, y)
     {
         InvincibilityMask = 0xE2;
 
@@ -4350,7 +4350,7 @@ internal sealed class AquamentusActor : MonsterActor
 
     public override void Update()
     {
-        if (!Game.World.HasItem(ItemSlot.Clock))
+        if (!World.HasItem(ItemSlot.Clock))
         {
             Move();
             TryShooting();
@@ -4489,8 +4489,8 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     public override bool IsReoccuring => false;
 
-    private DodongoActor(Game game, ObjType type, int x, int y)
-        : base(game, type, WorldLevel.Underworld, _dodongoWalkSpec, 0x20, x, y)
+    private DodongoActor(World world, ObjType type, int x, int y)
+        : base(world, type, WorldLevel.Underworld, _dodongoWalkSpec, 0x20, x, y)
     {
         _stateFuncs = [
             UpdateMoveState,
@@ -4518,12 +4518,12 @@ internal sealed class DodongoActor : WandererWalkerActor
         Graphics.UpdatePalettes();
     }
 
-    public static DodongoActor Make(Game game, int count, int x, int y)
+    public static DodongoActor Make(World world, int count, int x, int y)
     {
         return count switch
         {
-            1 => new DodongoActor(game, ObjType.OneDodongo, x, y),
-            3 => new DodongoActor(game, ObjType.ThreeDodongos, x, y),
+            1 => new DodongoActor(world, ObjType.OneDodongo, x, y),
+            3 => new DodongoActor(world, ObjType.ThreeDodongos, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(count), count, $"Invalid count for {nameof(DodongoActor)}.")
         };
     }
@@ -4578,7 +4578,7 @@ internal sealed class DodongoActor : WandererWalkerActor
         }
 
         UpdateBloatedDie();
-        Game.World.SetBombItemDrop();
+        World.SetBombItemDrop();
     }
 
     private void CheckPlayerHitStdSize()
@@ -4595,7 +4595,7 @@ internal sealed class DodongoActor : WandererWalkerActor
 
     private void CheckBombHit()
     {
-        foreach (var bomb in Game.World.GetObjects<BombActor>())
+        foreach (var bomb in World.GetObjects<BombActor>())
         {
             if (bomb.IsDeleted) continue;
             CheckBombHit(bomb);
@@ -4746,7 +4746,7 @@ internal sealed class DodongoActor : WandererWalkerActor
                 {
                     // JOE: I do not get why this exists?
                     // It feels wrong because CheckTickingBombHit already calls delete.
-                    // var bomb = Game.World.GetObject<BombActor>();
+                    // var bomb = World.GetObject<BombActor>();
                     // bomb?.Delete();
                     _bombHits++;
                 }
@@ -4819,8 +4819,8 @@ internal sealed class ManhandlaActor : MonsterActor
 
     public override bool IsReoccuring => false;
 
-    private ManhandlaActor(Game game, ManhandlaParent parent, int index, int x, int y, Direction facing)
-        : base(game, ObjType.Manhandla, x, y)
+    private ManhandlaActor(World world, ManhandlaParent parent, int index, int x, int y, Direction facing)
+        : base(world, ObjType.Manhandla, x, y)
     {
         _parent = parent;
         _curSpeedFix = 0x80;
@@ -4835,11 +4835,11 @@ internal sealed class ManhandlaActor : MonsterActor
         };
     }
 
-    public static ManhandlaActor Make(Game game, int x, int y)
+    public static ManhandlaActor Make(World world, int x, int y)
     {
-        var dir = game.Random.GetDirection8();
+        var dir = world.Game.Random.GetDirection8();
 
-        game.Sound.PlayEffect(SoundEffect.BossRoar3, true, Sound.AmbientInstance);
+        world.Game.Sound.PlayEffect(SoundEffect.BossRoar3, true, Sound.AmbientInstance);
 
         var parent = new ManhandlaParent();
 
@@ -4849,9 +4849,9 @@ internal sealed class ManhandlaActor : MonsterActor
             var xPos = x + _xOffsets[i];
             var yPos = y + _yOffsets[i];
 
-            var manhandla = new ManhandlaActor(game, parent, i, xPos, yPos, dir);
+            var manhandla = new ManhandlaActor(world, parent, i, xPos, yPos, dir);
             parent.Parts.Add(manhandla);
-            game.World.AddObject(manhandla);
+            world.AddObject(manhandla);
         }
 
         parent.BodyCenter = parent.Parts[^1]; // The body center is the last one created.
@@ -5010,20 +5010,20 @@ internal sealed class ManhandlaActor : MonsterActor
 
         var handCount = GetManhandlas(true).Count();
 
-        var dummy = new DeadDummyActor(Game, X, Y)
+        var dummy = new DeadDummyActor(World, X, Y)
         {
             Decoration = Decoration
         };
 
         if (handCount > 1)
         {
-            Game.World.AddOnlyObject(this, dummy);
+            World.AddOnlyObject(this, dummy);
         }
         else
         {
             Game.Sound.PlayEffect(SoundEffect.BossHit);
             Game.Sound.StopEffect(StopEffect.AmbientInstance);
-            Game.World.AddOnlyObject(_parent.BodyCenter, dummy);
+            World.AddOnlyObject(_parent.BodyCenter, dummy);
         }
 
         _parent.PartsDied++;
@@ -5038,8 +5038,8 @@ internal abstract class DigdoggerActorBase : MonsterActor
     protected short AccelDir;
     protected bool IsChild;
 
-    protected DigdoggerActorBase(Game game, ObjType type, int x, int y)
-        : base(game, type, x, y)
+    protected DigdoggerActorBase(World world, ObjType type, int x, int y)
+        : base(world, type, x, y)
     {
         Facing = Game.Random.GetDirection8();
         IsChild = this is DigdoggerChildActor;
@@ -5128,8 +5128,8 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
 
     public override bool IsReoccuring => false;
 
-    private DigdoggerActor(Game game, int x, int y, int childCount)
-        : base(game, ObjType.Digdogger1, x, y)
+    private DigdoggerActor(World world, int x, int y, int childCount)
+        : base(world, ObjType.Digdogger1, x, y)
     {
         _childCount = childCount;
         _updateBig = true;
@@ -5150,9 +5150,9 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
         Graphics.UpdatePalettes();
     }
 
-    public static DigdoggerActor Make(Game game, int x, int y, int childCount)
+    public static DigdoggerActor Make(World world, int x, int y, int childCount)
     {
-        return new DigdoggerActor(game, x, y, childCount);
+        return new DigdoggerActor(world, x, y, childCount);
     }
 
     public override bool NonTargetedAction(Interaction interaction)
@@ -5238,11 +5238,11 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
         else
         {
             _recorderUsed = 1;
-            Game.World.RoomObjCount += _childCount;
+            World.RoomObjCount += _childCount;
             for (var i = 1; i <= _childCount; i++)
             {
-                var child = DigdoggerChildActor.Make(Game, X, Y);
-                Game.World.AddObject(child);
+                var child = DigdoggerChildActor.Make(World, X, Y);
+                World.AddObject(child);
             }
             Game.Sound.PlayEffect(SoundEffect.BossHit);
             Game.Sound.StopEffect(StopEffect.AmbientInstance);
@@ -5255,8 +5255,8 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
 {
     private readonly SpriteAnimator _animator;
 
-    private DigdoggerChildActor(Game game, int x, int y)
-        : base(game, ObjType.LittleDigdogger, x, y)
+    private DigdoggerChildActor(World world, int x, int y)
+        : base(world, ObjType.LittleDigdogger, x, y)
     {
         TargetSpeedFix = 0x0180;
 
@@ -5267,9 +5267,9 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
         };
     }
 
-    public static DigdoggerChildActor Make(Game game, int x, int y)
+    public static DigdoggerChildActor Make(World world, int x, int y)
     {
-        return new DigdoggerChildActor(game, x, y);
+        return new DigdoggerChildActor(world, x, y);
     }
 
     public override void Update()
@@ -5317,8 +5317,8 @@ internal sealed class GohmaActor : MonsterActor
 
     public override bool IsReoccuring => false;
 
-    private GohmaActor(Game game, ObjType type, int x = GohmaX, int y = GohmaY)
-        : base(game, type, x, y)
+    private GohmaActor(World world, ObjType type, int x = GohmaX, int y = GohmaY)
+        : base(world, type, x, y)
     {
         Decoration = 0;
         InvincibilityMask = 0xFB;
@@ -5342,12 +5342,12 @@ internal sealed class GohmaActor : MonsterActor
         };
     }
 
-    public static GohmaActor Make(Game game, ActorColor color, int x = GohmaX, int y = GohmaY)
+    public static GohmaActor Make(World world, ActorColor color, int x = GohmaX, int y = GohmaY)
     {
         return color switch
         {
-            ActorColor.Red => new GohmaActor(game, ObjType.RedGohma, x, y),
-            ActorColor.Blue => new GohmaActor(game, ObjType.BlueGohma, x, y),
+            ActorColor.Red => new GohmaActor(world, ObjType.RedGohma, x, y),
+            ActorColor.Blue => new GohmaActor(world, ObjType.BlueGohma, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(GohmaActor)}."),
         };
     }
@@ -5503,8 +5503,8 @@ internal sealed class ArmosActor : ChaseWalkerActor
 
     private ArmosState _state;
 
-    public ArmosActor(Game game, int x, int y)
-        : base(game, ObjType.Armos, WorldLevel.Overworld, _armosSpec, x, y)
+    public ArmosActor(World world, int x, int y)
+        : base(world, ObjType.Armos, WorldLevel.Overworld, _armosSpec, x, y)
     {
         Decoration = 0;
         Facing = Direction.Down;
@@ -5537,11 +5537,11 @@ internal sealed class ArmosActor : ChaseWalkerActor
             CheckCollisions();
             if (Decoration != 0)
             {
-                var dummy = new DeadDummyActor(Game, X, Y)
+                var dummy = new DeadDummyActor(World, X, Y)
                 {
                     Decoration = Decoration
                 };
-                Game.World.AddOnlyObject(this, dummy);
+                World.AddOnlyObject(this, dummy);
             }
         }
     }
@@ -5578,19 +5578,19 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
 
     private Actor? _shotRef;
 
-    private GoriyaActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, WorldLevel.Underworld, spec, x, y)
+    private GoriyaActor(World world, ObjType type, WalkerSpec spec, int x, int y)
+        : base(world, type, WorldLevel.Underworld, spec, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
     }
 
-    public static GoriyaActor Make(Game game, ActorColor color, int x, int y)
+    public static GoriyaActor Make(World world, ActorColor color, int x, int y)
     {
         return color switch
         {
-            ActorColor.Blue => new GoriyaActor(game, ObjType.BlueGoriya, _blueGoriyaSpec, x, y),
-            ActorColor.Red => new GoriyaActor(game, ObjType.RedGoriya, _redGoriyaSpec, x, y),
+            ActorColor.Blue => new GoriyaActor(world, ObjType.BlueGoriya, _blueGoriyaSpec, x, y),
+            ActorColor.Red => new GoriyaActor(world, ObjType.RedGoriya, _redGoriyaSpec, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(GoriyaActor)}."),
         };
     }
@@ -5634,7 +5634,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
             }
         }
 
-        if (Game.World.HasItem(ItemSlot.Clock)) return;
+        if (World.HasItem(ItemSlot.Clock)) return;
 
         var shot = Shoot(ObjType.Boomerang);
         if (shot != null)
@@ -5672,7 +5672,7 @@ internal static class Statues
         }
 
         // JOE: FIX URGENT: I'm not sure what this meant.
-        // var slot = game.World.FindEmptyMonsterSlot();
+        // var slot = World.FindEmptyMonsterSlot();
         // if (slot < ObjectSlot.Monster1 + 5) return;
 
         var player = game.Player;
@@ -5705,8 +5705,8 @@ internal static class Statues
 
 internal abstract class StdChaseWalker : ChaseWalkerActor
 {
-    protected StdChaseWalker(Game game, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
-        : base(game, type, level, spec, x, y)
+    protected StdChaseWalker(World world, ObjType type, WorldLevel level, WalkerSpec spec, int x, int y)
+        : base(world, type, level, spec, x, y)
     {
         InitCommonFacing();
         SetFacingAnimation();
@@ -5725,8 +5725,8 @@ internal sealed class LynelActor : StdChaseWalker
     private static readonly WalkerSpec _blueLynelSpec = new(_lynelAnimMap, 12, Palette.Blue, StandardSpeed, ObjType.PlayerSwordShot);
     private static readonly WalkerSpec _redLynelSpec = new(_lynelAnimMap, 12, Palette.Red, StandardSpeed, ObjType.PlayerSwordShot);
 
-    private LynelActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, WorldLevel.Overworld, spec, x, y)
+    private LynelActor(World world, ObjType type, WalkerSpec spec, int x, int y)
+        : base(world, type, WorldLevel.Overworld, spec, x, y)
     {
         if (type is not (ObjType.BlueLynel or ObjType.RedLynel))
         {
@@ -5734,12 +5734,12 @@ internal sealed class LynelActor : StdChaseWalker
         }
     }
 
-    public static LynelActor Make(Game game, ActorColor color, int x, int y)
+    public static LynelActor Make(World world, ActorColor color, int x, int y)
     {
         return color switch
         {
-            ActorColor.Blue => new LynelActor(game, ObjType.BlueLynel, _blueLynelSpec, x, y),
-            ActorColor.Red => new LynelActor(game, ObjType.RedLynel, _redLynelSpec, x, y),
+            ActorColor.Blue => new LynelActor(world, ObjType.BlueLynel, _blueLynelSpec, x, y),
+            ActorColor.Red => new LynelActor(world, ObjType.RedLynel, _redLynelSpec, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(LynelActor)}."),
         };
     }
@@ -5757,8 +5757,8 @@ internal sealed class MoblinActor : StdWanderer
     private static readonly WalkerSpec _blueMoblinSpec = new(_moblinAnimMap, 12, (Palette)7, StandardSpeed, ObjType.Arrow);
     private static readonly WalkerSpec _redMoblinSpec = new(_moblinAnimMap, 12, Palette.Red, StandardSpeed, ObjType.Arrow);
 
-    private MoblinActor(Game game, ObjType type, WalkerSpec spec, int x, int y)
-        : base(game, type, WorldLevel.Overworld, spec, 0xA0, x, y)
+    private MoblinActor(World world, ObjType type, WalkerSpec spec, int x, int y)
+        : base(world, type, WorldLevel.Overworld, spec, 0xA0, x, y)
     {
         if (type is not (ObjType.BlueMoblin or ObjType.RedMoblin))
         {
@@ -5766,12 +5766,12 @@ internal sealed class MoblinActor : StdWanderer
         }
     }
 
-    public static MoblinActor Make(Game game, ActorColor color, int x, int y)
+    public static MoblinActor Make(World world, ActorColor color, int x, int y)
     {
         return color switch
         {
-            ActorColor.Blue => new MoblinActor(game, ObjType.BlueMoblin, _blueMoblinSpec, x, y),
-            ActorColor.Red => new MoblinActor(game, ObjType.RedMoblin, _redMoblinSpec, x, y),
+            ActorColor.Blue => new MoblinActor(world, ObjType.BlueMoblin, _blueMoblinSpec, x, y),
+            ActorColor.Red => new MoblinActor(world, ObjType.RedMoblin, _redMoblinSpec, x, y),
             _ => throw new ArgumentOutOfRangeException(nameof(color), color, $"Invalid color for {nameof(MoblinActor)}."),
         };
     }

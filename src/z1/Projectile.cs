@@ -28,14 +28,14 @@ internal abstract class Projectile : Actor, IProjectile
 
     private Direction _bounceDir = Direction.None;
 
-    protected Projectile(Game game, ObjType type, int x, int y, Actor owner)
-        : base(game, type, x, y)
+    protected Projectile(World world, ObjType type, int x, int y, Actor owner)
+        : base(world, type, x, y)
     {
         Owner = owner;
 
         if (!IsPlayerWeapon)
         {
-            ++Game.World.ActiveShots;
+            World.ActiveShots++;
         }
     }
 
@@ -45,7 +45,7 @@ internal abstract class Projectile : Actor, IProjectile
         {
             if (!IsPlayerWeapon)
             {
-                --Game.World.ActiveShots;
+                World.ActiveShots--;
             }
             return true;
         }
@@ -107,8 +107,8 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
     private int _distance;
     private readonly SpriteImage _image;
 
-    public PlayerSwordProjectile(Game game, int x, int y, Direction direction, Actor owner)
-        : base(game, ObjType.PlayerSwordShot, x, y, owner)
+    public PlayerSwordProjectile(World world, int x, int y, Direction direction, Actor owner)
+        : base(world, ObjType.PlayerSwordShot, x, y, owner)
     {
         Facing = direction;
         Decoration = 0;
@@ -118,9 +118,9 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
         _image = new SpriteImage(TileSheet.PlayerAndItems, animIndex);
     }
 
-    public static int PlayerCount(Game game)
+    public static int PlayerCount(World world)
     {
-        return game.World.GetObjects<PlayerSwordProjectile>().Count(t => t.Owner!.IsPlayer);
+        return world.GetObjects<PlayerSwordProjectile>().Count(t => t.Owner!.IsPlayer);
     }
 
     public override void Update()
@@ -207,8 +207,8 @@ internal sealed class FlyingRockProjectile : Projectile
 {
     private readonly SpriteImage _image;
 
-    public FlyingRockProjectile(Game game, int x, int y, Direction moving, Actor owner)
-        : base(game, ObjType.FlyingRock, x, y, owner)
+    public FlyingRockProjectile(World world, int x, int y, Direction moving, Actor owner)
+        : base(world, ObjType.FlyingRock, x, y, owner)
     {
         Facing = moving;
         Decoration = 0;
@@ -229,7 +229,7 @@ internal sealed class FlyingRockProjectile : Projectile
     {
         if (ObjTimer == 0)
         {
-            if (Game.World.CollidesWithTileMoving(X, Y, Facing, false))
+            if (World.CollidesWithTileMoving(X, Y, Facing, false))
             {
                 Delete();
                 return;
@@ -311,8 +311,8 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
     private readonly SpriteImage _image;
     private FireballState _state;
 
-    public FireballProjectile(Game game, ObjType type, int x, int y, float speed, int? offset)
-        : base(game, type, x, y)
+    public FireballProjectile(World world, ObjType type, int x, int y, float speed, int? offset)
+        : base(world, type, x, y)
     {
         if (type is not (ObjType.Fireball or ObjType.Fireball2))
         {
@@ -409,8 +409,8 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
     private int _animTimer;
     private readonly SpriteAnimator _animator;
 
-    public BoomerangProjectile(Game game, int x, int y, Direction moving, int distance, float speed, Actor owner)
-        : base(game, ObjType.Boomerang, x, y)
+    public BoomerangProjectile(World world, int x, int y, Direction moving, int distance, float speed, Actor owner)
+        : base(world, ObjType.Boomerang, x, y)
     {
         _startX = x;
         _startY = y;
@@ -433,13 +433,13 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
         if (!IsPlayerWeapon)
         {
-            ++Game.World.ActiveShots;
+            ++World.ActiveShots;
         }
     }
 
-    public static int PlayerCount(Game game)
+    public static int PlayerCount(World world)
     {
-        return game.World.GetObjects<BoomerangProjectile>().Count(t => t.Owner.IsPlayer);
+        return world.GetObjects<BoomerangProjectile>().Count(t => t.Owner.IsPlayer);
     }
 
     public override bool Delete()
@@ -448,7 +448,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
         {
             if (!IsPlayerWeapon)
             {
-                --Game.World.ActiveShots;
+                --World.ActiveShots;
             }
             return true;
         }
@@ -638,7 +638,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     public override void Draw()
     {
-        var itemValue = Game.World.GetItem(ItemSlot.Boomerang);
+        var itemValue = World.GetItem(ItemSlot.Boomerang);
         if (itemValue == 0)
         {
             itemValue = 1;
@@ -663,8 +663,8 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
     private readonly SpriteImage _image;
 
-    public MagicWaveProjectile(Game game, ObjType type, int x, int y, Direction direction, Actor owner)
-        : base(game, type, x, y, owner)
+    public MagicWaveProjectile(World world, ObjType type, int x, int y, Direction direction, Actor owner)
+        : base(world, type, x, y, owner)
     {
         if (type is not (ObjType.MagicWave or ObjType.MagicWave2))
         {
@@ -678,9 +678,9 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
         _image = new SpriteImage(TileSheet.PlayerAndItems, _waveAnimMap[dirOrd]);
     }
 
-    public static int PlayerCount(Game game)
+    public static int PlayerCount(World world)
     {
-        return game.World.GetObjects<MagicWaveProjectile>().Count(t => t.Owner.IsPlayer);
+        return world.GetObjects<MagicWaveProjectile>().Count(t => t.Owner.IsPlayer);
     }
 
     public override void Update()
@@ -696,7 +696,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
     {
         if (Direction.None == CheckWorldMargin(Facing))
         {
-            if (IsPlayerWeapon && !Game.World.IsOverworld())
+            if (IsPlayerWeapon && !World.IsOverworld())
             {
                 AddFire();
             }
@@ -717,14 +717,14 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
     public void AddFire()
     {
-        if (Game.World.GetItem(ItemSlot.Book) == 0) return;
+        if (World.GetItem(ItemSlot.Book) == 0) return;
 
-        var fire = new FireActor(Game, Owner!, X, Y, Facing)
+        var fire = new FireActor(World, Owner!, X, Y, Facing)
         {
             ObjTimer = 0x4F,
             State = FireState.Standing
         };
-        Game.World.AddObject(fire);
+        World.AddObject(fire);
     }
 }
 
@@ -740,8 +740,8 @@ internal sealed class ArrowProjectile : Projectile
     private int _timer;
     private readonly SpriteImage _image;
 
-    public ArrowProjectile(Game game, int x, int y, Direction direction, Actor owner)
-        : base(game, ObjType.Arrow, x, y, owner)
+    public ArrowProjectile(World world, int x, int y, Direction direction, Actor owner)
+        : base(world, ObjType.Arrow, x, y, owner)
     {
         Facing = direction;
         Decoration = 0;
@@ -750,9 +750,9 @@ internal sealed class ArrowProjectile : Projectile
         _image = new SpriteImage(TileSheet.PlayerAndItems, _arrowAnimMap[dirOrd]);
     }
 
-    public static int PlayerCount(Game game)
+    public static int PlayerCount(World world)
     {
-        return game.World.GetObjects<ArrowProjectile>().Count(t => t.Owner.IsPlayer);
+        return world.GetObjects<ArrowProjectile>().Count(t => t.Owner.IsPlayer);
     }
 
     public void SetSpark(int frames = 3)
@@ -812,7 +812,7 @@ internal sealed class ArrowProjectile : Projectile
         {
             if (IsPlayerWeapon)
             {
-                var itemValue = Game.World.GetItem(ItemSlot.Arrow);
+                var itemValue = World.GetItem(ItemSlot.Arrow);
                 pal = Palette.Player + itemValue - 1;
             }
             else

@@ -44,20 +44,19 @@ internal partial class World
 
     private void UpdateWinGame()
     {
-        ReadOnlySpan<Action> functions = [
-            WinGameStart,
-            WinGameText1,
-            WinGameStand,
-            WinGameHold1,
-            WinGameColors,
-            WinGameHold2,
-            WinGameText2,
-            WinGameHold3,
-            WinGameNoObjects,
-            WinGameCredits
-        ];
-
-        functions[(int)_state.WinGame.Substate]();
+        switch (_state.WinGame.Substate)
+        {
+            case WinGameState.Substates.Start: WinGameStart(); break;
+            case WinGameState.Substates.Text1: WinGameText1(); break;
+            case WinGameState.Substates.Stand: WinGameStand(); break;
+            case WinGameState.Substates.Hold1: WinGameHold1(); break;
+            case WinGameState.Substates.Colors: WinGameColors(); break;
+            case WinGameState.Substates.Hold2: WinGameHold2(); break;
+            case WinGameState.Substates.Text2: WinGameText2(); break;
+            case WinGameState.Substates.Hold3: WinGameHold3(); break;
+            case WinGameState.Substates.NoObjects: WinGameNoObjects(); break;
+            case WinGameState.Substates.Credits: WinGameCredits(); break;
+        }
         return;
 
         void WinGameStart()
@@ -225,7 +224,7 @@ internal partial class World
                     _statusBar.EnableFeatures(StatusBarFeatures.All, true);
 
                     // JOE: TODO: I think this conversion is ok...
-                    Profile.Quest = 1;
+                    // JOE: TODO: QUEST Profile.Quest = 1;
                     Profile.Items.Set(ItemSlot.HeartContainers, PersistedItems.DefaultHeartCount);
                     Profile.Items.Set(ItemSlot.MaxBombs, PersistedItems.DefaultMaxBombCount);
                     SaveFolder.SaveProfiles();

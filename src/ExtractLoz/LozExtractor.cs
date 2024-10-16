@@ -2859,7 +2859,7 @@ public partial class LozExtractor
                 OWPondColors = ReadTranslateOWPondColors(reader, writer),
                 CavePalette = ReadTranslateCavePalettes(reader, writer),
                 CaveSpec = ReadTranslateCaves(reader, writer),
-                ObjectAttribute = objAttributes,
+                Attributes = objAttributes,
                 LevelPersonStringIds = ReadTranslateLevelPersonStringIds(reader, writer),
                 SpawnSpot = ReadTranslateSpawnSpots(reader, writer),
             };
@@ -3044,14 +3044,14 @@ public partial class LozExtractor
         EnterLevel9 = 34,
     }
 
-    private static CaveSpec[] ReadTranslateCaves(BinaryReader reader, BinaryWriter writer)
+    private static ShopSpec[] ReadTranslateCaves(BinaryReader reader, BinaryWriter writer)
     {
         const int OWCaveDwellers = 0x6E6F + 16;
         const int OWCaveStringIds = 0x45A2 + 16;
         const int OWCaveItems = 0x18600 + 16;
         const int OWCavePrices = 0x1863C + 16;
 
-        var caves = new List<CaveSpec>();
+        var caves = new List<ShopSpec>();
 
         reader.BaseStream.Position = OWCaveDwellers;
         var types = reader.ReadBytes(20);
@@ -3122,7 +3122,7 @@ public partial class LozExtractor
             var showItems = (itemCbin & 0x40) != 0;
 
             var caveshopitems = Enumerable.Range(0, 3)
-                .Select(t => new CaveShopItem
+                .Select(t => new ShopItem
                 {
                     ItemId = (ItemId)(items[indexOf3 + t] & 0x3F),
                     ItemAmount = 1,
@@ -3143,9 +3143,9 @@ public partial class LozExtractor
             var caveId = (CaveId)((int)ObjType.Cave1 + i);
             var caveType = caveId == CaveId.Cave5Shortcut ? CaveType.Shortcut : CaveType.Items;
 
-            var spec = new CaveSpec
+            var spec = new ShopSpec
             {
-                DwellerType = (CaveDwellerType)types[i],
+                DwellerType = (DwellerType)types[i],
                 CaveId = caveId,
                 CaveType = caveType,
                 Options = options,
@@ -3180,7 +3180,7 @@ public partial class LozExtractor
                 case CaveId.Cave19:
                 case CaveId.Cave20:
                     spec.Items = [
-                        new CaveShopItem {
+                        new ShopItem {
                             ItemId = ItemId.Rupee,
                             ItemAmount = caveId switch {
                                 CaveId.Cave18 => 10,
@@ -3233,9 +3233,9 @@ public partial class LozExtractor
             caves.Add(spec);
         }
 
-        caves.Add(new CaveSpec
+        caves.Add(new ShopSpec
         {
-            DwellerType = CaveDwellerType.Moblin,
+            DwellerType = DwellerType.Moblin,
             PersonType = PersonType.Grumble,
             Text = _gameStrings[(int)StringId.Grumble],
             Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutterDoors | CaveSpecOptions.Persisted,
@@ -3248,22 +3248,22 @@ public partial class LozExtractor
             }
         });
 
-        caves.Add(new CaveSpec
+        caves.Add(new ShopSpec
         {
-            DwellerType = CaveDwellerType.OldMan,
+            DwellerType = DwellerType.OldMan,
             PersonType = PersonType.MoneyOrLife,
             Text = _gameStrings[(int)StringId.MoneyOrLife],
             Options = CaveSpecOptions.ShowNumbers | CaveSpecOptions.ControlsBlockingWall
                 | CaveSpecOptions.ControlsShutterDoors | CaveSpecOptions.ShowItems | CaveSpecOptions.Pay
                 | CaveSpecOptions.Persisted,
             Items = [
-                new CaveShopItem {
+                new ShopItem {
                     ItemId = ItemId.HeartContainer,
                     Costing = ItemSlot.HeartContainers,
                     Cost = 1,
                     Options = CaveShopItemOptions.ShowNegative,
                 },
-                new CaveShopItem {
+                new ShopItem {
                     ItemId = ItemId.Rupee,
                     Costing = ItemSlot.Rupees,
                     Cost = 50,
@@ -3272,14 +3272,14 @@ public partial class LozExtractor
             ],
         });
 
-        caves.Add(new CaveSpec
+        caves.Add(new ShopSpec
         {
-            DwellerType = CaveDwellerType.OldMan,
+            DwellerType = DwellerType.OldMan,
             PersonType = PersonType.MoreBombs,
             Text = _gameStrings[(int)StringId.MoreBombs],
             Options = CaveSpecOptions.ShowNumbers | CaveSpecOptions.PickUp | CaveSpecOptions.ShowItems,
             Items = [
-                new CaveShopItem {
+                new ShopItem {
                     ItemId = ItemId.MaxBombs,
                     ItemAmount = 4,
                     Costing = ItemSlot.Rupees,
@@ -3290,9 +3290,9 @@ public partial class LozExtractor
             ],
         });
 
-        caves.Add(new CaveSpec
+        caves.Add(new ShopSpec
         {
-            DwellerType = CaveDwellerType.OldMan,
+            DwellerType = DwellerType.OldMan,
             PersonType = PersonType.EnterLevel9,
             Text = _gameStrings[(int)StringId.EnterLevel9],
             Options = CaveSpecOptions.ControlsBlockingWall | CaveSpecOptions.ControlsShutterDoors

@@ -34,6 +34,7 @@ public static class TiledRoomProperties
     public const string UnderworldDoors = nameof(UnderworldDoors);
     public const string FireballLayout = nameof(FireballLayout);
 
+    // This ordering is exposed to the game developer. It's clockwise because that's intuitive and easy to remember.
     public static readonly ImmutableArray<Direction> DoorDirectionOrder = [Direction.Right, Direction.Left, Direction.Down, Direction.Up];
 }
 
@@ -93,12 +94,6 @@ public sealed class MazeRoom
     public Direction ExitDirection { get; set; }
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum GameWorldType
-{
-    Underworld, Overworld, UnderworldCommon, OverworldCommon
-}
-
 public sealed class EntryPosition
 {
     public int X { get; set; }
@@ -125,6 +120,16 @@ public sealed class EntryPosition
     }
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum GameWorldType
+{
+    // Can be in the format of "1" or "0/1" for quest/level number format.
+    Underworld,
+    Overworld,
+    UnderworldCommon,
+    OverworldCommon
+}
+
 [TiledClass]
 public sealed class Entrance
 {
@@ -134,15 +139,9 @@ public sealed class Entrance
     public PointXY? ExitPosition { get; set; }
     // Where inside the new map the player should be.
     public EntryPosition? EntryPosition { get; set; }
-    public CaveSpec? Cave { get; set; }
+    public ShopSpec? Shop { get; set; }
     public BlockType BlockType { get; set; }
     public RoomArguments? Arguments { get; set; }
-
-    public int GetLevelNumber()
-    {
-        return int.TryParse(Destination, out var levelNumber)
-            ? levelNumber : throw new Exception($"Invalid level number \"{Destination}\"");
-    }
 
     public override string ToString() => Destination;
 }
@@ -215,8 +214,8 @@ public sealed class InteractableBlock : InteractableBase
     public ObjType? SpawnedType { get; set; }
     public Raft? Raft { get; set; }
     public RoomItem? Item { get; set; }
-    // These are root level, not inside CaveSpec, so that we can have an array via multiple properties.
-    public CaveShopItem[]? CaveItems { get; set; }
+    // These are root level, not inside ShopSpec, so that we can have an array via multiple properties.
+    public ShopItem[]? CaveItems { get; set; }
     public bool Repeatable { get; set; }
 
     [TiledIgnore, JsonIgnore]

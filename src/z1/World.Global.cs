@@ -8,7 +8,7 @@ namespace z1;
 
 internal partial class World
 {
-    private static bool TryGetNextRoom(GameRoom currentRoom, Direction direction, [MaybeNullWhen(false)] out GameRoom room)
+    private static bool TryGetConnectedRoom(GameRoom currentRoom, Direction direction, [MaybeNullWhen(false)] out GameRoom room)
     {
         // GetWorldCoord(curRoomId, out var row, out var col);
 
@@ -39,20 +39,24 @@ internal partial class World
         return currentRoom.Connections.TryGetValue(direction, out room);
     }
 
-    private GameRoom GetNextRoom(Direction direction, out RoomHistoryEntry entry)
+    private GameRoom GetNextRoom(Direction direction, out EntranceHistoryEntry? entry)
     {
-        entry = default;
-        if (!TryGetNextRoom(CurrentRoom, direction, out var nextRoom))
+        if (TryGetConnectedRoom(CurrentRoom, direction, out var nextRoom))
         {
-            if (!TryTakePreviousEntrance(out entry))
-            {
-                entry = new RoomHistoryEntry(_overworldWorld.EntryRoom, new Entrance());
-            }
-
-            return entry.Room;
+            entry = default;
+            return nextRoom;
         }
 
-        return nextRoom;
+        // Underworlds/subrooms are exited by going out of bounds. The overworld should just stop the player.
+        // JOE: Do we support world wrap, per the original?
+        if (CurrentRoom.GameWorld.IsOverworld)
+        {
+            entry = default;
+            return CurrentRoom;
+        }
+
+        entry = _entranceHistory.TakePreviousEntranceOrDefault();
+        return entry.Value.Room;
     }
 
     private static void ClearScreen()

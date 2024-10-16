@@ -241,7 +241,8 @@ internal sealed class PlayerProfile
     public int Version { get; set; }
     public string? Name { get; set; }
     public int Index { get; set; }
-    public int Quest { get; set; }
+    // JOE: TODO: The profile does not control the quest. Instead, this should control what "world" the player is on.
+    // public int Quest { get; set; }
     public int Deaths { get; set; }
     public ItemSlot SelectedItem { get; set; }
     [JsonIgnore] // This is current HP which is runtime only, not saved. Max heart count is ItemSlot.HeartContainers
@@ -273,6 +274,11 @@ internal sealed class PlayerProfile
 
         Items.Initialize();
         Statistics.Initialize();
+    }
+
+    public void Start()
+    {
+        Hearts = GetMaxHeartsValue(PersistedItems.DefaultHeartCount);
     }
 
     public PersistedRoomState GetRoomFlags(GameRoom room)

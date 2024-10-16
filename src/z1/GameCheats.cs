@@ -184,7 +184,7 @@ internal sealed class GameCheats
 
             try
             {
-                var obj = Actor.AddFromType(objType, game, 80, 80);
+                var obj = Actor.AddFromType(objType, game.World, 80, 80);
                 game.Toast($"Spawned {objType}");
             }
             catch (ArgumentOutOfRangeException e) when (e.ParamName == "type")

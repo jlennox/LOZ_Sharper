@@ -18,8 +18,8 @@ internal sealed class GleeokHeadActor : FlyingActor
 
     public override bool IsReoccuring => false;
 
-    public GleeokHeadActor(Game game, GleeokActor parent, int x, int y)
-        : base(game, ObjType.GleeokHead, _gleeokHeadSpec, x, y)
+    public GleeokHeadActor(World world, GleeokActor parent, int x, int y)
+        : base(world, ObjType.GleeokHead, _gleeokHeadSpec, x, y)
     {
         _parent = parent;
         Facing = Game.Random.GetDirection8();
@@ -84,7 +84,7 @@ internal sealed class GleeokNeck
     private readonly SpriteImage _neckImage;
     private readonly SpriteImage _headImage;
 
-    private readonly Game _game;
+    private readonly World _world;
     private readonly GleeokActor _parent;
     private int _startHeadTimer;
     private int _xSpeed;
@@ -94,10 +94,10 @@ internal sealed class GleeokNeck
     private int _changeDirsTimer;
     private bool _isAlive;
 
-    public GleeokNeck(Game game, GleeokActor parent, int index)
+    public GleeokNeck(World world, GleeokActor parent, int index)
     {
         Index = index;
-        _game = game;
+        _world = world;
         _parent = parent;
 
         for (var i = 0; i < MaxParts; i++)
@@ -190,10 +190,10 @@ internal sealed class GleeokNeck
 
     private void TryShooting()
     {
-        var r = _game.Random.GetByte();
+        var r = _world.Game.Random.GetByte();
         if (r < 0x20 && (_parent.Fireball == null || _parent.Fireball.IsDeleted))
         {
-            _parent.Fireball = _game.ShootFireball(ObjType.Fireball2, _parts[ShooterIndex].X, _parts[ShooterIndex].Y);
+            _parent.Fireball = _world.Game.ShootFireball(ObjType.Fireball2, _parts[ShooterIndex].X, _parts[ShooterIndex].Y);
         }
     }
 
@@ -334,7 +334,7 @@ internal sealed class GleeokNeck
 
     private void CrossedNoLimits(int index)
     {
-        var r = _game.Random.Next(2);
+        var r = _world.Game.Random.Next(2);
         if (r == 0)
         {
             var oldX = _parts[index + 1].X;
@@ -386,7 +386,7 @@ internal sealed class GleeokNeck
 
     private void CrossedBothMidLimits(int index)
     {
-        var r = _game.Random.Next(2);
+        var r = _world.Game.Random.Next(2);
         if (r == 0)
         {
             CrossedMidXLimit(index);
@@ -421,8 +421,8 @@ internal sealed class GleeokActor : MonsterActor
 
     public override bool IsReoccuring => false;
 
-    private GleeokActor(Game game, ObjType type, int headCount, int x, int y)
-        : base(game, type, x, y)
+    private GleeokActor(World world, ObjType type, int headCount, int x, int y)
+        : base(world, type, x, y)
     {
         _neckCount = headCount;
 
@@ -437,7 +437,7 @@ internal sealed class GleeokActor : MonsterActor
 
         for (var i = 0; i < _neckCount; i++)
         {
-            _necks.Add(new GleeokNeck(game, this, i));
+            _necks.Add(new GleeokNeck(world, this, i));
         }
 
         Graphics.SetPaletteIndexed(Palette.SeaPal, _palette);
@@ -446,7 +446,7 @@ internal sealed class GleeokActor : MonsterActor
         Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance);
     }
 
-    public static GleeokActor Make(Game game, int headCount, int x = GleeokX, int y = GleeokY)
+    public static GleeokActor Make(World world, int headCount, int x = GleeokX, int y = GleeokY)
     {
         var type = headCount switch
         {
@@ -457,7 +457,7 @@ internal sealed class GleeokActor : MonsterActor
             _ => throw new ArgumentOutOfRangeException(nameof(headCount), headCount, "Invalid headCount."),
         };
 
-        return new GleeokActor(game, type, headCount, x, y);
+        return new GleeokActor(world, type, headCount, x, y);
     }
 
     public override void Update()
@@ -548,8 +548,8 @@ internal sealed class GleeokActor : MonsterActor
                 {
                     neck.SetDead();
 
-                    var head = new GleeokHeadActor(Game, this, X, Y);
-                    Game.World.AddObject(head);
+                    var head = new GleeokHeadActor(World, this, X, Y);
+                    World.AddObject(head);
 
                     var stillAlive = _necks.Any(static neck => neck.IsAlive());
                     if (!stillAlive)
@@ -560,7 +560,7 @@ internal sealed class GleeokActor : MonsterActor
                         bodyDecoration = 0x11;
                         // Don't include the last slot, which is used for fireballs.
                         // JOE: Fix: This is too broad of a clear.
-                        Game.World.ClearObjects(static t => t is not FireballProjectile);
+                        World.ClearObjects(static t => t is not FireballProjectile);
                     }
                 }
             }

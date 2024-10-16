@@ -4,7 +4,7 @@ using z1.Render;
 
 namespace z1.Actors;
 
-// Cave specifications:
+// Shop specifications:
 //
 // Hint cave:
 // - Shows "{Rupee} X"
@@ -72,7 +72,7 @@ internal sealed class PersonActor : Actor
     private readonly ObjectState _objectState;
     private readonly SpriteImage? _image;
 
-    private readonly CaveSpec _spec; // Do not make readonly to avoid struct copies.
+    private readonly ShopSpec _spec; // Do not make readonly to avoid struct copies.
     private readonly TextBox _textBox;
     private readonly ImmutableArray<ItemLocation> _itemLocations;
 
@@ -85,8 +85,8 @@ internal sealed class PersonActor : Actor
 
     // Arg. Sometimes "CaveId" is an ObjType.Person1-end :/
     // This code got to be a pretty big mess but I'm hoping a mapping format rewrite can clean that up.
-    public PersonActor(Game game, ObjectState? state, CaveId type, CaveSpec spec, int x, int y)
-        : base(game, (ObjType)type, x, y)
+    public PersonActor(World world, ObjectState? state, CaveId type, ShopSpec spec, int x, int y)
+        : base(world, (ObjType)type, x, y)
     {
         // We operate on a clone of it because we modify it to keep track of the state of this instance.
         _spec = spec.Clone();
@@ -124,7 +124,7 @@ internal sealed class PersonActor : Actor
             {
                 var caveItem = spec.Items[i];
                 var location = _itemLocations[i];
-                var item = game.World.AddItemActor(caveItem.ItemId, location.X, location.Y, itemOptions) as ItemObjActor;
+                var item = World.AddItemActor(caveItem.ItemId, location.X, location.Y, itemOptions) as ItemObjActor;
                 if (item == null) continue;
 
                 _itemActors.Add(item);
@@ -137,7 +137,7 @@ internal sealed class PersonActor : Actor
         {
             var checkItem = spec.EntranceCheckItem ?? throw new Exception("EntranceCheckItem is unset.");
             var checkAmount = spec.EntranceCheckAmount ?? throw new Exception("EntranceCheckAmount is unset.");
-            var item = game.World.GetItem(checkItem);
+            var item = World.GetItem(checkItem);
             if (item >= checkAmount)
             {
                 _objectState.ItemGot = true;
@@ -151,7 +151,7 @@ internal sealed class PersonActor : Actor
             var checkAmount = spec.EntranceCheckAmount ?? throw new Exception("EntranceCheckAmount is unset.");
             if (checkItem == ItemSlot.Rupees)
             {
-                game.World.PostRupeeLoss(checkAmount);
+                World.PostRupeeLoss(checkAmount);
                 _objectState.ItemGot = true;
             }
             else
@@ -278,43 +278,43 @@ internal sealed class PersonActor : Actor
         }
     }
 
-    private bool HandlePlayerHit(CaveShopItem caveItem, int index)
+    private bool HandlePlayerHit(ShopItem item, int index)
     {
-        if (caveItem.HasOption(CaveShopItemOptions.CheckCost))
+        if (item.HasOption(CaveShopItemOptions.CheckCost))
         {
-            var actual = Game.World.GetItem(caveItem.Costing);
-            if (actual < caveItem.Cost)
+            var actual = Game.World.GetItem(item.Costing);
+            if (actual < item.Cost)
             {
-                _log.Write($"Failed check: {actual} < {caveItem.Costing} for {caveItem.ItemId}.");
+                _log.Write($"Failed check: {actual} < {item.Costing} for {item.ItemId}.");
                 return false;
             }
         }
 
         if (_spec.IsPay)
         {
-            var actual = Game.World.GetItem(caveItem.Costing);
-            if (caveItem.Cost > actual)
+            var actual = Game.World.GetItem(item.Costing);
+            if (item.Cost > actual)
             {
-                _log.Write($"Failed pay: {actual} < {caveItem.Costing} for {caveItem.ItemId}.");
+                _log.Write($"Failed pay: {actual} < {item.Costing} for {item.ItemId}.");
                 return false;
             }
 
             // JOE: TODO: I want to do positives this way too.
-            if (caveItem.Costing == ItemSlot.Rupees)
+            if (item.Costing == ItemSlot.Rupees)
             {
-                Game.World.PostRupeeLoss(caveItem.Cost);
+                Game.World.PostRupeeLoss(item.Cost);
             }
             else
             {
-                var newValue = actual - caveItem.Cost;
+                var newValue = actual - item.Cost;
                 // This is to emulate the zombie player game behavior.
-                if (caveItem.Costing == ItemSlot.HeartContainers && newValue <= PersistedItems.DefaultHeartCount)
+                if (item.Costing == ItemSlot.HeartContainers && newValue <= PersistedItems.DefaultHeartCount)
                 {
                     Game.World.Profile.Hearts = 0;
                 }
                 else
                 {
-                    Game.World.SetItem(caveItem.Costing, actual - caveItem.Cost);
+                    Game.World.SetItem(item.Costing, actual - item.Cost);
                 }
             }
         }
@@ -325,17 +325,17 @@ internal sealed class PersonActor : Actor
 
         if (PersonType == PersonType.Gambling)
         {
-            HandleGamblingPickup(caveItem, index);
+            HandleGamblingPickup(item, index);
         }
         else
         {
-            HandlePickUpItem(caveItem);
+            HandlePickUpItem(item);
         }
 
         return true;
     }
 
-    private void HandlePickUpItem(CaveShopItem item)
+    private void HandlePickUpItem(ShopItem item)
     {
         HandlePickUpHint(item);
 
@@ -360,7 +360,7 @@ internal sealed class PersonActor : Actor
         Game.AutoSave();
     }
 
-    private bool HandlePickUpHint(CaveShopItem item)
+    private bool HandlePickUpHint(ShopItem item)
     {
         if (item.Hint == null) return false;
 
@@ -371,7 +371,7 @@ internal sealed class PersonActor : Actor
         return true;
     }
 
-    private void HandleGamblingPickup(CaveShopItem item, int index)
+    private void HandleGamblingPickup(ShopItem item, int index)
     {
         var price = item.Cost;
         if (price > Game.World.GetItem(ItemSlot.Rupees)) return;

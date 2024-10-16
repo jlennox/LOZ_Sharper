@@ -98,7 +98,7 @@ internal sealed class GLWindow : IDisposable
         }
 
         Graphics.Initialize(_gl);
-        Game = new Game();
+        Game = new Game(new GameIO());
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
         _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);

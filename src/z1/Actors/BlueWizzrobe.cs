@@ -18,8 +18,8 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
     protected byte FlashTimer; // ObjRemDistance
     protected byte TurnTimer;
 
-    protected BlueWizzrobeBase(Game game, ObjType type, int x, int y)
-        : base(game, type, x, y)
+    protected BlueWizzrobeBase(World world, ObjType type, int x, int y)
+        : base(world, type, x, y)
     {
         Decoration = 0;
         ObjTimer = 0;
@@ -244,8 +244,8 @@ internal abstract class BlueWizzrobeBase : WizzrobeBase
 
 internal abstract class WizzrobeBase : MonsterActor
 {
-    protected WizzrobeBase(Game game, ObjType type, int x, int y)
-        : base(game, type, x, y) { }
+    protected WizzrobeBase(World world, ObjType type, int x, int y)
+        : base(world, type, x, y) { }
 
     protected void CheckWizzrobeCollisions()
     {
@@ -264,8 +264,8 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
 {
     private readonly SpriteAnimator _animator;
 
-    public BlueWizzrobeActor(Game game, int x, int y)
-        : base(game, ObjType.BlueWizzrobe, x, y)
+    public BlueWizzrobeActor(World world, int x, int y)
+        : base(world, ObjType.BlueWizzrobe, x, y)
     {
         _animator = new SpriteAnimator
         {

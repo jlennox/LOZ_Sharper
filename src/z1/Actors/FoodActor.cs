@@ -4,7 +4,7 @@ internal sealed class FoodActor : Actor
 {
     private int _periods;
 
-    public FoodActor(Game game, int x, int y) : base(game, ObjType.Food, x, y)
+    public FoodActor(World world, int x, int y) : base(world, ObjType.Food, x, y)
     {
         Decoration = 0;
         ObjTimer = 0xFF;

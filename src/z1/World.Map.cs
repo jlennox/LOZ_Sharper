@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using z1.Actors;
+using z1.Common.IO;
 using z1.IO;
 using z1.Render;
 
@@ -7,98 +8,129 @@ namespace z1;
 
 internal partial class World
 {
-    private void LoadLevel(int level)
+    private GameWorld GetWorld(GameWorldType type, string destination)
     {
-        var levelDirName = level == 0
-            ? "Overworld.world"
-            : $"Level{Profile.Quest:D2}_{level:D2}.world"; // JOE: TODO: Make this logic generic.
+        Filenames.ExpectSafe(destination);
 
-        CurrentWorld = new GameWorld(Game, new Asset($"Maps", levelDirName).ReadJson<TiledWorld>(), $"Maps/{levelDirName}", Profile.Quest);
-        // _directory = new Asset($"levelDir_{Profile.Quest}_{level}.json").ReadJson<LevelDirectory>();
-        // _infoBlock = ListResource<LevelInfoBlock>.LoadSingle(_directory.LevelInfoBlock);
+        var asset = type switch
+        {
+            GameWorldType.Underworld => new Asset("Maps", $"Level{destination}.world"),
+            GameWorldType.Overworld => new Asset("Maps", "Overworld.world"),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, $"World type not support with destination \"{destination}\"")
+        };
+        var tiledWorld = asset.ReadJson<TiledWorld>();
+        return new GameWorld(this, tiledWorld, asset.Filename, 0); // JOE: TODO: QUEST  Profile.Quest);
+    }
+
+    private void LoadOverworld() => LoadWorld(GameWorldType.Overworld, "Overworld");
+
+    private void LoadWorld(GameWorldType type, string destination)
+    {
+        var world = GetWorld(type, destination);
+        LoadWorld(world);
+    }
+
+    private void LoadWorld(GameWorld world, EntranceHistoryEntry? entranceEntry = null)
+    {
+        if (entranceEntry == null)
+        {
+            LoadRoom(world.EntryRoom);
+            var playerX = world.EntryRoom.EntryPosition?.X;
+            var playerY = world.EntryRoom.EntryPosition?.Y;
+            if (playerX != null && playerY != null)
+            {
+                Game.Player.X = playerX.Value;
+                Game.Player.Y = playerY.Value;
+            }
+        }
+        else
+        {
+            LoadRoom(entranceEntry.Value.Room);
+            var playerX = entranceEntry.Value.FromEntrance.ExitPosition?.X;
+            var playerY = entranceEntry.Value.FromEntrance.ExitPosition?.Y;
+            if (playerX != null && playerY != null)
+            {
+                Game.Player.X = playerX.Value;
+                Game.Player.Y = playerY.Value;
+            }
+        }
+
+        if (world.IsOverworld)
+        {
+            _entranceHistory.Clear();
+            FromUnderground = 2;
+        }
 
         _tempShutterRoom = null;
         _tempShutterDoorDir = 0;
         _tempShutters = false;
         _darkRoomFadeStep = 0;
-        CurrentWorld.ResetLevelKillCounts();
+        world.ResetLevelKillCounts();
         _roomHistory.Clear();
         WhirlwindTeleporting = 0;
-
-        if (level == 0)
-        {
-            CurrentRoom = CurrentWorld.EntryRoom;
-        }
-        else
-        {
-            // foreach (var tileMap in _tileMaps)
-            // {
-            //     for (var x = 0; x < TileMap.Size; x++)
-            //     {
-            //         tileMap.Tile(x) = (byte)BlockObjType.TileWallEdge;
-            //     }
-            // }
-        }
-
-        var facing = Game.Player?.Facing ?? Direction.Up;
-
-        Game.Player = new Player(Game, facing);
-
-        // Replace room attributes, if in second quest.
-
-        // JOE: TODO: MAP REWRITE if (level == 0 && Profile.Quest == 1)
-        // JOE: TODO: MAP REWRITE {
-        // JOE: TODO: MAP REWRITE     var pReplacement = _sparseRoomAttrs.GetItems<byte>(Sparse.RoomReplacement);
-        // JOE: TODO: MAP REWRITE     int replacementCount = pReplacement[0];
-        // JOE: TODO: MAP REWRITE     var sparseAttr = MemoryMarshal.Cast<byte, SparseRoomAttr>(pReplacement[2..]); // JOE: Go until replacementCount * sizeof(SparseRoomAttr) ??
-        // JOE: TODO: MAP REWRITE
-        // JOE: TODO: MAP REWRITE     for (var i = 0; i < replacementCount; i++)
-        // JOE: TODO: MAP REWRITE     {
-        // JOE: TODO: MAP REWRITE         int roomId = sparseAttr[i].roomId;
-        // JOE: TODO: MAP REWRITE         _roomAttrs[roomId] = sparseAttr[i].attrs;
-        // JOE: TODO: MAP REWRITE     }
-        // JOE: TODO: MAP REWRITE }
     }
 
-    public readonly record struct RoomHistoryEntry(GameRoom Room, Entrance FromEntrance);
-    private readonly Stack<RoomHistoryEntry> _previousRooms = new();
+    public readonly record struct EntranceHistoryEntry(GameRoom Room, Entrance FromEntrance);
 
-    // JOE: TODO: Make this set to what world map should be drawn by the statusbar.
-    public GameWorld CurrentWorldMap { get; private set; }
-
-    public RoomHistoryEntry? GetPreviousEntrance()
+    public sealed class EntranceHistory
     {
-        if (_previousRooms.Count == 0) return null;
-        return _previousRooms.Peek();
-    }
+        private readonly World _world;
+        private readonly EntranceHistoryEntry _default;
+        private readonly Stack<EntranceHistoryEntry> _history = new();
 
-    public bool TryTakePreviousEntrance([MaybeNullWhen(false)] out RoomHistoryEntry entry)
-    {
-        if (_previousRooms.TryPop(out entry))
+        public EntranceHistory(World world)
         {
-            // CurrentWorldMap = _previousRooms.Wh
-            return true;
+            _world = world;
+            var overworld = world.GetWorld(GameWorldType.Overworld, "Overworld");
+            var pos = overworld.EntryRoom.EntryPosition;
+            _default = new EntranceHistoryEntry(overworld.EntryRoom, new Entrance
+            {
+                ExitPosition = pos == null ? new PointXY(120, 141) : new PointXY(pos.X, pos.Y)
+            });
         }
 
-        return false;
-    }
-
-    public RoomHistoryEntry TakePreviousEntranceOrDefault()
-    {
-        if (!TryTakePreviousEntrance(out var entry))
+        public void Push(GameRoom room, Entrance entrance)
         {
-            entry = new RoomHistoryEntry(_overworldWorld.EntryRoom, new Entrance());
+            _history.Push(new EntranceHistoryEntry(room, entrance));
         }
 
-        return entry;
+        public EntranceHistoryEntry? GetPreviousEntrance()
+        {
+            if (_history.Count == 0) return null;
+            return _history.Peek();
+        }
+
+        public EntranceHistoryEntry GetPreviousEntranceOrDefault()
+        {
+            if (_history.Count == 0) return _default;
+            return _history.Peek();
+        }
+
+        public bool TryTakePreviousEntrance([MaybeNullWhen(false)] out EntranceHistoryEntry entry)
+        {
+            if (_history.TryPop(out entry))
+            {
+                // CurrentWorldMap = _history.Wh
+                return true;
+            }
+
+            return false;
+        }
+
+        public EntranceHistoryEntry TakePreviousEntranceOrDefault()
+        {
+            return TryTakePreviousEntrance(out var entry) ? entry : _default;
+        }
+
+        public void Clear() => _history.Clear();
     }
 
-    private void LoadMap(GameRoom room, Entrance? fromEntrance = null)
-    {
-        if (fromEntrance != null) _previousRooms.Push(new RoomHistoryEntry(CurrentRoom, fromEntrance));
+    private readonly EntranceHistory _entranceHistory;
 
+    private void LoadMap(GameRoom room)
+    {
         CurrentRoom = room;
-        CurrentWorld = room.World;
+        CurrentWorld = room.GameWorld;
 
         room.Reset();
         LoadLayout(room);
@@ -124,17 +156,17 @@ internal partial class World
             if (block.Interaction.IsItemOnly())
             {
                 var options = block.Interaction.Item!.Options;
-                _objects.Add(new ItemObjActor(Game, block.Interaction.Item.Item, options, block.X, block.Y + TileMapBaseY));
+                _objects.Add(new ItemObjActor(this, block.Interaction.Item.Item, options, block.X, block.Y + TileMapBaseY));
             }
             else
             {
-                _objects.Add(new InteractableBlockActor(Game, block));
+                _objects.Add(new InteractableBlockActor(this, block));
             }
         }
 
         foreach (var roomInteraction in room.RoomInteractions)
         {
-            _objects.Add(new RoomInteractionActor(Game, roomInteraction));
+            _objects.Add(new RoomInteractionActor(this, roomInteraction));
         }
     }
 

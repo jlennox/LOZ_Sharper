@@ -45,7 +45,7 @@ internal sealed class CreditsType
 
     public bool IsDone() => _windowTopLine == GetTopLineAtEnd();
     public int GetTop() => _top;
-    private int GetTopLineAtEnd() => _game.World.Profile.Quest == 0 ? 46 : 61;
+    private int GetTopLineAtEnd() => 46; // JOE: TODO: QUEST _game.World.Profile.Quest == 0 ? 46 : 61;
 
     public void Update()
     {
@@ -113,7 +113,7 @@ internal sealed class CreditsType
         for (var i = _windowTopLine; i < _windowBottomLine; i++)
         {
             if (mappedLine >= _textTable.Length
-                || (profile.Quest == 0 && mappedLine >= 0x10))
+                || (/* // JOE: TODO: QUEST  profile.Quest == 0 &&*/ mappedLine >= 0x10))
             {
                 break;
             }
@@ -129,7 +129,7 @@ internal sealed class CreditsType
                 GlobalFunctions.DrawChar(0xFA, 224, y, 0);
                 pal = ((i + 6) / 7) % 3 + 1;
             }
-            else if (profile.Quest == 1)
+            else if (false) // JOE: TODO: QUEST profile.Quest == 1)
             {
                 pal = mappedLine switch {
                     13 => 1,
@@ -140,14 +140,14 @@ internal sealed class CreditsType
             if (show != 0)
             {
                 var effMappedLine = mappedLine;
-                if (profile.Quest == 1 && mappedLine >= 12)
+                if (false) // JOE: TODO: QUEST profile.Quest == 1 && mappedLine >= 12)
                 {
                     effMappedLine += 4;
                 }
                 var line = _textTable.LoadVariableLengthData<LineStruct, Line>(effMappedLine);
                 var text = line.Text;
                 var x = line.Col * 8;
-                if (profile.Quest == 1 && mappedLine == 13)
+                if (false) // JOE: TODO: QUEST profile.Quest == 1 && mappedLine == 13)
                 {
                     GlobalFunctions.DrawString(GetPlayerLine(line), x, y, (Palette)pal);
                 }

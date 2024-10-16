@@ -223,28 +223,28 @@ internal sealed class GameWorld
 
     public bool IsBossAlive => BossRoom != null && BossRoom.PersistedRoomState.ObjectCount != 0;
 
-    public GameWorld(Game game, TiledWorld world, string filename, int questId)
+    public GameWorld(World world, TiledWorld tiledWorld, string filename, int questId)
     {
         Name = Path.GetFileNameWithoutExtension(filename);
-        if (world.Maps == null) throw new Exception($"World {Name} has no maps.");
+        if (tiledWorld.Maps == null) throw new Exception($"World {Name} has no maps.");
 
         var directory = Path.GetDirectoryName(filename);
-        Rooms = new GameRoom[world.Maps.Length];
-        var worldMaps = new (GameRoom Room, TiledWorldEntry Entry)[world.Maps.Length];
-        for (var i = 0; i < world.Maps.Length; ++i)
+        Rooms = new GameRoom[tiledWorld.Maps.Length];
+        var worldMaps = new (GameRoom Room, TiledWorldEntry Entry)[tiledWorld.Maps.Length];
+        for (var i = 0; i < tiledWorld.Maps.Length; ++i)
         {
-            var worldEntry = world.Maps![i];
+            var worldEntry = tiledWorld.Maps![i];
             var asset = new Asset(directory, worldEntry.Filename);
             var tiledmap = asset.ReadJson<TiledMap>();
             var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
-            var room = new GameRoom(game, this, worldEntry, entryName, tiledmap, questId);
+            var room = new GameRoom(world, this, worldEntry, entryName, tiledmap, questId);
             if (room.Settings.IsEntryRoom) EntryRoom = room;
             if (room.Settings.IsBossRoom) BossRoom = room;
             worldMaps[i] = (room, worldEntry);
             Rooms[i] = room;
         }
 
-        Settings = world.GetJsonProperty<WorldSettings>(TiledWorldProperties.WorldSettings);
+        Settings = tiledWorld.GetJsonProperty<WorldSettings>(TiledWorldProperties.WorldSettings);
         if (Settings.LevelNumber > 0) LevelString = $"Level-{Settings.LevelNumber}";
 
         EntryRoom ??= Rooms[0];
@@ -287,9 +287,9 @@ internal sealed class GameWorld
         GameWorldMap = new GameWorldMap(this);
     }
 
-    public static GameWorld Load(Game game, string filename, int questId)
+    public static GameWorld Load(World world, string filename, int questId)
     {
-        return new GameWorld(game, new Asset(filename).ReadJson<TiledWorld>(), filename, questId);
+        return new GameWorld(world, new Asset(filename).ReadJson<TiledWorld>(), filename, questId);
     }
 
     public void ResetLevelKillCounts()
@@ -310,12 +310,12 @@ internal sealed class GameWorld
     }
 }
 
-[DebuggerDisplay("{World.UniqueId}/{UniqueId} ({Name})")]
+[DebuggerDisplay("{GameWorld.UniqueId}/{UniqueId} ({Name})")]
 internal sealed class GameRoom
 {
     public string UniqueId { get; }
     public string Id { get; }
-    public GameWorld World { get; }
+    public GameWorld GameWorld { get; }
     public TiledWorldEntry WorldEntry { get; }
     public string Name { get; }
     public int WorldX => WorldEntry.X; // The world position, in pixels.
@@ -338,7 +338,7 @@ internal sealed class GameRoom
     public bool HasUnderworldDoors { get; }
     public Dictionary<Direction, DoorType> UnderworldDoors { get; } = [];
     public ImmutableArray<MonsterEntry> Monsters { get; set; }
-    public CaveSpec? CaveSpec { get; set; }
+    public ShopSpec? CaveSpec { get; set; }
     public int ZoraCount { get; set; }
     public bool MonstersEnter { get; set; }
     public MazeRoom? Maze { get; set; }
@@ -362,22 +362,22 @@ internal sealed class GameRoom
     public int? FireballLayout { get; }
 
     // I'm not super fond of how these checks work. These should likely be moved over to flags.
-    public bool IsCellar => World.Settings.WorldType == GameWorldType.UnderworldCommon;
-    public bool IsCave => World.Settings.WorldType == GameWorldType.OverworldCommon;
+    public bool IsCellar => GameWorld.Settings.WorldType == GameWorldType.UnderworldCommon;
+    public bool IsCave => GameWorld.Settings.WorldType == GameWorldType.OverworldCommon;
 
-    private readonly Game _game;
+    private readonly World _world;
     private readonly int _waterTileCount;
     private readonly Lazy<PersistedRoomState> _roomState;
 
-    public GameRoom(Game game, GameWorld world, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
+    public GameRoom(World world, GameWorld gameWorld, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
     {
         if (map.Layers == null) throw new Exception();
         if (map.TileSets == null) throw new Exception();
 
-        _game = game;
-        World = world;
+        _world = world;
+        GameWorld = gameWorld;
 
-        _roomState = new Lazy<PersistedRoomState>(() => _game.World.Profile.GetRoomFlags(this));
+        _roomState = new Lazy<PersistedRoomState>(() => world.Profile.GetRoomFlags(this));
 
         WorldEntry = worldEntry;
         Name = name;
@@ -391,11 +391,11 @@ internal sealed class GameRoom
         RoomMap = new RoomTileMap(Width, Height);
 
         Id = map.GetProperty(TiledRoomProperties.Id) ?? throw new Exception("Room has no room id.");
-        UniqueId = $"{world.UniqueId}/{Id}";
+        UniqueId = $"{gameWorld.UniqueId}/{Id}";
         Monsters = MonsterEntry.ParseMonsters(map.GetProperty(TiledRoomProperties.Monsters), out var zoraCount);
         ZoraCount = zoraCount;
         MonstersEnter = map.GetBooleanProperty(TiledRoomProperties.MonstersEnter);
-        CaveSpec = map.GetClass<CaveSpec>(TiledRoomProperties.CaveSpec);
+        CaveSpec = map.GetClass<ShopSpec>(TiledRoomProperties.CaveSpec);
         Maze = map.GetClass<MazeRoom>(TiledRoomProperties.Maze);
         Settings = map.ExpectClass<RoomSettings>(TiledRoomProperties.RoomSettings);
         RecorderDestination = map.GetClass<RecorderDestination>(TiledObjectProperties.RecorderDestination);
@@ -557,7 +557,7 @@ internal sealed class GameRoom
         if (_waterTileCount == 0) throw new Exception($"No water found for Zora's in map \"{Name}\"");
 
         var waterCount = 0;
-        var randomCell = _game.Random.Next(0, _waterTileCount);
+        var randomCell = _world.Game.Random.Next(0, _waterTileCount);
         for (var tileY = 0; tileY < Height - 1; tileY++)
         {
             for (var tileX = 0; tileX < Width - 1; tileX++)
@@ -629,7 +629,7 @@ internal sealed class GameRoom
         return true;
     }
 
-    public override string ToString() => $"{World.Name}/{UniqueId} ({Name})";
+    public override string ToString() => $"{GameWorld.Name}/{UniqueId} ({Name})";
 }
 
 internal sealed class GameMapTileLayer
@@ -864,7 +864,7 @@ internal sealed class GameMapObjectLayer
                     }
 
                     // The items are only root level so that they can be an array.
-                    var cavespec = interactable.Entrance?.Cave;
+                    var cavespec = interactable.Entrance?.Shop;
                     if (cavespec != null)
                     {
                         cavespec.Items = interactable.CaveItems;

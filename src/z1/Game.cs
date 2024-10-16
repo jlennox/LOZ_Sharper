@@ -1,11 +1,45 @@
 ﻿using System.Runtime.CompilerServices;
-using System.Text.Json;
 using z1.Actors;
-using z1.Common.IO;
 using z1.IO;
 using z1.UI;
 
 namespace z1;
+
+internal sealed class GameIO
+{
+    public GameConfiguration Configuration { get; } = SaveFolder.Configuration;
+    public ISound Sound { get; set; }
+    public Input Input { get; }
+    public Random Random { get; private set; } // Do not use for things like particle effects, this is the seedable random.
+
+    public GameIO()
+    {
+        Input = new Input(Configuration.Input);
+        Sound = new Sound(Configuration.Audio);
+        var seed = Random.Shared.Next();
+        Random = new Random(seed);
+    }
+}
+
+internal enum GameControllerState
+{
+    ProfileSelection,
+    Game
+}
+
+internal sealed class GameController
+{
+    public GameIO IO { get; }
+
+    private GameControllerState _state;
+
+    public GameController()
+    {
+        IO = new GameIO();
+
+        _state = GameControllerState.ProfileSelection;
+    }
+}
 
 internal sealed class Game
 {
@@ -20,49 +54,55 @@ internal sealed class Game
 
     public GameEnhancements Enhancements => Configuration.Enhancements;
 
-    public World World { get; private set; }
+    public World World { get; }
     public Player Player { get; set; }
-    public ISound Sound { get; }
-    public Input Input { get; }
+    public GameConfiguration Configuration => _io.Configuration;
+    public ISound Sound => _io.Sound;
+    public Input Input => _io.Input;
+    public Random Random => _io.Random;
     public GameCheats GameCheats { get; }
-    public GameConfiguration Configuration { get; } = SaveFolder.Configuration;
-    public Random Random { get; private set; } // Do not use for things like particle effects, this is the seedable random.
     public OnScreenDisplay OnScreenDisplay { get; } = new();
     public DebugInfo DebugInfo { get; }
     public PregameMenu Menu { get; }
-
-    public int FrameCounter { get; private set; }
-
     public GameRecording Recording { get; }
     public GamePlayback? Playback { get; }
     public bool Headless { get; }
+    public LevelInfoEx Data { get; }
 
-    public Game()
+    public int FrameCounter { get; private set; }
+
+    private readonly GameIO _io;
+
+    public Game(GameIO io)
     {
+        _io = io;
+        Data = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
+
         World = new World(this);
-        Input = new Input(Configuration.Input);
+        Player = new Player(World);
         GameCheats = new GameCheats(this, Input);
-        Sound = new Sound(Configuration.Audio);
         DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
         Menu = new PregameMenu(this, SaveFolder.Profiles.Profiles);
         var seed = Random.Shared.Next();
         Recording = new GameRecording(this, seed);
-        Random = new Random(seed);
+
+        Menu.OnProfileSelected += SetProfile;
     }
 
-    public Game(GameRecordingState playback, bool headless = false) : this()
+    public Game(GameIO io, GameRecordingState playback, bool headless = false) : this(io)
     {
         Headless = headless;
-        if (headless) Sound = new NullSound();
+        if (headless) io.Sound = new NullSound();
 
-        Random = new Random(playback.Seed);
         Playback = new GamePlayback(this, playback);
         Menu.StartWorld(PlayerProfile.CreateForRecording());
     }
 
-    public void Start(PlayerProfile profile)
+    private void SetProfile(PlayerProfile profile)
     {
-        World = new World(this, profile);
+        Player.Profile = profile;
+        profile.Start();
+        World.Start();
     }
 
     public void Update()
@@ -147,7 +187,7 @@ internal sealed class Game
     public FireballProjectile? ShootFireball(ObjType type, int x, int y, int? offset = null)
     {
         // JOE: TODO: Need to limit amount of projectiles.
-        var fireball = new FireballProjectile(this, type, x + 4, y, 1.75f, offset);
+        var fireball = new FireballProjectile(World, type, x + 4, y, 1.75f, offset);
         World.AddObject(fireball);
         return fireball;
     }

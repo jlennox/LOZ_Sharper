@@ -13,10 +13,21 @@ public sealed class LevelInfoEx
 {
     public required byte[] OWPondColors { get; init; }
     public required CavePaletteSet CavePalette { get; init; }
-    public required CaveSpec[] CaveSpec { get; init; }
-    public required Dictionary<ObjType, ObjectAttribute> ObjectAttribute { get; init; }
+    public required ShopSpec[] CaveSpec { get; init; }
+    public required Dictionary<ObjType, ObjectAttribute> Attributes { get; init; }
     public required int[][] LevelPersonStringIds { get; init; }
     public required PointXY[] SpawnSpot { get; init; }
+
+    public ObjectAttribute GetObjectAttribute(ObjType type)
+    {
+        if (!Attributes.TryGetValue(type, out var objAttr))
+        {
+            // throw new ArgumentOutOfRangeException(nameof(type), type, "Unable to locate object attributes.");
+            // This is mutable which makes me hate not instancing something new here :)
+            return ObjectAttribute.Default;
+        }
+        return objAttr;
+    }
 }
 
 [Flags]
@@ -145,9 +156,9 @@ public sealed class PersonItemRequirement
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum CaveType { None = 0, Items = 0x79, Shortcut = 0x7A, }
 
-public sealed class CaveSpec
+public sealed class ShopSpec
 {
-    public CaveDwellerType DwellerType { get; set; }
+    public DwellerType DwellerType { get; set; }
     [TiledIgnore]
     public CaveId? CaveId { get; set; }
     public CaveType CaveType { get; set; }
@@ -157,7 +168,7 @@ public sealed class CaveSpec
     public string? Text { get; set; }
     public PersonItemRequirement? RequiredItem { get; set; }
     [TiledIgnore, JsonIgnore]
-    public CaveShopItem[]? Items { get; set; }
+    public ShopItem[]? Items { get; set; }
     public ItemSlot? EntranceCheckItem { get; set; }
     public int? EntranceCheckAmount { get; set; }
 
@@ -172,9 +183,9 @@ public sealed class CaveSpec
     [TiledIgnore, JsonIgnore] public bool HasEntranceCost => HasOption(CaveSpecOptions.EntranceCost);
     [TiledIgnore, JsonIgnore] public bool IsPersisted => HasOption(CaveSpecOptions.Persisted);
 
-    public CaveSpec Clone()
+    public ShopSpec Clone()
     {
-        var clone = (CaveSpec)MemberwiseClone();
+        var clone = (ShopSpec)MemberwiseClone();
         if (Items != null && clone.Items != null)
         {
             for (var i = 0; i < clone.Items.Length; i++) clone.Items[i] = Items[i].Clone();
@@ -204,7 +215,7 @@ public enum CaveShopItemOptions
 }
 
 [TiledClass]
-public sealed class CaveShopItem
+public sealed class ShopItem
 {
     [JsonConverter(typeof(TiledJsonSelectableEnumConverter<CaveShopItemOptions>))]
     public CaveShopItemOptions Options { get; set; }
@@ -218,9 +229,9 @@ public sealed class CaveShopItem
 
     [JsonIgnore] public bool ShowNegative => HasOption(CaveShopItemOptions.ShowNegative);
 
-    public CaveShopItem Clone()
+    public ShopItem Clone()
     {
-        return (CaveShopItem)MemberwiseClone();
+        return (ShopItem)MemberwiseClone();
     }
 
     public bool HasOption(CaveShopItemOptions option) => Options.HasFlag(option);

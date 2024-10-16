@@ -12,7 +12,7 @@ internal abstract class InteractableActor<T> : Actor
 
     public T Interactable { get; }
 
-    protected readonly ObjectState State;
+    protected ObjectState State => _state.Value;
     protected bool HasInteracted => (State.HasInteracted && Interactable.Persisted)
         || _hasInteracted
         || Interactable.Interaction == Interaction.None;
@@ -26,25 +26,33 @@ internal abstract class InteractableActor<T> : Actor
     // NOTE: This might be better off setting _hasInteracted, and having CheckRequirements pass if that's set.
     private bool _setInteracted;
     private bool _initializerSetInteracted;
+    private bool _hasUpdateRun;
 
-    protected InteractableActor(Game game, T interactable, int x, int y)
-        : base(game, ObjType.Block, x, y + World.TileMapBaseY)
+    private readonly Lazy<ObjectState> _state;
+
+    protected InteractableActor(World world, T interactable, int x, int y)
+        : base(world, ObjType.Block, x, y + z1.World.TileMapBaseY)
     {
         Interactable = interactable;
-        State = game.World.Profile.GetObjectFlags(game.World.CurrentRoom, interactable.Name);
         Decoration = 0;
 
-        // This used to use _setInteracted, but that failed because things set to None then would not check if the
-        // Requirements are met. The idea behind _setInteracted was that it wouldn't check requirements, incase you
-        // trigger something, then lose that. IE, later in the quest you lose the item and that's ok. But we can
-        // recross this bridge when and if it comes up again.
-        if (HasInteracted) _initializerSetInteracted = true;
+        _state = new Lazy<ObjectState>(() => World.Profile.GetObjectFlags(World.CurrentRoom, Interactable.Name));
     }
 
     public void DebugSetInteracted() => SetInteracted(false);
 
     public override void Update()
     {
+        if (!_hasUpdateRun)
+        {
+            // This used to use _setInteracted, but that failed because things set to None then would not check if the
+            // Requirements are met. The idea behind _setInteracted was that it wouldn't check requirements, incase you
+            // trigger something, then lose that. IE, later in the quest you lose the item and that's ok. But we can
+            // recross this bridge when and if it comes up again.
+            if (HasInteracted) SetInteracted(true);
+            _hasUpdateRun = true;
+        }
+
         if (_setInteracted)
         {
             _setInteracted = false;
@@ -94,7 +102,7 @@ internal abstract class InteractableActor<T> : Actor
     {
         if (Interactable.Effect.HasFlag(InteractionEffect.DryoutWater))
         {
-            _deferredEvent = Game.World.DryoutWater();
+            _deferredEvent = World.DryoutWater();
             return true;
         }
 
@@ -113,7 +121,7 @@ internal abstract class InteractableActor<T> : Actor
         if (Interactable.Effect.HasFlag(InteractionEffect.OpenShutterDoors))
         {
             OptionalSound(initializing);
-            Game.World.TriggerShutters();
+            World.TriggerShutters();
         }
     }
 
@@ -130,7 +138,7 @@ internal abstract class InteractableActor<T> : Actor
     {
         if (Interactable.Requirements.HasFlag(InteractionRequirements.AllEnemiesDefeated))
         {
-            if (Game.World.HasLivingObjects()) return false;
+            if (World.HasLivingObjects()) return false;
         }
 
         return true;
@@ -140,15 +148,15 @@ internal abstract class InteractableActor<T> : Actor
     {
         var requirement = Interactable.ItemRequirement;
         if (requirement == null) return true;
-        var actualValue = Game.World.GetItem(requirement.ItemSlot);
+        var actualValue = World.GetItem(requirement.ItemSlot);
         return actualValue >= requirement.ItemLevel;
     }
 }
 
 internal sealed class RoomInteractionActor : InteractableActor<RoomInteraction>
 {
-    public RoomInteractionActor(Game game, RoomInteraction interactable)
-        : base(game, interactable, 0, 0)
+    public RoomInteractionActor(World world, RoomInteraction interactable)
+        : base(world, interactable, 0, 0)
     {
     }
 
@@ -166,13 +174,13 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
     private readonly PushInteraction? _push;
     private Actor? _stillSpawningActor;
 
-    public InteractableBlockActor(Game game, InteractableBlockObject gameObject)
-        : base(game, gameObject.Interaction, gameObject.X, gameObject.Y)
+    public InteractableBlockActor(World world, InteractableBlockObject gameObject)
+        : base(world, gameObject.Interaction, gameObject.X, gameObject.Y)
     {
         GameObject = gameObject;
 
-        _raft = RaftInteraction.Create(game, this);
-        _push = PushInteraction.Create(game, this);
+        _raft = RaftInteraction.Create(world, this);
+        _push = PushInteraction.Create(world, this);
     }
 
     protected override UpdateState UpdateCore()
@@ -221,21 +229,21 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
 
         if (Interactable.Entrance.IsValid())
         {
-            Game.World.SetMapObjectXY(X, Y, Interactable.Entrance.BlockType);
+            World.SetMapObjectXY(X, Y, Interactable.Entrance.BlockType);
             if (!initializing)
             {
                 OptionalSound(initializing);
                 switch (Interactable.Interaction)
                 {
-                    case Interaction.Bomb: Game.World.Profile.Statistics.OWBlocksBombed++; break;
-                    case Interaction.Burn: Game.World.Profile.Statistics.TreesBurned++; break;
+                    case Interaction.Bomb: World.Profile.Statistics.OWBlocksBombed++; break;
+                    case Interaction.Burn: World.Profile.Statistics.TreesBurned++; break;
                 }
             }
         }
 
         if (Interactable.Raft != null)
         {
-            Game.World.SetMapObjectXY(X, Y, BlockType.Dock);
+            World.SetMapObjectXY(X, Y, BlockType.Dock);
             OptionalSound(initializing);
         }
 
@@ -243,20 +251,20 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
         {
             var itemId = Interactable.Item.Item;
             var flags = Interactable.Item.Options;
-            var itemActor = new ItemObjActor(Game, itemId, flags, X, Y);
+            var itemActor = new ItemObjActor(World, itemId, flags, X, Y);
             itemActor.OnTouched += _ => State.ItemGot = true;
-            Game.World.AddObject(itemActor);
+            World.AddObject(itemActor);
             OptionalSound(initializing);
         }
 
         if (Interactable.SpawnedType != null && Interactable.SpawnedType != ObjType.None)
         {
-            var count = Game.World.GetObjects().Count(t => t.ObjType == Interactable.SpawnedType.Value);
+            var count = World.GetObjects().Count(t => t.ObjType == Interactable.SpawnedType.Value);
             if (count < MaxSpawnCount)
             {
-                _stillSpawningActor = Game.World.MakeActivatedObject(
+                _stillSpawningActor = World.MakeActivatedObject(
                     Interactable.SpawnedType.Value,
-                    X / World.TileWidth, Y / World.TileHeight - World.BaseRows);
+                    X / z1.World.TileWidth, Y / z1.World.TileHeight - z1.World.BaseRows);
             }
         }
     }
@@ -265,21 +273,21 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
     {
         var caveEntrance = Interactable.Entrance;
         if (!caveEntrance.IsValid()) return;
-        if (Game.World.WhirlwindTeleporting != 0) return;
-        if (Game.World.GetMode() != GameMode.Play) return;
+        if (World.WhirlwindTeleporting != 0) return;
+        if (World.GetMode() != GameMode.Play) return;
         // JOE: Arg. I don't like the FromUnderground check too much. The value
         // is unset inside CheckWater, which is not at all intuitive.
-        if (Game.World.FromUnderground != 0) return;
+        if (World.FromUnderground != 0) return;
 
-        if (!Game.World.Player.DoesCover(this)) return;
-        Game.World.GotoStairs(TileBehavior.Cave, caveEntrance, State);
+        if (!World.Player.DoesCover(this)) return;
+        World.GotoStairs(TileBehavior.Cave, caveEntrance, State);
     }
 
     private bool CheckBombable()
     {
         if (Interactable.Interaction != Interaction.Bomb) return false;
 
-        foreach (var bomb in Game.World.GetObjects<BombActor>())
+        foreach (var bomb in World.GetObjects<BombActor>())
         {
             if (bomb.IsDeleted || bomb.BombState != BombState.Blasting) continue;
             if (!IsWithinDistance(bomb, 16)) continue;
@@ -293,7 +301,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
     {
         if (Interactable.Interaction != Interaction.Burn) return false;
 
-        foreach (var fire in Game.World.GetObjects<FireActor>())
+        foreach (var fire in World.GetObjects<FireActor>())
         {
             if (fire.IsDeleted) continue;
             if (fire.State != FireState.Standing || fire.ObjTimer != 2) continue;
@@ -307,7 +315,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
     private bool CheckCover()
     {
         if (Interactable.Interaction != Interaction.Cover) return false;
-        if (!Game.World.Player.DoesCover(this)) return false;
+        if (!World.Player.DoesCover(this)) return false;
 
         return true;
     }
@@ -325,7 +333,7 @@ internal sealed class PushInteraction
     private int _pushTimer;
 
 
-    private readonly Game _game;
+    private readonly World _world;
     private readonly InteractableBlockActor _interactive;
     private readonly int _width;
     private readonly int _height;
@@ -338,10 +346,10 @@ internal sealed class PushInteraction
     private bool _hasRemovedBackground;
 
     public PushInteraction(
-        Game game, InteractableBlockActor interactive,
+        World world, InteractableBlockActor interactive,
         Interaction interaction, int width, int height)
     {
-        _game = game;
+        _world = world;
         _interactive = interactive;
         _width = width;
         _height = height;
@@ -381,13 +389,13 @@ internal sealed class PushInteraction
         }
     }
 
-    public static PushInteraction? Create(Game game, InteractableBlockActor interactive)
+    public static PushInteraction? Create(World world, InteractableBlockActor interactive)
     {
         var gameobj = interactive.GameObject;
         if (gameobj.Interaction.Interaction
             is Interaction.Push or Interaction.PushVertical or Interaction.Touch or Interaction.TouchOnce)
         {
-            return new PushInteraction(game, interactive, gameobj.Interaction.Interaction, gameobj.Width, gameobj.Height);
+            return new PushInteraction(world, interactive, gameobj.Interaction.Interaction, gameobj.Width, gameobj.Height);
         }
 
         return null;
@@ -398,15 +406,15 @@ internal sealed class PushInteraction
         if (_hasRemovedBackground) throw new Exception();
         _hasRemovedBackground = true;
 
-        var tile = _game.World.CurrentRoom.Settings.FloorTile;
-        _game.World.SetMapObjectXY(_interactive.X, _interactive.Y, tile);
+        var tile = _world.CurrentRoom.Settings.FloorTile;
+        _world.SetMapObjectXY(_interactive.X, _interactive.Y, tile);
     }
 
     public bool Check()
     {
         if (_movingActor != null) return _movingActor.HasFinishedMoving;
 
-        var dir = _game.Player.MovingDirection;
+        var dir = _world.Player.MovingDirection;
 
         if ((!_allowHorizontal && dir.IsHorizontal()) || dir == Direction.None)
         {
@@ -414,8 +422,8 @@ internal sealed class PushInteraction
             return false;
         }
 
-        var playerX = _game.Player.X;
-        var playerY = _game.Player.Y + 3;
+        var playerX = _world.Player.X;
+        var playerY = _world.Player.Y + 3;
         var pushed = false;
 
         if (_requireAlignment)
@@ -429,8 +437,8 @@ internal sealed class PushInteraction
             // Not my favorite way to do this, but it's not terrible either.
             if (_interactive.IsWithinBoundsInclusive(playerX, playerY, _width, _height))
             {
-                var goingTo = _game.Player.Position + dir.GetOffset();
-                var collides = _game.Player.CollidesWithTileMoving(goingTo.X, goingTo.Y, dir);
+                var goingTo = _world.Player.Position + dir.GetOffset();
+                var collides = _world.Player.CollidesWithTileMoving(goingTo.X, goingTo.Y, dir);
                 pushed = collides;
             }
         }
@@ -441,7 +449,7 @@ internal sealed class PushInteraction
             return false;
         }
 
-        if (!_interactive.IsMovingToward(_game.Player, dir)) return false;
+        if (!_interactive.IsMovingToward(_world.Player, dir)) return false;
 
         _pushTimer++;
         if (_pushTimer == _timerLimit)
@@ -477,14 +485,14 @@ internal sealed class PushInteraction
                 if (block == null) return true;
 
                 _movingActor = new MovingBlockActor(
-                    _game, ObjType.Block, block.Value, targetPos,
+                    _world, ObjType.Block, block.Value, targetPos,
                     MovingBlockActorOptions.ReplaceWithBackground,
                     _interactive.X, _interactive.Y, _width, _height)
                 {
                     Facing = dir,
                     EnableDraw = true,
                 };
-                _game.World.AddObject(_movingActor);
+                _world.AddObject(_movingActor);
                 return false;
             }
 
@@ -498,7 +506,7 @@ internal sealed class PushInteraction
 
 internal sealed class RaftInteraction
 {
-    private readonly Game _game;
+    private readonly World _world;
     private readonly InteractableBlockActor _interactive;
     private readonly Raft _raft;
     private readonly InteractableBlockObject _gameObject;
@@ -507,9 +515,9 @@ internal sealed class RaftInteraction
 
     private Direction? _raftDirection;
 
-    public RaftInteraction(Game game, InteractableBlockActor interactive)
+    public RaftInteraction(World world, InteractableBlockActor interactive)
     {
-        _game = game;
+        _world = world;
         _interactive = interactive;
         _raft = interactive.GameObject.Interaction.Raft ?? throw new Exception();
         _gameObject = interactive.GameObject;
@@ -517,19 +525,19 @@ internal sealed class RaftInteraction
 
         _raftOpposite = _raft.Direction switch
         {
-            Direction.Up => new Point(_gameObject.X, _game.World.PlayAreaRect.Y),
-            Direction.Down => new Point(_gameObject.X, _game.World.PlayAreaRect.Bottom - World.BlockHeight),
-            Direction.Left => new Point(_game.World.PlayAreaRect.X, _gameObject.Y),
-            Direction.Right => new Point(_game.World.PlayAreaRect.Right - World.BlockHeight, _gameObject.Y),
+            Direction.Up => new Point(_gameObject.X, _world.PlayAreaRect.Y),
+            Direction.Down => new Point(_gameObject.X, _world.PlayAreaRect.Bottom - World.BlockHeight),
+            Direction.Left => new Point(_world.PlayAreaRect.X, _gameObject.Y),
+            Direction.Right => new Point(_world.PlayAreaRect.Right - World.BlockHeight, _gameObject.Y),
             _ => throw new ArgumentOutOfRangeException()
         };
     }
 
-    public static RaftInteraction? Create(Game game, InteractableBlockActor interactive)
+    public static RaftInteraction? Create(World world, InteractableBlockActor interactive)
     {
         if (interactive.GameObject.Interaction.Raft != null)
         {
-            return new RaftInteraction(game, interactive);
+            return new RaftInteraction(world, interactive);
         }
         return null;
     }
@@ -539,9 +547,9 @@ internal sealed class RaftInteraction
         var goOpposite = false;
         if (_raftDirection == null)
         {
-            var doesOppositeCover = _game.World.Player.DoesCover(_raftOpposite.X, _raftOpposite.Y);
+            var doesOppositeCover = _world.Player.DoesCover(_raftOpposite.X, _raftOpposite.Y);
 
-            if (!_game.World.Player.DoesCover(_interactive) && !doesOppositeCover)
+            if (!_world.Player.DoesCover(_interactive) && !doesOppositeCover)
             {
                 return false;
             }
@@ -549,7 +557,7 @@ internal sealed class RaftInteraction
             goOpposite = doesOppositeCover;
         }
 
-        var player = _game.Player;
+        var player = _world.Player;
 
         // JOE: TODO: This still always assumes up == from dock, down == back to dock.
         switch (_raftDirection)
@@ -562,7 +570,7 @@ internal sealed class RaftInteraction
 
                 player.SetState(PlayerState.Paused);
                 player.Facing = _raftDirection.Value;
-                _game.Sound.PlayEffect(SoundEffect.Secret);
+                _world.Game.Sound.PlayEffect(SoundEffect.Secret);
                 break;
 
             case Direction.Down:
@@ -587,7 +595,7 @@ internal sealed class RaftInteraction
                 // Player has reached the top of the map.
                 if (player.Y == World.TileMapBaseY - 3)
                 {
-                    _game.World.LeaveRoom(player.Facing, _game.World.CurrentRoom);
+                    _world.LeaveRoom(player.Facing, _world.CurrentRoom);
                     player.SetState(PlayerState.Idle);
                     _raftDirection = null;
                 }

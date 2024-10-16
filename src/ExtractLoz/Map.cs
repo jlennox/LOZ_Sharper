@@ -280,7 +280,7 @@ internal sealed class MapExtractor
         {
             return new TiledLayerObject
             {
-                // Id = screenY * World.WorldWidth + screenX,
+                // Id = screenY * WorldWidth + screenX,
                 X = TileX * World.TileWidth,
                 Y = TileY * World.TileHeight,
                 Width = Width * World.BlockWidth,
@@ -397,14 +397,14 @@ internal sealed class MapExtractor
         var questId = owRoomAttrs.QuestNumber();
         string caveName = "something broken here";
         GameWorldType? caveType = null;
-        CaveSpec? caveSpec = null;
+        ShopSpec? caveSpec = null;
         EntryPosition? caveEntryPosition = null;
         RoomArguments? arguments = null;
         if (resources.IsOverworld)
         {
             if ((int)caveId < 9)
             {
-                caveName = ((int)caveId).ToString();
+                caveName = $"{resources.QuestId:D2}_{((int)caveId):D2}"; // ((int)caveId).ToString();
                 caveType = GameWorldType.Underworld;
             }
             else
@@ -451,7 +451,7 @@ internal sealed class MapExtractor
             Destination = caveName,
             ExitPosition = new PointXY(exitColumnX, exitRowY),
             EntryPosition = caveEntryPosition,
-            Cave = caveSpec,
+            Shop = caveSpec,
             BlockType = BlockType.Stairs,
             Arguments = arguments,
         };
@@ -469,7 +469,7 @@ internal sealed class MapExtractor
 
         void AddInteractionWithQuest(int tileX, int tileY, int questId, TileAction action, InteractableBlock block)
         {
-            block.CaveItems = block.Entrance?.Cave?.Items;
+            block.CaveItems = block.Entrance?.Shop?.Items;
             var serialized = TiledPropertySerializer<InteractableBlock>.Serialize(block);
             tileactions.Add(new ActionableTiles(tileX, tileY, 1, 1, questId, action, serialized));
         }

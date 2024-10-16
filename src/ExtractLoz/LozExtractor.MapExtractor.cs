@@ -29,7 +29,7 @@ internal record MapResources(
     RoomAttr[] RoomAttrs, TableResource<byte> SparseTable, LevelInfoBlock LevelInfoBlock, MapResources? CellarResources,
     LevelInfoEx LevelInfoEx, string[] TextTable, int QuestId)
 {
-    public CaveSpec[] CaveSpec => LevelInfoEx.CaveSpec;
+    public ShopSpec[] CaveSpec => LevelInfoEx.CaveSpec;
 
     public byte[][] GetRoomColsArray() => RoomCols.Select(t => t.Get()).ToArray();
     public RoomAttr GetRoomAttr(Point point) => RoomAttrs[point.Y * World.WorldWidth + point.X];
@@ -346,7 +346,7 @@ public unsafe partial class LozExtractor
             var innerPalette = roomAttr.GetInnerPalette();
             var outerPalette = roomAttr.GetOuterPalette();
 
-            CaveSpec UnderworldPersonSpec(ObjType personType)
+            ShopSpec UnderworldPersonSpec(ObjType personType)
             {
                 if (personType == ObjType.Grumble) return resources.CaveSpec.First(t => t.PersonType == PersonType.Grumble);
 
@@ -360,9 +360,9 @@ public unsafe partial class LozExtractor
                 var stringId = (StringId)resources.LevelInfoEx.LevelPersonStringIds[levelTableIndex][stringSlot];
                 if (stringId == StringId.MoreBombs) return resources.CaveSpec.First(t => t.PersonType == PersonType.MoreBombs);
 
-                return new CaveSpec
+                return new ShopSpec
                 {
-                    DwellerType = CaveDwellerType.OldMan,
+                    DwellerType = DwellerType.OldMan,
                     PersonType = PersonType.Text,
                     Text = _textTable[(int)stringId],
                 };

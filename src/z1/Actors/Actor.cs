@@ -28,7 +28,8 @@ internal abstract class Actor
     private static readonly ImmutableArray<byte> _swordPowers = [0, 0x10, 0x20, 0x40];
     private static long _idCounter;
 
-    public Game Game { get; }
+    public Game Game => World.Game;
+    public World World { get; }
     public readonly long Id = _idCounter++;
 
     public Point Position
@@ -73,8 +74,8 @@ internal abstract class Actor
     public ActorFlags Flags;
 
     public ObjType ObjType { get; }
-    public ObjectAttribute Attributes => Game.World.GetObjectAttribute(ObjType);
-    public ObjectStatistics ObjectStatistics => Game.World.Profile.Statistics.GetObjectStatistics(this);
+    public ObjectAttribute Attributes => Game.Data.GetObjectAttribute(ObjType);
+    public ObjectStatistics ObjectStatistics => World.Profile.Statistics.GetObjectStatistics(this);
     public Actor? Owner { get; protected set; }
 
     // Any non-player actors that can pick up an item and count as the player having collected. IE, arrows.
@@ -83,11 +84,11 @@ internal abstract class Actor
 
     protected bool IsStunned => _isStunned();
 
-    protected Actor(Game game, ObjType type, int x = 0, int y = 0)
+    protected Actor(World world, ObjType type, int x = 0, int y = 0)
     {
         if (type == ObjType.None) throw new ArgumentOutOfRangeException(nameof(type));
 
-        Game = game;
+        World = world;
         ObjType = type;
         Position = new Point(x, y);
 
@@ -98,12 +99,12 @@ internal abstract class Actor
             && type is not (ObjType.Armos or ObjType.FlyingGhini))
         {
             // JOE: This might not be entirely correct...
-            // var time = game.World.CurObjSlot + 1;
-            var time = game.World.CountObjects() + 1;
+            // var time = World.CurObjSlot + 1;
+            var time = World.CountObjects() + 1;
             ObjTimer = (byte)time;
         }
 
-        HP = (byte)game.World.GetObjectMaxHP(ObjType);
+        HP = (byte)Game.Data.GetObjectAttribute(ObjType).HitPoints;
     }
 
     ~Actor()
@@ -140,84 +141,84 @@ internal abstract class Actor
         return false;
     }
 
-    public static Actor AddFromType(ObjType type, Game game, int x, int y)
+    public static Actor AddFromType(ObjType type, World world, int x, int y)
     {
         // Some object constructors add themselves already, making generic object construction need to not double-add.
-        var actor = FromType(type, game, x, y);
-        game.World.AddUniqueObject(actor);
+        var actor = FromType(type, world, x, y);
+        world.AddUniqueObject(actor);
         return actor;
     }
 
-    public static Actor FromType(ObjType type, Game game, int x, int y)
+    public static Actor FromType(ObjType type, World world, int x, int y)
     {
         return type switch
         {
-            ObjType.BlueLynel => LynelActor.Make(game, ActorColor.Blue, x, y),
-            ObjType.RedLynel => LynelActor.Make(game, ActorColor.Red, x, y),
-            ObjType.BlueMoblin => MoblinActor.Make(game, ActorColor.Blue, x, y),
-            ObjType.RedMoblin => MoblinActor.Make(game, ActorColor.Red, x, y),
-            ObjType.BlueGoriya => GoriyaActor.Make(game, ActorColor.Blue, x, y),
-            ObjType.RedGoriya => GoriyaActor.Make(game, ActorColor.Red, x, y),
-            ObjType.RedSlowOctorock => OctorokActor.Make(game, ActorColor.Red, false, x, y),
-            ObjType.RedFastOctorock => OctorokActor.Make(game, ActorColor.Red, true, x, y),
-            ObjType.BlueSlowOctorock => OctorokActor.Make(game, ActorColor.Blue, false, x, y),
-            ObjType.BlueFastOctorock => OctorokActor.Make(game, ActorColor.Blue, true, x, y),
-            ObjType.RedDarknut => DarknutActor.Make(game, ActorColor.Red, x, y),
-            ObjType.BlueDarknut => DarknutActor.Make(game, ActorColor.Blue, x, y),
-            ObjType.BlueTektite => TektiteActor.Make(game, ActorColor.Blue, x, y),
-            ObjType.RedTektite => TektiteActor.Make(game, ActorColor.Red, x, y),
-            ObjType.BlueLeever => new BlueLeeverActor(game, x, y),
-            ObjType.RedLeever => new RedLeeverActor(game, x, y),
-            ObjType.Zora => new ZoraActor(game, x, y),
-            ObjType.Vire => new VireActor(game, x, y),
-            ObjType.Zol => new ZolActor(game, x, y),
-            ObjType.Gel => new GelActor(game, ObjType.Gel, x, y, Direction.None, 0),
-            ObjType.PolsVoice => new PolsVoiceActor(game, x, y),
-            ObjType.LikeLike => new LikeLikeActor(game, x, y),
-            ObjType.Peahat => new PeahatActor(game, x, y),
-            ObjType.BlueKeese => KeeseActor.Make(game, ActorColor.Blue, x, y),
-            ObjType.RedKeese => KeeseActor.Make(game, ActorColor.Red, x, y),
-            ObjType.BlackKeese => KeeseActor.Make(game, ActorColor.Black, x, y),
-            ObjType.Armos => new ArmosActor(game, x, y),
-            ObjType.Boulders => new BouldersActor(game, x, y),
-            ObjType.Boulder => new BoulderActor(game, x, y),
-            ObjType.Ghini => new GhiniActor(game, x, y),
-            ObjType.FlyingGhini => new FlyingGhiniActor(game, x, y),
-            ObjType.BlueWizzrobe => new BlueWizzrobeActor(game, x, y),
-            ObjType.RedWizzrobe => new RedWizzrobeActor(game, x, y),
-            ObjType.Wallmaster => new WallmasterActor(game, x, y),
-            ObjType.Rope => new RopeActor(game, x, y),
-            ObjType.Stalfos => new StalfosActor(game, x, y),
-            ObjType.Bubble1 => new BubbleActor(game, ObjType.Bubble1, x, y),
-            ObjType.Bubble2 => new BubbleActor(game, ObjType.Bubble2, x, y),
-            ObjType.Bubble3 => new BubbleActor(game, ObjType.Bubble3, x, y),
-            ObjType.Whirlwind => new WhirlwindActor(game, x, y),
-            ObjType.PondFairy => new PondFairyActor(game),
-            ObjType.Gibdo => new GibdoActor(game, x, y),
-            ObjType.ThreeDodongos => DodongoActor.Make(game, 3, x, y),
-            ObjType.OneDodongo => DodongoActor.Make(game, 1, x, y),
-            ObjType.BlueGohma => GohmaActor.Make(game, ActorColor.Blue),
-            ObjType.RedGohma => GohmaActor.Make(game, ActorColor.Red),
-            ObjType.RupieStash => RupeeStashActor.Make(game),
-            ObjType.Princess => PrincessActor.Make(game),
-            ObjType.Digdogger1 => DigdoggerActor.Make(game, x, y, 3),
-            ObjType.Digdogger2 => DigdoggerActor.Make(game, x, y, 1),
-            ObjType.RedLamnola => LamnolaActor.MakeSet(game, ActorColor.Red),
-            ObjType.BlueLamnola => LamnolaActor.MakeSet(game, ActorColor.Blue),
-            ObjType.Manhandla => ManhandlaActor.Make(game, x, y),
-            ObjType.Aquamentus => new AquamentusActor(game),
-            ObjType.Ganon => new GanonActor(game, x, y),
-            ObjType.GuardFire => new GuardFireActor(game, x, y),
-            ObjType.StandingFire => new StandingFireActor(game, x, y),
-            ObjType.Moldorm => MoldormActor.MakeSet(game),
-            ObjType.Gleeok1 => GleeokActor.Make(game, 1),
-            ObjType.Gleeok2 => GleeokActor.Make(game, 2),
-            ObjType.Gleeok3 => GleeokActor.Make(game, 3),
-            ObjType.Gleeok4 => GleeokActor.Make(game, 4),
-            ObjType.Patra1 => PatraActor.MakePatra(game, PatraType.Circle),
-            ObjType.Patra2 => PatraActor.MakePatra(game, PatraType.Spin),
-            ObjType.Trap => TrapActor.MakeSet(game, 6),
-            ObjType.TrapSet4 => TrapActor.MakeSet(game, 4),
+            ObjType.BlueLynel => LynelActor.Make(world, ActorColor.Blue, x, y),
+            ObjType.RedLynel => LynelActor.Make(world, ActorColor.Red, x, y),
+            ObjType.BlueMoblin => MoblinActor.Make(world, ActorColor.Blue, x, y),
+            ObjType.RedMoblin => MoblinActor.Make(world, ActorColor.Red, x, y),
+            ObjType.BlueGoriya => GoriyaActor.Make(world, ActorColor.Blue, x, y),
+            ObjType.RedGoriya => GoriyaActor.Make(world, ActorColor.Red, x, y),
+            ObjType.RedSlowOctorock => OctorokActor.Make(world, ActorColor.Red, false, x, y),
+            ObjType.RedFastOctorock => OctorokActor.Make(world, ActorColor.Red, true, x, y),
+            ObjType.BlueSlowOctorock => OctorokActor.Make(world, ActorColor.Blue, false, x, y),
+            ObjType.BlueFastOctorock => OctorokActor.Make(world, ActorColor.Blue, true, x, y),
+            ObjType.RedDarknut => DarknutActor.Make(world, ActorColor.Red, x, y),
+            ObjType.BlueDarknut => DarknutActor.Make(world, ActorColor.Blue, x, y),
+            ObjType.BlueTektite => TektiteActor.Make(world, ActorColor.Blue, x, y),
+            ObjType.RedTektite => TektiteActor.Make(world, ActorColor.Red, x, y),
+            ObjType.BlueLeever => new BlueLeeverActor(world, x, y),
+            ObjType.RedLeever => new RedLeeverActor(world, x, y),
+            ObjType.Zora => new ZoraActor(world, x, y),
+            ObjType.Vire => new VireActor(world, x, y),
+            ObjType.Zol => new ZolActor(world, x, y),
+            ObjType.Gel => new GelActor(world, ObjType.Gel, x, y, Direction.None, 0),
+            ObjType.PolsVoice => new PolsVoiceActor(world, x, y),
+            ObjType.LikeLike => new LikeLikeActor(world, x, y),
+            ObjType.Peahat => new PeahatActor(world, x, y),
+            ObjType.BlueKeese => KeeseActor.Make(world, ActorColor.Blue, x, y),
+            ObjType.RedKeese => KeeseActor.Make(world, ActorColor.Red, x, y),
+            ObjType.BlackKeese => KeeseActor.Make(world, ActorColor.Black, x, y),
+            ObjType.Armos => new ArmosActor(world, x, y),
+            ObjType.Boulders => new BouldersActor(world, x, y),
+            ObjType.Boulder => new BoulderActor(world, x, y),
+            ObjType.Ghini => new GhiniActor(world, x, y),
+            ObjType.FlyingGhini => new FlyingGhiniActor(world, x, y),
+            ObjType.BlueWizzrobe => new BlueWizzrobeActor(world, x, y),
+            ObjType.RedWizzrobe => new RedWizzrobeActor(world, x, y),
+            ObjType.Wallmaster => new WallmasterActor(world, x, y),
+            ObjType.Rope => new RopeActor(world, x, y),
+            ObjType.Stalfos => new StalfosActor(world, x, y),
+            ObjType.Bubble1 => new BubbleActor(world, ObjType.Bubble1, x, y),
+            ObjType.Bubble2 => new BubbleActor(world, ObjType.Bubble2, x, y),
+            ObjType.Bubble3 => new BubbleActor(world, ObjType.Bubble3, x, y),
+            ObjType.Whirlwind => new WhirlwindActor(world, x, y),
+            ObjType.PondFairy => new PondFairyActor(world),
+            ObjType.Gibdo => new GibdoActor(world, x, y),
+            ObjType.ThreeDodongos => DodongoActor.Make(world, 3, x, y),
+            ObjType.OneDodongo => DodongoActor.Make(world, 1, x, y),
+            ObjType.BlueGohma => GohmaActor.Make(world, ActorColor.Blue),
+            ObjType.RedGohma => GohmaActor.Make(world, ActorColor.Red),
+            ObjType.RupieStash => RupeeStashActor.Make(world),
+            ObjType.Princess => PrincessActor.Make(world),
+            ObjType.Digdogger1 => DigdoggerActor.Make(world, x, y, 3),
+            ObjType.Digdogger2 => DigdoggerActor.Make(world, x, y, 1),
+            ObjType.RedLamnola => LamnolaActor.MakeSet(world, ActorColor.Red),
+            ObjType.BlueLamnola => LamnolaActor.MakeSet(world, ActorColor.Blue),
+            ObjType.Manhandla => ManhandlaActor.Make(world, x, y),
+            ObjType.Aquamentus => new AquamentusActor(world),
+            ObjType.Ganon => new GanonActor(world, x, y),
+            ObjType.GuardFire => new GuardFireActor(world, x, y),
+            ObjType.StandingFire => new StandingFireActor(world, x, y),
+            ObjType.Moldorm => MoldormActor.MakeSet(world),
+            ObjType.Gleeok1 => GleeokActor.Make(world, 1),
+            ObjType.Gleeok2 => GleeokActor.Make(world, 2),
+            ObjType.Gleeok3 => GleeokActor.Make(world, 3),
+            ObjType.Gleeok4 => GleeokActor.Make(world, 4),
+            ObjType.Patra1 => PatraActor.MakePatra(world, PatraType.Circle),
+            ObjType.Patra2 => PatraActor.MakePatra(world, PatraType.Spin),
+            ObjType.Trap => TrapActor.MakeSet(world, 6),
+            ObjType.TrapSet4 => TrapActor.MakeSet(world, 4),
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid type."),
         };
     }
@@ -265,10 +266,10 @@ internal abstract class Actor
         // JOE: TODO: Should this be logically identical to PlayerCoversTile?
         // This logic is adapted from CheckWarp
 
-        if (Game.World.GetMode() != GameMode.Play) return false;
+        if (World.GetMode() != GameMode.Play) return false;
 
         // NOTE: This check is because level 6 is double wide. We need to pass width and height into this.
-        if (Game.World.IsOverworld() && false) // JOE: TODO: MAP REWRITE This appears to the level 6 entrance...? Game.World.CurRoomId == 0x22)
+        if (World.IsOverworld() && false) // JOE: TODO: MAP REWRITE This appears to the level 6 entrance...? World.CurRoomId == 0x22)
         {
             if ((X & 7) != 0) return false;
         }
@@ -279,12 +280,12 @@ internal abstract class Actor
 
         if ((Y & 0x0F) != 0x0D) return false;
 
-        var fineCol = X / World.TileWidth;
-        var fineCol2 = x / World.TileWidth;
+        var fineCol = X / z1.World.TileWidth;
+        var fineCol2 = x / z1.World.TileWidth;
         if (fineCol != fineCol2) return false;
 
-        var fineRow = (Y + 3 - 0x40) / World.TileHeight;
-        var fineRow2 = (y + 3 - 0x40) / World.TileHeight;
+        var fineRow = (Y + 3 - 0x40) / z1.World.TileHeight;
+        var fineRow2 = (y + 3 - 0x40) / z1.World.TileHeight;
         return fineRow == fineRow2;
     }
 
@@ -381,7 +382,7 @@ internal abstract class Actor
     {
         if (facing != Direction.None) return;
 
-        var playerPos = Game.World.GetObservedPlayerPos();
+        var playerPos = World.GetObservedPlayerPos();
         // Why did the original game test these distances as unsigned?
         var xDist = playerPos.X - x;
         var yDist = playerPos.Y - y;
@@ -400,8 +401,8 @@ internal abstract class Actor
     protected void InitCommonStateTimer()
     {
         // JOE: This might not be entirely correct...
-        // var t = Game.World.CurObjSlot;
-        var t = Game.World.CountObjects();
+        // var t = World.CurObjSlot;
+        var t = World.CountObjects();
         t = (t + 2) * 16;
         ObjTimer = (byte)t;
     }
@@ -504,7 +505,7 @@ internal abstract class Actor
 
     protected bool _isStunned()
     {
-        if (Game.World.HasItem(ItemSlot.Clock)) return true;
+        if (World.HasItem(ItemSlot.Clock)) return true;
         return StunTimer != 0;
     }
 
@@ -529,7 +530,7 @@ internal abstract class Actor
 
     protected void CheckBoomerang()
     {
-        foreach (var rang in Game.World.GetObjects<BoomerangProjectile>())
+        foreach (var rang in World.GetObjects<BoomerangProjectile>())
         {
             if (!rang.IsPlayerWeapon) continue;
             CheckBoomerang(rang);
@@ -548,7 +549,7 @@ internal abstract class Actor
     protected void CheckWave()
     {
         // ToArray() to allow enumeration changes.
-        foreach (var projectile in Game.World.GetObjects<Projectile>().ToArray())
+        foreach (var projectile in World.GetObjects<Projectile>().ToArray())
         {
             if (!projectile.IsPlayerWeapon) continue;
             CheckWave(projectile);
@@ -572,7 +573,7 @@ internal abstract class Actor
         }
         else
         {
-            var itemValue = Game.World.GetItem(ItemSlot.Sword);
+            var itemValue = World.GetItem(ItemSlot.Sword);
             context.DamageType = DamageType.Sword;
             context.Damage = _swordPowers[itemValue];
         }
@@ -597,8 +598,8 @@ internal abstract class Actor
 
     protected void CheckBombAndFire()
     {
-        foreach (var fire in Game.World.GetObjects<FireActor>()) CheckBombAndFire(fire);
-        foreach (var bomb in Game.World.GetObjects<BombActor>()) CheckBombAndFire(bomb);
+        foreach (var fire in World.GetObjects<FireActor>()) CheckBombAndFire(fire);
+        foreach (var bomb in World.GetObjects<BombActor>()) CheckBombAndFire(bomb);
     }
 
     private void CheckBombAndFire(Actor obj)
@@ -629,7 +630,7 @@ internal abstract class Actor
 
     protected void CheckSword(bool allowRodDamage = true)
     {
-        var sword = Game.World.GetObject<PlayerSwordActor>();
+        var sword = World.GetObject<PlayerSwordActor>();
         if (sword == null || sword.State != 1) return;
 
         var player = Game.Player;
@@ -640,7 +641,7 @@ internal abstract class Actor
         switch (sword.ObjType)
         {
             case ObjType.PlayerSword:
-                var itemValue = Game.World.GetItem(ItemSlot.Sword);
+                var itemValue = World.GetItem(ItemSlot.Sword);
                 var power = _swordPowers[itemValue];
                 context.Damage = power;
                 break;
@@ -658,7 +659,7 @@ internal abstract class Actor
 
     protected bool CheckArrow()
     {
-        foreach (var arrow in Game.World.GetObjects<ArrowProjectile>())
+        foreach (var arrow in World.GetObjects<ArrowProjectile>())
         {
             if (!arrow.IsPlayerWeapon) continue;
             if (CheckArrow(arrow)) return true;
@@ -671,7 +672,7 @@ internal abstract class Actor
     {
         if (arrow.State != ProjectileState.Flying) return false;
 
-        var itemValue = Game.World.GetItem(ItemSlot.Arrow);
+        var itemValue = World.GetItem(ItemSlot.Arrow);
         var box = new Point(0xB, 0xB);
 
         ReadOnlySpan<int> arrowPowers = [0, 0x20, 0x40];
@@ -814,7 +815,7 @@ internal abstract class Actor
     protected void DealDamage(CollisionContext context)
     {
         Game.Sound.PlayEffect(SoundEffect.MonsterHit);
-        Game.World.Profile.Statistics.DealDamage(context);
+        World.Profile.Statistics.DealDamage(context);
 
         if (HP < context.Damage)
         {
@@ -833,7 +834,7 @@ internal abstract class Actor
     {
         var allowBombDrop = context.DamageType == DamageType.Bomb;
 
-        Game.World.IncrementKilledObjectCount(allowBombDrop);
+        World.IncrementKilledObjectCount(allowBombDrop);
 
         Decoration = 0x10;
         Game.Sound.PlayEffect(SoundEffect.MonsterDie);
@@ -922,7 +923,7 @@ internal abstract class Actor
         player.InvincibilityTimer = 0x18;
         player.ShoveDistance = 0x20;
 
-        // JOE: Old code was: if (Game.World.CurObjectSlot >= ObjectSlot.Buffer) return;
+        // JOE: Old code was: if (World.CurObjectSlot >= ObjectSlot.Buffer) return;
         if (this is not MonsterActor) return;
         if (Attributes.Unknown80 || this is VireActor) return;
 
@@ -1028,7 +1029,7 @@ internal abstract class Actor
         // GetType() >= Obj_Fireball && GetType() < Obj_Arrow
         if (this is IBlockableProjectile projectile
             && projectile.RequiresMagicShield
-            && !Game.World.HasItem(ItemSlot.MagicShield))
+            && !World.HasItem(ItemSlot.MagicShield))
         {
             fnlog.Write("💥 !ItemSlot.MagicShield");
             Shove(context);
@@ -1056,7 +1057,7 @@ internal abstract class Actor
             x += 0xB;
         }
 
-        if (x > Game.World.MarginLeft)
+        if (x > World.MarginLeft)
         {
             if (adjust)
             {
@@ -1065,7 +1066,7 @@ internal abstract class Actor
 
             curDir = Direction.Right;
 
-            if (x < Game.World.MarginRight)
+            if (x < World.MarginRight)
             {
                 reason = CheckWorldReason.InBounds;
                 return dir;
@@ -1091,7 +1092,7 @@ internal abstract class Actor
             y += 0x0F;
         }
 
-        if (y > Game.World.MarginTop)
+        if (y > World.MarginTop)
         {
             if (adjust)
             {
@@ -1100,7 +1101,7 @@ internal abstract class Actor
 
             curDir = Direction.Down;
 
-            if (y < Game.World.MarginBottom)
+            if (y < World.MarginBottom)
             {
                 reason = CheckWorldReason.InBounds;
                 return dir;
@@ -1184,7 +1185,7 @@ internal abstract class Actor
         {
             if (!startOnNext)
             {
-                var collision = Game.World.CollidesWithTileMoving(X, Y, dir, false);
+                var collision = World.CollidesWithTileMoving(X, Y, dir, false);
                 if (!collision.Collides)
                 {
                     dir = CheckWorldBounds(dir);
@@ -1213,7 +1214,7 @@ internal abstract class Actor
             dir = GetNextAltDir(ref i, dir);
             if (dir == Direction.None) return;
 
-            if (!Game.World.CollidesWithTileMoving(X, Y, dir, IsPlayer))
+            if (!World.CollidesWithTileMoving(X, Y, dir, IsPlayer))
             {
                 dir = CheckWorldMargin(dir);
                 if (dir != Direction.None)
@@ -1266,7 +1267,7 @@ internal abstract class Actor
         if (Game.Cheats.NoClip) return dir;
         // ($6E46) if first object is grumble or person, block movement up above $8E.
 
-        foreach (var obj in Game.World.GetObjects())
+        foreach (var obj in World.GetObjects())
         {
             if (!obj.IsDeleted && obj.ShouldStopAtPersonWall)
             {
@@ -1379,7 +1380,7 @@ internal abstract class Actor
             {
                 Position = new Point(X & 0xF8, (Y & 0xF8) | 5);
 
-                if (Game.World.CollidesWithTileMoving(X, Y, cleanDir, IsPlayer))
+                if (World.CollidesWithTileMoving(X, Y, cleanDir, IsPlayer))
                 {
                     ShoveDirection = 0;
                     ShoveDistance = 0;
@@ -1420,20 +1421,20 @@ internal abstract class Actor
 
     protected Actor? Shoot(ObjType shotType, int x, int y, Direction facing)
     {
-        var oldActiveShots = Game.World.ActiveShots;
+        var oldActiveShots = World.ActiveShots;
 
         var shot = shotType == ObjType.Boomerang
-            ? GlobalFunctions.MakeBoomerang(Game, x, y, facing, 0x51, 2.5f, this)
-            : GlobalFunctions.MakeProjectile(Game, shotType, x, y, facing, this);
+            ? GlobalFunctions.MakeBoomerang(World, x, y, facing, 0x51, 2.5f, this)
+            : GlobalFunctions.MakeProjectile(World, shotType, x, y, facing, this);
 
-        var newActiveShots = Game.World.ActiveShots;
+        var newActiveShots = World.ActiveShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)
         {
             shot.Delete();
             return null;
         }
 
-        Game.World.AddObject(shot);
+        World.AddObject(shot);
         // In the original, they start in state $10. But, that was only a way to say that the object exists.
         shot.ObjTimer = 0;
         return shot;

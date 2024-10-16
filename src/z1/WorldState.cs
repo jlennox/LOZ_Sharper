@@ -85,6 +85,7 @@ internal struct LeaveCellarState
     }
 
     public Substates Substate;
+    public World.EntranceHistoryEntry TargetEntrance;
     public int FadeTimer;
     public int FadeStep;
     public int Timer;
@@ -126,7 +127,8 @@ internal struct ScrollState
     /// <summary>How long before the screen begins the scroll animation.</summary>
     public int Timer;
     public Direction ScrollDir;
-    public GameRoom NextRoom;
+    public bool IsExitingWorld;
+    public GameRoom? NextRoom;
     public GameRoom CurrentRoom;
 
     public int OffsetX;
@@ -170,6 +172,7 @@ internal struct EnterState
     public int PlayerFraction;
     public SpritePriority PlayerPriority;
     public bool GotoPlay;
+    public World.EntranceHistoryEntry? EntranceEntry;
 
     public bool HasReachedTarget(Player player) => player.Position.HasReachedPoint(TargetX, TargetY, ScrollDir);
 }
@@ -187,8 +190,9 @@ internal struct LoadLevelState
 
     public Substates Substate;
     public int Timer;
-    public int Level;
-    public bool RestartOW;
+    public GameWorld GameWorld;
+    public World.EntranceHistoryEntry? EntranceEntry;
+    public string Destination;
 }
 
 [DebuggerDisplay("{Substate}")]
@@ -207,7 +211,7 @@ internal struct UnfurlState
     public int StepTimer;
     public int Left;
     public int Right;
-    public bool RestartOW;
+    public World.EntranceHistoryEntry? EntranceEntry;
 }
 
 [DebuggerDisplay("{Substate}")]

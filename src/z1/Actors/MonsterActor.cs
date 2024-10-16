@@ -4,8 +4,8 @@ internal abstract class MonsterActor : Actor
 {
     public bool IsRingleader { get; set; }
 
-    protected MonsterActor(Game game, ObjType type, int x = 0, int y = 0)
-        : base(game, type, x, y)
+    protected MonsterActor(World world, ObjType type, int x = 0, int y = 0)
+        : base(world, type, x, y)
     {
     }
 

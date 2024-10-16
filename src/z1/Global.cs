@@ -138,23 +138,23 @@ internal static class GlobalFunctions
         return ItemValueToItemId(slot, game.World.Profile.Items.Get(slot));
     }
 
-    public static Actor MakeProjectile(Game game, ObjType type, int x, int y, Direction moving, Actor actor)
+    public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, Actor actor)
     {
         return type switch
         {
-            ObjType.FlyingRock => new FlyingRockProjectile(game, x, y, moving, actor),
-            ObjType.PlayerSwordShot => new PlayerSwordProjectile(game, x, y, moving, actor),
-            ObjType.Arrow => new ArrowProjectile(game, x, y, moving, actor),
-            ObjType.MagicWave => new MagicWaveProjectile(game, ObjType.MagicWave, x, y, moving, actor),
-            ObjType.MagicWave2 => new MagicWaveProjectile(game, ObjType.MagicWave2, x, y, moving, actor),
+            ObjType.FlyingRock => new FlyingRockProjectile(world, x, y, moving, actor),
+            ObjType.PlayerSwordShot => new PlayerSwordProjectile(world, x, y, moving, actor),
+            ObjType.Arrow => new ArrowProjectile(world, x, y, moving, actor),
+            ObjType.MagicWave => new MagicWaveProjectile(world, ObjType.MagicWave, x, y, moving, actor),
+            ObjType.MagicWave2 => new MagicWaveProjectile(world, ObjType.MagicWave2, x, y, moving, actor),
             _ => throw new Exception()
         };
     }
 
     public static BoomerangProjectile MakeBoomerang(
-        Game game, int x, int y, Direction moving, int distance, float speed, Actor owner)
+        World world, int x, int y, Direction moving, int distance, float speed, Actor owner)
     {
-        return new BoomerangProjectile(game, x, y, moving, distance, speed, owner);
+        return new BoomerangProjectile(world, x, y, moving, distance, speed, owner);
     }
 
     public static ItemGraphics? GetItemGraphics(int itemId)

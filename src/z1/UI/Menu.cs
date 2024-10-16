@@ -28,6 +28,8 @@ internal sealed class PregameMenu : Menu
 {
     public bool IsActive { get; private set; }
 
+    public Action<PlayerProfile> OnProfileSelected;
+
     private readonly Game _game;
     private readonly List<PlayerProfile> _profiles;
     private Menu _currentMenu;
@@ -69,7 +71,7 @@ internal sealed class PregameMenu : Menu
     public void StartWorld(PlayerProfile profile)
     {
         IsActive = false;
-        _game.Start(profile);
+        OnProfileSelected?.Invoke(profile);
     }
 
     public void GotoFileMenu(int page = 0)
@@ -219,7 +221,7 @@ internal sealed class ProfileSelectMenu : Menu
                 var totalHearts = profile.Items.Get(ItemSlot.HeartContainers);
                 var heartsValue = PlayerProfile.GetMaxHeartsValue(totalHearts);
                 GlobalFunctions.DrawHearts(heartsValue, totalHearts, 0x90, y + 8);
-                DrawFileIcon(profile, 0x30, y, profile.Quest);
+                DrawFileIcon(profile, 0x30, y, 0); // JOE: TODO: QUEST  profile.Quest);
             }
             GlobalFunctions.DrawChar(Chars.Minus, 0x88, y, 0);
             y += 24;
@@ -338,7 +340,7 @@ internal sealed class EliminateMenu : Menu
             if (profile != null && profile.IsActive())
             {
                 GlobalFunctions.DrawString(profile.Name, 0x70, y, 0);
-                DrawFileIcon(profile, 0x50, y, profile.Quest);
+                DrawFileIcon(profile, 0x50, y, 0); // JOE: TODO: QUEST  profile.Quest);
             }
             y += 24;
         }
@@ -469,11 +471,11 @@ internal sealed class RegisterMenu : Menu
         // JOE: TODO: Move to be profile method.
         if (_profile.Name.IEquals(Quest2Name))
         {
-            _profile.Quest = 1;
+            // JOE: TODO: QUEST _profile.Quest = 1;
         }
 
         _profile.Name = _profile.Name ?? throw new Exception("name missing."); // JOE: TODO: Uhhh :)
-        _profile.Quest = _profile.Quest;
+        // JOE: TODO: QUEST _profile.Quest = _profile.Quest;
         SaveFolder.SaveProfiles();
     }
 

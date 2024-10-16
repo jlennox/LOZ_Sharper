@@ -208,7 +208,7 @@ internal static class GLWindowGui
             const int y = Global.StdViewHeight / 2;
             try
             {
-                Actor.AddFromType(type, game, x, y);
+                Actor.AddFromType(type, game.World, x, y);
             }
             catch (Exception e)
             {
@@ -340,7 +340,9 @@ internal static class GLWindowGui
             if (ImGui.MenuItem("Level 4")) Warp(game, 4);
             if (ImGui.MenuItem("Level 5")) Warp(game, 5);
             if (ImGui.MenuItem("Level 6")) Warp(game, 6);
+            if (ImGui.MenuItem("Level 6 (Entrance)")) WarpOW(game, 2, 2);
             if (ImGui.MenuItem("Level 7")) Warp(game, 7);
+            if (ImGui.MenuItem("Level 7 (Entrance)")) WarpOW(game, 2, 4);
             if (ImGui.MenuItem("Level 8")) Warp(game, 8);
             if (ImGui.MenuItem("Level 9")) Warp(game, 9);
 
@@ -349,8 +351,6 @@ internal static class GLWindowGui
                 ImGui.Separator();
                 if (ImGui.MenuItem("Raft")) WarpOW(game, 5, 5);
                 if (ImGui.MenuItem("Ghost")) WarpOW(game, 1, 2);
-                if (ImGui.MenuItem("Level 6 Entrance")) WarpOW(game, 2, 2);
-                if (ImGui.MenuItem("Level 7 Entrance")) WarpOW(game, 2, 4);
                 if (ImGui.MenuItem("Armos / Bracelet")) WarpOW(game, 4, 2);
                 if (ImGui.MenuItem("Ladder / Heart")) WarpOW(game, 15, 5);
                 if (ImGui.MenuItem("Cave 12: Lost hills hint")) WarpOW(game, 0, 7);
@@ -432,7 +432,7 @@ internal static class GLWindowGui
         {
             var json = File.ReadAllText(filename);
             var recording = JsonSerializer.Deserialize<GameRecordingState>(json) ?? throw new Exception();
-            window.Game = new Game(recording);
+            window.Game = new Game(new GameIO(), recording);
         }
 
         if (ImGui.BeginMenu("Debug"))
