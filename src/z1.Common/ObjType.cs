@@ -486,15 +486,15 @@ public readonly record struct MonsterEntry(ObjType ObjType, bool IsRingleader = 
                     var param = parser.ExpectWord(monsterListSpan); // JOE: TODO: Case sensitive.
                     switch (param)
                     {
-                        case "X":
+                        case nameof(System.Drawing.Point.X):
                             parser.ExpectChar(monsterListSpan, '=');
                             pointX = parser.ExpectInt(monsterListSpan);
                             break;
-                        case "Y":
+                        case nameof(System.Drawing.Point.Y):
                             parser.ExpectChar(monsterListSpan, '=');
                             pointY = parser.ExpectInt(monsterListSpan);
                             break;
-                        case "Ringleader":
+                        case nameof(IsRingleader):
                             isRingleader = true;
                             break;
                         default: throw new Exception($"Unsupported parameter \"{param}\" in monster list \"{monsterList}\"");
@@ -544,17 +544,16 @@ public readonly record struct MonsterEntry(ObjType ObjType, bool IsRingleader = 
             var hasValue = false;
             if (Point != null)
             {
-                sb.Append("X=");
+                sb.Append($"{nameof(System.Drawing.Point.X)}= ");
                 sb.Append(Point.Value.X);
-                sb.Append(",Y=");
+                sb.Append($",{nameof(System.Drawing.Point.Y)}=");
                 sb.Append(Point.Value.Y);
                 hasValue = true;
             }
             if (IsRingleader)
             {
                 if (hasValue) sb.Append(',');
-                sb.Append("Ringleader");
-
+                sb.Append(nameof(IsRingleader));
             }
             sb.Append(']');
         }

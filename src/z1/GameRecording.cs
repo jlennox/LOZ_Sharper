@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
@@ -141,6 +142,52 @@ internal sealed class GameRecordingObjectActorAssertion : GameRecordingObjectAss
     }
 }
 
+internal sealed class GameRecordingStableObjectPlayerProfileAssertion : GameRecordingObjectAssertion<PlayerProfile>
+{
+    public int Version { get; set; } = 1;
+    public Dictionary<ItemSlot, int> InventoryItems { get; set; } = [];
+
+    public GameRecordingStableObjectPlayerProfileAssertion(PlayerProfile profile)
+    {
+        var stableEntries = new[] {
+            ItemSlot.Sword,
+            ItemSlot.Bombs,
+            ItemSlot.Arrow,
+            ItemSlot.Bow,
+            ItemSlot.Candle,
+            ItemSlot.Recorder,
+            ItemSlot.Food,
+            ItemSlot.Potion,
+            ItemSlot.Rod,
+            ItemSlot.Raft,
+            ItemSlot.Book,
+            ItemSlot.Ring,
+            ItemSlot.Ladder,
+            ItemSlot.MagicKey,
+            ItemSlot.Bracelet,
+            ItemSlot.Letter,
+            ItemSlot.Clock,
+            ItemSlot.Rupees,
+            ItemSlot.Keys,
+            ItemSlot.HeartContainers,
+            ItemSlot.PowerTriforce,
+            ItemSlot.Boomerang,
+            ItemSlot.MagicShield,
+        };
+
+        foreach (var slot in stableEntries)
+        {
+            InventoryItems[slot] = profile.Items.Get(slot);
+        }
+    }
+
+    public override bool Assert(PlayerProfile actual, [MaybeNullWhen(true)] out string error)
+    {
+        var stable = new GameRecordingStableObjectPlayerProfileAssertion(actual);
+        return DeepEquals(this, stable, out error);
+    }
+}
+
 internal sealed class GameRecordingObjectPlayerProfileAssertion : GameRecordingObjectAssertion<PlayerProfile>
 {
     // This is inherently serializable but it might not always be as stable as we'd want...
@@ -164,14 +211,14 @@ internal readonly record struct GameRecordingCheat(int Frame, string TypeName, s
 internal readonly record struct GameRecordingAssertion(int Frame)
 {
     public required GameRecordingObjectActorAssertion Actors { get; init; }
-    public required GameRecordingObjectPlayerProfileAssertion Profile { get; init; }
+    public required GameRecordingStableObjectPlayerProfileAssertion Profile { get; init; }
 
     public static GameRecordingAssertion Create(Game game)
     {
         return new GameRecordingAssertion(game.FrameCounter)
         {
             Actors = new GameRecordingObjectActorAssertion(game.World.GetObjects()),
-            Profile = new GameRecordingObjectPlayerProfileAssertion(game.World.Profile)
+            Profile = new GameRecordingStableObjectPlayerProfileAssertion(game.World.Profile)
         };
     }
 
