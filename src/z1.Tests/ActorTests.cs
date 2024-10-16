@@ -9,7 +9,7 @@ namespace z1.Tests;
 
 internal static class TestObjects
 {
-    public static Game Game => new();
+    public static Game Game => new(new GameIO());
 }
 
 [TestFixture]

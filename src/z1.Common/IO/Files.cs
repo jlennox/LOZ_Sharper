@@ -10,7 +10,7 @@ public static class Filenames
     public const string Font = "font.png";
     public const string FontAddendum = "font-addendum.png";
 
-    public const string DoorTiles = "DoorTiles.json";
+    public const string GameData = "GameData.json";
 
     private static readonly string _executableDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location ?? throw new Exception());
 

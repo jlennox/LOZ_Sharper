@@ -194,7 +194,6 @@ internal sealed partial class World
     {
         Game = game;
 
-        _doorTileIndex = new Asset(Filenames.DoorTiles).ReadJson<DoorTileIndex>();
         _entranceHistory = new EntranceHistory(this);
 
         _roomHistory = new RoomHistory(game, RoomHistoryLength);
@@ -1101,7 +1100,7 @@ internal sealed partial class World
         var map = room.RoomMap;
         var state = GetDoorState(room, doorDir, roomState);
         var (corner, _, drawOffset) = DoorCorner.Get(doorDir);
-        var tiles = _doorTileIndex[new DoorTileIndexKey(doorDir, state)];
+        var tiles = Game.Data.DoorTileIndex.Get(doorDir, state);
         var drawat = corner + drawOffset;
         map.Blit(tiles.Entries, tiles.Width, tiles.Height, drawat.X, drawat.Y);
     }

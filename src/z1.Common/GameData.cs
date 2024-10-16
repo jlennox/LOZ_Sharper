@@ -9,7 +9,7 @@ public record PointXY(int X, int Y)
     public PointXY() : this(0, 0) { }
 }
 
-public sealed class LevelInfoEx
+public sealed class GameData
 {
     public required byte[] OWPondColors { get; init; }
     public required CavePaletteSet CavePalette { get; init; }
@@ -17,6 +17,7 @@ public sealed class LevelInfoEx
     public required Dictionary<ObjType, ObjectAttribute> Attributes { get; init; }
     public required int[][] LevelPersonStringIds { get; init; }
     public required PointXY[] SpawnSpot { get; init; }
+    public required DoorTileIndex DoorTileIndex { get; init; }
 
     public ObjectAttribute GetObjectAttribute(ObjType type)
     {

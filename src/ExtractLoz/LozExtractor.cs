@@ -624,8 +624,7 @@ public partial class LozExtractor
 
             bmp = new Bitmap(16 * 16, 11 * 16);
 
-            ExtractUnderworldWalls(reader, bmp, out var doorTiles);
-            options.AddJson(Filenames.DoorTiles, doorTiles);
+            ExtractUnderworldWalls(reader, bmp);
 
             // options.AddFile("underworldWalls.png", bmp, ImageFormat.Png);
             bmp.Dispose();
@@ -719,12 +718,13 @@ public partial class LozExtractor
     private const int DoorTileCount = 12;
     private const int DoorUpOpen = 0x15FEE + 16;
 
-    private static byte[,] ExtractUnderworldWalls(BinaryReader reader, Bitmap bmp, out DoorTileIndex doortiles)
+    private static DoorTileIndex GetDoorTileIndex(Options options)
     {
+        using var reader = options.GetBinaryReader();
         var doorTypes = new[] { DoorState.Open, DoorState.Locked, DoorState.Shutter, DoorState.Wall, DoorState.Bombed };
         var doorDirections = new[] { Direction.Right, Direction.Left, Direction.Down, Direction.Up };
         var doorbytes = reader.ReadBytesFrom(DoorUpOpen, doorTypes.Length * DoorTileCount * doorDirections.Length);
-        doortiles = new();
+        var doortiles = new DoorTileIndex();
         foreach (var direction in doorDirections)
         {
             foreach (var type in doorTypes)
@@ -766,6 +766,11 @@ public partial class LozExtractor
             }
         }
 
+        return doortiles;
+    }
+
+    private static byte[,] ExtractUnderworldWalls(BinaryReader reader, Bitmap bmp)
+    {
         var wallTiles = reader.ReadBytesFrom(Walls, WallTileCount);
 
         var colors = GetPaletteStandInColors();
@@ -2814,7 +2819,7 @@ public partial class LozExtractor
         return (byte)hpAttrs[index].GetHP((int)type);
     }
 
-    private static LevelInfoEx ExtractOverworldInfoEx(Options options)
+    private static GameData ExtractOverworldInfoEx(Options options)
     {
         var filePath = "overworldInfoEx.tab";
 
@@ -2854,7 +2859,7 @@ public partial class LozExtractor
                 .Where(t => ShouldSerailize(t.Attr))
                 .ToDictionary(t => t.ObjType, t => t.Attr);
 
-            var levelInfo = new LevelInfoEx
+            var levelInfo = new GameData
             {
                 OWPondColors = ReadTranslateOWPondColors(reader, writer),
                 CavePalette = ReadTranslateCavePalettes(reader, writer),
@@ -2862,6 +2867,7 @@ public partial class LozExtractor
                 Attributes = objAttributes,
                 LevelPersonStringIds = ReadTranslateLevelPersonStringIds(reader, writer),
                 SpawnSpot = ReadTranslateSpawnSpots(reader, writer),
+                DoorTileIndex = GetDoorTileIndex(options),
             };
 
             var converters = new ReadTranslateDelegate[]
@@ -2898,7 +2904,7 @@ public partial class LozExtractor
                 writer.Write((ushort)(ptr - bufBase));
             }
 
-            options.AddJson("overworldInfoEx.json", levelInfo);
+            options.AddJson(Filenames.GameData, levelInfo);
 
             return levelInfo;
         }

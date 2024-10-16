@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using z1.Actors;
+using z1.Common.IO;
 using z1.IO;
 using z1.UI;
 
@@ -67,7 +68,7 @@ internal sealed class Game
     public GameRecording Recording { get; }
     public GamePlayback? Playback { get; }
     public bool Headless { get; }
-    public LevelInfoEx Data { get; }
+    public GameData Data { get; }
 
     public int FrameCounter { get; private set; }
 
@@ -76,7 +77,7 @@ internal sealed class Game
     public Game(GameIO io)
     {
         _io = io;
-        Data = new Asset("overworldInfoEx.json").ReadJson<LevelInfoEx>();
+        Data = new Asset(Filenames.GameData).ReadJson<GameData>();
 
         World = new World(this);
         Player = new Player(World);

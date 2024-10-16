@@ -27,9 +27,9 @@ internal record MapResources(
     RoomContext RoomContext, RoomCols[] RoomCols, TableResource<byte> ColTable, byte[] TileAttrs,
     TableResource<byte> ObjectList, byte[] PrimaryMobs, byte[]? SecondaryMobs, byte[] TileBehaviors,
     RoomAttr[] RoomAttrs, TableResource<byte> SparseTable, LevelInfoBlock LevelInfoBlock, MapResources? CellarResources,
-    LevelInfoEx LevelInfoEx, string[] TextTable, int QuestId)
+    GameData GameData, string[] TextTable, int QuestId)
 {
-    public ShopSpec[] CaveSpec => LevelInfoEx.CaveSpec;
+    public ShopSpec[] CaveSpec => GameData.CaveSpec;
 
     public byte[][] GetRoomColsArray() => RoomCols.Select(t => t.Get()).ToArray();
     public RoomAttr GetRoomAttr(Point point) => RoomAttrs[point.Y * World.WorldWidth + point.X];
@@ -69,12 +69,11 @@ public unsafe partial class LozExtractor
     };
     private static byte[,] _wallTileMap = null;
     private static string[] _textTable = null;
-    private static DoorTileIndex _doorTileMaps;
 
     private static void ExtractTiledMaps(Options options)
     {
         using var reader = options.GetBinaryReader();
-        _wallTileMap ??= ExtractUnderworldWalls(reader, new Bitmap(300, 300), out _doorTileMaps);
+        _wallTileMap ??= ExtractUnderworldWalls(reader, new Bitmap(300, 300));
         _textTable ??= ExtractText(options);
 
         var overworldResources = ExtractOverworldTiledMaps(options);
@@ -122,7 +121,7 @@ public unsafe partial class LozExtractor
             SparseTable: sparseTable,
             LevelInfoBlock: levelInfo,
             CellarResources: null,
-            LevelInfoEx: levelInfoEx,
+            GameData: levelInfoEx,
             TextTable: _textTable ?? throw new Exception(),
             QuestId: 0);
 
@@ -158,7 +157,7 @@ public unsafe partial class LozExtractor
             SparseTable: sparseTable,
             LevelInfoBlock: levelInfo.First().Value,
             CellarResources: null,
-            LevelInfoEx: levelInfoEx,
+            GameData: levelInfoEx,
             TextTable: _textTable ?? throw new Exception(),
             QuestId: 0);
 
@@ -209,7 +208,7 @@ public unsafe partial class LozExtractor
 
     private static void ExtractTiledMap(Options options, MapResources resources, string name)
     {
-        var extractor = new MapExtractor(resources, _wallTileMap, _doorTileMaps);
+        var extractor = new MapExtractor(resources, _wallTileMap);
         var isOverworld = resources.IsOverworld;
 
         var questObjects = Enumerable.Range(0, 3).Select(_ => new List<TiledLayerObject>()).ToArray();
@@ -357,7 +356,7 @@ public unsafe partial class LozExtractor
                 var levelIndex = resources.LevelInfoBlock.EffectiveLevelNumber - 1;
                 int levelTableIndex = levelGroups[levelIndex];
                 var stringSlot = personType - ObjType.Person1;
-                var stringId = (StringId)resources.LevelInfoEx.LevelPersonStringIds[levelTableIndex][stringSlot];
+                var stringId = (StringId)resources.GameData.LevelPersonStringIds[levelTableIndex][stringSlot];
                 if (stringId == StringId.MoreBombs) return resources.CaveSpec.First(t => t.PersonType == PersonType.MoreBombs);
 
                 return new ShopSpec

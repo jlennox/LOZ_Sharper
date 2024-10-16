@@ -630,4 +630,10 @@ public readonly record struct Array2D<T>(T[] Entries, int Width, int Height)
     }
 }
 
-public sealed class DoorTileIndex : Dictionary<DoorTileIndexKey, Array2D<TiledTile>>;
+public sealed class DoorTileIndex : Dictionary<DoorTileIndexKey, Array2D<TiledTile>>
+{
+    public Array2D<TiledTile> Get(Direction direction, DoorState type)
+    {
+        return this[new DoorTileIndexKey(direction, type)];
+    }
+}

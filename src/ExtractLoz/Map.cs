@@ -232,7 +232,6 @@ internal sealed class MapExtractor
 {
     private readonly MapResources _resources;
     private readonly byte[,] _wallTileMap;
-    private readonly DoorTileIndex _doorTileIndex;
 
     private delegate void LoadMobDelegate(ref TileMap map, MapResources resources, int row, int col, int squareIndex);
 
@@ -307,11 +306,10 @@ internal sealed class MapExtractor
     private int _marginBottom;
     private int _marginTop;
 
-    public MapExtractor(MapResources resources, byte[,] wallTileMap, DoorTileIndex doorTileIndex)
+    public MapExtractor(MapResources resources, byte[,] wallTileMap)
     {
         _resources = resources;
         _wallTileMap = wallTileMap;
-        _doorTileIndex = doorTileIndex;
     }
 
     public unsafe TileMap LoadLayout(RoomId roomId, out ActionableTiles[] actions)
