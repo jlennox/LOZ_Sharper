@@ -422,7 +422,6 @@ internal sealed class OctorokActor : DelayedWanderer
     }
 }
 
-
 internal sealed class GanonActor : BlueWizzrobeBase
 {
     private readonly record struct SlashSpec(TileSheet Sheet, AnimationId AnimIndex, byte Flags);
