@@ -671,7 +671,7 @@ internal sealed class PlayerSwordActor : Actor
 
             Game.Sound.PlayEffect(effect);
 
-            var shot = GlobalFunctions.MakeProjectile(World, type, x, y, dir, Owner);
+            var shot = Projectile.MakeProjectile(World, type, x, y, dir, Owner);
             World.AddObject(shot);
             shot.TileOffset = Owner.TileOffset;
         }

@@ -10,32 +10,6 @@ internal partial class World
 {
     private static bool TryGetConnectedRoom(GameRoom currentRoom, Direction direction, [MaybeNullWhen(false)] out GameRoom room)
     {
-        // GetWorldCoord(curRoomId, out var row, out var col);
-
-        // switch (dir)
-        // {
-        //     case Direction.Left:
-        //         if (col == 0) return curRoomId;
-        //         col--;
-        //         break;
-        //     case Direction.Right:
-        //         if (col == WorldWidth - 1) return curRoomId;
-        //         col++;
-        //         break;
-        //     case Direction.Up:
-        //         if (row == 0) return curRoomId;
-        //         row--;
-        //         break;
-        //     case Direction.Down:
-        //         if (row == WorldHeight - 1) return curRoomId;
-        //         row++;
-        //         break;
-        // }
-
-        // JOE: TODO: Support screen wrapping.
-        // JOE: TODO: Error handling.
-
-        // var nextRoomId = MakeRoomId(row, col);
         return currentRoom.Connections.TryGetValue(direction, out room);
     }
 
@@ -214,7 +188,7 @@ internal partial class World
 
     private void SetLevelPalette()
     {
-        var infoBlock = GetLevelInfo();
+        var infoBlock = CurrentWorld.Settings;
 
         for (var i = 2; i < Global.BackgroundPalCount; i++)
         {
@@ -226,7 +200,7 @@ internal partial class World
 
     private void SetLevelFgPalette()
     {
-        var infoBlock = GetLevelInfo();
+        var infoBlock = CurrentWorld.Settings;
         Graphics.SetPaletteIndexed(Palette.SeaPal, infoBlock.Palettes[(int)Palette.SeaPal]);
     }
 }

@@ -799,7 +799,7 @@ internal sealed partial class World
     {
         if ((int)itemId >= (int)ItemId.MAX) return;
 
-        GlobalFunctions.PlayItemSound(Game, itemId);
+        Game.Sound.PlayItemSound(itemId);
 
         if (itemId is ItemId.Compass or ItemId.Map or ItemId.TriforcePiece)
         {
@@ -831,12 +831,6 @@ internal sealed partial class World
         {
             value += (byte)Profile.Items.Get(slot);
 
-        }
-        else if (itemId == ItemId.TriforcePiece)
-        {
-            // var bit = 1 << (CurrentWorld.Settings.LevelNumber - 1);
-            // value = (byte)(Profile.Items[ItemSlot.TriforcePieces] | bit);
-            Profile.SetDungeonItem(CurrentWorld, itemId);
         }
 
         if (max > 0) value = Math.Min(value, max);
@@ -876,8 +870,6 @@ internal sealed partial class World
             || (_tempShutterDoorDir == doorDir && room == _tempShutterRoom);
     }
 
-    private bool GetEffectiveDoorState(Direction doorDir) => GetEffectiveDoorState(CurrentRoom, doorDir);
-    public WorldSettings GetLevelInfo() => CurrentWorld.Settings;
     public bool IsOverworld() => CurrentWorld.IsOverworld;
 
     public Actor DebugSpawnItem(ItemId itemId)
@@ -1343,7 +1335,7 @@ internal sealed partial class World
         foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
         {
             if (CurrentRoom.UnderworldDoors[direction] == DoorType.Shutter
-                && !GetEffectiveDoorState(direction))
+                && !GetEffectiveDoorState(CurrentRoom, direction))
             {
                 dirs |= direction;
             }
@@ -3849,7 +3841,7 @@ internal sealed partial class World
                 break;
 
             case DoorType.Bombable:
-                if (GetEffectiveDoorState(player.MovingDirection))
+                if (GetEffectiveDoorState(CurrentRoom, player.MovingDirection))
                 {
                     LeaveRoom(player.Facing, CurrentRoom);
                     player.Stop();

@@ -23,6 +23,7 @@ namespace z1;
 // * Does not lift cellar items overhead.
 // * Exits cellar in wrong place. Needs / 2 on X, and + basey on y?
 // * Spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
+// * Refactor redleever counting.
 
 // Know behavior changes:
 // * You can spawn multiple armos at the same time at the level 6 entrance where they are next to each other.

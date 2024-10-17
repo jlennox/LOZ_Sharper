@@ -814,7 +814,7 @@ internal sealed class Player : Actor, IThrower
         }
 
         var distance = itemValue == 2 ? BoomerangProjectile.RedsDistance : BoomerangProjectile.YellowsDistance;
-        var boomerang = GlobalFunctions.MakeBoomerang(World, x, y, facingDir, distance, 3.0f, this);
+        var boomerang = Projectile.MakeBoomerang(World, x, y, facingDir, distance, 3.0f, this);
         World.AddObject(boomerang);
         return 6;
     }
@@ -836,7 +836,7 @@ internal sealed class Player : Actor, IThrower
             x += 3;
         }
 
-        var arrow = GlobalFunctions.MakeProjectile(World, ObjType.Arrow, x, y, facingDir, this);
+        var arrow = Projectile.MakeProjectile(World, ObjType.Arrow, x, y, facingDir, this);
         World.AddObject(arrow);
         Game.Sound.PlayEffect(SoundEffect.Boomerang);
         return 6;

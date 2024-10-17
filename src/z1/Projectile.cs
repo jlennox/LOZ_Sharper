@@ -36,6 +36,25 @@ internal abstract class Projectile : Actor, IProjectile
 
     public virtual bool IsInShotStartState() => State == ProjectileState.Flying;
 
+    public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, Actor actor)
+    {
+        return type switch
+        {
+            ObjType.FlyingRock => new FlyingRockProjectile(world, x, y, moving, actor),
+            ObjType.PlayerSwordShot => new PlayerSwordProjectile(world, x, y, moving, actor),
+            ObjType.Arrow => new ArrowProjectile(world, x, y, moving, actor),
+            ObjType.MagicWave => new MagicWaveProjectile(world, ObjType.MagicWave, x, y, moving, actor),
+            ObjType.MagicWave2 => new MagicWaveProjectile(world, ObjType.MagicWave2, x, y, moving, actor),
+            _ => throw new Exception()
+        };
+    }
+
+    public static BoomerangProjectile MakeBoomerang(
+        World world, int x, int y, Direction moving, int distance, float speed, Actor owner)
+    {
+        return new BoomerangProjectile(world, x, y, moving, distance, speed, owner);
+    }
+
     protected void Move(int speed)
     {
         MoveDirection(speed, Facing);
