@@ -350,7 +350,7 @@ internal sealed class GameRoom
     private readonly RoomTileMap _unmodifiedRoomMap;
     public bool HidePlayerMapCursor { get; set; }
     public bool IsTriforceRoom { get; set; }
-    public bool HasTriforce => IsTriforceRoom && !PersistedRoomState.ItemState;
+    public bool HasTriforce => IsTriforceRoom; // JOE: MAP REWRITE Arg. Figure this out! && !PersistedRoomState.ObjectState.FirstOrDefault()?;
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
     public PersistedRoomState PersistedRoomState => _roomState.Value;

@@ -428,7 +428,6 @@ internal sealed class TreeActor : Actor
             if (Math.Abs(fire.X - X) >= 16 || Math.Abs(fire.Y - Y) >= 16) continue;
 
             World.SetMapObjectXY(X, Y, BlockType.Stairs);
-            World.CurrentPersistedRoomState.SecretState = true;
             Game.Sound.PlayEffect(SoundEffect.Secret);
             World.Profile.Statistics.TreesBurned++;
             Delete();
@@ -548,7 +547,6 @@ internal sealed class RockWallActor : Actor
             if (Math.Abs(bomb.X - X) >= 16 || Math.Abs(bomb.Y - Y) >= 16) continue;
 
             World.SetMapObjectXY(X, Y, BlockType.Cave);
-            World.CurrentPersistedRoomState.SecretState = true;
             Game.Sound.PlayEffect(SoundEffect.Secret);
             World.Profile.Statistics.OWBlocksBombed++;
             Delete();

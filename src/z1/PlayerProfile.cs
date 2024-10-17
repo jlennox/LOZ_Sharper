@@ -18,13 +18,11 @@ internal enum PersistedDoorState { Normal, Open }
 
 internal sealed class PersistedRoomState
 {
-    public bool ItemState { get; set; } // true if item has been picked up.
-    public bool ShortcutState { get; set; } // Overworld
-    public bool SecretState { get; set; } // Overworld
-    public bool VisitState { get; set; } // Underworld
-    public Dictionary<Direction, PersistedDoorState> DoorState { get; set; } = []; // Underworld
     public bool IsDoorOpen(Direction dir) => DoorState.TryGetValue(dir, out var state) && state == PersistedDoorState.Open;
     public void SetDoorState(Direction dir, PersistedDoorState state) => DoorState[dir] = state;
+
+    public bool VisitState { get; set; } // Used by underworld map.
+    public Dictionary<Direction, PersistedDoorState> DoorState { get; set; } = []; // Underworld
     public int ObjectCount { get; set; }
     public Dictionary<string, ObjectState> ObjectState { get; set; } = [];
 

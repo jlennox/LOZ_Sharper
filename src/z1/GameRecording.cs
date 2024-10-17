@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
@@ -144,8 +143,29 @@ internal sealed class GameRecordingObjectActorAssertion : GameRecordingObjectAss
 
 internal sealed class GameRecordingStableObjectPlayerProfileAssertion : GameRecordingObjectAssertion<PlayerProfile>
 {
+    public sealed class StablePersistedRoomState
+    {
+        public bool VisitState { get; set; }
+        public Dictionary<Direction, PersistedDoorState> DoorState { get; set; } = [];
+        public int ObjectCount { get; set; }
+        public Dictionary<string, ObjectState> ObjectState { get; set; } = [];
+
+        public StablePersistedRoomState()
+        {
+        }
+
+        public StablePersistedRoomState(PersistedRoomState state)
+        {
+            VisitState = state.VisitState;
+            DoorState = state.DoorState.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            ObjectCount = state.ObjectCount;
+            ObjectState = state.ObjectState.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        }
+    }
+
     public int Version { get; set; } = 1;
     public Dictionary<ItemSlot, int> InventoryItems { get; set; } = [];
+    public Dictionary<string, StablePersistedRoomState> RoomStates { get; set; } = [];
 
     public GameRecordingStableObjectPlayerProfileAssertion(PlayerProfile profile)
     {
@@ -179,6 +199,8 @@ internal sealed class GameRecordingStableObjectPlayerProfileAssertion : GameReco
         {
             InventoryItems[slot] = profile.Items.Get(slot);
         }
+
+        RoomStates = profile.RoomState.ToDictionary(kvp => kvp.Key, kvp => new StablePersistedRoomState(kvp.Value));
     }
 
     public override bool Assert(PlayerProfile actual, [MaybeNullWhen(true)] out string error)
@@ -308,7 +330,6 @@ internal sealed class GameRecording
         AddInput(Game.Input.GetButtonsUnsafe());
     }
 }
-
 
 internal sealed class GamePlayback
 {

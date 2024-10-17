@@ -262,9 +262,6 @@ internal sealed class GameCheats
         {
             foreach (var (_, state) in game.World.Profile.RoomState)
             {
-                state.SecretState = false;
-                state.ShortcutState = false;
-                state.ItemState = false;
                 foreach (var (_, obj) in state.ObjectState)
                 {
                     obj.HasInteracted = false;
