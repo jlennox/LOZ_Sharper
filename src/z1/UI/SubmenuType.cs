@@ -573,8 +573,8 @@ internal sealed class SubmenuType
             }
         }
 
-        var hasMap = _game.World.HasCurrentMap();
-        var hasCompass = _game.World.HasCurrentCompass();
+        var hasMap = _game.World.Profile.GetDungeonItem(_game.World.CurrentWorld, ItemId.Map);
+        var hasCompass = _game.World.Profile.GetDungeonItem(_game.World.CurrentWorld, ItemId.Compass);
 
         if (hasMap) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Map, 0x30, 0x68 + top);
         if (hasCompass) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Compass, 0x30, 0x90 + top);

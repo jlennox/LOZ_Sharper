@@ -173,7 +173,7 @@ internal sealed class StatusBar
     private void DrawMiniMapInner(int baseY)
     {
         var settings = _world.IsOverworld() ? MiniMapSettings.Overworld : MiniMapSettings.Underworld;
-        if (settings.RequiresMap && !_world.HasCurrentMap()) return;
+        var showMap = !settings.RequiresMap || _world.Profile.GetDungeonItem(_world.CurrentWorld, ItemId.Map);
 
         const int maxMapHeight = 8;
         // I hate this :)
@@ -184,7 +184,7 @@ internal sealed class StatusBar
         var grid = map.RoomGrid;
 
         var showMapCursors = _features.HasFlag(StatusBarFeatures.MapCursors);
-        var showTriforce = showMapCursors && _world.HasCurrentCompass();
+        var showTriforce = showMapCursors && _world.Profile.GetDungeonItem(_world.CurrentWorld, ItemId.Compass);
 
         var y = baseY + MiniMapY + (maxMapHeight - map.Height) * settings.TileHeight; // bottom align
         var basex = MiniMapX + (maxMapWidth - map.Width) / 2 * settings.TileWidth; // center align
@@ -203,13 +203,14 @@ internal sealed class StatusBar
                 var room = grid[xi, yi];
                 if (room == null) continue;
 
-                // int b = drawnMap[xi + MiniMapColumnOffset + xoff] << (yi + yoff);
-                //if ((b & 0x80) != 0)
                 // We still want to display the player's cursor in room's hidden from the map.
                 if (!room.Settings.HiddenFromMap)
                 {
-                    var tile = settings.Tile;
-                    settings.DrawTileFn(tile, x, y, settings);
+                    if (showMap)
+                    {
+                        var tile = settings.Tile;
+                        settings.DrawTileFn(tile, x, y, settings);
+                    }
 
                     // If this looks wrong, it's likely related to MiniMapColumnOffset.
                     if (showTriforce && room.IsTriforceRoom)

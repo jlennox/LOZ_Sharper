@@ -22,7 +22,6 @@ namespace z1;
 
 // Dungeon 1 bugs:
 // * Exits cellar in wrong place. Needs / 2 on X, and + basey on y?
-// * Compass does not work unless you have the map.
 // * Pushblock in dungeon one does not make secret sound.
 // * Bad guys can bop link into the top wall in dungeons.
 
@@ -39,11 +38,8 @@ namespace z1;
 // * Make fire shooters and spike traps objects.
 
 // Known tiled map issues:
-// * Q1 level 7 recorder spot isn't marked as first quest only -- there's an array in the original code for this.
-// * Somethings that shouldn't merge are still merging. Notably, overworld q6 entrance.
 // * Make recorder destinations spots on the map: ReadOnlySpan<int> teleportYs = [0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D];
 // * Fix _tempShutterRoomId
-// * Need to pass along entryroom start x/y's (Add EntersTo?)
 
 // Minor:
 // * Vire keese seem to spawn too close together. -- but the assembly seems to check out.

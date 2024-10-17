@@ -440,6 +440,7 @@ internal static class GLWindowGui
         {
             if (ImGui.MenuItem("Clear secrets")) game.GameCheats.TriggerCheat<GameCheats.ClearSecretsCheat>();
             if (ImGui.MenuItem("Clear history")) game.GameCheats.TriggerCheat<GameCheats.ClearHistoryCheat>();
+            if (ImGui.MenuItem("Clear Items")) game.Player.Profile.Reset();
             if (ImGui.MenuItem("Draw hit detection", null, game.World.DrawHitDetection)) game.World.DrawHitDetection = !game.World.DrawHitDetection;
             if (ImGui.MenuItem("Reload assets")) AssetLoader.Initialize();
             if (ImGui.MenuItem("Draw immediately", null, Graphics.ImmediateRenderer)) Graphics.ImmediateRenderer = !Graphics.ImmediateRenderer;

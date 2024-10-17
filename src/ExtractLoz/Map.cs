@@ -468,6 +468,10 @@ internal sealed class MapExtractor
         void AddInteractionWithQuest(int tileX, int tileY, int questId, TileAction action, InteractableBlock block)
         {
             block.CaveItems = block.Entrance?.Shop?.Items;
+            if (block.Item != null)
+            {
+                block.Item.Options |= ItemObjectOptions.IsRoomItem; // I'm pretty sure this is always true?
+            }
             var serialized = TiledPropertySerializer<InteractableBlock>.Serialize(block);
             tileactions.Add(new ActionableTiles(tileX, tileY, 1, 1, questId, action, serialized));
         }
@@ -543,7 +547,10 @@ internal sealed class MapExtractor
                     Name = nameof(TileAction.Item),
                     Interaction = Interaction.None,
                     Requirements = requirement,
-                    Item = new RoomItem { Item = uwItemId },
+                    Item = new RoomItem {
+                        Item = uwItemId,
+                        Options = ItemObjectOptions.IsRoomItem,
+                    },
                     Effect = effect,
                     Persisted = true,
                 });

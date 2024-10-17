@@ -265,6 +265,13 @@ internal sealed class PlayerProfile
         return profile;
     }
 
+    public void Reset()
+    {
+        Items.Reset();
+        DungeonItems = [];
+        RoomState = [];
+    }
+
     public void Initialize()
     {
         if (Hearts < PersistedItems.DefaultHeartCount) Hearts = PersistedItems.DefaultHeartCount;

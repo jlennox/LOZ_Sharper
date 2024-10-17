@@ -862,9 +862,6 @@ internal sealed partial class World
         }
     }
 
-    public bool HasCurrentMap() => Profile.GetDungeonItem(CurrentWorld, ItemId.Map);
-    public bool HasCurrentCompass() => Profile.GetDungeonItem(CurrentWorld, ItemId.Compass);
-
     private bool GetEffectiveDoorState(GameRoom room, Direction doorDir)
     {
         // TODO: the original game does it a little different, by looking at $EE.
