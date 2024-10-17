@@ -179,28 +179,37 @@ internal static class GlobalFunctions
     }
 
     public static void DrawChar(Chars ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency) => DrawChar((byte)ch, x, y, palette, flags);
-    public static void DrawChar(int ch, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
+    public static void DrawChar(
+        int ch, int x, int y, Palette palette,
+        DrawingFlags flags = DrawingFlags.NoTransparency,
+        DrawOrder order = DrawOrder.Background)
     {
         var srcX = (ch % 16) * 8;
         var srcY = (ch / 16) * 8;
 
-        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags, DrawOrder.Background);
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags, order);
     }
 
-    public static void DrawChar(int ch, int x, int y, int width, int height, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
+    public static void DrawChar(
+        int ch, int x, int y, int width, int height, Palette palette,
+        DrawingFlags flags = DrawingFlags.NoTransparency,
+        DrawOrder order = DrawOrder.Background)
     {
         var srcX = (ch % 16) * 8;
         var srcY = (ch / 16) * 8;
 
-        Graphics.DrawTile(TileSheet.Font, srcX, srcY, width, height, x, y, palette, flags, DrawOrder.Background);
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, width, height, x, y, palette, flags, order);
     }
 
-    public static void DrawChar(int ch, int x, int y, ReadOnlySpan<SKColor> palette, DrawingFlags flags = DrawingFlags.NoTransparency)
+    public static void DrawChar(
+        int ch, int x, int y, ReadOnlySpan<SKColor> palette,
+        DrawingFlags flags = DrawingFlags.NoTransparency,
+        DrawOrder order = DrawOrder.Background)
     {
         var srcX = (ch % 16) * 8;
         var srcY = (ch / 16) * 8;
 
-        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags, DrawOrder.Background);
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags, order);
     }
 
     public static void DrawString(ReadOnlySpan<int> str, int x, int y, Palette palette)

@@ -127,7 +127,7 @@ internal sealed class StatusBar
                 }
             }
 
-            DrawTile(tileId, tileInst.X, tileInst.Y + baseY, tileInst.Palette);
+            DrawTile(tileId, tileInst.X, tileInst.Y + baseY, tileInst.Palette, DrawOrder.Background);
         }
 
         DrawMiniMap(baseY);
@@ -147,9 +147,9 @@ internal sealed class StatusBar
         }
     }
 
-    private static void DrawTile(int tile, int x, int y, Palette palette)
+    private static void DrawTile(int tile, int x, int y, Palette palette, DrawOrder order)
     {
-        GlobalFunctions.DrawChar((byte)tile, x, y, palette, 0);
+        GlobalFunctions.DrawChar((byte)tile, x, y, palette, 0, order);
     }
 
     private static void DrawTile(int tile, int x, int y, MiniMapSettings settings)
@@ -218,13 +218,13 @@ internal sealed class StatusBar
                             ? Palette.Red
                             : Palette.SeaPal;
 
-                        DrawTile(0xE0, x + 2, y, palette);
+                        DrawTile(0xE0, x + 2, y, palette, DrawOrder.Sprites);
                     }
                 }
 
                 if (showMapCursors && room == _world.CurrentRoom && !room.HidePlayerMapCursor)
                 {
-                    DrawTile(0xE0, x + settings.CursorXOffset, y, Palette.Player);
+                    DrawTile(0xE0, x + settings.CursorXOffset, y, Palette.Player, DrawOrder.Foreground);
                 }
             }
         }

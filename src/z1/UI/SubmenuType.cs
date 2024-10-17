@@ -420,7 +420,7 @@ internal sealed class SubmenuType
 
         var cursorPals = new[] { Palette.Blue, Palette.Red };
         var cursorPal = cursorPals[(_game.World.Game.FrameCounter >> 3) & 1];
-        _cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal, DrawOrder.Background);
+        _cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal, DrawOrder.Sprites);
     }
 
     private void DrawPassiveInventory(int top)
@@ -601,17 +601,17 @@ internal sealed class SubmenuType
                     if (room.PersistedRoomState.VisitState)
                     {
                         var tile = 0xD0 + GetDoorTileOffset(room);
-                        GlobalFunctions.DrawChar(tile, x, y, (Palette)1);
+                        GlobalFunctions.DrawChar(tile, x, y, (Palette)1, DrawingFlags.NoTransparency, DrawOrder.Sprites);
                     }
                     else if (hasMap)
                     {
-                        GlobalFunctions.DrawChar(0xD0, x, y, hasNotSeenPalette);
+                        GlobalFunctions.DrawChar(0xD0, x, y, hasNotSeenPalette, DrawingFlags.NoTransparency, DrawOrder.Sprites);
                     }
                 }
 
                 if (room == _game.World.CurrentRoom)
                 {
-                    GlobalFunctions.DrawChar(0xE0, x + 2, y + 3, Palette.Player, DrawingFlags.None);
+                    GlobalFunctions.DrawChar(0xE0, x + 2, y + 3, Palette.Player, DrawingFlags.None, DrawOrder.Foreground);
                 }
             }
         }
