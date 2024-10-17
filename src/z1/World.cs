@@ -874,7 +874,7 @@ internal sealed partial class World
             || (_tempShutterDoorDir == doorDir && room == _tempShutterRoom);
     }
 
-    public bool IsOverworld() => CurrentWorld.IsOverworld;
+    public bool IsOverworld() => CurrentWorld != null && CurrentWorld.IsOverworld;
 
     public Actor DebugSpawnItem(ItemId itemId)
     {
@@ -2848,7 +2848,7 @@ internal sealed partial class World
 
             if (_state.EndLevel.Substate == EndLevelState.Substates.Wait3)
             {
-                GotoLoadLevel(0);
+                GotoLoadOverworld();
             }
             else
             {

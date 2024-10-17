@@ -529,7 +529,14 @@ internal sealed class ItemObjActor : Actor
     // Can return false to prevent the item from being picked up. IE, if the player couldn't afford it in a shop.
     public event Func<ItemObjActor, bool>? OnTouched;
 
+    private readonly ObjectState? _state;
+
     public ItemObjActor(World world, ItemId itemId, ItemObjectOptions options, int x, int y)
+        : this(world, null, itemId, options, x, y)
+    {
+    }
+
+    public ItemObjActor(World world, string? name, ItemId itemId, ItemObjectOptions options, int x, int y)
         : base(world, ObjType.Item, x, y)
     {
         Decoration = 0;
@@ -537,9 +544,18 @@ internal sealed class ItemObjActor : Actor
         _itemId = itemId;
         _options = options;
 
-        if (!_options.HasFlag(ItemObjectOptions.IsRoomItem))
+        if (!options.HasFlag(ItemObjectOptions.IsRoomItem))
         {
             _timer = DespawnTime;
+        }
+
+        if (options.HasFlag(ItemObjectOptions.Persisted))
+        {
+            if (name == null) throw new ArgumentNullException(nameof(name), "Object decleared as persisted but requires a name argument.");
+
+            _state = world.Player.Profile.GetObjectFlags(world.CurrentRoom, name);
+            _state.ItemId = itemId;
+            if (_state.ItemGot) Delete();
         }
     }
 
@@ -609,6 +625,12 @@ internal sealed class ItemObjActor : Actor
         if (OnTouched?.Invoke(this) == false) return;
 
         OptionalDelete();
+
+        if (_options.HasFlag(ItemObjectOptions.Persisted))
+        {
+            var state = _state ?? throw new Exception();
+            state.ItemGot = true;
+        }
 
         if (_itemId == ItemId.PowerTriforce)
         {

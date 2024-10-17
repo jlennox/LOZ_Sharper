@@ -212,11 +212,11 @@ internal static class GlobalFunctions
         Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags, order);
     }
 
-    public static void DrawString(ReadOnlySpan<int> str, int x, int y, Palette palette)
+    public static void DrawString(ReadOnlySpan<int> str, int x, int y, Palette palette, DrawOrder order = DrawOrder.Sprites)
     {
         foreach (var t in str)
         {
-            DrawChar(t, x, y, palette);
+            DrawChar(t, x, y, palette, DrawingFlags.NoTransparency, order);
             x += 8;
         }
     }
@@ -241,13 +241,16 @@ internal static class GlobalFunctions
         }
     }
 
-    public static void DrawString(string? str, int x, int y, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
+    public static void DrawString(
+        string? str, int x, int y, Palette palette,
+        DrawingFlags flags = DrawingFlags.NoTransparency,
+        DrawOrder order = DrawOrder.Background)
     {
         if (str == null) return;
 
         foreach (var t in GameString.EnumerateText(str))
         {
-            DrawChar(t, x, y, palette, flags);
+            DrawChar(t, x, y, palette, flags, order);
             x += 8;
         }
     }

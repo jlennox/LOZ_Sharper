@@ -36,23 +36,13 @@ internal abstract class InteractableActor<T> : Actor
         Interactable = interactable;
         Decoration = 0;
 
-        _state = new Lazy<ObjectState>(() => World.Profile.GetObjectFlags(World.CurrentRoom, Interactable.Name));
+        _state = new Lazy<ObjectState>(() => Interactable.GetObjectState(World));
     }
 
     public void DebugSetInteracted() => SetInteracted(false);
 
     public override void Update()
     {
-        if (!_hasUpdateRun)
-        {
-            // This used to use _setInteracted, but that failed because things set to None then would not check if the
-            // Requirements are met. The idea behind _setInteracted was that it wouldn't check requirements, incase you
-            // trigger something, then lose that. IE, later in the quest you lose the item and that's ok. But we can
-            // recross this bridge when and if it comes up again.
-            if (HasInteracted) SetInteracted(true);
-            _hasUpdateRun = true;
-        }
-
         if (_setInteracted)
         {
             _setInteracted = false;
@@ -75,6 +65,16 @@ internal abstract class InteractableActor<T> : Actor
                 SetInteracted(false);
             }
             return UpdateState.None;
+        }
+
+        if (!_hasUpdateRun)
+        {
+            // This used to use _setInteracted, but that failed because things set to None then would not check if the
+            // Requirements are met. The idea behind _setInteracted was that it wouldn't check requirements, incase you
+            // trigger something, then lose that. IE, later in the quest you lose the item and that's ok. But we can
+            // recross this bridge when and if it comes up again.
+            if (HasInteracted) SetInteracted(true);
+            _hasUpdateRun = true;
         }
 
         if (_hasPerformedInteraction || _initializerSetInteracted)
@@ -181,6 +181,20 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
 
         _raft = RaftInteraction.Create(world, this);
         _push = PushInteraction.Create(world, this);
+    }
+
+    public static Actor Make(World world, InteractableBlockObject block)
+    {
+        // This is unfortunately needed so that bad guys as they spawn in can see the items to "hold" them
+        // when possible in the underworld. This code could really use a cleanup.
+        if (block.Interaction.IsItemOnly())
+        {
+            var options = block.Interaction.Item!.Options;
+            if (block.Interaction.Persisted) options |= ItemObjectOptions.Persisted;
+            return new ItemObjActor(world, block.Interaction.Name, block.Interaction.Item.Item, options, block.X, block.Y + World.TileMapBaseY);
+        }
+
+        return new InteractableBlockActor(world, block);
     }
 
     protected override UpdateState UpdateCore()
@@ -340,7 +354,6 @@ public enum BackgroundRemoval { None, Immediate, Deferred }
 internal sealed class PushInteraction
 {
     private int _pushTimer;
-
 
     private readonly World _world;
     private readonly InteractableBlockActor _interactive;
@@ -622,5 +635,13 @@ internal sealed class RaftInteraction
         {
             _raftImage.Draw(TileSheet.PlayerAndItems, _interactive.X, _interactive.Y, Palette.Player, DrawOrder.Sprites);
         }
+    }
+}
+
+internal static class InteractableExtensions
+{
+    public static ObjectState GetObjectState(this InteractableBase interactable, World world)
+    {
+        return world.Profile.GetObjectFlags(world.CurrentRoom, interactable.Name);
     }
 }

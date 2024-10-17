@@ -254,6 +254,7 @@ public enum ItemObjectOptions
     IsRoomItem = 1 << 0,
     LiftOverhead = 1 << 1,
     BecomesInactive = 1 << 2,
+    Persisted = 1 << 3,
 }
 
 [TiledClass]

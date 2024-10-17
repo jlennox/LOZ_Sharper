@@ -151,17 +151,7 @@ internal partial class World
     {
         foreach (var block in room.InteractableBlockObjects)
         {
-            // This is unfortunately needed so that bad guys as they spawn in can see the items to "hold" them
-            // when possible in the underworld.
-            if (block.Interaction.IsItemOnly())
-            {
-                var options = block.Interaction.Item!.Options;
-                _objects.Add(new ItemObjActor(this, block.Interaction.Item.Item, options, block.X, block.Y + TileMapBaseY));
-            }
-            else
-            {
-                _objects.Add(new InteractableBlockActor(this, block));
-            }
+            _objects.Add(InteractableBlockActor.Make(this, block));
         }
 
         foreach (var roomInteraction in room.RoomInteractions)
