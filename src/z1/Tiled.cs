@@ -730,6 +730,13 @@ internal sealed class RoomTileMap
         }
     }
 
+    private static (int TileX, int TileY) TileFromRoomXY(int x, int y)
+    {
+        var fineTileX = x / World.TileWidth;
+        var fineTileY = (y - World.TileMapBaseY) / World.TileHeight;
+        return (fineTileX, fineTileY);
+    }
+
     public void Blit(TiledTile[] source, int srcWidth, int srcHeight, int destX, int destY)
     {
         var srcIndex = 0;
@@ -780,6 +787,12 @@ internal sealed class RoomTileMap
         Behavior(tileX + 1, tileY) = behavior;
         Behavior(tileX, tileY + 1) = behavior;
         Behavior(tileX + 1, tileY + 1) = behavior;
+    }
+
+    public void SetBlockBehaviorXY(int x, int y, TileBehavior behavior)
+    {
+        var (tileX, tileY) = TileFromRoomXY(x, y);
+        SetBlockBehavior(tileX, tileY, behavior);
     }
 
     public void SetBlock(int tileX, int tileY, TiledTile tile)

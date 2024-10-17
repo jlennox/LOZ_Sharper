@@ -984,6 +984,8 @@ internal static class Extensions
 [DebuggerDisplay("{Id} ({X},{Y})")]
 internal readonly struct RoomId
 {
+    public static readonly RoomId WaterfallRoom = new RoomId(10, 1);
+
     public int Id { get; }
     public int? UniqueRoomId { get; init; }
 

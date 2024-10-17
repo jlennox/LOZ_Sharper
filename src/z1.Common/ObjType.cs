@@ -395,6 +395,8 @@ public enum SongId
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum BlockType
 {
+    None = -1,
+
     Dock = 0x0B,
     Cave = 0x0C,
     Ground = 0x0E,

@@ -229,7 +229,15 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
 
         if (Interactable.Entrance.IsValid())
         {
-            World.SetMapObjectXY(X, Y, Interactable.Entrance.BlockType);
+            if (Interactable.Entrance.BlockType == BlockType.None)
+            {
+                World.CurrentRoom.RoomMap.SetBlockBehaviorXY(X, Y, TileBehavior.GenericWalkable);
+            }
+            else
+            {
+                World.SetMapObjectXY(X, Y, Interactable.Entrance.BlockType);
+            }
+
             if (!initializing)
             {
                 OptionalSound(initializing);

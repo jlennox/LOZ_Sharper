@@ -724,7 +724,9 @@ internal sealed class MapExtractor
                     }
                     else if (action is TileAction.Cave or TileAction.Bomb || isArmosStairs)
                     {
-                        interaction.Entrance = EntranceWith(BlockType.Cave);
+                        // The waterfall room remains as a waterfall and not a cave.
+                        var owCaveType = roomId == RoomId.WaterfallRoom ? BlockType.None : BlockType.Cave;
+                        interaction.Entrance = EntranceWith(owCaveType);
                     }
 
                     switch (action)

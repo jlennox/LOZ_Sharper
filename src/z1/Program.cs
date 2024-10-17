@@ -16,7 +16,6 @@ namespace z1;
 // * Octorok's in room NW of vanilla start seem to twitch when on the bottom row. They try to turn downward, can't,
 //   and flicker back to the left immediately.
 // * Warp caves appear before pushing rock. They also appear as cave, not stairs.
-// * Do not save cave on waterfall graphic.
 // * Set caves prior to scrolling, otherwise they only appear after scrolling has finished.
 // * Fix potion shop.
 // * Track the old spawn in time values and compare to the new. New ones seem longer.

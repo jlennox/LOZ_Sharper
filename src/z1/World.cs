@@ -440,8 +440,6 @@ internal sealed partial class World
     private void SetMapObject(int tileY, int tileX, BlockType block)
     {
         var map = CurrentRoom.RoomMap;
-        // _loadMapObjectFunc(ref map, tileY, tileX, (byte)mobIndex); // JOE: FIXME: BlockObjTypes
-        // map.SetBlock(tileX, tileY, new TiledTile(1));
         if (!CurrentRoom.TryGetBlockObjectTiles(block, out var tileObject))
         {
             throw new Exception($"Unable to locate BlockObjType {block}");
