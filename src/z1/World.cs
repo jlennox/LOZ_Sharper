@@ -466,7 +466,7 @@ internal sealed partial class World
     public IEnumerable<T> GetObjects<T>() where T : Actor => _objects.OfType<T>(); // JOE: De-linq this.
     public IEnumerable<T> GetObjects<T>(Func<T, bool> pred) where T : Actor => _objects.OfType<T>().Where(pred); // JOE: De-linq this.
     public IEnumerable<Actor> GetObjects(Func<Actor, bool> pred) => GetObjects<Actor>(pred);
-    public int CountObjects<T>() where T : Actor => GetObjects<T>().Count();
+    public int CountObjects<T>() where T : Actor => GetObjects<T>().Count(static t => !t.IsDeleted);
     public int CountObjects() => _objects.Count;
 
     public bool HasObject<T>() where T : Actor => GetObjects<T>().Any();

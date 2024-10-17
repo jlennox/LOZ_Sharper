@@ -1911,8 +1911,18 @@ internal sealed class BlueLeeverActor : DigWanderer
     }
 }
 
+internal enum RedLeeverState
+{
+    Hidden,
+    Mound,
+    Half,
+    Full,
+}
+
 internal sealed class RedLeeverActor : Actor
 {
+    private const int MaxConcurrentRedLeevers = 2;
+
     private static readonly ImmutableArray<AnimationId> _leeverAnimMap = [
         AnimationId.OW_Leever,
         AnimationId.OW_Leever,
@@ -1943,11 +1953,9 @@ internal sealed class RedLeeverActor : Actor
 
     private static readonly ImmutableArray<int> _redLeeverStateTimes = [0x00, 0x10, 0x08, 0xFF, 0x08, 0x10];
 
-    private static int _count;
-
     private readonly SpriteAnimator _animator;
 
-    private int _state;
+    private RedLeeverState _state;
     private WalkerSpec _spec;
 
     public RedLeeverActor(World world, int x, int y)
@@ -1969,18 +1977,20 @@ internal sealed class RedLeeverActor : Actor
         World.SetStunTimer(StunTimerSlot.RedLeever, 5);
     }
 
+    private int Count() => World.GetObjects<RedLeeverActor>().Count(DoesCount);
+
     public override void Update()
     {
         var advanceState = false;
 
-        if (_state == 0)
+        if (_state == RedLeeverState.Hidden)
         {
-            if (_count >= 2 || World.GetStunTimer(StunTimerSlot.RedLeever) != 0) return;
+            if (Count() >= MaxConcurrentRedLeevers || World.GetStunTimer(StunTimerSlot.RedLeever) != 0) return;
             if (!TargetPlayer()) return;
             World.SetStunTimer(StunTimerSlot.RedLeever, 2);
             advanceState = true;
         }
-        else if (_state == 3)
+        else if (_state == RedLeeverState.Full)
         {
             if (ShoveDirection != 0)
             {
@@ -2005,30 +2015,20 @@ internal sealed class RedLeeverActor : Actor
             }
         }
 
-        if (advanceState || (_state != 3 && ObjTimer == 0))
+        if (advanceState || (_state != RedLeeverState.Full && ObjTimer == 0))
         {
-            _state = (_state + 1) % _redLeeverStateTimes.Length;
-            ObjTimer = (byte)_redLeeverStateTimes[_state];
-            SetSpec(_redLeeverSpecs[_state]);
+            _state = (RedLeeverState)(((int)_state + 1) % _redLeeverStateTimes.Length);
+            ObjTimer = (byte)_redLeeverStateTimes[(int)_state];
+            SetSpec(_redLeeverSpecs[(int)_state]);
 
-            var countChange = _state switch {
-                0 => -1,
-                1 => 1,
-                _ => 0,
-            };
-            _count += countChange;
-            Debug.Assert(_count is >= 0 and <= 2);
+            Debug.Assert(Count() is >= 0 and <= 2);
         }
 
         _animator.Advance();
 
-        if (_state == 3)
+        if (_state == RedLeeverState.Full)
         {
             CheckCollisions();
-            if (Decoration != 0 && this is RedLeeverActor)
-            {
-                _count--;
-            }
         }
     }
 
@@ -2094,9 +2094,12 @@ internal sealed class RedLeeverActor : Actor
         return true;
     }
 
-    public static void ClearRoomData()
+    private static bool DoesCount(RedLeeverActor redleever)
     {
-        _count = 0;
+        if (redleever.IsDeleted) return false;
+        if (redleever._state == RedLeeverState.Hidden) return false;
+        if (redleever._state == RedLeeverState.Full && redleever.Decoration != 0) return false;
+        return true;
     }
 }
 
@@ -3019,25 +3022,6 @@ internal abstract class JumperActor : MonsterActor
 
         Facing = world.Game.Random.GetRandom(JumperStartDirs);
         ObjTimer = (byte)((int)Facing * 4);
-
-        if (this is BoulderActor)
-        {
-            BouldersActor.Count++;
-            Decoration = 0;
-        }
-    }
-
-    public override bool Delete()
-    {
-        if (base.Delete())
-        {
-            if (this is BoulderActor)
-            {
-                BouldersActor.Count--;
-            }
-            return true;
-        }
-        return false;
     }
 
     public override void Update()
@@ -3220,6 +3204,7 @@ internal sealed class BoulderActor : JumperActor
     public BoulderActor(World world, int x, int y)
         : base(world, ObjType.Boulder, WorldLevel.Overworld, _boulderSpec, x, y)
     {
+        Decoration = 0;
     }
 }
 
@@ -3260,9 +3245,7 @@ internal sealed class TektiteActor : JumperActor
 
 internal sealed class BouldersActor : MonsterActor
 {
-    private const int MaxBoulders = 3;
-
-    public static int Count;
+    private const int MaxConcurrentBoulders = 3;
 
     public BouldersActor(World world, int x, int y)
         : base(world, ObjType.Boulders, x, y)
@@ -3272,11 +3255,13 @@ internal sealed class BouldersActor : MonsterActor
         Decoration = 0;
     }
 
+    private int Count() => World.CountObjects<BoulderActor>();
+
     public override void Update()
     {
         if (ObjTimer != 0) return;
 
-        if (Count < MaxBoulders)
+        if (Count() < MaxConcurrentBoulders)
         {
             var playerPos = World.GetObservedPlayerPos();
             const int y = World.WorldLimitTop;
@@ -3307,8 +3292,6 @@ internal sealed class BouldersActor : MonsterActor
     public override void Draw()
     {
     }
-
-    public static void ClearRoomData() => Count = 0;
 }
 
 internal sealed class TrapActor : MonsterActor

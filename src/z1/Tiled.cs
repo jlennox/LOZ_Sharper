@@ -513,7 +513,7 @@ internal sealed class GameRoom
         _waterTileCount = CountWaterTiles();
         _unmodifiedRoomMap = RoomMap.Clone();
 
-        IsTriforceRoom = InteractableBlockObjects.Any(t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
+        IsTriforceRoom = InteractableBlockObjects.Any(static t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
     }
 
     public void InitializeInteractiveGameObjects(RoomArguments arguments)
@@ -633,7 +633,7 @@ internal sealed class GameRoom
     {
         if (!IsTriforceRoom) return false;
 
-        var triforceState = PersistedRoomState.ObjectState.FirstOrDefault(t => t.Value.ItemId == ItemId.TriforcePiece);
+        var triforceState = PersistedRoomState.ObjectState.FirstOrDefault(static t => t.Value.ItemId == ItemId.TriforcePiece);
         if (triforceState.Value == null) return false;
 
         return !triforceState.Value.ItemGot;

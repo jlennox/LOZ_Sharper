@@ -334,8 +334,6 @@ internal static class GlobalFunctions
 
     public static void ClearRoomMonsterData()
     {
-        RedLeeverActor.ClearRoomData();
-        BouldersActor.ClearRoomData();
         Statues.Init();
     }
 }
