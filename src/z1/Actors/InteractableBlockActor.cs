@@ -31,7 +31,7 @@ internal abstract class InteractableActor<T> : Actor
     private readonly Lazy<ObjectState> _state;
 
     protected InteractableActor(World world, T interactable, int x, int y)
-        : base(world, ObjType.Block, x, y + z1.World.TileMapBaseY)
+        : base(world, ObjType.Block, x, y + World.TileMapBaseY)
     {
         Interactable = interactable;
         Decoration = 0;
@@ -252,6 +252,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
             var itemId = Interactable.Item.Item;
             var flags = Interactable.Item.Options;
             var itemActor = new ItemObjActor(World, itemId, flags, X, Y);
+            State.ItemId = itemId;
             itemActor.OnTouched += _ => State.ItemGot = true;
             World.AddObject(itemActor);
             OptionalSound(initializing);
@@ -264,7 +265,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
             {
                 _stillSpawningActor = World.MakeActivatedObject(
                     Interactable.SpawnedType.Value,
-                    X / z1.World.TileWidth, Y / z1.World.TileHeight - z1.World.BaseRows);
+                    X / World.TileWidth, Y / World.TileHeight - World.BaseRows);
             }
         }
     }

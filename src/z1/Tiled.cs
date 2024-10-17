@@ -350,7 +350,7 @@ internal sealed class GameRoom
     private readonly RoomTileMap _unmodifiedRoomMap;
     public bool HidePlayerMapCursor { get; set; }
     public bool IsTriforceRoom { get; set; }
-    public bool HasTriforce => IsTriforceRoom; // JOE: MAP REWRITE Arg. Figure this out! && !PersistedRoomState.ObjectState.FirstOrDefault()?;
+    public bool HasTriforce => DoesContainTriforce();
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
     public PersistedRoomState PersistedRoomState => _roomState.Value;
@@ -563,7 +563,7 @@ internal sealed class GameRoom
             for (var tileX = 0; tileX < Width - 1; tileX++)
             {
                 if (!RoomMap.CheckBlockBehavior(tileX, tileY, TileBehavior.Water)) continue;
-                if (waterCount == randomCell) return new Cell((byte)(tileY + z1.World.BaseRows), (byte)tileX);
+                if (waterCount == randomCell) return new Cell((byte)(tileY + World.BaseRows), (byte)tileX);
                 waterCount++;
             }
         }
@@ -627,6 +627,16 @@ internal sealed class GameRoom
         }
 
         return true;
+    }
+
+    private bool DoesContainTriforce()
+    {
+        if (!IsTriforceRoom) return false;
+
+        var triforceState = PersistedRoomState.ObjectState.FirstOrDefault(t => t.Value.ItemId == ItemId.TriforcePiece);
+        if (triforceState.Value == null) return false;
+
+        return !triforceState.Value.ItemGot;
     }
 
     public override string ToString() => $"{GameWorld.Name}/{UniqueId} ({Name})";

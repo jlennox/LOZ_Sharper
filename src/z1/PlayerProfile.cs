@@ -10,6 +10,7 @@ namespace z1;
 
 internal sealed class ObjectState
 {
+    public ItemId? ItemId { get; set; }
     public bool HasInteracted { get; set; }
     public bool ItemGot { get; set; }
 }
