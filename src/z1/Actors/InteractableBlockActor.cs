@@ -4,6 +4,11 @@ using z1.Render;
 
 namespace z1.Actors;
 
+// Expectations:
+//
+// - Both push blocks in level 1 (gel and cellar room) should make secret sound when pushed.
+// - Boomerang should make item sound when it appears in level 1.
+
 [DebuggerDisplay("{Interactable.Name} ({X},{Y})")]
 internal abstract class InteractableActor<T> : Actor
     where T : InteractableBase
@@ -272,12 +277,11 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
         if (Interactable.Item != null && !State.ItemGot)
         {
             var itemId = Interactable.Item.Item;
-            var flags = Interactable.Item.Options;
-            var itemActor = new ItemObjActor(World, itemId, flags, X, Y);
+            var options = Interactable.Item.Options;
+            var itemActor = new ItemObjActor(World, itemId, options, X, Y);
             State.ItemId = itemId;
             itemActor.OnTouched += _ => State.ItemGot = true;
             World.AddObject(itemActor);
-            OptionalSound(initializing);
         }
 
         if (Interactable.SpawnedType != null && Interactable.SpawnedType != ObjType.None)

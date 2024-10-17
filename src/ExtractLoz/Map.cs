@@ -542,6 +542,10 @@ internal sealed class MapExtractor
                 // I have no idea why this is required and it really shouldn't be.
                 var yItemOffset = isCellar ? 4 * TileHeight : 0;
 
+                var noise = secret is Secret.FoesItem or Secret.LastBoss
+                    ? ItemObjectOptions.MakeItemSound
+                    : ItemObjectOptions.None;
+
                 AddInteractionP(GetTileCoords(pos.X, pos.Y + yItemOffset), TileAction.Item, new InteractableBlock
                 {
                     Name = nameof(TileAction.Item),
@@ -549,7 +553,7 @@ internal sealed class MapExtractor
                     Requirements = requirement,
                     Item = new RoomItem {
                         Item = uwItemId,
-                        Options = ItemObjectOptions.IsRoomItem,
+                        Options = ItemObjectOptions.IsRoomItem | noise,
                     },
                     Effect = effect,
                     Persisted = true,

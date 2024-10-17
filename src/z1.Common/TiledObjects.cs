@@ -255,6 +255,7 @@ public enum ItemObjectOptions
     LiftOverhead = 1 << 1,
     BecomesInactive = 1 << 2,
     Persisted = 1 << 3,
+    MakeItemSound = 1 << 4,
 }
 
 [TiledClass]

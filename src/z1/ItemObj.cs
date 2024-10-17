@@ -555,7 +555,16 @@ internal sealed class ItemObjActor : Actor
 
             _state = world.Player.Profile.GetObjectFlags(world.CurrentRoom, name);
             _state.ItemId = itemId;
-            if (_state.ItemGot) Delete();
+            if (_state.ItemGot)
+            {
+                Delete();
+                return;
+            }
+        }
+
+        if (options.HasFlag(ItemObjectOptions.MakeItemSound))
+        {
+            world.Game.Sound.PlayEffect(SoundEffect.Item);
         }
     }
 

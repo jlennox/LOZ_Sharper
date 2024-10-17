@@ -18,11 +18,10 @@ namespace z1;
 // * Fix potion shop.
 // * Track the old spawn in time values and compare to the new. New ones seem longer.
 // * Does not lift cellar items overhead.
-// * Spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
+// * Player spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
 
 // Dungeon 1 bugs:
 // * Exits cellar in wrong place. Needs / 2 on X, and + basey on y?
-// * Pushblock in dungeon one does not make secret sound.
 // * Bad guys can bop link into the top wall in dungeons.
 
 // Know behavior changes:
