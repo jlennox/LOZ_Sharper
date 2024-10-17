@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using System.Windows.Forms;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 using z1.IO;
@@ -13,6 +12,8 @@ internal enum DrawOrder
     Sprites,
     Player,
     Foreground,
+    Overlay,
+    OverlayForeground,
 }
 
 internal sealed unsafe class GLImage : IDisposable

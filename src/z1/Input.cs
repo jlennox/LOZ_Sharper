@@ -48,6 +48,7 @@ internal enum GameButton
     CheatGodMode,
     CheatClip,
     ToggleDebugInfo,
+    ToggleMhzDisaster,
 
     AudioMuteToggle,
     AudioIncreaseVolume,

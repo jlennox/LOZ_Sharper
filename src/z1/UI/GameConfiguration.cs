@@ -253,6 +253,7 @@ internal sealed class InputConfiguration
         { new KeyboardMapping(Key.F, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatFullHealth },
         { new KeyboardMapping(Key.Q, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatGodMode },
         { new KeyboardMapping(Key.D, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.ToggleDebugInfo },
+        { new KeyboardMapping(Key.Tab), GameButton.ToggleMhzDisaster },
 #endif
     };
 
@@ -284,7 +285,7 @@ internal sealed class InputConfiguration
         { GamepadButton.X, GameButton.CheatFullHealth },
         { GamepadButton.Y, GameButton.CheatClip },
         { GamepadButton.TriggerLeft, GameButton.CheatKillAll },
-        { GamepadButton.TriggerRight, GameButton.CheatSpeedUp },
+        { GamepadButton.TriggerRight, GameButton.ToggleMhzDisaster },
 #else
         { GamepadButton.StickLeftButton, GameButton.None },
         { GamepadButton.StickRightButton, GameButton.None },

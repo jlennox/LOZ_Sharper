@@ -31,8 +31,8 @@ internal sealed class OnScreenDisplay
                 continue;
             }
 
-            GlobalFunctions.DrawString(osd.Text, 0, y - 1, Palette.Red, DrawingFlags.None);
-            GlobalFunctions.DrawString(osd.Text, 1, y, 0, DrawingFlags.None);
+            GlobalFunctions.DrawString(osd.Text, 0, y - 1, Palette.Red, DrawingFlags.None, DrawOrder.OverlayForeground);
+            GlobalFunctions.DrawString(osd.Text, 1, y, 0, DrawingFlags.None, DrawOrder.Overlay);
             y += 10;
         }
     }

@@ -52,6 +52,8 @@ internal sealed class Game
         public static bool SpeedUp = false;
         public static bool GodMode = false;
         public static bool NoClip = false;
+        public static bool EnableMhzDisaster = false;
+        public static int MhzDisaster = 3;
     }
 
     public GameEnhancements Enhancements => Configuration.Enhancements;
@@ -174,6 +176,8 @@ internal sealed class Game
         {
             Configuration.DebugInfo.Enabled = !Configuration.DebugInfo.Enabled;
         }
+
+        Cheats.EnableMhzDisaster = Input.IsButtonDown(GameButton.ToggleMhzDisaster);
     }
 
     public void Draw()
