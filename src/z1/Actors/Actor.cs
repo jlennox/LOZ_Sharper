@@ -280,12 +280,12 @@ internal abstract class Actor
 
         if ((Y & 0x0F) != 0x0D) return false;
 
-        var fineCol = X / z1.World.TileWidth;
-        var fineCol2 = x / z1.World.TileWidth;
+        var fineCol = X / World.TileWidth;
+        var fineCol2 = x / World.TileWidth;
         if (fineCol != fineCol2) return false;
 
-        var fineRow = (Y + 3 - 0x40) / z1.World.TileHeight;
-        var fineRow2 = (y + 3 - 0x40) / z1.World.TileHeight;
+        var fineRow = (Y + 3 - 0x40) / World.TileHeight;
+        var fineRow2 = (y + 3 - 0x40) / World.TileHeight;
         return fineRow == fineRow2;
     }
 

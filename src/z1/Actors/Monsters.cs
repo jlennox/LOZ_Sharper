@@ -1853,8 +1853,8 @@ internal sealed class ZoraActor : DigWanderer
                 var player = Game.Player;
                 var cell = World.CurrentRoom.GetRandomWaterTile();
 
-                X = cell.X * z1.World.TileWidth;
-                Y = cell.Y * z1.World.TileHeight - 3;
+                X = cell.X * World.TileWidth;
+                Y = cell.Y * World.TileHeight - 3;
 
                 Facing = player.Y >= Y ? Direction.Down : Direction.Up;
             }
@@ -4214,7 +4214,7 @@ internal sealed class WallmasterActor : MonsterActor
 
     private void UpdateIdle()
     {
-        if (World.GetObjectTimer(z1.World.ObjectTimer.Monster1) != 0) return;
+        if (World.GetObjectTimer(World.ObjectTimer.Monster1) != 0) return;
 
         var player = Game.Player;
 
@@ -4257,7 +4257,7 @@ internal sealed class WallmasterActor : MonsterActor
 
         _state = 1;
         _tilesCrossed = 0;
-        World.SetObjectTimer(z1.World.ObjectTimer.Monster1, 0x60);
+        World.SetObjectTimer(World.ObjectTimer.Monster1, 0x60);
         Facing = (Direction)(_wallmasterDirs[_dirIndex] & 0x0F);
         TileOffset = 0;
     }

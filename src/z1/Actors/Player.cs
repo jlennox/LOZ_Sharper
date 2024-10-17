@@ -79,6 +79,8 @@ internal sealed class Player : Actor, IThrower
 
     private readonly PlayerParalyzedTokenSource _paralyzedTokenSource = new();
     public bool IsParalyzed => _paralyzedTokenSource.IsParalyzed;
+    public bool FromUnderground { get; set; }
+    public bool CandleUsed { get; set; }
 
     private int _state; // JOE: TODO: Enumify this as using PlayerState.
     private byte _speed;
@@ -253,7 +255,7 @@ internal sealed class Player : Actor, IThrower
             if ((TileOffset & 7) != 0) return;
             TileOffset = 0;
             if (mode != GameMode.Play) return;
-            World.FromUnderground = 0;
+            World.Player.FromUnderground = false;
         }
 
         if (mode != GameMode.Play) return;
@@ -760,9 +762,9 @@ internal sealed class Player : Actor, IThrower
     public int UseCandle(int x, int y, Direction facingDir)
     {
         var itemValue = World.GetItem(ItemSlot.Candle);
-        if (itemValue == 1 && World.CandleUsed) return 0;
+        if (itemValue == 1 && World.Player.CandleUsed) return 0;
 
-        World.CandleUsed = true;
+        World.Player.CandleUsed = true;
 
         var count = World.CountObjects<FireActor>();
         var allowed = World.GetItem(ItemSlot.MaxConcurrentProjectiles);

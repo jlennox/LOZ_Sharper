@@ -277,7 +277,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
         if (World.GetMode() != GameMode.Play) return;
         // JOE: Arg. I don't like the FromUnderground check too much. The value
         // is unset inside CheckWater, which is not at all intuitive.
-        if (World.FromUnderground != 0) return;
+        if (World.Player.FromUnderground) return;
 
         if (!World.Player.DoesCover(this)) return;
         World.GotoStairs(TileBehavior.Cave, caveEntrance, State);

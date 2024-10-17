@@ -172,7 +172,7 @@ internal partial class World
 
     private void ClearRoomItemData()
     {
-        CandleUsed = false;
+        Player.CandleUsed = false;
         _summonedWhirlwind = false;
         _brightenRoom = false;
     }

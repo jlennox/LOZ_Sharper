@@ -285,7 +285,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
     // Used only by Aquamentis
     public int? Offset { get; }
 
-    // JOE: NOTE: These mirror the original X/Y values but are floats to keep precision?
+    // JOE: NOTE: These mirror the original X/Y values but are floats to keep precision.
     private float _x;
     private float _y;
     private readonly float _speedX;
@@ -379,7 +379,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     private static readonly DebugLog _log = new(nameof(BoomerangProjectile));
 
-    public bool IsPlayerWeapon => Owner.IsPlayer;
+    public bool IsPlayerWeapon => Owner!.IsPlayer;
 
     private readonly int _startX;
     private readonly int _startY;
@@ -416,7 +416,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     public static int PlayerCount(World world)
     {
-        return world.GetObjects<BoomerangProjectile>().Count(t => t.Owner.IsPlayer);
+        return world.GetObjects<BoomerangProjectile>().Count(t => t.Owner!.IsPlayer);
     }
 
     public bool IsInShotStartState()

@@ -115,10 +115,6 @@ internal sealed partial class World
     public bool SwordBlocked;           // 52E
     public byte WhirlwindTeleporting;   // 522
     public Direction DoorwayDir;         // 53
-    // JOE: TODO: Stick this on Player?
-    public int FromUnderground;    // 5A
-    public bool CandleUsed;         // 513
-    // JOE: NOTE: Ultimately this (and others, like CandleUsed) needs to be owned by Player so that multiple Players are possible.
 
     private readonly RoomHistory _roomHistory;
     private GameWorld _overworld;
@@ -180,8 +176,6 @@ internal sealed partial class World
     private int _triggeredDoorCmd;   // 54
     private Direction _triggeredDoorDir;   // 55
 
-    // JOE: TODO: ActiveMonsterShots doesn't need to be reference counted anymore and should be based on the object table.
-    // Though note that ones owned by Player should be excluded.
     private bool _triggerShutters;    // 4CE
     private bool _summonedWhirlwind;  // 508
     private bool _powerTriforceFanfare;   // 509
@@ -2527,7 +2521,7 @@ internal sealed partial class World
             }
 
             _statusBar.EnableFeatures(StatusBarFeatures.All, true);
-            if (IsOverworld() && FromUnderground != 0)
+            if (IsOverworld() && Player.FromUnderground)
             {
                 Game.Sound.PlaySong(CurrentWorld.Settings.SongId, SongStream.MainSong, true);
             }
@@ -3200,7 +3194,7 @@ internal sealed partial class World
             _traceLog.Write($"PlayerCellarWalk: Game.Player.Y >= state.TargetY {game.Player.Y} >= {state.TargetY}");
             if (game.Player.Y >= state.TargetY)
             {
-                game.World.FromUnderground = 1;
+                game.World.Player.FromUnderground = true;
                 game.World.GotoPlay(state.ObjectState, state.Entrance);
             }
             else
@@ -3457,7 +3451,7 @@ internal sealed partial class World
             _traceLog.Write($"PlayCaveWalk: Game.Player.Y <= state.TargetY {game.Player.Y} <= {state.TargetY}");
             if (game.Player.Y <= state.TargetY)
             {
-                game.World.FromUnderground = 1;
+                game.World.Player.FromUnderground = true;
                 game.World.GotoPlay(state.ObjectState, state.Entrance);
                 return;
             }
@@ -3732,7 +3726,7 @@ internal sealed partial class World
                 {
                     case ContinueState.Indexes.Continue:
                         // So, that the OW song is played in the Enter mode.
-                        FromUnderground = 2;
+                        Player.FromUnderground = true;
                         Game.Player.Initialize();
                         Profile.Hearts = PlayerProfile.GetMaxHeartsValue(PersistedItems.DefaultHeartCount);
                         Unpause(); // It's easy for select+start to also pause the game, and that's confusing.

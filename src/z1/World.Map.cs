@@ -58,7 +58,7 @@ internal partial class World
         if (world.IsOverworld)
         {
             _entranceHistory.Clear();
-            FromUnderground = 2;
+            Player.FromUnderground = true;
         }
 
         _tempShutterRoom = null;
