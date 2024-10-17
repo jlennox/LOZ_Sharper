@@ -153,7 +153,7 @@ internal static class GlobalFunctions
         return ItemGraphics.Items[itemId];
     }
 
-    public static void DrawItem(Game game, ItemId itemId, int x, int y, int width)
+    public static void DrawItem(Game game, ItemId itemId, int x, int y, int width, DrawOrder order = DrawOrder.Sprites)
     {
         var graphics = GetItemGraphics((int)itemId);
         if (graphics == null) return;
@@ -165,7 +165,7 @@ internal static class GlobalFunctions
             ? (game.FrameCounter & 8) == 0 ? Palette.Blue : Palette.Red
             : graphics.Value.Palette;
 
-        image.Draw(TileSheet.PlayerAndItems, x + xOffset, y, pal);
+        image.Draw(TileSheet.PlayerAndItems, x + xOffset, y, pal, order);
     }
 
     public static void DrawItemNarrow(Game game, ItemId itemId, int x, int y)
@@ -184,7 +184,7 @@ internal static class GlobalFunctions
         var srcX = (ch % 16) * 8;
         var srcY = (ch / 16) * 8;
 
-        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags);
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags, DrawOrder.Background);
     }
 
     public static void DrawChar(int ch, int x, int y, int width, int height, Palette palette, DrawingFlags flags = DrawingFlags.NoTransparency)
@@ -192,7 +192,7 @@ internal static class GlobalFunctions
         var srcX = (ch % 16) * 8;
         var srcY = (ch / 16) * 8;
 
-        Graphics.DrawTile(TileSheet.Font, srcX, srcY, width, height, x, y, palette, flags);
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, width, height, x, y, palette, flags, DrawOrder.Background);
     }
 
     public static void DrawChar(int ch, int x, int y, ReadOnlySpan<SKColor> palette, DrawingFlags flags = DrawingFlags.NoTransparency)
@@ -200,7 +200,7 @@ internal static class GlobalFunctions
         var srcX = (ch % 16) * 8;
         var srcY = (ch / 16) * 8;
 
-        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags);
+        Graphics.DrawTile(TileSheet.Font, srcX, srcY, 8, 8, x, y, palette, flags, DrawOrder.Background);
     }
 
     public static void DrawString(ReadOnlySpan<int> str, int x, int y, Palette palette)
@@ -249,10 +249,10 @@ internal static class GlobalFunctions
         DrawChar(t, x, y, palette, flags);
     }
 
-    public static void DrawSparkle(int x, int y, Palette palette, int frame)
+    public static void DrawSparkle(int x, int y, Palette palette, int frame, DrawOrder drawOrder = DrawOrder.Sprites)
     {
         var animator = new SpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Sparkle);
-        animator.DrawFrame(TileSheet.PlayerAndItems, x, y, palette, frame);
+        animator.DrawFrame(TileSheet.PlayerAndItems, x, y, palette, frame, drawOrder);
     }
 
     public static void DrawBox(Rectangle rect)

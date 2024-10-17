@@ -152,10 +152,10 @@ internal sealed class GleeokNeck
     {
         for (var i = 0; i < HeadIndex; i++)
         {
-            _neckImage.Draw(TileSheet.Boss3468, _parts[i].X, _parts[i].Y, Palette.SeaPal);
+            _neckImage.Draw(TileSheet.Boss3468, _parts[i].X, _parts[i].Y, Palette.SeaPal, DrawOrder.Sprites);
         }
 
-        _headImage.Draw(TileSheet.Boss3468, _parts[HeadIndex].X, _parts[HeadIndex].Y, Palette.SeaPal);
+        _headImage.Draw(TileSheet.Boss3468, _parts[HeadIndex].X, _parts[HeadIndex].Y, Palette.SeaPal, DrawOrder.Sprites);
     }
 
     private void MoveHead()
@@ -480,7 +480,7 @@ internal sealed class GleeokActor : MonsterActor
     public override void Draw()
     {
         var pal = CalcPalette(Palette.SeaPal);
-        _animator.Draw(TileSheet.Boss3468, X, Y, pal);
+        _animator.Draw(TileSheet.Boss3468, X, Y, pal, DrawOrder);
 
         for (var i = 0; i < _neckCount; i++)
         {

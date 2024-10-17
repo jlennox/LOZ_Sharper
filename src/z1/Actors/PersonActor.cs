@@ -506,7 +506,7 @@ internal sealed class PersonActor : Actor
         var animIndex = (ObjType)_spec.DwellerType - ObjType.OldMan;
         var palette = _personGraphics[animIndex].Palette;
         palette = CalcPalette(palette);
-        _image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
+        _image.Draw(TileSheet.PlayerAndItems, X, Y, palette, DrawOrder);
 
         if (_state == PersonState.WaitingForItem) return;
 

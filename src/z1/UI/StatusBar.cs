@@ -159,7 +159,7 @@ internal sealed class StatusBar
 
     private static void DrawUWTile(int tile, int x, int y, MiniMapSettings settings)
     {
-        Graphics.DrawTile(TileSheet.Font, 0x7 * 8, 0x6 * 8, 8, 4, x, y, settings.Palette, 0);
+        Graphics.DrawTile(TileSheet.Font, 0x7 * 8, 0x6 * 8, 8, 4, x, y, settings.Palette, 0, DrawOrder.Background);
     }
 
     private delegate void DrawMiniMapTileDelegate(int tile, int x, int y, MiniMapSettings settings);

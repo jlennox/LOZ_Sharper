@@ -26,7 +26,7 @@ internal sealed class LadderActor : Actor
 
     public override void Draw()
     {
-        _image.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Player);
+        _image.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Player, DrawOrder);
     }
 }
 
@@ -80,7 +80,7 @@ internal class BlockActor : Actor, IHasCollision
         if (!EnableDraw) return;
 
         var palette = World.CurrentRoom.Settings.InnerPalette;
-        Graphics.DrawStripSprite16X16(_tileSheet, Tile, X, Y, palette);
+        Graphics.DrawStripSprite16X16(_tileSheet, Tile, X, Y, palette, DrawOrder);
     }
 }
 
@@ -234,7 +234,7 @@ internal sealed class FireActor : Actor
 
     public override void Draw()
     {
-        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red);
+        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red, DrawOrder);
     }
 }
 
@@ -313,7 +313,7 @@ internal sealed class BombActor : Actor
         if (BombState == BombState.Ticking)
         {
             var offset = (16 - _animator.Animation.Width) / 2;
-            _animator.Draw(TileSheet.PlayerAndItems, X + offset, Y, Palette.Blue);
+            _animator.Draw(TileSheet.PlayerAndItems, X + offset, Y, Palette.Blue, DrawOrder);
             return;
         }
 
@@ -324,7 +324,7 @@ internal sealed class BombActor : Actor
             _animator.Draw(
                 TileSheet.PlayerAndItems,
                 X + positions[i].X, Y + positions[i].Y,
-                Palette.Blue);
+                Palette.Blue, DrawOrder);
         }
     }
 }
@@ -508,7 +508,7 @@ internal sealed class PlayerSwordActor : Actor
         var weaponValue = World.GetItem(ItemSlot.Sword);
         var palette = ObjType == ObjType.Rod ? Palette.Blue : (Palette.Player + weaponValue - 1);
         var xOffset = (16 - _image.Animation.Width) / 2;
-        _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y, palette);
+        _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y, palette, DrawOrder);
     }
 }
 
@@ -717,6 +717,6 @@ internal sealed class WhirlwindActor : Actor
     public override void Draw()
     {
         var pal = Palette.Player + (Game.FrameCounter & 3);
-        _animator.Draw(TileSheet.NpcsOverworld, X, Y, pal);
+        _animator.Draw(TileSheet.NpcsOverworld, X, Y, pal, DrawOrder);
     }
 }

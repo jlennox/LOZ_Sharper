@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using z1.Actors;
 using z1.Common.IO;
 
@@ -150,6 +151,7 @@ internal sealed class GameRecordingStableObjectPlayerProfileAssertion : GameReco
         public int ObjectCount { get; set; }
         public Dictionary<string, ObjectState> ObjectState { get; set; } = [];
 
+        [JsonConstructor]
         public StablePersistedRoomState()
         {
         }
@@ -233,21 +235,24 @@ internal readonly record struct GameRecordingCheat(int Frame, string TypeName, s
 internal readonly record struct GameRecordingAssertion(int Frame)
 {
     public required GameRecordingObjectActorAssertion Actors { get; init; }
-    public required GameRecordingStableObjectPlayerProfileAssertion Profile { get; init; }
+    public GameRecordingObjectPlayerProfileAssertion? Profile { get; init; }
+    public GameRecordingStableObjectPlayerProfileAssertion? StableProfile { get; init; }
 
     public static GameRecordingAssertion Create(Game game)
     {
         return new GameRecordingAssertion(game.FrameCounter)
         {
             Actors = new GameRecordingObjectActorAssertion(game.World.GetObjects()),
-            Profile = new GameRecordingStableObjectPlayerProfileAssertion(game.World.Profile)
+            Profile = default,
+            StableProfile = new GameRecordingStableObjectPlayerProfileAssertion(game.World.Profile)
         };
     }
 
     public bool Assert(Game game, [MaybeNullWhen(true)] out string error)
     {
         if (!Actors.Assert(game.World.GetObjects(), out error)) return false;
-        if (!Profile.Assert(game.World.Profile, out error)) return false;
+        if (!Profile?.Assert(game.World.Profile, out error) ?? true) return false;
+        if (!StableProfile?.Assert(game.World.Profile, out error) ?? true) return false;
 
         error = null;
         return true;

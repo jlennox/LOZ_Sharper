@@ -95,7 +95,7 @@ internal abstract class WalkerActor : MonsterActor
         SetFacingAnimation();
         var offsetX = (16 - Animator.Animation.Width) / 2;
         var pal = CalcPalette(Spec.Palette);
-        Animator.Draw(_tileSheet, X + offsetX, Y, pal);
+        Animator.Draw(_tileSheet, X + offsetX, Y, pal, DrawOrder);
     }
 
     protected void SetSpec(WalkerSpec spec)
@@ -519,12 +519,12 @@ internal sealed class GanonActor : BlueWizzrobeBase
         if (_visual.HasFlag(Visual.Ganon))
         {
             var pal = CalcPalette(Palette.SeaPal);
-            _animator.DrawFrame(TileSheet.Boss9, X, Y, pal, _frame);
+            _animator.DrawFrame(TileSheet.Boss9, X, Y, pal, _frame, DrawOrder);
         }
 
         if (_visual.HasFlag(Visual.Pile))
         {
-            _pileImage.Draw(TileSheet.Boss9, X, Y, Palette.SeaPal);
+            _pileImage.Draw(TileSheet.Boss9, X, Y, Palette.SeaPal, DrawOrder);
         }
 
         if (_visual.HasFlag(Visual.Pieces))
@@ -538,7 +538,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
                 MoveSimple8(ref cloudX, ref cloudY, _piecesDir[i], _cloudDist);
 
-                _cloudAnimator.DrawFrame(TileSheet.PlayerAndItems, cloudX, cloudY, Palette.SeaPal, cloudFrame);
+                _cloudAnimator.DrawFrame(TileSheet.PlayerAndItems, cloudX, cloudY, Palette.SeaPal, cloudFrame, DrawOrder);
             }
 
             var slashPal = 4 + (Game.FrameCounter & 3);
@@ -548,7 +548,7 @@ internal sealed class GanonActor : BlueWizzrobeBase
                 var slashSpec = _slashSpecs[i];
                 var image = new SpriteImage(slashSpec.Sheet, slashSpec.AnimIndex);
 
-                image.Draw(slashSpec.Sheet, _sparksX[i], _sparksY[i], (Palette)slashPal, (DrawingFlags)slashSpec.Flags);
+                image.Draw(slashSpec.Sheet, _sparksX[i], _sparksY[i], (Palette)slashPal, (DrawingFlags)slashSpec.Flags, DrawOrder);
             }
         }
     }
@@ -879,7 +879,7 @@ internal sealed class PrincessActor : MonsterActor
 
     public override void Draw()
     {
-        _image.Draw(TileSheet.Boss9, X, Y, Palette.Player);
+        _image.Draw(TileSheet.Boss9, X, Y, Palette.Player, DrawOrder);
     }
 }
 
@@ -906,7 +906,7 @@ internal sealed class StandingFireActor : MonsterActor
 
     public override void Draw()
     {
-        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red);
+        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red, DrawOrder);
     }
 }
 
@@ -938,7 +938,7 @@ internal sealed class GuardFireActor : MonsterActor
 
     public override void Draw()
     {
-        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red);
+        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red, DrawOrder);
     }
 }
 
@@ -1165,7 +1165,7 @@ internal sealed class PondFairyActor : MonsterActor
         const float angler = -Pi.TwoPi / 85.0f;
 
         var xOffset = (16 - _animator.Animation.Width) / 2;
-        _animator.Draw(TileSheet.PlayerAndItems, PondFairyX + xOffset, PondFairyY, Palette.Red);
+        _animator.Draw(TileSheet.PlayerAndItems, PondFairyX + xOffset, PondFairyY, Palette.Red, DrawOrder);
 
         if (_pondFairyState != PondFairyState.Healing) return;
 
@@ -1180,7 +1180,7 @@ internal sealed class PondFairyActor : MonsterActor
             var x = (int)(Math.Cos(angle) * radius + PondFairyRingCenterX);
             var y = (int)(Math.Sin(angle) * radius + PondFairyRingCenterY);
 
-            heart.Draw(TileSheet.PlayerAndItems, x, y, Palette.Red);
+            heart.Draw(TileSheet.PlayerAndItems, x, y, Palette.Red, DrawOrder);
         }
     }
 }
@@ -1583,7 +1583,7 @@ internal sealed class BubbleActor : WandererWalkerActor
             pal += ObjType - ObjType.Bubble1;
         }
 
-        Animator.Draw(TileSheet.NpcsUnderworld, X, Y, (Palette)pal);
+        Animator.Draw(TileSheet.NpcsUnderworld, X, Y, (Palette)pal, DrawOrder);
     }
 
 }
@@ -1714,7 +1714,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
                 _paralyzedToken = player.Paralyze();
                 Animator.DurationFrames = Animator.Animation.Length * 4;
                 Animator.Time = 0;
-                Flags |= ActorFlags.DrawAbovePlayer;
+                DrawOrder = DrawOrder.Foreground;
             }
             return;
         }
@@ -2036,7 +2036,7 @@ internal sealed class RedLeeverActor : Actor
         if (_state != 0)
         {
             var pal = CalcPalette(Palette.Red);
-            _animator.Draw(TileSheet.NpcsOverworld, X, Y, pal);
+            _animator.Draw(TileSheet.NpcsOverworld, X, Y, pal, DrawOrder);
         }
     }
 
@@ -2164,7 +2164,7 @@ internal abstract class FlyingActor : MonsterActor
     {
         var pal = CalcPalette(Spec.Palette);
         var frame = GetFrame();
-        Animator.DrawFrame(Spec.Sheet, X, Y, pal, frame);
+        Animator.DrawFrame(Spec.Sheet, X, Y, pal, frame, DrawOrder);
     }
 
     protected virtual int GetFrame()
@@ -2894,7 +2894,7 @@ internal sealed class PatraChildActor : MonsterActor
         if (_parent.PatraState[_index] != 0)
         {
             var pal = CalcPalette(Palette.Red);
-            _animator.Draw(TileSheet.Boss9, X, Y, pal);
+            _animator.Draw(TileSheet.Boss9, X, Y, pal, DrawOrder);
         }
     }
 
@@ -3062,11 +3062,11 @@ internal abstract class JumperActor : MonsterActor
 
         if (_state == 1 && _spec.JumpFrame >= 0)
         {
-            _animator.DrawFrame(_tilesheet, X, Y, pal, _spec.JumpFrame);
+            _animator.DrawFrame(_tilesheet, X, Y, pal, _spec.JumpFrame, DrawOrder);
         }
         else
         {
-            _animator.Draw(_tilesheet, X, Y, pal);
+            _animator.Draw(_tilesheet, X, Y, pal, DrawOrder);
         }
     }
 
@@ -3434,7 +3434,7 @@ internal sealed class TrapActor : MonsterActor
 
     public override void Draw()
     {
-        _image.Draw(TileSheet.NpcsUnderworld, X, Y, Palette.Blue);
+        _image.Draw(TileSheet.NpcsUnderworld, X, Y, Palette.Blue, DrawOrder);
     }
 }
 
@@ -3535,7 +3535,7 @@ internal sealed class RopeActor : MonsterActor
             ? CalcPalette(Palette.Red)
             : Palette.Player + (Game.FrameCounter & 3);
 
-        _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal);
+        _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal, DrawOrder);
     }
 
     private void SetFacingAnimation()
@@ -3586,7 +3586,7 @@ internal sealed class PolsVoiceActor : MonsterActor
     public override void Draw()
     {
         var pal = CalcPalette(Palette.Player);
-        _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal);
+        _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal, DrawOrder);
     }
 
     private void Move()
@@ -3768,7 +3768,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
             || (state > 0 && (_flashTimer & 1) == 0))
         {
             var pal = CalcPalette(Palette.Red);
-            _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal);
+            _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal, DrawOrder);
         }
     }
 
@@ -3977,7 +3977,7 @@ internal sealed class LamnolaActor : MonsterActor
         var pal = ObjType == ObjType.RedLamnola ? Palette.Red : Palette.Blue;
         pal = CalcPalette(pal);
         var xOffset = (16 - _image.Animation.Width) / 2;
-        _image.Draw(TileSheet.NpcsUnderworld, X + xOffset, Y, pal);
+        _image.Draw(TileSheet.NpcsUnderworld, X + xOffset, Y, pal, DrawOrder);
     }
 
     private void UpdateHead()
@@ -4185,11 +4185,11 @@ internal sealed class WallmasterActor : MonsterActor
 
             if (_holdingPlayer)
             {
-                _animator.DrawFrame(TileSheet.NpcsUnderworld, X, Y, pal, 1, (DrawingFlags)flags);
+                _animator.DrawFrame(TileSheet.NpcsUnderworld, X, Y, pal, 1, (DrawingFlags)flags, DrawOrder);
             }
             else
             {
-                _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal, (DrawingFlags)flags);
+                _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal, (DrawingFlags)flags, DrawOrder);
             }
         }
     }
@@ -4289,7 +4289,7 @@ internal sealed class WallmasterActor : MonsterActor
                 _holdingPlayer = true;
                 player.SetState(PlayerState.Paused);
                 player.ResetShove();
-                Flags |= ActorFlags.DrawAbovePlayer;
+                DrawOrder = DrawOrder.Foreground;
             }
             _animator.Advance();
         }
@@ -4348,8 +4348,8 @@ internal sealed class AquamentusActor : MonsterActor
     public override void Draw()
     {
         var pal = CalcPalette(Palette.SeaPal);
-        _animator.Draw(TileSheet.Boss1257, X, Y, pal);
-        _mouthImage.Draw(TileSheet.Boss1257, X, Y, pal);
+        _animator.Draw(TileSheet.Boss1257, X, Y, pal, DrawOrder);
+        _mouthImage.Draw(TileSheet.Boss1257, X, Y, pal, DrawOrder);
     }
 
     private void Move()
@@ -4525,7 +4525,7 @@ internal sealed class DodongoActor : WandererWalkerActor
             if ((Game.FrameCounter & 2) == 0) return;
         }
 
-        Animator.Draw(TileSheet.Boss1257, X, Y, Palette.SeaPal);
+        Animator.Draw(TileSheet.Boss1257, X, Y, Palette.SeaPal, DrawOrder);
     }
 
     private void SetWalkAnimation()
@@ -4892,11 +4892,11 @@ internal sealed class ManhandlaActor : MonsterActor
 
         if (IsBodyCenter)
         {
-            _animator.Draw(TileSheet.Boss3468, X, Y, pal);
+            _animator.Draw(TileSheet.Boss3468, X, Y, pal, DrawOrder);
         }
         else
         {
-            _animator.DrawFrame(TileSheet.Boss3468, X, Y, pal, _frame);
+            _animator.DrawFrame(TileSheet.Boss3468, X, Y, pal, _frame, DrawOrder);
         }
     }
 
@@ -5190,9 +5190,9 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
 
         if (_updateBig)
         {
-            _animator.Draw(TileSheet.Boss1257, X, Y, pal);
+            _animator.Draw(TileSheet.Boss1257, X, Y, pal, DrawOrder);
         }
-        _littleAnimator.Draw(TileSheet.Boss1257, X + 8, Y + 8, pal);
+        _littleAnimator.Draw(TileSheet.Boss1257, X + 8, Y + 8, pal, DrawOrder);
     }
 
     private void UpdateSplit()
@@ -5273,7 +5273,7 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
     public override void Draw()
     {
         var pal = CalcPalette(Palette.SeaPal);
-        _animator.Draw(TileSheet.Boss1257, X, Y, pal);
+        _animator.Draw(TileSheet.Boss1257, X, Y, pal, DrawOrder);
     }
 }
 
@@ -5361,9 +5361,9 @@ internal sealed class GohmaActor : MonsterActor
         var pal = ObjType == ObjType.BlueGohma ? Palette.Blue : Palette.Red;
         pal = CalcPalette(pal);
 
-        _animator.DrawFrame(TileSheet.Boss3468, X, Y, pal, _frame);
-        _leftAnimator.Draw(TileSheet.Boss3468, X - 0x10, Y, pal);
-        _rightAnimator.Draw(TileSheet.Boss3468, X + 0x10, Y, pal);
+        _animator.DrawFrame(TileSheet.Boss3468, X, Y, pal, _frame, DrawOrder);
+        _leftAnimator.Draw(TileSheet.Boss3468, X - 0x10, Y, pal, DrawOrder);
+        _rightAnimator.Draw(TileSheet.Boss3468, X + 0x10, Y, pal, DrawOrder);
     }
 
     private void ChangeFacing()

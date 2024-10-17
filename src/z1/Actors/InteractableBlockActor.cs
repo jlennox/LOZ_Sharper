@@ -620,7 +620,7 @@ internal sealed class RaftInteraction
     {
         if (_raftDirection != null)
         {
-            _raftImage.Draw(TileSheet.PlayerAndItems, _interactive.X, _interactive.Y, Palette.Player);
+            _raftImage.Draw(TileSheet.PlayerAndItems, _interactive.X, _interactive.Y, Palette.Player, DrawOrder.Sprites);
         }
     }
 }

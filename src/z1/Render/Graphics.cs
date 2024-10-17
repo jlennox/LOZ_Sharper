@@ -30,6 +30,23 @@ internal enum TileSheet
     Font,
 }
 
+// This is very large for a struct, which is very questionable. Profiling is needed.
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal readonly struct DrawRequest
+{
+    public required int SrcX { get; init; }
+    public required int SrcY { get; init; }
+    public required int Right { get; init; }
+    public required int Bottom { get; init; }
+    public required int DestX { get; init; }
+    public required int DestY { get; init; }
+    public required SKColor PaletteA { get; init; }
+    public required SKColor PaletteB { get; init; }
+    public required SKColor PaletteC { get; init; }
+    public required SKColor PaletteD { get; init; }
+    public required GLImage Image { get; init; }
+}
+
 internal sealed class ImageSheet
 {
     public TileSheet Sheet { get; }
@@ -74,6 +91,8 @@ internal sealed class GraphicSheets
 
 internal static class Graphics
 {
+    public static readonly PriorityQueue<DrawRequest, DrawOrder> DrawRequests = new();
+
     private static GL? _gl;
     private static Size? _windowSize;
     private static readonly Size _viewportSize = new(256, 240);
@@ -149,6 +168,16 @@ internal static class Graphics
 
     public static void Begin() { }
     public static void End() { }
+
+    public static void FinishRender()
+    {
+        // These should ultimately batch all the vertex and drawing together.
+        while (DrawRequests.Count > 0)
+        {
+            var request = DrawRequests.Dequeue();
+            request.Image.Draw(ref request);
+        }
+    }
 
     public static SpriteAnimation GetAnimation(TileSheet sheet, AnimationId id)
     {
@@ -278,13 +307,14 @@ internal static class Graphics
         int destX,
         int destY,
         Palette palette,
-        DrawingFlags flags
+        DrawingFlags flags,
+        DrawOrder order
     )
     {
         ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(bitmap);
 
-        bitmap.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags);
+        bitmap.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags, order);
     }
 
     public static void DrawSpriteTile(
@@ -296,10 +326,11 @@ internal static class Graphics
         int destX,
         int destY,
         Palette palette,
-        DrawingFlags flags
+        DrawingFlags flags,
+        DrawOrder order
     )
     {
-        DrawTile(sheet, srcX, srcY, width, height, destX, destY + 1, palette, flags);
+        DrawTile(sheet, srcX, srcY, width, height, destX, destY + 1, palette, flags, order);
     }
 
     public static void DrawTile(
@@ -311,11 +342,12 @@ internal static class Graphics
         int destX,
         int destY,
         Palette palette,
-        DrawingFlags flags
+        DrawingFlags flags,
+        DrawOrder order
     )
     {
         var tiles = GraphicSheets.GetImage(sheet);
-        tiles.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags);
+        tiles.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags, order);
     }
 
     public static void DrawTile(
@@ -327,24 +359,25 @@ internal static class Graphics
         int destX,
         int destY,
         ReadOnlySpan<SKColor> palette,
-        DrawingFlags flags
+        DrawingFlags flags,
+        DrawOrder order
     )
     {
         var tiles = GraphicSheets.GetImage(sheet);
-        tiles.Draw(srcX, srcY, width, height, destX, destY, palette, flags);
+        tiles.Draw(srcX, srcY, width, height, destX, destY, palette, flags, order);
     }
 
-    public static void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette)
+    public static void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette, DrawOrder order)
     {
-        DrawStripSprite16X16(sheet, (int)firstTile, destX, destY, palette);
+        DrawStripSprite16X16(sheet, (int)firstTile, destX, destY, palette, order);
     }
 
-    public static void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette)
+    public static void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette, DrawOrder order)
     {
-        DrawStripSprite16X16(sheet, (int)firstTile, destX, destY, palette);
+        DrawStripSprite16X16(sheet, (int)firstTile, destX, destY, palette, order);
     }
 
-    public static void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette)
+    public static void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette, DrawOrder order)
     {
         ReadOnlySpan<byte> offsetsX = [0, 0, 8, 8];
         ReadOnlySpan<byte> offsetsY = [0, 8, 0, 8];
@@ -361,7 +394,7 @@ internal static class Graphics
                 sheet, srcX, srcY,
                 World.TileWidth, World.TileHeight,
                 destX + offsetsX[i], destY + offsetsY[i],
-                palette, 0);
+                palette, 0, order);
         }
     }
 
@@ -429,6 +462,11 @@ internal static class Graphics
         ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(_windowSize);
 
+        // This is really not my favorite way to do this. This _should_ be handled by the shader, but we'd need to
+        // manage what the clipping for each render entry is.
+        // If we do need to batch these, a good pattern might be:
+        // List<(ClippingRect? Rect, PriorityQueue<....>>
+        FinishRender();
         _gl.Disable(EnableCap.ScissorTest);
         _clipped = false;
     }

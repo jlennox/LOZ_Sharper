@@ -270,7 +270,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
         _animator = new SpriteAnimator
         {
             DurationFrames = 16,
-            Time = 0
+            Time = 0,
         };
     }
 
@@ -300,7 +300,7 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
         if ((FlashTimer & 1) == 0 && Facing != Direction.None)
         {
             var pal = CalcPalette(Palette.Blue);
-            _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal);
+            _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal, DrawOrder);
         }
     }
 

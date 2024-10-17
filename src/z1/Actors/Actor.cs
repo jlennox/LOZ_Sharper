@@ -7,9 +7,6 @@ using z1.Render;
 namespace z1.Actors;
 
 [Flags]
-internal enum ActorFlags { None = 0, DrawAbovePlayer = 1 }
-
-[Flags]
 internal enum DamageType
 {
     Sword = 1,
@@ -46,6 +43,7 @@ internal abstract class Actor
     public int Y { get; set; }
 
     public bool Visible { get; set; } = true;
+    public DrawOrder DrawOrder { get; set; } = DrawOrder.Sprites;
 
     public bool IsDeleted => _isDeleted;
 
@@ -71,7 +69,6 @@ internal abstract class Actor
     public byte ObjTimer { get; set; }
 
     protected byte StunTimer;
-    public ActorFlags Flags;
 
     public ObjType ObjType { get; }
     public ObjectAttribute Attributes => Game.Data.GetObjectAttribute(ObjType);
@@ -485,7 +482,7 @@ internal abstract class Actor
         {
             var frame = Decoration - 1;
             var animator = Graphics.GetSpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Cloud);
-            animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, Palette.Blue, frame);
+            animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, Palette.Blue, frame, DrawOrder);
         }
         else
         {
@@ -493,7 +490,7 @@ internal abstract class Actor
             var frame = (Decoration + 1) % 2;
             var pal = Palette.Player + (Global.ForegroundPalCount - counter - 1);
             var animator = Graphics.GetSpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Sparkle);
-            animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, pal, frame);
+            animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, pal, frame, DrawOrder);
         }
     }
 

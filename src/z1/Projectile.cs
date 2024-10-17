@@ -174,7 +174,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
         if (State == ProjectileState.Flying)
         {
             var xOffset = (16 - _image.Animation.Width) / 2;
-            _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y + yOffset, palette);
+            _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y + yOffset, palette, DrawOrder);
         }
         else
         {
@@ -187,11 +187,11 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
                 var top = Y - 2 - d + yOffset;
                 var bottom = Y + 2 + d + yOffset;
 
-                _image.Draw(TileSheet.PlayerAndItems, left, top, palette);
-                _image.Draw(TileSheet.PlayerAndItems, right, top, palette, DrawingFlags.FlipX);
-                _image.Draw(TileSheet.PlayerAndItems, left, bottom, palette, DrawingFlags.FlipY);
+                _image.Draw(TileSheet.PlayerAndItems, left, top, palette, DrawOrder);
+                _image.Draw(TileSheet.PlayerAndItems, right, top, palette, DrawingFlags.FlipX, DrawOrder);
+                _image.Draw(TileSheet.PlayerAndItems, left, bottom, palette, DrawingFlags.FlipY, DrawOrder);
                 _image.Draw(TileSheet.PlayerAndItems, right, bottom, palette,
-                    DrawingFlags.FlipX | DrawingFlags.FlipY);
+                    DrawingFlags.FlipX | DrawingFlags.FlipY, DrawOrder);
             }
         }
     }
@@ -250,7 +250,7 @@ internal sealed class FlyingRockProjectile : Projectile
     public override void Draw()
     {
         var xOffset = (16 - _image.Animation.Width) / 2;
-        _image.Draw(TileSheet.NpcsOverworld, X + xOffset, Y, Palette.Player);
+        _image.Draw(TileSheet.NpcsOverworld, X + xOffset, Y, Palette.Player, DrawOrder);
     }
 }
 
@@ -385,7 +385,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         var palOffset = Game.FrameCounter % Global.ForegroundPalCount;
         var palette = Palette.Player + palOffset;
 
-        _image.Draw(TileSheet.PlayerAndItems, X, Y, palette);
+        _image.Draw(TileSheet.PlayerAndItems, X, Y, palette, DrawOrder);
     }
 }
 
@@ -629,7 +629,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
         var pal = _state == BoomerangState.Unknown2 ? Palette.Red : (Palette.Player + itemValue - 1);
         var xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
-        _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal);
+        _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal, DrawingFlags.None, DrawOrder);
     }
 }
 
@@ -695,7 +695,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
     public override void Draw()
     {
         var pal = 4 + Game.FrameCounter % 4;
-        _image.Draw(TileSheet.PlayerAndItems, X, Y, (Palette)pal);
+        _image.Draw(TileSheet.PlayerAndItems, X, Y, (Palette)pal, DrawOrder);
     }
 
     public void AddFire()
@@ -815,6 +815,6 @@ internal sealed class ArrowProjectile : Projectile
             x += 4;
         }
 
-        _image.Draw(TileSheet.PlayerAndItems, x, y, pal);
+        _image.Draw(TileSheet.PlayerAndItems, x, y, pal, DrawOrder);
     }
 }

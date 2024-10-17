@@ -420,7 +420,7 @@ internal sealed class SubmenuType
 
         var cursorPals = new[] { Palette.Blue, Palette.Red };
         var cursorPal = cursorPals[(_game.World.Game.FrameCounter >> 3) & 1];
-        _cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal);
+        _cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal, DrawOrder.Background);
     }
 
     private void DrawPassiveInventory(int top)

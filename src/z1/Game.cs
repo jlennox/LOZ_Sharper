@@ -2,6 +2,7 @@
 using z1.Actors;
 using z1.Common.IO;
 using z1.IO;
+using z1.Render;
 using z1.UI;
 
 namespace z1;
@@ -182,6 +183,7 @@ internal sealed class Game
         if (!Menu.DrawIfActive()) World.Draw();
         OnScreenDisplay.Draw();
         DebugInfo.Draw();
+        Graphics.FinishRender();
     }
 
     // JOE: TODO: Move to TryShoot pattern?

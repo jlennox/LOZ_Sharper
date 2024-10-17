@@ -1,9 +1,19 @@
 ﻿using System.Numerics;
+using System.Windows.Forms;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 using z1.IO;
 
 namespace z1.Render;
+
+internal enum DrawOrder
+{
+    BehindBackground,
+    Background,
+    Sprites,
+    Player,
+    Foreground,
+}
 
 internal sealed unsafe class GLImage : IDisposable
 {
@@ -45,39 +55,28 @@ internal sealed unsafe class GLImage : IDisposable
     }
 
     public void Draw(
-        int srcx, int srcy, int width, int height,
-        int destinationx, int destinationy,
-        ReadOnlySpan<SKColor> palette, DrawingFlags flags)
+        int srcX, int srcY, int width, int height,
+        int destX, int destY,
+        ReadOnlySpan<SKColor> palette, DrawingFlags flags,
+        DrawOrder layer)
     {
-        _gl.ActiveTexture(TextureUnit.Texture0);
-        _gl.BindTexture(TextureTarget.Texture2D, _texture);
-
-        var right = srcx + width;
-        var bottom = srcy + height;
+        var right = srcX + width;
+        var bottom = srcY + height;
 
         // Branchless conditional swaps:
         // https://github.com/jlennox/Benchmarks/blob/main/BranchlessSwap.cs
         var flipHor = -BitOperations.PopCount((uint)(flags & DrawingFlags.FlipX));
         var flipVert = -BitOperations.PopCount((uint)(flags & DrawingFlags.FlipY));
 
-        var tempSrcX = (flipHor & right) | (~flipHor & srcx);
-        var tempRight = (flipHor & srcx) | (~flipHor & right);
-        srcx = tempSrcX;
+        var tempSrcX = (flipHor & right) | (~flipHor & srcX);
+        var tempRight = (flipHor & srcX) | (~flipHor & right);
+        srcX = tempSrcX;
         right = tempRight;
 
-        var tempSrcY = (flipVert & bottom) | (~flipVert & srcy);
-        var tempBottom = (flipVert & srcy) | (~flipVert & bottom);
-        srcy = tempSrcY;
+        var tempSrcY = (flipVert & bottom) | (~flipVert & srcY);
+        var tempBottom = (flipVert & srcY) | (~flipVert & bottom);
+        srcY = tempSrcY;
         bottom = tempBottom;
-
-        // Really, all the rendering should be batched together. But the game is simple enough
-        // that it's not really a performance concern.
-        ReadOnlySpan<Point> verticies = stackalloc Point[] {
-            new Point(srcx, srcy), new Point(destinationx, destinationy),
-            new Point(srcx, bottom), new Point(destinationx, destinationy + height),
-            new Point(right, srcy), new Point(destinationx + width, destinationy),
-            new Point(right, bottom), new Point(destinationx + width, destinationy + height),
-        };
 
         var finalPalette = palette;
 
@@ -96,6 +95,46 @@ internal sealed unsafe class GLImage : IDisposable
             };
         }
 
+        Graphics.DrawRequests.Enqueue(new DrawRequest
+        {
+            SrcX = srcX,
+            SrcY = srcY,
+            Right = right,
+            Bottom = bottom,
+            DestX = destX,
+            DestY = destY,
+            PaletteA = finalPalette[0],
+            PaletteB = finalPalette[1],
+            PaletteC = finalPalette[2],
+            PaletteD = finalPalette[3],
+            Image = this,
+        }, layer);
+    }
+
+    // Ref to avoid big struct copy. TODO: Actually profile this.
+    public void Draw(ref DrawRequest request)
+    {
+        _gl.ActiveTexture(TextureUnit.Texture0);
+        _gl.BindTexture(TextureTarget.Texture2D, _texture);
+
+        // TODO: These abs aint great.
+        var width = Math.Abs(request.Right - request.SrcX);
+        var height = Math.Abs(request.Bottom - request.SrcY);
+
+        ReadOnlySpan<Point> verticies = stackalloc Point[] {
+            new Point(request.SrcX, request.SrcY), new Point(request.DestX, request.DestY),
+            new Point(request.SrcX, request.Bottom), new Point(request.DestX, request.DestY + height),
+            new Point(request.Right, request.SrcY), new Point(request.DestX + width, request.DestY),
+            new Point(request.Right, request.Bottom), new Point(request.DestX + width, request.DestY + height),
+        };
+
+        ReadOnlySpan<SKColor> palette = stackalloc SKColor[] {
+            request.PaletteA,
+            request.PaletteB,
+            request.PaletteC,
+            request.PaletteD,
+        };
+
         _gl.BufferData(
             BufferTargetARB.ArrayBuffer, (nuint)verticies.Length * (nuint)sizeof(Point),
             verticies, BufferUsageARB.StreamDraw);
@@ -104,7 +143,7 @@ internal sealed unsafe class GLImage : IDisposable
         shader.Use();
         shader.SetTextureSize(_size.Width, _size.Height);
         shader.SetOpacity(1f);
-        shader.SetPalette(finalPalette);
+        shader.SetPalette(palette);
         _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, (uint)verticies.Length / 2);
     }
 

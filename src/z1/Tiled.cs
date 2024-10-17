@@ -603,7 +603,7 @@ internal sealed class GameRoom
         if (tileId < 0) return;
         var srcx = tileId % (image.Width / TileWidth) * TileWidth;
         var srcy = tileId / (image.Width / TileWidth) * TileHeight;
-        Graphics.DrawImage(image, srcx, srcy, TileWidth, TileHeight, x, y, palette, tile.GetDrawingFlags());
+        Graphics.DrawImage(image, srcx, srcy, TileWidth, TileHeight, x, y, palette, tile.GetDrawingFlags(), DrawOrder.Background);
     }
 
     internal static bool TryParseUnderworldDoors(string? s, [MaybeNullWhen(false)] out Dictionary<Direction, DoorType> doors)

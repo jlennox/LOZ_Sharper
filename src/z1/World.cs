@@ -8,7 +8,6 @@ using z1.UI;
 namespace z1;
 
 internal enum TileInteraction { Load, Push, Touch, Cover }
-internal enum SpritePriority { None, AboveBg, BelowBg }
 internal enum SubmenuState { IdleClosed, StartOpening, EndOpening = 7, IdleOpen, StartClose }
 
 internal enum GameMode
@@ -141,6 +140,8 @@ internal sealed partial class World
     private TextBox? _textBox2;
 
     private readonly WorldState _state = new();
+    // Runs when the state is changed.
+    private Action? _stateCleanup;
     private int _curColorSeqNum;
     private int _darkRoomFadeStep;
     private int _curMazeStep;
@@ -179,7 +180,6 @@ internal sealed partial class World
     private bool _triggerShutters;    // 4CE
     private bool _summonedWhirlwind;  // 508
     private bool _powerTriforceFanfare;   // 509
-    // private Direction _shuttersPassedDirs; // 519 // JOE: NOTE: Delete this, it's unused.
     private bool _brightenRoom;       // 51E
 
     public Rectangle PlayAreaRect { get; set; }
@@ -251,6 +251,12 @@ internal sealed partial class World
                     OnLeavePlay();
                     Game.Player.Stop();
                 }
+            }
+
+            if (_stateCleanup != null)
+            {
+                _stateCleanup();
+                _stateCleanup = null;
             }
 
             _lastMode = mode;
@@ -1786,7 +1792,7 @@ internal sealed partial class World
             DrawRoom();
         }
 
-        DrawObjects(out var objOverPlayer);
+        DrawObjects();
 
         if (IsLiftingItem())
         {
@@ -1796,8 +1802,6 @@ internal sealed partial class World
         {
             Game.Player.Draw();
         }
-
-        objOverPlayer?.DecoratedDraw();
     }
 
     private void DrawSubmenu()
@@ -1811,40 +1815,31 @@ internal sealed partial class World
         Menu.Draw(_submenuOffsetY);
     }
 
-    private void DrawObjects(out Actor? objOverPlayer)
+    private void DrawObjects()
     {
-        objOverPlayer = null;
-
         foreach (var obj in _objects)
         {
             if (obj.IsDeleted) continue;
 
-            if (!obj.Flags.HasFlag(ActorFlags.DrawAbovePlayer) || objOverPlayer != null)
-            {
-                obj.DecoratedDraw();
-            }
-            else
-            {
-                objOverPlayer = obj;
-            }
+            obj.DecoratedDraw();
         }
     }
 
     private void DrawPrincessLiftingTriforce(int x, int y)
     {
         var image = Graphics.GetSpriteImage(TileSheet.Boss9, AnimationId.B3_Princess_Lift);
-        image.Draw(TileSheet.Boss9, x, y, Palette.Player);
+        image.Draw(TileSheet.Boss9, x, y, Palette.Player, DrawOrder.Sprites);
 
-        GlobalFunctions.DrawItem(Game, ItemId.TriforcePiece, x, y - 0x10, 0);
+        GlobalFunctions.DrawItem(Game, ItemId.TriforcePiece, x, y - 0x10, 0, DrawOrder.Foreground);
     }
 
     private void DrawPlayerLiftingItem(ItemId itemId)
     {
         var animIndex = itemId == ItemId.TriforcePiece ? AnimationId.PlayerLiftHeavy : AnimationId.PlayerLiftLight;
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, animIndex);
-        image.Draw(TileSheet.PlayerAndItems, Game.Player.X, Game.Player.Y, Palette.Player);
+        image.Draw(TileSheet.PlayerAndItems, Game.Player.X, Game.Player.Y, Palette.Player, DrawOrder.Sprites);
 
-        GlobalFunctions.DrawItem(Game, itemId, Game.Player.X, Game.Player.Y - 0x10, 0);
+        GlobalFunctions.DrawItem(Game, itemId, Game.Player.X, Game.Player.Y - 0x10, 0, DrawOrder.Foreground);
     }
 
     private void MakeObjects(Direction entryDir, ObjectState? entranceRoomsState, Entrance? fromEntrence)
@@ -2455,7 +2450,7 @@ internal sealed partial class World
     private void DrawLeave()
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-        DrawRoomNoObjects();
+        DrawRoomNoObjects(false);
     }
 
     private void MovePlayer(Direction dir, int speed, ref int fraction)
@@ -2477,10 +2472,13 @@ internal sealed partial class World
         _state.Enter.Substate = EnterState.Substates.Start;
         _state.Enter.ScrollDir = dir;
         _state.Enter.Timer = 0;
-        _state.Enter.PlayerPriority = SpritePriority.AboveBg;
         _state.Enter.PlayerSpeed = Player.WalkSpeed;
         _state.Enter.GotoPlay = false;
         _state.Enter.EntranceEntry = entranceEntry;
+
+        Player.DrawOrder = DrawOrder.Player;
+        _stateCleanup = MakePlayerNormalDrawingOrder;
+
         Unpause();
         _curMode = GameMode.Enter;
     }
@@ -2537,11 +2535,12 @@ internal sealed partial class World
 
                     state.PlayerFraction = 0;
                     state.PlayerSpeed = 0x40;
-                    state.PlayerPriority = SpritePriority.BelowBg;
                     state.ScrollDir = Direction.Up;
                     state.TargetX = game.Player.X;
                     state.TargetY = game.Player.Y - (Game.Cheats.SpeedUp ? 0 : 0x10);
                     state.Substate = EnterState.Substates.WalkCave;
+
+                    game.Player.DrawOrder = DrawOrder.BehindBackground;
 
                     game.Sound.StopAll();
                     game.Sound.PlayEffect(SoundEffect.Stairs);
@@ -2653,7 +2652,7 @@ internal sealed partial class World
 
         // JOE: The C++ code base had this check but it causes a black frame to be drawn.
         // if (_state.Enter.Substate != EnterState.Substates.Start)
-        DrawRoomNoObjects(_state.Enter.PlayerPriority);
+        DrawRoomNoObjects(false);
     }
 
     private void SetPlayerExitPosOW(GameRoom room)
@@ -2729,6 +2728,7 @@ internal sealed partial class World
         ClearLevelData();
 
         _curMode = GameMode.Unfurl;
+        _stateCleanup = MakePlayerNormalDrawingOrder;
     }
 
     private void UpdateUnfurl()
@@ -2798,7 +2798,7 @@ internal sealed partial class World
 
         using (var _ = Graphics.SetClip(_state.Unfurl.Left, TileMapBaseY, width, TileMapHeight))
         {
-            DrawRoomNoObjects(SpritePriority.None);
+            DrawRoomNoObjects(true);
         }
     }
 
@@ -2935,7 +2935,7 @@ internal sealed partial class World
 
         using (var _ = Graphics.SetClip(left, TileMapBaseY, width, TileMapHeight))
         {
-            DrawRoomNoObjects(SpritePriority.None);
+            DrawRoomNoObjects(true);
         }
 
         DrawPlayerLiftingItem(ItemId.TriforcePiece);
@@ -2950,7 +2950,7 @@ internal sealed partial class World
         _state.Stairs.TileBehavior = behavior;
         _state.Stairs.Entrance = entrance;
         _state.Stairs.ObjectState = state;
-        _state.Stairs.PlayerPriority = SpritePriority.AboveBg;
+        Player.DrawOrder = DrawOrder.Player;
 
         _entranceHistory.Push(CurrentRoom, entrance);
 
@@ -2962,7 +2962,7 @@ internal sealed partial class World
         switch (_state.Stairs.Substate)
         {
             case StairsState.Substates.Start:
-                _state.Stairs.PlayerPriority = SpritePriority.BelowBg;
+                Player.DrawOrder = DrawOrder.BehindBackground;
 
                 if (IsOverworld()) Game.Sound.StopAll();
 
@@ -3083,7 +3083,7 @@ internal sealed partial class World
     private void DrawStairsState()
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-        DrawRoomNoObjects(_state.Stairs.PlayerPriority);
+        DrawRoomNoObjects(false);
     }
 
     private void GotoPlayCellar(Entrance entrance, ObjectState? state)
@@ -3091,9 +3091,10 @@ internal sealed partial class World
         _state.PlayCellar.Entrance = entrance;
         _state.PlayCellar.ObjectState = state;
         _state.PlayCellar.Substate = PlayCellarState.Substates.Start;
-        _state.PlayCellar.PlayerPriority = SpritePriority.None;
+        Player.Visible = false;
 
         _curMode = GameMode.InitPlayCellar;
+        _stateCleanup = MakePlayerNormalDrawingOrder;
     }
 
     private void UpdatePlayCellar()
@@ -3179,7 +3180,8 @@ internal sealed partial class World
 
         static void PlayCellarWalk(Game game, ref PlayCellarState state)
         {
-            state.PlayerPriority = SpritePriority.AboveBg;
+            game.World.Player.Visible = true;
+            game.World.Player.DrawOrder = DrawOrder.Player;
 
             _traceLog.Write($"PlayerCellarWalk: Game.Player.Y >= state.TargetY {game.Player.Y} >= {state.TargetY}");
             if (game.Player.Y >= state.TargetY)
@@ -3198,7 +3200,7 @@ internal sealed partial class World
     private void DrawPlayCellar()
     {
         using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-        DrawRoomNoObjects(_state.PlayCellar.PlayerPriority);
+        DrawRoomNoObjects(false);
     }
 
     public void GotoLeaveCellar()
@@ -3370,7 +3372,7 @@ internal sealed partial class World
                 break;
 
             default:
-                DrawRoomNoObjects(SpritePriority.None);
+                DrawRoomNoObjects(true);
                 break;
         }
     }
@@ -3463,7 +3465,7 @@ internal sealed partial class World
                 break;
 
             case PlayCaveState.Substates.Walk:
-                DrawRoomNoObjects();
+                DrawRoomNoObjects(false);
                 break;
         }
     }
@@ -3643,7 +3645,7 @@ internal sealed partial class World
         {
             using (var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
             {
-                DrawRoomNoObjects(SpritePriority.None);
+                DrawRoomNoObjects(true);
             }
             var player = Game.Player;
 
@@ -3765,21 +3767,12 @@ internal sealed partial class World
         GlobalFunctions.DrawChar(Chars.FullHeart, 0x40, y, Palette.Red);
     }
 
-    private void DrawRoomNoObjects(SpritePriority playerPriority = SpritePriority.AboveBg)
+    private void DrawRoomNoObjects(bool skipPlayer)
     {
         ClearScreen();
 
-        if (playerPriority == SpritePriority.BelowBg)
-        {
-            Game.Player.Draw();
-        }
-
         DrawRoom();
-
-        if (playerPriority == SpritePriority.AboveBg)
-        {
-            Game.Player.Draw();
-        }
+        if (!skipPlayer) Game.Player.Draw();
     }
 
     public Actor? MakeActivatedObject(ObjType type, int tileX, int tileY)
@@ -3869,5 +3862,11 @@ internal sealed partial class World
 
         _objects.Add(actor);
         return actor;
+    }
+
+    private void MakePlayerNormalDrawingOrder()
+    {
+        Player.DrawOrder = DrawOrder.Player;
+        Player.Visible = true;
     }
 }

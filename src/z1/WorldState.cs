@@ -63,7 +63,6 @@ internal struct PlayCellarState
     public Substates Substate;
     public Entrance Entrance;
     public ObjectState? ObjectState;
-    public SpritePriority PlayerPriority;
     public int TargetY;
     public int FadeTimer;
     public int FadeStep;
@@ -170,7 +169,6 @@ internal struct EnterState
     public int TargetY;
     public int PlayerSpeed;
     public int PlayerFraction;
-    public SpritePriority PlayerPriority;
     public bool GotoPlay;
     public World.EntranceHistoryEntry? EntranceEntry;
 
@@ -291,7 +289,6 @@ internal struct StairsState
     public int PlayerSpeed;
     public int PlayerFraction;
     public TileBehavior TileBehavior;
-    public SpritePriority PlayerPriority;
     public Entrance Entrance;
     public ObjectState? ObjectState;
 

@@ -15,12 +15,12 @@ internal abstract class Menu
         if (quest == 1)
         {
             var sword = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.SwordItem);
-            sword.Draw(TileSheet.PlayerAndItems, x + 12, y - 3, (Palette)7);
+            sword.Draw(TileSheet.PlayerAndItems, x + 12, y - 3, (Palette)7, DrawOrder.Background);
         }
 
         profile.SetPlayerColor();
         var player = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.PlayerWalk_NoShield_Down);
-        player.Draw(TileSheet.PlayerAndItems, x, y, Palette.Player);
+        player.Draw(TileSheet.PlayerAndItems, x, y, Palette.Player, DrawOrder.Background);
     }
 }
 

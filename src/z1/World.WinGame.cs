@@ -272,11 +272,11 @@ internal partial class World
 
             using (var _ = Graphics.SetClip(left, TileMapBaseY, width, TileMapHeight))
             {
-                DrawRoomNoObjects(SpritePriority.None);
+                DrawRoomNoObjects(true);
             }
 
             Game.Player.Draw();
-            DrawObjects(out _);
+            DrawObjects();
         }
         else
         {

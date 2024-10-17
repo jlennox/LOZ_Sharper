@@ -100,6 +100,7 @@ internal sealed class Player : Actor, IThrower
             Time = 0,
             DurationFrames = WalkDurationFrames
         };
+        DrawOrder = DrawOrder.Player;
 
         Initialize(facing);
     }
@@ -645,7 +646,7 @@ internal sealed class Player : Actor, IThrower
         }
 
         SetFacingAnim();
-        Animator.Draw(TileSheet.PlayerAndItems, X, y, palette);
+        Animator.Draw(TileSheet.PlayerAndItems, X, y, palette, DrawOrder);
     }
 
     public Actors.PlayerState GetState()
