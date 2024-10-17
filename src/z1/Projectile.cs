@@ -32,24 +32,6 @@ internal abstract class Projectile : Actor, IProjectile
         : base(world, type, x, y)
     {
         Owner = owner;
-
-        if (!IsPlayerWeapon)
-        {
-            World.ActiveShots++;
-        }
-    }
-
-    public override bool Delete()
-    {
-        if (base.Delete())
-        {
-            if (!IsPlayerWeapon)
-            {
-                World.ActiveShots--;
-            }
-            return true;
-        }
-        return false;
     }
 
     public virtual bool IsInShotStartState() => State == ProjectileState.Flying;
@@ -430,29 +412,11 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
             Time = 0
         };
         _animator.DurationFrames = _animator.Animation!.Length * 2;
-
-        if (!IsPlayerWeapon)
-        {
-            ++World.ActiveShots;
-        }
     }
 
     public static int PlayerCount(World world)
     {
         return world.GetObjects<BoomerangProjectile>().Count(t => t.Owner.IsPlayer);
-    }
-
-    public override bool Delete()
-    {
-        if (base.Delete())
-        {
-            if (!IsPlayerWeapon)
-            {
-                --World.ActiveShots;
-            }
-            return true;
-        }
-        return false;
     }
 
     public bool IsInShotStartState()

@@ -175,7 +175,6 @@ internal partial class World
         CandleUsed = false;
         _summonedWhirlwind = false;
         _brightenRoom = false;
-        ActiveShots = 0;
     }
 
     private void SetFlashPalette()

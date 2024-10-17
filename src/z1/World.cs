@@ -1,8 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using z1.Actors;
-using z1.Common.IO;
 using z1.IO;
 using z1.Render;
 using z1.UI;
@@ -105,7 +103,11 @@ internal sealed partial class World
 
     public Game Game { get; }
     public bool DrawHitDetection { get; set; }
+
+    public int ActiveMonsterShots => _objects.Count(t => !t.IsDeleted && t is IProjectile { IsPlayerWeapon: false });
     public Player Player => Game.Player;
+    public PlayerProfile Profile => Game.Player.Profile;
+
     public SubmenuType Menu;
     public int RoomObjCount;           // 34E
     public Actor? RoomObj;              // 35F
@@ -115,10 +117,8 @@ internal sealed partial class World
     public Direction DoorwayDir;         // 53
     // JOE: TODO: Stick this on Player?
     public int FromUnderground;    // 5A
-    public int ActiveShots;        // 34C
     public bool CandleUsed;         // 513
     // JOE: NOTE: Ultimately this (and others, like CandleUsed) needs to be owned by Player so that multiple Players are possible.
-    public PlayerProfile Profile => Game.Player.Profile;
 
     private readonly RoomHistory _roomHistory;
     private GameWorld _overworld;
@@ -180,7 +180,7 @@ internal sealed partial class World
     private int _triggeredDoorCmd;   // 54
     private Direction _triggeredDoorDir;   // 55
 
-    // JOE: TODO: ActiveShots doesn't need to be reference counted anymore and should be based on the object table.
+    // JOE: TODO: ActiveMonsterShots doesn't need to be reference counted anymore and should be based on the object table.
     // Though note that ones owned by Player should be excluded.
     private bool _triggerShutters;    // 4CE
     private bool _summonedWhirlwind;  // 508
@@ -1133,7 +1133,6 @@ internal sealed partial class World
         _roomKillCount = 0;
         _roomAllDead = false;
         EnablePersonFireballs = false;
-        ActiveShots = 0;
 
         _state.Play.Reset();
 
@@ -1590,7 +1589,6 @@ internal sealed partial class World
         _tempShutterDoorDir = 0;
         _tempShutters = false;
         WhirlwindTeleporting = 0;
-        ActiveShots = 0;
 
         _roomKillCount = 0;
         _roomAllDead = false;

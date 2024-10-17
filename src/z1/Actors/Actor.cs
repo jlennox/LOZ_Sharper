@@ -1421,13 +1421,13 @@ internal abstract class Actor
 
     protected Actor? Shoot(ObjType shotType, int x, int y, Direction facing)
     {
-        var oldActiveShots = World.ActiveShots;
+        var oldActiveShots = World.ActiveMonsterShots;
 
         var shot = shotType == ObjType.Boomerang
             ? GlobalFunctions.MakeBoomerang(World, x, y, facing, 0x51, 2.5f, this)
             : GlobalFunctions.MakeProjectile(World, shotType, x, y, facing, this);
 
-        var newActiveShots = World.ActiveShots;
+        var newActiveShots = World.ActiveMonsterShots;
         if (oldActiveShots != newActiveShots && newActiveShots > 4)
         {
             shot.Delete();

@@ -31,7 +31,6 @@ namespace z1;
 
 // Sharper:
 // * Rectify MarginRight.
-// * Refactor out ActiveShots.
 // * Make replay engine?
 // * Figure out where to define what song is playing.
 // * Refactor game-space to be (0,0), not (0,status bar height).

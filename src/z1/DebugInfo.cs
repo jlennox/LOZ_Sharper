@@ -27,7 +27,7 @@ internal sealed class DebugInfo
             // _sb.Add($"r:{room.X},{room.Y} ({_game.World.CurRoomId})");
         }
 
-        if (_configuration.ActiveShots) _sb.Add($"shots:{_game.World.ActiveShots}");
+        if (_configuration.ActiveShots) _sb.Add($"shots:{_game.World.ActiveMonsterShots}");
 
         var y = 2;
         const int x = 80;
