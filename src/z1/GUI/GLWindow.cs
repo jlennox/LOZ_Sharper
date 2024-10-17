@@ -33,7 +33,7 @@ internal sealed class GLWindow : IDisposable
     private readonly FpsCalculator _updatesPerSecond = new();
     private readonly FpsCalculator _rendersPerSecond = new();
 
-    private GL? _gl;
+    public GL? _gl;
     private IInputContext? _inputContext;
 
     private ImGuiController _controller;
@@ -310,7 +310,7 @@ internal sealed class GLWindow : IDisposable
         // which causes it to incorrectly round down for one, then round up on the next.
         // Even though they'll sum to the correct width, individually one will be a pixel
         // to short and the next will contain a pixel row/column from the adjacent sprite.
-        const int multiple = 32;
+        const int multiple = 1;
         var windowSize = window.Size;
         var windowWidth = windowSize.X;
         var windowHeight = windowSize.Y;

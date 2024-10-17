@@ -36,8 +36,8 @@ internal readonly struct DrawRequest
 {
     public required int SrcX { get; init; }
     public required int SrcY { get; init; }
-    public required int Right { get; init; }
-    public required int Bottom { get; init; }
+    public required int SrcRight { get; init; }
+    public required int SrcBottom { get; init; }
     public required int DestX { get; init; }
     public required int DestY { get; init; }
     public required SKColor PaletteA { get; init; }
@@ -92,6 +92,7 @@ internal sealed class GraphicSheets
 internal static class Graphics
 {
     public static readonly PriorityQueue<DrawRequest, DrawOrder> DrawRequests = new();
+    public static bool ImmediateRenderer { get; set; } // To make using RenderDoc easier.
 
     private static GL? _gl;
     private static Size? _windowSize;

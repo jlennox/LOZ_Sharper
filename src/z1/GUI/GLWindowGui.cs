@@ -5,6 +5,7 @@ using ImGuiNET;
 using z1.Actors;
 using z1.Common.IO;
 using z1.IO;
+using z1.Render;
 using z1.UI;
 
 namespace z1.GUI;
@@ -441,6 +442,12 @@ internal static class GLWindowGui
             if (ImGui.MenuItem("Clear history")) game.GameCheats.TriggerCheat<GameCheats.ClearHistoryCheat>();
             if (ImGui.MenuItem("Draw hit detection", null, game.World.DrawHitDetection)) game.World.DrawHitDetection = !game.World.DrawHitDetection;
             if (ImGui.MenuItem("Reload assets")) AssetLoader.Initialize();
+            if (ImGui.MenuItem("Draw immediately", null, Graphics.ImmediateRenderer)) Graphics.ImmediateRenderer = !Graphics.ImmediateRenderer;
+            if (ImGui.MenuItem("Reload shaders"))
+            {
+                GLSpriteShader.Instance.Dispose();
+                GLSpriteShader.Initialize(window._gl);
+            }
 
             ImGui.SeparatorText("Recording");
 

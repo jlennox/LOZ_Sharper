@@ -43,9 +43,9 @@ internal sealed class GLSpriteShader : IDisposable
         gl.Uniform1(GetUniformLocation("u_texture"), 0);
     }
 
-    public static void Initialize(GL gL)
+    public static void Initialize(GL gl)
     {
-        Instance = new GLSpriteShader(gL);
+        Instance = new GLSpriteShader(gl);
     }
 
     private static uint LoadShader(GL gl, ShaderType type, string src)

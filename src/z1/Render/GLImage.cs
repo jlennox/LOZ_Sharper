@@ -95,12 +95,12 @@ internal sealed unsafe class GLImage : IDisposable
             };
         }
 
-        Graphics.DrawRequests.Enqueue(new DrawRequest
+        var request = new DrawRequest
         {
             SrcX = srcX,
             SrcY = srcY,
-            Right = right,
-            Bottom = bottom,
+            SrcRight = right,
+            SrcBottom = bottom,
             DestX = destX,
             DestY = destY,
             PaletteA = finalPalette[0],
@@ -108,7 +108,17 @@ internal sealed unsafe class GLImage : IDisposable
             PaletteC = finalPalette[2],
             PaletteD = finalPalette[3],
             Image = this,
-        }, layer);
+        };
+
+
+        if (Graphics.ImmediateRenderer)
+        {
+            Draw(ref request);
+        }
+        else
+        {
+            Graphics.DrawRequests.Enqueue(request, layer);
+        }
     }
 
     // Ref to avoid big struct copy. TODO: Actually profile this.
@@ -118,14 +128,14 @@ internal sealed unsafe class GLImage : IDisposable
         _gl.BindTexture(TextureTarget.Texture2D, _texture);
 
         // TODO: These abs aint great.
-        var width = Math.Abs(request.Right - request.SrcX);
-        var height = Math.Abs(request.Bottom - request.SrcY);
+        var width = Math.Abs(request.SrcRight - request.SrcX);
+        var height = Math.Abs(request.SrcBottom - request.SrcY);
 
         ReadOnlySpan<Point> verticies = stackalloc Point[] {
             new Point(request.SrcX, request.SrcY), new Point(request.DestX, request.DestY),
-            new Point(request.SrcX, request.Bottom), new Point(request.DestX, request.DestY + height),
-            new Point(request.Right, request.SrcY), new Point(request.DestX + width, request.DestY),
-            new Point(request.Right, request.Bottom), new Point(request.DestX + width, request.DestY + height),
+            new Point(request.SrcX, request.SrcBottom), new Point(request.DestX, request.DestY + height),
+            new Point(request.SrcRight, request.SrcY), new Point(request.DestX + width, request.DestY),
+            new Point(request.SrcRight, request.SrcBottom), new Point(request.DestX + width, request.DestY + height),
         };
 
         ReadOnlySpan<SKColor> palette = stackalloc SKColor[] {

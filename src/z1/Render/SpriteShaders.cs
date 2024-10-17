@@ -2,11 +2,11 @@
 
 internal static class SpriteShaders
 {
-    public const string Vertex = """
+    public static string Vertex = """
         #version 330 core
 
-        layout(location = 0) in ivec2 in_tile_position; // tile location inside of texture
-        layout(location = 1) in ivec2 in_screen_position; // the destination in u_viewportSize coordinates.
+        layout(location = 0) in ivec2 in_tile_position; // tile location inside of texture, in pixels
+        layout(location = 1) in ivec2 in_screen_position; // the destination in u_viewportSize coordinates, in pixels
 
         out vec2 pass_uv;
 
@@ -16,8 +16,10 @@ internal static class SpriteShaders
         void main()
         {
             vec2 viewportSize = vec2(u_viewportSize); // Don't want to coerce results to ints.
+            // We experience some viewport size specific texture misalignment and this appears to make it less common..?
+            vec2 screenPosition = vec2(in_screen_position) + .5;
             // View port space to screen space.
-            vec2 viewportRelativePos = (in_screen_position * vec2(2, -2) / viewportSize);
+            vec2 viewportRelativePos = (screenPosition * vec2(2, -2) / viewportSize);
             // Translate from 0 => 1 coordinate space, to (-1 => 1) and (1 => -1)
             // y is 0 at the bottom, so it's flipped.
             vec2 pos = viewportRelativePos + vec2(-1, 1);
@@ -27,7 +29,7 @@ internal static class SpriteShaders
         }
         """;
 
-    public const string Fragment = """
+    public static string Fragment = """
         #version 330 core
 
         in vec2 pass_uv;
