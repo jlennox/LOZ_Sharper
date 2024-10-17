@@ -825,12 +825,13 @@ public unsafe partial class LozExtractor
         reader.BaseStream.Position = OWColTables;
         colTables = reader.ReadBytes(964);
 
-        var filePath = "overworldRoomCols.dat";
-        options.AddFile(filePath, roomCols);
-
-        filePath = "overworldCols.tab";
+        // var filePath = "overworldRoomCols.dat";
+        // options.AddFile(filePath, roomCols);
+        //
+        // filePath = "overworldCols.tab";
         var pointers = new List<short>();
-        using (var writer = options.AddBinaryWriter(filePath))
+        var overworldCols = new MemoryStream();
+        using (var writer = new BinaryWriter(overworldCols))
         {
             writer.Write((ushort)colTablePtrs.Length);
             for (int i = 0; i < colTablePtrs.Length; i++)
@@ -857,8 +858,8 @@ public unsafe partial class LozExtractor
             colTablePtrs = colTablePtrs,
             colTables = colTables,
             roomCols2 = roomCols2,
-            Table = TableResource<byte>.Load(options.Files[filePath]),
-            RoomCols = ListResource<RoomCols>.LoadList(options.Files["overworldRoomCols.dat"], unqiueRoomCount).ToArray()
+            Table = TableResource<byte>.Load(overworldCols.ToArray()),
+            RoomCols = ListResource<RoomCols>.LoadList(roomCols, unqiueRoomCount).ToArray()
         };
     }
 

@@ -1403,8 +1403,8 @@ internal sealed partial class World
                 return;
             }
 
-            roomState.SetDoorState(dir, DoorState.Open);
-            nextRoom.PersistedRoomState.SetDoorState(oppositeDir, DoorState.Open);
+            roomState.SetDoorState(dir, PersistedDoorState.Open);
+            nextRoom.PersistedRoomState.SetDoorState(oppositeDir, PersistedDoorState.Open);
             if (type != DoorType.Bombable)
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);

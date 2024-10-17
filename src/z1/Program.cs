@@ -1,6 +1,5 @@
 ﻿global using z1.Common;
 global using z1.Common.Data;
-using System.Diagnostics.CodeAnalysis;
 using z1.GUI;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("z1.Tests")]

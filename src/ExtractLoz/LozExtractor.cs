@@ -74,7 +74,7 @@ public partial class LozExtractor
 
         CheckSupportedRom(options);
 
-        Dictionary<string, Extractor> extractorMap = new Dictionary<string, Extractor> {
+        var extractorMap = new Dictionary<string, Extractor> {
             { "text", ExtractTextBundle },
             { "overworldtiles", ExtractOverworldBundle },
             { "underworldtiles", ExtractUnderworldBundle },
@@ -209,14 +209,16 @@ public partial class LozExtractor
 
         public static SoundItem ConvertFields(string[] fields)
         {
-            SoundItem item = new SoundItem();
-            item.Track = short.Parse(fields[0]);
-            item.Begin = short.Parse(fields[1]);
-            item.End = short.Parse(fields[2]);
-            item.Slot = byte.Parse(fields[3]);
-            item.Priority = byte.Parse(fields[4]);
-            item.Flags = byte.Parse(fields[5]);
-            item.Filename = fields[6];
+            var item = new SoundItem
+            {
+                Track = short.Parse(fields[0]),
+                Begin = short.Parse(fields[1]),
+                End = short.Parse(fields[2]),
+                Slot = byte.Parse(fields[3]),
+                Priority = byte.Parse(fields[4]),
+                Flags = byte.Parse(fields[5]),
+                Filename = fields[6]
+            };
             return item;
         }
 
@@ -242,9 +244,11 @@ public partial class LozExtractor
 
         public static NsfItem ConvertFields(string[] fields)
         {
-            NsfItem item = new NsfItem();
-            item.Offset = int.Parse(fields[0], System.Globalization.NumberStyles.HexNumber);
-            item.Length = int.Parse(fields[1], System.Globalization.NumberStyles.HexNumber);
+            var item = new NsfItem
+            {
+                Offset = int.Parse(fields[0], System.Globalization.NumberStyles.HexNumber),
+                Length = int.Parse(fields[1], System.Globalization.NumberStyles.HexNumber)
+            };
             return item;
         }
     }
@@ -600,7 +604,9 @@ public partial class LozExtractor
                 y += 16;
             }
             else
+            {
                 x += 16;
+            }
         }
     }
 
@@ -703,27 +709,15 @@ public partial class LozExtractor
     private const int Walls = 0x15fa0 + 16;
     private const int WallTileCount = 78;
 
-    private readonly record struct DoorCorner(Point Corner, Point Behind)
-    {
-        public static DoorCorner Get(Direction dir) => dir switch
-        {
-            Direction.Right => new DoorCorner(new Point(0x1C, 0x0A), new Point(0x1E, 0x0A)),
-            Direction.Left => new DoorCorner(new Point(0x02, 0x0A), new Point(0x00, 0x0A)),
-            Direction.Down => new DoorCorner(new Point(0x0F, 0x12), new Point(0x0F, 0x14)),
-            Direction.Up => new DoorCorner(new Point(0x0F, 0x02), new Point(0x0F, 0x00)),
-            _ => throw new ArgumentOutOfRangeException(nameof(dir), dir, "Unsupported direction.")
-        };
-    }
-
     private const int DoorTileCount = 12;
-    private const int DoorUpOpen = 0x15FEE + 16;
+    private const int DoorTilesStart = 0x15FEE + 16;
 
     private static DoorTileIndex GetDoorTileIndex(Options options)
     {
         using var reader = options.GetBinaryReader();
-        var doorTypes = new[] { DoorState.Open, DoorState.Locked, DoorState.Shutter, DoorState.Wall, DoorState.Bombed };
         var doorDirections = new[] { Direction.Right, Direction.Left, Direction.Down, Direction.Up };
-        var doorbytes = reader.ReadBytesFrom(DoorUpOpen, doorTypes.Length * DoorTileCount * doorDirections.Length);
+        var doorTypes = new[] { DoorState.Open, DoorState.Locked, DoorState.Shutter, DoorState.Wall, DoorState.Bombed };
+        var doorbytes = reader.ReadBytesFrom(DoorTilesStart, doorTypes.Length * DoorTileCount * doorDirections.Length);
         var doortiles = new DoorTileIndex();
         foreach (var direction in doorDirections)
         {
@@ -2268,8 +2262,9 @@ public partial class LozExtractor
             roomAttrs.other[0x74] = 0x00;
         }
 
-        var filePath = "overworldRoomSparseAttr.tab";
-        using (var writer = options.AddBinaryWriter(filePath))
+        // var filePath = "overworldRoomSparseAttr.tab";
+        var overworldRoomSparseAttr = new MemoryStream();
+        using (var writer = new BinaryWriter(overworldRoomSparseAttr))
         {
             var ptrs = new ushort[AttrLines];
             int i = 0;
@@ -2332,7 +2327,7 @@ public partial class LozExtractor
             }
         }
 
-        return TableResource<byte>.Load(options.Files[filePath]);
+        return TableResource<byte>.Load(overworldRoomSparseAttr.ToArray());
     }
 
     private static void WriteRoomXY(BinaryWriter writer, byte[] roomIds, byte[] xs, byte y)
@@ -3421,8 +3416,9 @@ public partial class LozExtractor
             }
         }
 
-        var filePath = "objLists.tab";
-        using (var writer = options.AddBinaryWriter(filePath))
+        // var filePath = "objLists.tab";
+        var objLists = new MemoryStream();
+        using (var writer = new BinaryWriter(objLists))
         {
             writer.Write((ushort)listPtrs.Length);
             for (int i = 0; i < listPtrs.Length; i++)
@@ -3436,7 +3432,7 @@ public partial class LozExtractor
             Utility.PadStream(writer.BaseStream);
         }
 
-        return TableResource<byte>.Load(options.Files[filePath]);
+        return TableResource<byte>.Load(objLists.ToArray());
     }
 
     private static byte[] LoadArray8(string name, byte[] fieldLengths)

@@ -14,15 +14,17 @@ internal sealed class ObjectState
     public bool ItemGot { get; set; }
 }
 
+internal enum PersistedDoorState { Normal, Open }
+
 internal sealed class PersistedRoomState
 {
     public bool ItemState { get; set; } // true if item has been picked up.
     public bool ShortcutState { get; set; } // Overworld
     public bool SecretState { get; set; } // Overworld
     public bool VisitState { get; set; } // Underworld
-    public Dictionary<Direction, DoorState> DoorState { get; set; } = []; // Underworld
-    public bool IsDoorOpen(Direction dir) => DoorState.TryGetValue(dir, out var state) && state == Common.DoorState.Open;
-    public void SetDoorState(Direction dir, DoorState state) => DoorState[dir] = state;
+    public Dictionary<Direction, PersistedDoorState> DoorState { get; set; } = []; // Underworld
+    public bool IsDoorOpen(Direction dir) => DoorState.TryGetValue(dir, out var state) && state == PersistedDoorState.Open;
+    public void SetDoorState(Direction dir, PersistedDoorState state) => DoorState[dir] = state;
     public int ObjectCount { get; set; }
     public Dictionary<string, ObjectState> ObjectState { get; set; } = [];
 
