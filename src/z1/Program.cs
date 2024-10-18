@@ -21,8 +21,8 @@ namespace z1;
 // * Player spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
 
 // Dungeon 1 bugs:
-// * Exits cellar in wrong place. Needs / 2 on X, and + basey on y?
 // * Bad guys can bop link into the top wall in dungeons.
+// * When going down basement stairs, the stairs appear on top of link, he then is visible before the screen transition.
 
 // Know behavior changes:
 // * You can spawn multiple armos at the same time at the level 6 entrance where they are next to each other.

@@ -440,6 +440,9 @@ internal sealed class MapExtractor
                 {
                     arguments.ExitRight = right.GetGameRoomId();
                 }
+
+                exitColumnX = 0x60;
+                exitRowY = 0xA0;
             }
         }
 
