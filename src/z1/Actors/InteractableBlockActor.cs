@@ -15,6 +15,8 @@ internal abstract class InteractableActor<T> : Actor
 {
     protected enum UpdateState { None, HasInteracted, Check }
 
+    public override bool IsMonsterSlot => false;
+
     public T Interactable { get; }
 
     protected ObjectState State => _state.Value;

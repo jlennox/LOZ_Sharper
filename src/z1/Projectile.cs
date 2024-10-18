@@ -25,6 +25,7 @@ internal abstract class Projectile : Actor, IProjectile
     public ProjectileState State = ProjectileState.Flying;
 
     public bool IsPlayerWeapon => Owner!.IsPlayer;
+    public override bool IsMonsterSlot => !IsPlayerWeapon;
 
     private Direction _bounceDir = Direction.None;
 
@@ -301,6 +302,8 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         }
     }
 
+    public override bool IsMonsterSlot => true;
+
     // Used only by Aquamentis
     public int? Offset { get; }
 
@@ -399,6 +402,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
     private static readonly DebugLog _log = new(nameof(BoomerangProjectile));
 
     public bool IsPlayerWeapon => Owner!.IsPlayer;
+    public override bool IsMonsterSlot => !IsPlayerWeapon;
 
     private readonly int _startX;
     private readonly int _startY;

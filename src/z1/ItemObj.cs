@@ -8,6 +8,8 @@ internal enum LadderStates { Unknown0, Unknown1, Unknown2 }
 
 internal sealed class LadderActor : Actor
 {
+    public override bool IsMonsterSlot => false;
+
     public LadderStates State = LadderStates.Unknown1;
     private readonly SpriteImage _image;
 
@@ -37,6 +39,8 @@ internal interface IHasCollision
 
 internal class BlockActor : Actor, IHasCollision
 {
+    public override bool IsMonsterSlot => false;
+
     public bool EnableDraw { get; set; }
 
     protected readonly TileType Tile;
@@ -143,6 +147,8 @@ internal enum FireState { Moving, Standing }
 
 internal sealed class FireActor : Actor
 {
+    public override bool IsMonsterSlot => false;
+
     public FireState State
     {
         get => _state;
@@ -250,6 +256,7 @@ internal sealed class BombActor : Actor
         [new Point(0, 0), new Point(13, 0), new Point(-7, -13), new Point(7, 14)]
     ];
 
+    public override bool IsMonsterSlot => false;
     public BombState BombState = BombState.Initing;
 
     private readonly SpriteAnimator _animator;
@@ -331,6 +338,8 @@ internal sealed class BombActor : Actor
 
 internal sealed class RockWallActor : Actor
 {
+    public override bool IsMonsterSlot => false;
+
     public RockWallActor(World world, int x, int y)
         : base(world, ObjType.RockWall, x, y)
     {
@@ -384,6 +393,8 @@ internal sealed class PlayerSwordActor : Actor
     ];
 
     private static readonly ImmutableArray<byte> _swordStateDurations = [5, 8, 1, 1, 1];
+
+    public override bool IsMonsterSlot => false;
 
     public int State;
     private int _timer;
@@ -519,6 +530,8 @@ internal sealed class ItemObjActor : Actor
     // How long the item blinks when it first appears.
     private const int SpawnInTime = 0x1F;
     private const int SpawnInTimeLastTimer = 0x1FF - SpawnInTime;
+
+    public override bool IsMonsterSlot => false;
 
     public bool TouchEnabled { get; set; } = true;
 
@@ -678,6 +691,8 @@ internal sealed class ItemObjActor : Actor
 
 internal sealed class WhirlwindActor : Actor
 {
+    public override bool IsMonsterSlot => true;
+
     private GameRoom _prevRoom;
     private readonly SpriteAnimator _animator;
 

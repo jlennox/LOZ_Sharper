@@ -1918,7 +1918,7 @@ internal enum RedLeeverState
     Full,
 }
 
-internal sealed class RedLeeverActor : Actor
+internal sealed class RedLeeverActor : MonsterActor
 {
     private const int MaxConcurrentRedLeevers = 2;
 

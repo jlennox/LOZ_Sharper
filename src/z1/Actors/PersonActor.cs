@@ -82,6 +82,7 @@ internal sealed class PersonActor : Actor
     private readonly List<ItemObjActor> _itemActors = [];
 
     public override bool ShouldStopAtPersonWall => true;
+    public override bool IsMonsterSlot => true;
 
     // Arg. Sometimes "CaveId" is an ObjType.Person1-end :/
     // This code got to be a pretty big mess but I'm hoping a mapping format rewrite can clean that up.

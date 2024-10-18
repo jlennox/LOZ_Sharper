@@ -122,6 +122,10 @@ internal abstract class Actor
     public virtual bool IsReoccuring => true;
     public virtual bool IsAttrackedToMeat => false;
 
+    // The intent here might not be immediately clear, because it really indicates if this object
+    // would have been in a monster slot in the original code.
+    public abstract bool IsMonsterSlot { get; }
+
     public ItemObjActor? HoldingItem { get; set; }
 
     // Returns true if the child's delete method should run.
@@ -433,8 +437,7 @@ internal abstract class Actor
 
             if (Decoration == 0)
             {
-                // JOE: CHECK: Not sure this is right. It use to be: slot < ObjectSlot.Buffer
-                if (this is MonsterActor && !Attributes.HasCustomCollision)
+                if (IsMonsterSlot && !Attributes.HasCustomCollision)
                 {
                     // ORIGINAL: flag 4 if custom draw. If not set, then call $77D4.
                     // But, this stock drawing code is used for very few objects. This includes
@@ -920,8 +923,7 @@ internal abstract class Actor
         player.InvincibilityTimer = 0x18;
         player.ShoveDistance = 0x20;
 
-        // JOE: Old code was: if (World.CurObjectSlot >= ObjectSlot.Buffer) return;
-        if (this is not MonsterActor) return;
+        if (!IsMonsterSlot) return;
         if (Attributes.Unknown80 || this is VireActor) return;
 
         Facing = Facing.GetOppositeDirection();
@@ -1119,10 +1121,13 @@ internal abstract class Actor
         return CheckWorldMargin(dir, out _);
     }
 
+    // JOE NOTE: Projectiles can't go into doorways. I THINK.
     protected Direction CheckWorldMargin(Direction dir, out CheckWorldReason reason)
     {
-        // JOE: Original: var adjust = slot > ObjectSlot.Buffer || this is LadderActor;
-        var adjust = this is not MonsterActor || this is LadderActor;
+        // JOE: This isn't exactly correct... the original would exclude the buffer slot from
+        // this. I'm not sure if that matters, however. Buffer slots were used for push blocks.
+        // var adjust = slot > ObjectSlot.Buffer || this is LadderActor;
+        var adjust = !IsMonsterSlot || this is LadderActor;
 
         // ORIGINAL: This isn't needed, because the player is first (slot=0).
         // JOE: Original: if (slot >= ObjectSlot.Player)

@@ -76,6 +76,7 @@ internal sealed class Player : Actor, IThrower
     public PlayerProfile Profile { get; set; }
 
     public override bool IsPlayer => true;
+    public override bool IsMonsterSlot => false;
 
     private readonly PlayerParalyzedTokenSource _paralyzedTokenSource = new();
     public bool IsParalyzed => _paralyzedTokenSource.IsParalyzed;

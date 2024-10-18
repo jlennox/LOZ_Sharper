@@ -2,6 +2,8 @@
 
 internal abstract class MonsterActor : Actor
 {
+    public override bool IsMonsterSlot => true;
+
     public bool IsRingleader { get; set; }
 
     protected MonsterActor(World world, ObjType type, int x = 0, int y = 0)
