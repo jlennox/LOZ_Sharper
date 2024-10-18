@@ -3694,6 +3694,14 @@ internal sealed class PolsVoiceActor : MonsterActor
 
 internal sealed class RedWizzrobeActor : WizzrobeBase
 {
+    private enum RedWizzrobeState
+    {
+        Hidden,
+        Going,
+        Visible,
+        Coming,
+    }
+
     private static readonly ImmutableArray<Direction> _wizzrobeDirs = [
         Direction.Down,
         Direction.Up,
@@ -3701,12 +3709,12 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
         Direction.Left
     ];
 
-    private static readonly ImmutableArray<int> _wizzrobeXOffsets = [
+    private static readonly ImmutableArray<int> _wizzrobeOffsetsX = [
         0x00, 0x00, -0x20, 0x20, 0x00, 0x00, -0x40, 0x40,
         0x00, 0x00, -0x30, 0x30, 0x00, 0x00, -0x50, 0x50
     ];
 
-    private static readonly ImmutableArray<int> _wizzrobeYOffsets = [
+    private static readonly ImmutableArray<int> _wizzrobeOffsetsY = [
         -0x20, 0x20, 0x00, 0x00, -0x40, 0x40, 0x00, 0x00,
         -0x30, 0x30, 0x00, 0x00, -0x50, 0x50, 0x00, 0x00
     ];
@@ -3746,16 +3754,14 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
 
         var state = GetState();
 
-        Action func = state switch
+        switch (state)
         {
-            0 => UpdateHidden,
-            1 => UpdateGoing,
-            2 => UpdateVisible,
-            3 => UpdateComing,
-            _ => throw new ArgumentOutOfRangeException(nameof(state), state, $"Invalid state for {ObjType}.")
-        };
-
-        func();
+            case RedWizzrobeState.Hidden: UpdateHidden(); break;
+            case RedWizzrobeState.Going: UpdateGoing(); break;
+            case RedWizzrobeState.Visible: UpdateVisible(); break;
+            case RedWizzrobeState.Coming: UpdateComing(); break;
+            default: throw new Exception($"Invalid state {state} for {GetType().Name}.");
+        }
 
         _animator.Advance();
     }
@@ -3764,7 +3770,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
     {
         var state = GetState();
 
-        if (state == 2
+        if (state == RedWizzrobeState.Visible
             || (state > 0 && (_flashTimer & 1) == 0))
         {
             var pal = CalcPalette(Palette.Red);
@@ -3772,9 +3778,9 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
         }
     }
 
-    private int GetState() // JOE: TODO: What the heck is this state? Enumify this?
+    private RedWizzrobeState GetState() // JOE: TODO: What the heck is this state? Enumify this?
     {
-        return _stateTimer >> 6;
+        return (RedWizzrobeState)(_stateTimer >> 6);
     }
 
     private void SetFacingAnimation()
@@ -3815,7 +3821,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
             else
             {
                 // JOE: NOTE: This branch should be logically unreachable.
-                throw new Exception($"{nameof(RedWizzrobeActor)} UpdateVisible");
+                throw new UnreachableException($"{nameof(RedWizzrobeActor)} UpdateVisible");
             }
         }
 
@@ -3849,8 +3855,8 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
             var dirOrd = r % 4;
             Facing = _wizzrobeDirs[dirOrd];
 
-            X = (player.X + _wizzrobeXOffsets[r]) & 0xF0;
-            Y = (player.Y + _wizzrobeYOffsets[r] + 3) & 0xF0 - 3;
+            X = (player.X + _wizzrobeOffsetsX[r]) & 0xF0;
+            Y = ((player.Y + _wizzrobeOffsetsY[r] + 3) & 0xF0) - 3;
 
             if (Y < 0x5D || Y >= 0xC4)
             {
