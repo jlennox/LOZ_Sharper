@@ -431,10 +431,10 @@ public enum TileBehavior
 
     Doorway,
     Water,
-    GenericSolid,
+    GenericSolid, // You can half-overlap these tiles.
     Cave,
     Door,
-    Wall,
+    Wall, // You can't half-overlap these tiles like most others.
 
     FirstWalkable = GenericWalkable,
     FirstSolid = Doorway,

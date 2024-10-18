@@ -464,7 +464,7 @@ internal sealed class PushInteraction
             if (_interactive.IsWithinBoundsInclusive(playerX, playerY, _width, _height))
             {
                 var goingTo = _world.Player.Position + dir.GetOffset();
-                var collides = _world.Player.CollidesWithTileMoving(goingTo.X, goingTo.Y, dir);
+                var collides = _world.CollidesWithTileMoving(goingTo.X, goingTo.Y, dir, true);
                 pushed = collides;
             }
         }

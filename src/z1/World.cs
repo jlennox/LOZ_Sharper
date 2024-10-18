@@ -420,7 +420,7 @@ internal sealed partial class World
         }
     }
 
-    private TileBehavior GetTileBehavior(int tileY, int tileX) // Arg, these are not x/y ordered.
+    public TileBehavior GetTileBehavior(int tileY, int tileX) // Arg, these are not x/y ordered.
     {
         return CurrentRoom.RoomMap.AsBehaviors(tileX, tileY);
     }
@@ -529,6 +529,11 @@ internal sealed partial class World
 
     public TileCollision CollidesWithTileMoving(int x, int y, Direction dir, bool isPlayer)
     {
+        if (Game.Cheats.NoClip && isPlayer)
+        {
+            return new TileCollision(false, TileBehavior.GenericWalkable, x / TileWidth, y / TileHeight);
+        }
+
         var offset = dir switch
         {
             Direction.Right => 0x10,
@@ -536,19 +541,28 @@ internal sealed partial class World
             _ => isPlayer ? -8 : -0x10,
         };
 
-        var collision = CollidesWithTile(x, y, dir, offset);
-
-        if (Game.Cheats.NoClip && isPlayer)
+        // Originally, this code did not perform the secondary collision check. That was reserved only for the player
+        // and only when they were in the underworld. This check is important because walls disallow the player
+        // from having their sprite's top half overlap them. What's mysterious to me, is what's now a `IsVertical` check
+        // was formally a `IsHorizontal` check. This caused you to not be able to walk left or right once clipped into
+        // a wall, sure. But the reason you couldn't overlap the wall was because there was a hard coded check on the
+        // player's coordinates, that then for the sake of the math, did a -8 on the y axis.
+        var collision1 = CollidesWithTile(x, y, dir, offset);
+        if (isPlayer && dir.IsVertical() && collision1.TileBehavior != TileBehavior.Wall)
         {
-            collision.Collides = false;
+            var collision2 = CollidesWithTile(x, y - 8, dir, offset);
+            if (collision2.TileBehavior == TileBehavior.Wall)
+            {
+                return collision2;
+            }
         }
 
-        return collision;
+        return collision1;
     }
 
     private TileCollision CollidesWithTile(int x, int y, Direction dir, int offset)
     {
-        y += 0xB;
+        y += 0x0B;
 
         if (dir.IsVertical())
         {
@@ -559,6 +573,7 @@ internal sealed partial class World
         }
         else
         {
+            // I believe these constants should be computed from offset?
             if ((dir == Direction.Left && x >= 0x10) || (dir == Direction.Right && x < 0xF0))
             {
                 x += offset;
@@ -595,38 +610,6 @@ internal sealed partial class World
         }
 
         return new TileCollision(behavior.CollidesTile(), behavior, hitFineCol, fineRow);
-    }
-
-    public TileCollision PlayerCoversTile(int x, int y)
-    {
-        y += 3;
-
-        var behavior = TileBehavior.FirstWalkable;
-        var fineRow1 = (y - TileMapBaseY) / 8;
-        var fineRow2 = (y + 15 - TileMapBaseY) / 8;
-        var fineCol1 = x / 8;
-        var fineCol2 = (x + 15) / 8;
-        var hitFineCol = fineCol1;
-        var hitFineRow = fineRow1;
-
-        for (var r = fineRow1; r <= fineRow2; r++)
-        {
-            for (var c = fineCol1; c <= fineCol2; c++)
-            {
-                var curBehavior = GetTileBehavior(r, c);
-
-                // TODO: this isn't the best way to check covered tiles
-                //       but it'll do for now.
-                if (curBehavior > behavior)
-                {
-                    behavior = curBehavior;
-                    hitFineCol = c;
-                    hitFineRow = r;
-                }
-            }
-        }
-
-        return new TileCollision(false, behavior, hitFineCol, hitFineRow);
     }
 
     public void OnTouchedPowerTriforce()
@@ -3379,6 +3362,8 @@ internal sealed partial class World
         _state.PlayCave.Substate = PlayCaveState.Substates.Start;
         _state.PlayCave.Entrance = entrance;
         _state.PlayCave.ObjectState = state;
+
+        Player.Visible = true;
 
         _curMode = GameMode.InitPlayCave;
     }

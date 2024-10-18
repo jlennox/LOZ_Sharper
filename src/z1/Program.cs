@@ -20,8 +20,8 @@ namespace z1;
 // * Does not lift cellar items overhead.
 // * Player spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
 
-// Dungeon 1 bugs:
-// * Bad guys can bop link into the top wall in dungeons.
+// Dungeon bugs:
+// * Wizzrobe's wand attacks go into the walls.
 
 // Know behavior changes:
 // * You can spawn multiple armos at the same time at the level 6 entrance where they are next to each other.

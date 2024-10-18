@@ -208,42 +208,6 @@ internal sealed class Player : Actor, IThrower
         }
     }
 
-    private TileCollision CollidesWithTileMovingUW(int x, int y, Direction dir)
-    {
-        if (dir == Direction.Up && y == 0x5D)
-        {
-            y -= 8;
-        }
-
-        var collision1 = World.CollidesWithTileMoving(x, y, dir, true);
-        if (dir.IsHorizontal() && collision1.TileBehavior != TileBehavior.Wall)
-        {
-            var collision2 = World.CollidesWithTileMoving(x, y - 8, dir, true);
-            if (collision2.TileBehavior == TileBehavior.Wall)
-            {
-                return collision2;
-            }
-        }
-
-        return collision1;
-    }
-
-    public TileCollision CollidesWithTileMoving(int x, int y, Direction dir)
-    {
-        if (!World.CurrentRoom.HasUnderworldDoors)
-        {
-            return World.CollidesWithTileMoving(x, y, dir, true);
-        }
-
-        var collision = CollidesWithTileMovingUW(x, y, dir);
-        if (collision.TileBehavior == TileBehavior.Doorway)
-        {
-            collision.Collides = false;
-        }
-
-        return collision;
-    }
-
     // F23C
     private void CheckWater()
     {
@@ -271,7 +235,7 @@ internal sealed class Player : Actor, IThrower
             return;
         }
 
-        var collision = CollidesWithTileMoving(X, Y, Facing);
+        var collision = World.CollidesWithTileMoving(X, Y, Facing, true);
 
         // The original game checked for specific water tiles in the OW and UW.
         if (collision.TileBehavior != TileBehavior.Water) return;
@@ -289,7 +253,7 @@ internal sealed class Player : Actor, IThrower
 
     private void CheckDoorway()
     {
-        var collision = World.PlayerCoversTile(X, Y);
+        var collision = PlayerCoversTile(X, Y);
 
         if (collision.TileBehavior == TileBehavior.Doorway)
         {
@@ -302,6 +266,38 @@ internal sealed class Player : Actor, IThrower
         }
 
         World.DoorwayDir = Direction.None;
+    }
+
+    private TileCollision PlayerCoversTile(int x, int y)
+    {
+        y += 3;
+
+        var behavior = TileBehavior.FirstWalkable;
+        var fineRow1 = (y - World.TileMapBaseY) / 8;
+        var fineRow2 = (y + 15 - World.TileMapBaseY) / 8;
+        var fineCol1 = x / 8;
+        var fineCol2 = (x + 15) / 8;
+        var hitFineCol = fineCol1;
+        var hitFineRow = fineRow1;
+
+        for (var r = fineRow1; r <= fineRow2; r++)
+        {
+            for (var c = fineCol1; c <= fineCol2; c++)
+            {
+                var curBehavior = World.GetTileBehavior(r, c);
+
+                // TODO: this isn't the best way to check covered tiles
+                //       but it'll do for now.
+                if (curBehavior > behavior)
+                {
+                    behavior = curBehavior;
+                    hitFineCol = c;
+                    hitFineRow = r;
+                }
+            }
+        }
+
+        return new TileCollision(false, behavior, hitFineCol, hitFineRow);
     }
 
     private static bool IsInBorder(int coord, Direction dir, ReadOnlySpan<byte> border)
@@ -481,7 +477,7 @@ internal sealed class Player : Actor, IThrower
                 lastDir = dir;
                 dirCount++;
 
-                var collision = CollidesWithTileMoving(X, Y, dir);
+                var collision = World.CollidesWithTileMoving(X, Y, dir, true);
                 _tileBehavior = collision.TileBehavior;
                 if (!collision.Collides)
                 {
@@ -1110,7 +1106,7 @@ internal sealed class Player : Actor, IThrower
 
         dir = MovingDirection;
 
-        if (CollidesWithTileMoving(X, Y - 8, dir)) return Direction.None;
+        if (World.CollidesWithTileMoving(X, Y - 8, dir, true)) return Direction.None;
 
         // ORIGINAL: The routine will run again. It'll finish, because now (ladder.facing = dir),
         //           which is one of the conditions that ends this function.
@@ -1188,7 +1184,7 @@ internal sealed class Player : Actor, IThrower
 
     private Direction FindUnblockedDir(Direction dir)
     {
-        var collision = CollidesWithTileMoving(X, Y, dir);
+        var collision = World.CollidesWithTileMoving(X, Y, dir, true);
         if (!collision.Collides)
         {
             dir = CheckWorldBounds(dir);
