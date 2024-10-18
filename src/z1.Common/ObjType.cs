@@ -429,7 +429,7 @@ public enum TileBehavior
     SlowStairs,
     Stairs,
 
-    Doorway,
+    Doorway, // Doorway is considered a solid for everything except for the player.
     Water,
     GenericSolid, // You can half-overlap these tiles.
     Cave,

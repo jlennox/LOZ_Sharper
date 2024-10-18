@@ -548,12 +548,20 @@ internal sealed partial class World
         // a wall, sure. But the reason you couldn't overlap the wall was because there was a hard coded check on the
         // player's coordinates, that then for the sake of the math, did a -8 on the y axis.
         var collision1 = CollidesWithTile(x, y, dir, offset);
-        if (isPlayer && dir.IsVertical() && collision1.TileBehavior != TileBehavior.Wall)
+        if (isPlayer)
         {
-            var collision2 = CollidesWithTile(x, y - 8, dir, offset);
-            if (collision2.TileBehavior == TileBehavior.Wall)
+            if (dir.IsVertical() && collision1.TileBehavior != TileBehavior.Wall)
             {
-                return collision2;
+                var collision2 = CollidesWithTile(x, y - 8, dir, offset);
+                if (collision2.TileBehavior == TileBehavior.Wall)
+                {
+                    return collision2;
+                }
+            }
+
+            if (collision1.TileBehavior == TileBehavior.Doorway)
+            {
+                collision1.Collides = false;
             }
         }
 
