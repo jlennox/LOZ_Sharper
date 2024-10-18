@@ -136,7 +136,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
 
     private void UpdateFlying()
     {
-        if (Direction.None == CheckWorldMargin(Facing))
+        if (CheckWorldMargin(Facing) == Direction.None)
         {
             if (IsPlayerWeapon)
             {
@@ -237,7 +237,7 @@ internal sealed class FlyingRockProjectile : Projectile
             }
         }
 
-        if (Direction.None == CheckWorldMargin(Facing))
+        if (CheckWorldMargin(Facing) == Direction.None)
         {
             Delete();
             return;
@@ -677,7 +677,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
     private void UpdateFlying()
     {
-        if (Direction.None == CheckWorldMargin(Facing))
+        if (CheckWorldMargin(Facing) == Direction.None)
         {
             if (IsPlayerWeapon && !World.IsOverworld())
             {

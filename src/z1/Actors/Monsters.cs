@@ -5167,7 +5167,7 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
                 X += _offsetsX[i];
                 Y += _offsetsY[i];
 
-                if (Direction.None == CheckWorldMargin(Facing))
+                if (CheckWorldMargin(Facing) == Direction.None)
                 {
                     Facing = Facing.GetOppositeDir8();
                 }
@@ -5261,7 +5261,7 @@ internal sealed class DigdoggerChildActor : DigdoggerActorBase
             UpdateMove();
         }
 
-        if (Direction.None == CheckWorldMargin(Facing))
+        if (CheckWorldMargin(Facing) == Direction.None)
         {
             Facing = Facing.GetOppositeDir8();
         }
