@@ -22,7 +22,6 @@ namespace z1;
 
 // Dungeon 1 bugs:
 // * Bad guys can bop link into the top wall in dungeons.
-// * When going down basement stairs, the stairs appear on top of link, he then is visible before the screen transition.
 
 // Know behavior changes:
 // * You can spawn multiple armos at the same time at the level 6 entrance where they are next to each other.

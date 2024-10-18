@@ -130,11 +130,18 @@ public enum GameWorldType
     OverworldCommon
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum EntranceAnimation
+{
+    None, Descend
+}
+
 [TiledClass]
 public sealed class Entrance
 {
     public GameWorldType DestinationType { get; set; }
     public string Destination { get; set; }
+    public EntranceAnimation Animation { get; set; }
     // When the player leave this new area, the position on this map the player should be.
     public PointXY? ExitPosition { get; set; }
     // Where inside the new map the player should be.

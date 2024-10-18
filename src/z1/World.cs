@@ -2938,15 +2938,15 @@ internal sealed partial class World
         DrawPlayerLiftingItem(ItemId.TriforcePiece);
     }
 
-    public void GotoStairs(TileBehavior behavior, Entrance entrance, ObjectState state)
+    public void GotoStairs(Entrance entrance, ObjectState state)
     {
         if (entrance == null) throw new Exception("Unable to locate stairs action object.");
         if (entrance.Destination == null) throw new Exception("Stairs do not target a proper location.");
 
         _state.Stairs.Substate = StairsState.Substates.Start;
-        _state.Stairs.TileBehavior = behavior;
         _state.Stairs.Entrance = entrance;
         _state.Stairs.ObjectState = state;
+
         Player.DrawOrder = DrawOrder.Player;
 
         _entranceHistory.Push(CurrentRoom, entrance);
@@ -2959,16 +2959,15 @@ internal sealed partial class World
         switch (_state.Stairs.Substate)
         {
             case StairsState.Substates.Start:
-                Player.DrawOrder = DrawOrder.BehindBackground;
-
                 if (IsOverworld()) Game.Sound.StopAll();
 
-                if (_state.Stairs.TileBehavior == TileBehavior.Cave)
+                if (_state.Stairs.Entrance.Animation == EntranceAnimation.Descend)
                 {
-                    Game.Player.Facing = Direction.Up;
+                    Player.DrawOrder = DrawOrder.BehindBackground;
+                    Player.Facing = Direction.Up;
 
-                    _state.Stairs.TargetX = Game.Player.X;
-                    _state.Stairs.TargetY = Game.Player.Y + (Game.Cheats.SpeedUp ? 0 : 0x10);
+                    _state.Stairs.TargetX = Player.X;
+                    _state.Stairs.TargetY = Player.Y + (Game.Cheats.SpeedUp ? 0 : 0x10);
                     _state.Stairs.ScrollDir = Direction.Down;
                     _state.Stairs.PlayerSpeed = 0x40;
                     _state.Stairs.PlayerFraction = 0;
@@ -2978,6 +2977,8 @@ internal sealed partial class World
                 }
                 else
                 {
+                    Player.Visible = false;
+
                     _state.Stairs.Substate = StairsState.Substates.Walk;
                 }
                 break;
@@ -3067,12 +3068,10 @@ internal sealed partial class World
         if (_curMode is GameMode.PlayCellar or GameMode.PlayCave or GameMode.PlayShortcuts
             ) //|| !CurrentWorld.IsOverworld)
         {
-
             GotoLeaveCellar();
         }
         else
         {
-
             GotoLeave(facing);
         }
     }
@@ -3088,14 +3087,15 @@ internal sealed partial class World
         _state.PlayCellar.Entrance = entrance;
         _state.PlayCellar.ObjectState = state;
         _state.PlayCellar.Substate = PlayCellarState.Substates.Start;
+
         Player.Visible = false;
 
         _curMode = GameMode.InitPlayCellar;
-        _stateCleanup = MakePlayerNormalDrawingOrder;
     }
 
     private void UpdatePlayCellar()
     {
+        _stateCleanup = MakePlayerNormalDrawingOrder;
         switch (_state.PlayCellar.Substate)
         {
             case PlayCellarState.Substates.Start: PlayCellarStart(Game, ref _state.PlayCellar); break;
@@ -3863,7 +3863,7 @@ internal sealed partial class World
 
     private void MakePlayerNormalDrawingOrder()
     {
-        Player.DrawOrder = DrawOrder.Player;
-        Player.Visible = true;
+        // Player.DrawOrder = DrawOrder.Player;
+        // Player.Visible = true;
     }
 }

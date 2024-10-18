@@ -398,6 +398,7 @@ internal sealed class MapExtractor
         ShopSpec? caveSpec = null;
         EntryPosition? caveEntryPosition = null;
         RoomArguments? arguments = null;
+        var stairsBlockType = resources.IsOverworld ? BlockType.Stairs : BlockType.UnderworldStairs;
         if (resources.IsOverworld)
         {
             if ((int)caveId < 9)
@@ -453,13 +454,16 @@ internal sealed class MapExtractor
             ExitPosition = new PointXY(exitColumnX, exitRowY),
             EntryPosition = caveEntryPosition,
             Shop = caveSpec,
-            BlockType = BlockType.Stairs,
+            BlockType = stairsBlockType,
+            Animation = EntranceAnimation.None,
             Arguments = arguments,
         };
 
         Entrance EntranceWith(BlockType type)
         {
+            if (type == BlockType.Stairs) type = stairsBlockType;
             caveEntrance.BlockType = type;
+            caveEntrance.Animation = type == BlockType.Cave ? EntranceAnimation.Descend : EntranceAnimation.None;
             return caveEntrance;
         }
 
@@ -569,7 +573,7 @@ internal sealed class MapExtractor
                 {
                     Name = nameof(TileAction.Stairs),
                     Interaction = Interaction.Revealed,
-                    Entrance = EntranceWith(BlockType.Stairs),
+                    Entrance = EntranceWith(stairsBlockType),
                 });
             }
 

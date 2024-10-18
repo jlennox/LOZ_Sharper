@@ -288,7 +288,6 @@ internal struct StairsState
     public int TargetY;
     public int PlayerSpeed;
     public int PlayerFraction;
-    public TileBehavior TileBehavior;
     public Entrance Entrance;
     public ObjectState? ObjectState;
 

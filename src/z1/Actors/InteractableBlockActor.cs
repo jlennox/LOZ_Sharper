@@ -307,7 +307,7 @@ internal sealed class InteractableBlockActor : InteractableActor<InteractableBlo
         if (World.Player.FromUnderground) return;
 
         if (!World.Player.DoesCover(this)) return;
-        World.GotoStairs(TileBehavior.Cave, caveEntrance, State);
+        World.GotoStairs(caveEntrance, State);
     }
 
     private bool CheckBombable()

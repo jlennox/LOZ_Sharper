@@ -637,6 +637,8 @@ internal sealed class Player : Actor, IThrower
 
     public override void Draw()
     {
+        if (!Visible) return;
+
         var palette = CalcPalette(Palette.Player);
         var y = Y;
 
