@@ -420,17 +420,17 @@ internal sealed partial class World
         }
     }
 
-    public TileBehavior GetTileBehavior(int tileY, int tileX) // Arg, these are not x/y ordered.
+    public TileBehavior GetTileBehavior(int tileX, int tileY)
     {
         return CurrentRoom.RoomMap.AsBehaviors(tileX, tileY);
     }
 
-    private TileBehavior GetTileBehaviorXY(int x, int y)
+    public TileBehavior GetTileBehaviorXY(int x, int y)
     {
         var tileX = x / TileWidth;
         var tileY = (y - TileMapBaseY) / TileHeight;
 
-        return GetTileBehavior(tileY, tileX);
+        return GetTileBehavior(tileX, tileY);
     }
 
     public void SetMapObjectXY(int x, int y, BlockType block)
@@ -514,12 +514,12 @@ internal sealed partial class World
     public void SetStunTimer(StunTimerSlot slot, int value) => _stunTimers[slot] = value;
     public void PushTile(int row, int col) => InteractTile(row, col, TileInteraction.Push);
 
-    private void InteractTile(int row, int col, TileInteraction interaction)
+    private void InteractTile(int rowY, int colX, TileInteraction interaction)
     {
-        if (row < 0 || col < 0 || row >= ScreenTileHeight || col >= ScreenTileWidth) return;
+        if (rowY < 0 || colX < 0 || rowY >= ScreenTileHeight || colX >= ScreenTileWidth) return;
 
-        var behavior = GetTileBehavior(row, col);
-        RunTileBehavior(behavior, row, col, interaction);
+        var behavior = GetTileBehavior(colX, rowY);
+        RunTileBehavior(behavior, rowY, colX, interaction);
     }
 
     public TileCollision CollidesWithTileStill(int x, int y)
@@ -568,7 +568,7 @@ internal sealed partial class World
         return collision1;
     }
 
-    private TileCollision CollidesWithTile(int x, int y, Direction dir, int offset)
+    public TileCollision CollidesWithTile(int x, int y, Direction dir, int offset)
     {
         y += 0x0B;
 
@@ -609,7 +609,7 @@ internal sealed partial class World
         // Upcast to an int, otherwise `fineCol2` being 0xFF will cause a non-terminating loop.
         for (var c = (int)fineCol1; c <= fineCol2; c++)
         {
-            var curBehavior = GetTileBehavior(fineRow, c);
+            var curBehavior = GetTileBehavior(c, fineRow);
             if (curBehavior > behavior)
             {
                 behavior = curBehavior;
@@ -618,6 +618,23 @@ internal sealed partial class World
         }
 
         return new TileCollision(behavior.CollidesTile(), behavior, hitFineCol, fineRow);
+    }
+
+    public bool TouchesWall(int x, int y)
+    {
+        var fineRow = (int)(byte)((y - TileMapBaseY) / 8);
+        var fineCol1 = (int)(byte)(x / 8);
+
+        for (var c = fineCol1; c <= fineCol1 + 1; c++)
+        {
+            for (var r = fineRow; r <= fineRow + 1; r++)
+            {
+                var curBehavior = CurrentRoom.RoomMap.AsBehaviors(c, r);
+                if (curBehavior.CollidesWall()) return true;
+            }
+        }
+
+        return false;
     }
 
     public void OnTouchedPowerTriforce()
@@ -2026,7 +2043,7 @@ internal sealed partial class World
 
             var row = (y / 8) - 8;
             var col = (x / 8);
-            var behavior = GetTileBehavior(row, col);
+            var behavior = GetTileBehavior(col, row);
 
             if (behavior != TileBehavior.Sand && !behavior.CollidesTile()) break;
             if (y == _edgeY && x == _edgeX) break;

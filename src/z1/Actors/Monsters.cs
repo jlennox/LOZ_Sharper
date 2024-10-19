@@ -3087,10 +3087,10 @@ internal abstract class JumperActor : MonsterActor
 
     private void UpdateJump()
     {
-        var dir = CheckWorldMarginH(X, Facing, false);
+        var dir = CheckWorldMarginH(X, Y, Facing, false);
         if (this is not BoulderActor)
         {
-            dir = CheckWorldMarginV(Y, dir, false);
+            dir = CheckWorldMarginV(X, Y, dir, false);
         }
 
         if (dir == Direction.None)

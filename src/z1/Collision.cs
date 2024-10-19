@@ -22,5 +22,7 @@ internal record struct TileCollision(bool Collides, TileBehavior TileBehavior, i
 {
     public static implicit operator bool(TileCollision b) => b.Collides;
 
+    public bool CollidesWall => TileBehavior.CollidesWall();
+
     public readonly override string ToString() => $"Collides:{Collides}, TileBehavior:{TileBehavior}, FineCol:{FineCol}, FineRow:{FineRow}";
 }

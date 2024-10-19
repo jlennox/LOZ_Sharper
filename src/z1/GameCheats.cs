@@ -293,12 +293,11 @@ internal sealed class GameCheats
             game.World.AddItem(ItemId.RedCandle);
             game.World.AddItem(ItemId.Rod);
             game.World.AddItem(ItemId.MagicSword);
-            game.World.AddItem(ItemId.HeartContainer);
             game.World.SetItem(ItemSlot.TriforcePieces, 0xFF);
             profile.Items.Add(ItemSlot.Rupees, 100);
             profile.Items.Add(ItemSlot.Bombs, 98);
             profile.Items.Add(ItemSlot.Keys, 98);
-            profile.Items.Add(ItemSlot.HeartContainers, 16);
+            profile.Items.Set(ItemSlot.HeartContainers, 16);
             profile.Hearts = PlayerProfile.GetMaxHeartsValue(16);
             profile.SelectedItem = ItemSlot.Bombs;
 

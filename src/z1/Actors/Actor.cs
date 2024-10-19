@@ -1041,79 +1041,99 @@ internal abstract class Actor
         return new PlayerCollision(false, true);
     }
 
-    protected Direction CheckWorldMarginH(int x, Direction dir, bool adjust)
+    protected Direction CheckWorldMarginH(int x, int y, Direction dir, bool adjust)
     {
-        return CheckWorldMarginH(x, dir, adjust, out _);
+        return CheckWorldMarginH(x, y, dir, adjust, out _);
     }
 
-    protected Direction CheckWorldMarginH(int x, Direction dir, bool adjust, out CheckWorldReason reason)
+    protected Direction CheckWorldMarginH(int x, int y, Direction dir, bool adjust, out CheckWorldReason reason)
     {
-        var curDir = Direction.Left;
         reason = CheckWorldReason.None;
+
+        var offsetLeft = x;
+        var offsetRight = x;
 
         if (adjust)
         {
-            x += 0xB;
+            offsetLeft = x + 0x0B;
+            offsetRight = x - 0x0C;
         }
 
-        if (x > World.MarginLeft)
+        if (offsetLeft <= World.MarginLeft)
         {
-            if (adjust)
-            {
-                x -= 0x17;
-            }
-
-            curDir = Direction.Right;
-
-            if (x < World.MarginRight)
-            {
-                reason = CheckWorldReason.InBounds;
-                return dir;
-            }
+            reason = CheckWorldReason.OutOfBounds;
+            return (dir & Direction.Left) != 0 ? Direction.None : dir;
         }
 
-        reason = CheckWorldReason.OutOfBounds;
-        return (dir & curDir) != 0 ? Direction.None : dir;
+        if (offsetRight >= World.MarginRight)
+        {
+            reason = CheckWorldReason.OutOfBounds;
+            return (dir & Direction.Right) != 0 ? Direction.None : dir;
+        }
+
+        if (dir.HasFlag(Direction.Left) && World.TouchesWall(offsetLeft, y))
+        {
+            reason = CheckWorldReason.Wall;
+            return (dir & Direction.Left) != 0 ? Direction.None : dir;
+        }
+
+        if (dir.HasFlag(Direction.Right) && World.TouchesWall(offsetRight + 8, y))
+        {
+            reason = CheckWorldReason.Wall;
+            return (dir & Direction.Right) != 0 ? Direction.None : dir;
+        }
+
+        reason = CheckWorldReason.InBounds;
+        return dir;
     }
 
-    protected Direction CheckWorldMarginV(int y, Direction dir, bool adjust)
+    protected Direction CheckWorldMarginV(int x, int y, Direction dir, bool adjust)
     {
-        return CheckWorldMarginV(y, dir, adjust, out _);
+        return CheckWorldMarginV(x, y, dir, adjust, out _);
     }
 
-    protected Direction CheckWorldMarginV(int y, Direction dir, bool adjust, out CheckWorldReason reason)
+    protected Direction CheckWorldMarginV(int x, int y, Direction dir, bool adjust, out CheckWorldReason reason)
     {
-        var curDir = Direction.Up;
-        reason = CheckWorldReason.None;
+        var offsetUp = y;
+        var offsetDown = y;
 
         if (adjust)
         {
-            y += 0x0F;
+            offsetUp = x + 0x0F;
+            offsetDown = x - 0x12;
         }
 
-        if (y > World.MarginTop)
+        if (offsetUp <= World.MarginTop)
         {
-            if (adjust)
-            {
-                y -= 0x21;
-            }
-
-            curDir = Direction.Down;
-
-            if (y < World.MarginBottom)
-            {
-                reason = CheckWorldReason.InBounds;
-                return dir;
-            }
+            reason = CheckWorldReason.OutOfBounds;
+            return (dir & Direction.Up) != 0 ? Direction.None : dir;
         }
 
-        reason = CheckWorldReason.OutOfBounds;
-        return (dir & curDir) != 0 ? Direction.None : dir;
+        if (offsetDown >= World.MarginBottom)
+        {
+            reason = CheckWorldReason.OutOfBounds;
+            return (dir & Direction.Down) != 0 ? Direction.None : dir;
+        }
+
+        if (dir.HasFlag(Direction.Up) && World.TouchesWall(x, offsetUp))
+        {
+            reason = CheckWorldReason.Wall;
+            return (dir & Direction.Up) != 0 ? Direction.None : dir;
+        }
+
+        if (dir.HasFlag(Direction.Down) && World.TouchesWall(x, y + 8))
+        {
+            reason = CheckWorldReason.Wall;
+            return (dir & Direction.Down) != 0 ? Direction.None : dir;
+        }
+
+        reason = CheckWorldReason.InBounds;
+        return dir;
     }
 
     protected enum CheckWorldReason
     {
-        None, InBounds, OutOfBounds
+        None, InBounds, OutOfBounds, Wall
     }
 
     protected Direction CheckWorldMargin(Direction dir)
@@ -1121,7 +1141,6 @@ internal abstract class Actor
         return CheckWorldMargin(dir, out _);
     }
 
-    // JOE NOTE: Projectiles can't go into doorways. I THINK.
     protected Direction CheckWorldMargin(Direction dir, out CheckWorldReason reason)
     {
         // JOE: This isn't exactly correct... the original would exclude the buffer slot from
@@ -1129,15 +1148,13 @@ internal abstract class Actor
         // var adjust = slot > ObjectSlot.Buffer || this is LadderActor;
         var adjust = !IsMonsterSlot || this is LadderActor;
 
-        // ORIGINAL: This isn't needed, because the player is first (slot=0).
-        // JOE: Original: if (slot >= ObjectSlot.Player)
         if (IsPlayer)
         {
             adjust = false;
         }
 
-        dir = CheckWorldMarginH(X, dir, adjust, out reason);
-        return CheckWorldMarginV(Y, dir, adjust, out reason);
+        dir = CheckWorldMarginH(X, Y, dir, adjust, out reason);
+        return CheckWorldMarginV(X, Y, dir, adjust, out reason);
     }
 
     protected Direction CheckTileCollision(Direction dir)
@@ -1267,7 +1284,6 @@ internal abstract class Actor
     protected Direction StopAtPersonWallUW(Direction dir)
     {
         if (Game.Cheats.NoClip) return dir;
-        // ($6E46) if first object is grumble or person, block movement up above $8E.
 
         foreach (var obj in World.GetObjects())
         {

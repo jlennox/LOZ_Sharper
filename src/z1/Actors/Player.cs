@@ -285,7 +285,7 @@ internal sealed class Player : Actor, IThrower
         {
             for (var c = fineCol1; c <= fineCol2; c++)
             {
-                var curBehavior = World.GetTileBehavior(r, c);
+                var curBehavior = World.GetTileBehavior(c, r);
 
                 // TODO: this isn't the best way to check covered tiles
                 //       but it'll do for now.
@@ -1149,6 +1149,8 @@ internal sealed class Player : Actor, IThrower
             var singleMoving = dirOrd.GetOrdDirection();
             var coord = singleMoving.IsVertical() ? Y : X;
 
+            // JOE: I believe it's important for this to be a "==" instead a proper greater/less than check, because
+            // I _believe_ this is what allows out of bounds clipping?
             if (coord == PlayerLimits[dirOrd])
             {
                 Facing = singleMoving;
