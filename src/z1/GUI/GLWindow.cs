@@ -362,7 +362,7 @@ internal sealed class GLWindow : IDisposable
         // while (_starttime.Elapsed - _renderedTime >= frameTime)
         {
             _updateTimer.Restart();
-            if (Game.Cheats.EnableMhzDisaster)
+            if (Game.Cheats.ToggleMhzDisaster || Game.Cheats.EnableMhzDisaster)
             {
                 for (var i = 0; i < Game.Cheats.MhzDisaster; i++)
                 {

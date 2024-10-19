@@ -254,6 +254,8 @@ internal sealed class InputConfiguration
         { new KeyboardMapping(Key.Q, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.CheatGodMode },
         { new KeyboardMapping(Key.D, KeyboardModifiers.Control | KeyboardModifiers.Alt), GameButton.ToggleDebugInfo },
         { new KeyboardMapping(Key.Tab), GameButton.ToggleMhzDisaster },
+        { new KeyboardMapping(Key.Period), GameButton.IncreaseMhzDisaster },
+        { new KeyboardMapping(Key.Comma), GameButton.DecreaseMhzDisaster },
 #endif
     };
 

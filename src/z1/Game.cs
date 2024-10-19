@@ -52,6 +52,7 @@ internal sealed class Game
         public static bool SpeedUp = false;
         public static bool GodMode = false;
         public static bool NoClip = false;
+        public static bool ToggleMhzDisaster = false;
         public static bool EnableMhzDisaster = false;
         public static int MhzDisaster = 3;
     }
@@ -177,7 +178,9 @@ internal sealed class Game
             Configuration.DebugInfo.Enabled = !Configuration.DebugInfo.Enabled;
         }
 
-        Cheats.EnableMhzDisaster = Input.IsButtonDown(GameButton.ToggleMhzDisaster);
+        Cheats.ToggleMhzDisaster = Input.IsButtonDown(GameButton.ToggleMhzDisaster);
+        if (Input.IsButtonPressing(GameButton.IncreaseMhzDisaster)) Cheats.MhzDisaster++;
+        if (Input.IsButtonPressing(GameButton.DecreaseMhzDisaster)) Cheats.MhzDisaster--;
     }
 
     public void Draw()

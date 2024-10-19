@@ -216,7 +216,7 @@ internal static class GLWindowGui
                 Debug.WriteLine("Exception " + e);
             }
         }
-        if (ImGui.BeginMenu("Spawn"))
+        if (ImGui.BeginMenu("Spawn", game.Player.Profile != null))
         {
             if (ImGui.BeginMenu("Overworld"))
             {
@@ -332,7 +332,7 @@ internal static class GLWindowGui
             game.World.LoadOverworldRoom(x, y);
         }
 
-        if (ImGui.BeginMenu("Warp"))
+        if (ImGui.BeginMenu("Warp", game.Player.Profile != null))
         {
             if (ImGui.MenuItem("Level 1")) Warp(game, 1);
             if (ImGui.MenuItem("Level 1 (Entrance)")) WarpOW(game, 7, 3);
@@ -390,7 +390,7 @@ internal static class GLWindowGui
             game.World.DebugSpawnCave(caves => caves.First(t => t.PersonType == type));
         }
 
-        if (ImGui.BeginMenu("Person"))
+        if (ImGui.BeginMenu("Person", game.Player.Profile != null))
         {
             if (ImGui.MenuItem("Cave 1: Wooden")) SpawnCave(game, CaveId.Cave1);
             if (ImGui.MenuItem("Cave 2: Take any")) SpawnCave(game, CaveId.Cave2);
@@ -441,14 +441,22 @@ internal static class GLWindowGui
             if (ImGui.MenuItem("Clear secrets")) game.GameCheats.TriggerCheat<GameCheats.ClearSecretsCheat>();
             if (ImGui.MenuItem("Clear history")) game.GameCheats.TriggerCheat<GameCheats.ClearHistoryCheat>();
             if (ImGui.MenuItem("Clear Items")) game.Player.Profile.Reset();
-            if (ImGui.MenuItem("Draw hit detection", null, game.World.DrawHitDetection)) game.World.DrawHitDetection = !game.World.DrawHitDetection;
             if (ImGui.MenuItem("Reload assets")) AssetLoader.Initialize();
+
+            ImGui.SeparatorText("Rendering");
+
+            if (ImGui.MenuItem("Draw hit detection", null, game.World.DrawHitDetection)) game.World.DrawHitDetection = !game.World.DrawHitDetection;
             if (ImGui.MenuItem("Draw immediately", null, Graphics.ImmediateRenderer)) Graphics.ImmediateRenderer = !Graphics.ImmediateRenderer;
             if (ImGui.MenuItem("Reload shaders"))
             {
                 GLSpriteShader.Instance.Dispose();
                 GLSpriteShader.Initialize(window._gl);
             }
+
+            ImGui.SeparatorText("MHz Disaster");
+
+            if (ImGui.MenuItem("Enable", null, Game.Cheats.EnableMhzDisaster)) Game.Cheats.EnableMhzDisaster = !Game.Cheats.EnableMhzDisaster;
+            ImGui.SliderInt("Speed", ref Game.Cheats.MhzDisaster, 2, 200);
 
             ImGui.SeparatorText("Recording");
 
