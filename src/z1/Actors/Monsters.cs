@@ -448,14 +448,14 @@ internal sealed class GanonActor : BlueWizzrobeBase
     private static readonly ImmutableArray<byte> _ganonRedPalette = [0x07, 0x17, 0x30];
 
     private readonly ImmutableArray<SlashSpec> _slashSpecs = [
-        new(TileSheet.Boss9,          AnimationId.B3_Slash_U, 0),
-        new(TileSheet.PlayerAndItems, AnimationId.Slash,      1),
-        new(TileSheet.Boss9,          AnimationId.B3_Slash_L, 1),
-        new(TileSheet.PlayerAndItems, AnimationId.Slash,      3),
-        new(TileSheet.Boss9,          AnimationId.B3_Slash_U, 2),
-        new(TileSheet.PlayerAndItems, AnimationId.Slash,      2),
-        new(TileSheet.Boss9,          AnimationId.B3_Slash_L, 0),
-        new(TileSheet.PlayerAndItems, AnimationId.Slash,      0)
+        new SlashSpec(TileSheet.Boss9,          AnimationId.B3_Slash_U, 0),
+        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      1),
+        new SlashSpec(TileSheet.Boss9,          AnimationId.B3_Slash_L, 1),
+        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      3),
+        new SlashSpec(TileSheet.Boss9,          AnimationId.B3_Slash_U, 2),
+        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      2),
+        new SlashSpec(TileSheet.Boss9,          AnimationId.B3_Slash_L, 0),
+        new SlashSpec(TileSheet.PlayerAndItems, AnimationId.Slash,      0)
     ];
 
     public override bool IsReoccuring => false;
@@ -1338,6 +1338,8 @@ internal sealed class StalfosActor : StdWanderer
     }
 }
 
+internal enum GelState { Initial, Shove, Wander }
+
 internal sealed class GelActor : WandererWalkerActor
 {
     private static readonly ImmutableArray<byte> _gelWaitTimes = [0x08, 0x18, 0x28, 0x38];
@@ -1351,7 +1353,7 @@ internal sealed class GelActor : WandererWalkerActor
 
     private static readonly WalkerSpec _gelSpec = new(_gelAnimMap, 4, Palette.SeaPal, 0x40);
 
-    private int _state; // JOE: TODO: Enumify this.
+    private GelState _state;
 
     public GelActor(World world, ObjType type, int x, int y, Direction dir, byte fraction)
         : base(world, type, WorldLevel.Underworld, _gelSpec, 0x20, x, y)
@@ -1365,7 +1367,7 @@ internal sealed class GelActor : WandererWalkerActor
 
         if (type == ObjType.Gel)
         {
-            _state = 2;
+            _state = GelState.Wander;
         }
         else
         {
@@ -1380,18 +1382,13 @@ internal sealed class GelActor : WandererWalkerActor
     {
         switch (_state)
         {
-            case 0:
+            case GelState.Initial:
                 ObjTimer = 5;
-                _state = 1;
+                _state = GelState.Shove;
                 break;
 
-            case 1:
-                UpdateShove();
-                break;
-
-            case 2:
-                UpdateWander();
-                break;
+            case GelState.Shove: UpdateShove(); break;
+            case GelState.Wander: UpdateWander(); break;
         }
 
         CheckCollisions();
@@ -1406,7 +1403,7 @@ internal sealed class GelActor : WandererWalkerActor
         Y = (Y + 8) & 0xF0;
         Y |= 0xD;
         TileOffset = 0;
-        _state = 2;
+        _state = GelState.Wander;
     }
 
     private void UpdateWander()
@@ -1424,6 +1421,8 @@ internal sealed class GelActor : WandererWalkerActor
     }
 }
 
+internal enum ZolState { Wander, Shove, Split }
+
 internal sealed class ZolActor : WandererWalkerActor
 {
     private static readonly ImmutableArray<byte> _zolWaitTimes = [0x18, 0x28, 0x38, 0x48];
@@ -1437,7 +1436,7 @@ internal sealed class ZolActor : WandererWalkerActor
 
     private static readonly WalkerSpec _zolSpec = new(_zolAnimMap, 16, Palette.SeaPal, 0x18);
 
-    private int _state;
+    private ZolState _state;
 
     public ZolActor(World world, int x, int y)
         : base(world, ObjType.Zol, WorldLevel.Underworld, _zolSpec, 0x20, x, y)
@@ -1450,9 +1449,9 @@ internal sealed class ZolActor : WandererWalkerActor
     {
         switch (_state)
         {
-            case 0: UpdateWander(); break;
-            case 1: UpdateShove(); break;
-            case 2: UpdateSplit(); break;
+            case ZolState.Wander: UpdateWander(); break;
+            case ZolState.Shove: UpdateShove(); break;
+            case ZolState.Split: UpdateSplit(); break;
         }
 
         Animator.Advance();
@@ -1494,7 +1493,7 @@ internal sealed class ZolActor : WandererWalkerActor
                 dirMask |= 0xC;
             }
 
-            _state = (dirMask & (ulong)player.Facing) == 0 ? 2 : 1;
+            _state = (dirMask & (ulong)player.Facing) == 0 ? ZolState.Split : ZolState.Shove;
         }
     }
 
@@ -1502,7 +1501,7 @@ internal sealed class ZolActor : WandererWalkerActor
     {
         if (!TryBigShove())
         {
-            _state = 2;
+            _state = ZolState.Split;
         }
     }
 
@@ -3778,7 +3777,7 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
         }
     }
 
-    private RedWizzrobeState GetState() // JOE: TODO: What the heck is this state? Enumify this?
+    private RedWizzrobeState GetState()
     {
         return (RedWizzrobeState)(_stateTimer >> 6);
     }
@@ -3813,16 +3812,13 @@ internal sealed class RedWizzrobeActor : WizzrobeBase
     {
         if (_stateTimer == 0xB0)
         {
-            if (!World.HasItem(ItemSlot.Clock))
+            if (World.HasItem(ItemSlot.Clock))
             {
-                Game.Sound.PlayEffect(SoundEffect.MagicWave);
-                Shoot(ObjType.MagicWave2, X, Y, Facing);
-            }
-            else
-            {
-                // JOE: NOTE: This branch should be logically unreachable.
                 throw new UnreachableException($"{nameof(RedWizzrobeActor)} UpdateVisible");
             }
+
+            Game.Sound.PlayEffect(SoundEffect.MagicWave);
+            Shoot(ObjType.MagicWave2, X, Y, Facing);
         }
 
         CheckWizzrobeCollisions();

@@ -17,11 +17,12 @@ namespace z1;
 // * Set caves prior to scrolling, otherwise they only appear after scrolling has finished.
 // * Fix potion shop.
 // * Track the old spawn in time values and compare to the new. New ones seem longer.
-// * Does not lift cellar items overhead.
 // * Player spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
+// * I think we need to reproduce the original game's draw order? IE, bombs should always be drawn over bad guys.
+// * Do bad guys flicker when overlapping each other?
 
 // Dungeon bugs:
-// * Wizzrobe's wand attacks go into the walls.
+// * Zol's get stuck on the top.
 
 // Know behavior changes:
 // * You can spawn multiple armos at the same time at the level 6 entrance where they are next to each other.
@@ -30,7 +31,6 @@ namespace z1;
 
 // Sharper:
 // * Rectify MarginRight.
-// * Make replay engine?
 // * Figure out where to define what song is playing.
 // * Refactor game-space to be (0,0), not (0,status bar height).
 // * Make fire shooters and spike traps objects.
@@ -62,6 +62,7 @@ namespace z1;
 // * Screen wrap?
 // * Block clip?
 // * World wrap?
+// * Sword + wand?
 // * Dungeon locked doors glitch: https://gamefaqs.gamespot.com/boards/563433-the-legend-of-zelda/63821853
 
 // Enhancements:

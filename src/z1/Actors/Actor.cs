@@ -1248,14 +1248,17 @@ internal abstract class Actor
     private Direction GetNextAltDir(ref int seq, Direction dir)
     {
         ReadOnlySpan<Direction> nextDirections = [Direction.Up, Direction.Down, Direction.Left, Direction.Right];
+
         switch (seq++)
         {
             // Choose a random direction perpendicular to facing.
             case 0:
                 var index = 0;
                 var r = Game.Random.GetByte();
+
                 if ((r & 1) == 0) index++;
                 if (Facing.IsVertical()) index += 2;
+
                 return nextDirections[index];
 
             case 1:
