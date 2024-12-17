@@ -1071,16 +1071,16 @@ internal abstract class Actor
             return (dir & Direction.Right) != 0 ? Direction.None : dir;
         }
 
-        if (dir.HasFlag(Direction.Left) && World.TouchesWall(offsetLeft, y))
+        if (dir.HasFlag(Direction.Left) && World.TouchesWall(offsetLeft, y, TileOffset))
         {
             reason = CheckWorldReason.Wall;
-            return (dir & Direction.Left) != 0 ? Direction.None : dir;
+            return Direction.None;
         }
 
-        if (dir.HasFlag(Direction.Right) && World.TouchesWall(offsetRight + 8, y))
+        if (dir.HasFlag(Direction.Right) && World.TouchesWall(offsetRight + 8, y, TileOffset))
         {
             reason = CheckWorldReason.Wall;
-            return (dir & Direction.Right) != 0 ? Direction.None : dir;
+            return Direction.None;
         }
 
         reason = CheckWorldReason.InBounds;
@@ -1115,16 +1115,16 @@ internal abstract class Actor
             return (dir & Direction.Down) != 0 ? Direction.None : dir;
         }
 
-        if (dir.HasFlag(Direction.Up) && World.TouchesWall(x, offsetUp))
+        if (dir.HasFlag(Direction.Up) && World.TouchesWall(x, offsetUp, TileOffset))
         {
             reason = CheckWorldReason.Wall;
-            return (dir & Direction.Up) != 0 ? Direction.None : dir;
+            return Direction.None;
         }
 
-        if (dir.HasFlag(Direction.Down) && World.TouchesWall(x, y + 8))
+        if (dir.HasFlag(Direction.Down) && World.TouchesWall(x, y + 8, TileOffset))
         {
             reason = CheckWorldReason.Wall;
-            return (dir & Direction.Down) != 0 ? Direction.None : dir;
+            return Direction.None;
         }
 
         reason = CheckWorldReason.InBounds;

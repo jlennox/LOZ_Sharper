@@ -620,8 +620,16 @@ internal sealed partial class World
         return new TileCollision(behavior.CollidesTile(), behavior, hitFineCol, fineRow);
     }
 
-    public bool TouchesWall(int x, int y)
+    public bool TouchesWall(int x, int y, int tileOffset)
     {
+        // TileOffset has to be checked to be 0. At least as far as I can tell, there's never a "transition" unless
+        // you're on a tile boundary. With walls now being checked specifically instead of as bound checks, it was
+        // easier for objects with TileOffsets to "touch" things while still in that transitory state.
+        //
+        // Since the AIs can only turn when they're on a tile boundary, this could cause them to continue to walk into
+        // a wall indefinitely.
+        if (tileOffset != 0) return false;
+
         var fineRow = (int)(byte)((y - TileMapBaseY) / 8);
         var fineCol1 = (int)(byte)(x / 8);
 

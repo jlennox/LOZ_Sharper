@@ -208,7 +208,8 @@ internal sealed class GameCheats
         public override void RunPayload(Game game, string[] args)
         {
             game.World.KillAllObjects();
-            foreach (var obj in game.World.GetObjects<InteractableBlockActor>())
+            var objects = game.World.GetObjects<InteractableBlockActor>().ToArray();
+            foreach (var obj in objects)
             {
                 obj.DebugSetInteracted();
             }

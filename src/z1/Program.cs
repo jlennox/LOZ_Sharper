@@ -22,7 +22,6 @@ namespace z1;
 // * Do bad guys flicker when overlapping each other?
 
 // Dungeon bugs:
-// * Zol's get stuck on the top.
 
 // Know behavior changes:
 // * You can spawn multiple armos at the same time at the level 6 entrance where they are next to each other.
