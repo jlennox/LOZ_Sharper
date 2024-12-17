@@ -475,10 +475,10 @@ internal sealed partial class World
 
     public bool HasObject<T>() where T : Actor => GetObjects<T>().Any();
 
-    public void AddObject(Actor obj)
+    public void AddObject(Actor actor)
     {
-        _traceLog.Write($"AddObject({obj.ObjType}); {obj.X:X2},{obj.Y:X2}");
-        _objects.Add(obj);
+        _traceLog.Write($"AddObject({actor.ObjType}); ({actor.X:X2},{actor.Y:X2})");
+        _objects.Add(actor);
     }
 
     public void AddUniqueObject(Actor obj)
@@ -486,10 +486,10 @@ internal sealed partial class World
         if (!_objects.Contains(obj)) AddObject(obj);
     }
 
-    public void AddOnlyObject(Actor? old, Actor obj)
+    public void AddOnlyObject(Actor? old, Actor actor)
     {
-        _traceLog.Write($"AddOnlyObject({old?.ObjType}, {obj.ObjType}); {obj.X:X2},{obj.Y:X2}");
-        AddObject(obj);
+        _traceLog.Write($"AddOnlyObject({old?.ObjType}, {actor.ObjType}); ({actor.X:X2},{actor.Y:X2})");
+        AddObject(actor);
         old?.Delete();
     }
 
@@ -500,7 +500,7 @@ internal sealed partial class World
         {
             if (_objects[i] is T actor)
             {
-                _traceLog.Write($"RemoveObject({actor.ObjType}); {actor.X:X2},{actor.Y:X2}");
+                _traceLog.Write($"RemoveObject({actor.ObjType}); ({actor.X:X2},{actor.Y:X2})");
                 actor.Delete();
                 _objects.RemoveAt(i);
                 return;

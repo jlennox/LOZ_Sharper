@@ -420,6 +420,8 @@ internal abstract class Actor
 
     public bool DecoratedUpdate()
     {
+        if (_isDeleted) return true;
+
         if (InvincibilityTimer > 0 && (Game.FrameCounter & 1) == 0)
         {
             InvincibilityTimer--;
@@ -1099,8 +1101,8 @@ internal abstract class Actor
 
         if (adjust)
         {
-            offsetUp = x + 0x0F;
-            offsetDown = x - 0x12;
+            offsetUp = y + 0x0F;
+            offsetDown = y - 0x12;
         }
 
         if (offsetUp <= World.MarginTop)
