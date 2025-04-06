@@ -18,7 +18,7 @@ internal enum DamageType
 }
 
 [DebuggerDisplay("{ObjType} ({X},{Y})")]
-internal abstract class Actor
+internal abstract partial class Actor
 {
     private static readonly DebugLog _log = new(nameof(Actor));
     private static readonly DebugLog _traceLog = new(nameof(Actor), DebugLogDestination.DebugBuildsOnly);

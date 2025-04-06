@@ -4777,7 +4777,7 @@ internal sealed class ManhandlaParent
 }
 
 [DebuggerDisplay("Manhandla({IsBodyCenter})")]
-internal sealed class ManhandlaActor : MonsterActor
+internal sealed partial class ManhandlaActor : MonsterActor
 {
     private static readonly ImmutableArray<AnimationId> _manhandlaAnimMap = [
         AnimationId.B2_Manhandla_Hand_U,

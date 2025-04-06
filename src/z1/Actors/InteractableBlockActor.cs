@@ -10,7 +10,7 @@ namespace z1.Actors;
 // - Boomerang should make item sound when it appears in level 1.
 
 [DebuggerDisplay("{Interactable.Name} ({X},{Y})")]
-internal abstract class InteractableActor<T> : Actor
+internal abstract partial class InteractableActor<T> : Actor
     where T : InteractableBase
 {
     protected enum UpdateState { None, HasInteracted, Check }
@@ -171,7 +171,7 @@ internal sealed class RoomInteractionActor : InteractableActor<RoomInteraction>
 }
 
 [DebuggerDisplay("{GameObject.Name} ({X},{Y})")]
-internal sealed class InteractableBlockActor : InteractableActor<InteractableBlock>
+internal sealed partial class InteractableBlockActor : InteractableActor<InteractableBlock>
 {
     private const int MaxSpawnCount = 16;
 

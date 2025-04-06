@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+	<LangVersion>latest</LangVersion>
+	
+    <CLSCompliant>false</CLSCompliant>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <AnalyzerLanguage>cs</AnalyzerLanguage>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+	
+    <TargetFrameworks>$(NetCoreAppToolCurrent);netstandard2.0</TargetFrameworks>
+    <AnalyzerRoslynVersion>4.4</AnalyzerRoslynVersion>
+    <RoslynApiVersion>$(MicrosoftCodeAnalysisVersion_4_4)</RoslynApiVersion>
+    <DefineConstants>$(DefineConstants);ROSLYN4_0_OR_GREATER;ROSLYN4_4_OR_GREATER</DefineConstants>
+	<IsRoslynAnalyzer>true</IsRoslynAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.13.0" />
+  </ItemGroup>
+
+</Project>
