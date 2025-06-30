@@ -1,4 +1,5 @@
-﻿global using z1.Common;
+﻿global using z1.Actors;
+global using z1.Common;
 global using z1.Common.Data;
 using z1.GUI;
 
@@ -20,6 +21,11 @@ namespace z1;
 // * Player spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
 // * I think we need to reproduce the original game's draw order? IE, bombs should always be drawn over bad guys.
 // * Do bad guys flicker when overlapping each other?
+
+// Overworld bugs:
+// * Top right: Secret does not work.
+// * Armos: Stairs under did not visually appear but functioned as if they were there.
+// * Money: Goblins give wrong amount of money.
 
 // Dungeon bugs:
 
@@ -63,6 +69,7 @@ namespace z1;
 // * World wrap?
 // * Sword + wand?
 // * Dungeon locked doors glitch: https://gamefaqs.gamespot.com/boards/563433-the-legend-of-zelda/63821853
+// * Ensure you can sword beam dragon boss from right side door without taking hits.
 
 // Enhancements:
 // * Make an abstracted selectable menu. It takes in X/Y's, figures out what left/right/up/down does, perhaps has an onselect callback.

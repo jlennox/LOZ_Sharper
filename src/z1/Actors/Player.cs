@@ -71,6 +71,7 @@ internal sealed class Player : Actor, IThrower
 
     public static ReadOnlySpan<byte> PlayerLimits => [0xF0, 0x00, 0xDD, 0x3D];
 
+    private static readonly DebugLog _log = new(nameof(Player));
     private static readonly DebugLog _movementTraceLog = new(nameof(Player), "MovementTrace", DebugLogDestination.None);
 
     public PlayerProfile Profile { get; set; }
@@ -711,6 +712,8 @@ internal sealed class Player : Actor, IThrower
     // JOE: NOTE: This used to have a `Point& otherMiddle` argument that was unused?
     public void BeHarmed(Actor collider, int damage)
     {
+        _log.Write($"BeHarmed: {collider.GetType().Name} dealt {damage} damage.");
+
         if (Game.Cheats.GodMode) return;
 
         if (collider is not WhirlwindActor)
@@ -836,7 +839,14 @@ internal sealed class Player : Actor, IThrower
             x += 3;
         }
 
-        var arrow = Projectile.MakeProjectile(World, ObjType.Arrow, x, y, facingDir, this);
+        var bowValue = World.GetItem(ItemSlot.Bow);
+        var arrowValue = World.GetItem(ItemSlot.Arrow);
+        var arrowDamage = ArrowProjectile.GetDamage(arrowValue);
+
+        var arrowOptions = ProjectileOptions.None;
+        if (bowValue > 1) arrowOptions |= ProjectileOptions.Piercing;
+
+        var arrow = Projectile.MakeProjectile(World, ObjType.Arrow, x, y, facingDir, arrowDamage, arrowOptions, this);
         World.AddObject(arrow);
         Game.Sound.PlayEffect(SoundEffect.Boomerang);
         return 6;

@@ -95,4 +95,48 @@ internal abstract class MonsterActor : Actor
 
         return false;
     }
+
+    protected Actor? Shoot(ObjType shotType, int x, int y, Direction facing, ProjectileOptions options = ProjectileOptions.None)
+    {
+        Ensure.ThrowIfPlayer(this);
+
+        var oldActiveShots = World.ActiveMonsterShots;
+
+        // JOE NOTE: I hate that this exists while " Game.Data.GetObjectAttribute(collider.ObjType).Damage" still exists.
+        // One complication is Boomerang is not a projectile. We need a lower base to handle all of that, I assume?
+        // SECOND NOTE: Ya... these damage values go unused :) Projectile.Damage is _only_ used when it's from Player.
+        var damage = shotType switch
+        {
+            ObjType.FlyingRock => FlyingRockProjectile.MonsterBaseDamage,
+            ObjType.Arrow => ArrowProjectile.MonsterBaseDamage,
+            ObjType.MagicWave => MagicWaveProjectile.MonsterBaseDamage,
+            ObjType.MagicWave2 => MagicWaveProjectile.MonsterBaseDamage,
+            ObjType.Boomerang => BoomerangProjectile.MonsterBaseDamage,
+            ObjType.PlayerSwordShot => PlayerSwordProjectile.MonsterBaseDamage,
+            _ => throw new ArgumentOutOfRangeException(nameof(shotType), shotType, "Invalid ObjType.")
+        };
+
+        var shot = shotType == ObjType.Boomerang
+            ? Projectile.MakeBoomerang(World, x, y, facing, 0x51, 2.5f, this)
+            : (Actor)Projectile.MakeProjectile(World, shotType, x, y, facing, damage, options, this);
+
+        var newActiveShots = World.ActiveMonsterShots;
+        if (oldActiveShots != newActiveShots && newActiveShots > 4)
+        {
+            shot.Delete();
+            return null;
+        }
+
+        World.AddObject(shot);
+        // In the original, they start in state $10. But, that was only a way to say that the object exists.
+        shot.ObjTimer = 0;
+        return shot;
+    }
+
+    protected FireballProjectile? ShootFireball(ObjType type, int x, int y, int? offset = null)
+    {
+        Ensure.ThrowIfPlayer(this);
+
+        return Game.ShootFireball(type, x, y, offset);
+    }
 }

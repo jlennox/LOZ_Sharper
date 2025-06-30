@@ -256,6 +256,7 @@ public enum ItemId
     // New
     MaxBombs,
     ArgumentItemId,
+    SilverBow,
 
     [TiledIgnore] MAX = 0x3F,
 }

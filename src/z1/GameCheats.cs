@@ -284,7 +284,7 @@ internal sealed class GameCheats
             game.World.AddItem(ItemId.Raft);
             game.World.AddItem(ItemId.Ladder);
             game.World.AddItem(ItemId.RedRing);
-            game.World.AddItem(ItemId.Bow);
+            game.World.AddItem(ItemId.SilverBow);
             game.World.AddItem(ItemId.SilverArrow);
             game.World.AddItem(ItemId.Bracelet);
             game.World.AddItem(ItemId.Letter);

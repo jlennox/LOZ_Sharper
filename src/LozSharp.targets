@@ -7,5 +7,6 @@
 		<LangVersion>preview</LangVersion>
 		<Platforms>x86;x64</Platforms>
 		<Configurations>Debug;Release</Configurations>
+		<WarningsAsErrors>CS8509;CS8524</WarningsAsErrors>
 	</PropertyGroup>
 </Project>

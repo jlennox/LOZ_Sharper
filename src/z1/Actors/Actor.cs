@@ -22,7 +22,6 @@ internal abstract partial class Actor
 {
     private static readonly DebugLog _log = new(nameof(Actor));
     private static readonly DebugLog _traceLog = new(nameof(Actor), DebugLogDestination.DebugBuildsOnly);
-    private static readonly ImmutableArray<byte> _swordPowers = [0, 0x10, 0x20, 0x40];
     private static long _idCounter;
 
     public Game Game => World.Game;
@@ -566,19 +565,8 @@ internal abstract partial class Actor
         }
 
         var box = new Point(0xC, 0xC);
-        var context = new CollisionContext(weaponObj, default, default, default);
-
-        if (weaponObj is MagicWaveProjectile)
-        {
-            context.DamageType = DamageType.MagicWave;
-            context.Damage = 0x20;
-        }
-        else
-        {
-            var itemValue = World.GetItem(ItemSlot.Sword);
-            context.DamageType = DamageType.Sword;
-            context.Damage = _swordPowers[itemValue];
-        }
+        var damageType = weaponObj is MagicWaveProjectile ? DamageType.MagicWave : DamageType.Sword;
+        var context = new CollisionContext(weaponObj, damageType, weaponObj.Damage, default);
 
         if (CheckCollisionNoShove(context, box))
         {
@@ -638,20 +626,13 @@ internal abstract partial class Actor
         var player = Game.Player;
 
         var box = player.Facing.IsVertical() ? new Point(0xC, 0x10) : new Point(0x10, 0xC);
-        var context = new CollisionContext(sword, DamageType.Sword, 0, Point.Empty);
-
-        switch (sword.ObjType)
+        var damage = sword.ObjType switch
         {
-            case ObjType.PlayerSword:
-                var itemValue = World.GetItem(ItemSlot.Sword);
-                var power = _swordPowers[itemValue];
-                context.Damage = power;
-                break;
-
-            case ObjType.Rod when allowRodDamage:
-                context.Damage = 0x20;
-                break;
-        }
+            ObjType.PlayerSword => PlayerSwordActor.GetSwordDamage(World),
+            ObjType.Rod when allowRodDamage => 0x20,
+            _ => 0
+        };
+        var context = new CollisionContext(sword, DamageType.Sword, damage, Point.Empty);
 
         if (CheckCollisionNoShove(context, box))
         {
@@ -674,13 +655,10 @@ internal abstract partial class Actor
     {
         if (arrow.State != ProjectileState.Flying) return false;
 
-        var itemValue = World.GetItem(ItemSlot.Arrow);
         var box = new Point(0xB, 0xB);
+        var context = new CollisionContext(arrow, DamageType.Arrow, arrow.Damage, Point.Empty);
 
-        ReadOnlySpan<int> arrowPowers = [0, 0x20, 0x40];
-        var context = new CollisionContext(arrow, DamageType.Arrow, arrowPowers[itemValue], Point.Empty);
-
-        if (CheckCollisionNoShove(context, box))
+        if (CheckCollisionNoShove(context, box, out var damagedAmount))
         {
             ShoveCommon(context);
 
@@ -691,7 +669,11 @@ internal abstract partial class Actor
             }
             else
             {
-                arrow.SetSpark();
+                arrow.Damage = arrow.IsPiercing
+                    ? Math.Max(0, arrow.Damage - damagedAmount)
+                    : 0;
+
+                if (arrow.Damage <= 0) arrow.SetSpark();
             }
             return true;
         }
@@ -711,14 +693,25 @@ internal abstract partial class Actor
 
     protected bool CheckCollisionNoShove(CollisionContext context, Point box)
     {
+        return CheckCollisionNoShove(context, box, out _);
+    }
+
+    protected bool CheckCollisionNoShove(CollisionContext context, Point box, out int damageAmount)
+    {
         var player = Game.Player;
         var weaponCenter = player.Facing.IsVertical() ? new Point(6, 8) : new Point(8, 6);
 
-        return CheckCollisionCustomNoShove(context, box, weaponCenter);
+        return CheckCollisionCustomNoShove(context, box, weaponCenter, out damageAmount);
     }
 
     protected bool CheckCollisionCustomNoShove(CollisionContext context, Point box, Point weaponOffset)
     {
+        return CheckCollisionCustomNoShove(context, box, weaponOffset, out _);
+    }
+
+    protected bool CheckCollisionCustomNoShove(CollisionContext context, Point box, Point weaponOffset, out int damageAmount)
+    {
+        damageAmount = 0;
         var weaponObj = context.Weapon;
         if (weaponObj == null) return false;
 
@@ -741,7 +734,7 @@ internal abstract partial class Actor
             StunTimer = 0x10;
         }
 
-        HandleCommonHit(context);
+        damageAmount = HandleCommonHit(context);
         return true;
     }
 
@@ -760,12 +753,12 @@ internal abstract partial class Actor
         return false;
     }
 
-    protected void HandleCommonHit(CollisionContext context)
+    protected int HandleCommonHit(CollisionContext context)
     {
         if ((InvincibilityMask & (int)context.DamageType) != 0)
         {
             PlayParrySoundIfSupported(context.DamageType);
-            return;
+            return 0;
         }
 
         var weaponObj = context.Weapon ?? throw new InvalidOperationException("Weapon was null.");
@@ -789,7 +782,7 @@ internal abstract partial class Actor
             }
 
             Game.Sound.PlayEffect(SoundEffect.Parry);
-            return;
+            return 0;
         }
 
         if (this is ZolActor || this is VireActor)
@@ -807,14 +800,14 @@ internal abstract partial class Actor
             if (combinedDir is Direction.HorizontalMask or Direction.VerticalMask)
             {
                 PlayParrySoundIfSupported(context.DamageType);
-                return;
+                return 0;
             }
         }
 
-        DealDamage(context);
+        return DealDamage(context);
     }
 
-    protected void DealDamage(CollisionContext context)
+    protected int DealDamage(CollisionContext context)
     {
         Game.Sound.PlayEffect(SoundEffect.MonsterHit);
         World.Profile.Statistics.DealDamage(context);
@@ -822,7 +815,7 @@ internal abstract partial class Actor
         if (HP < context.Damage)
         {
             KillObjectNormally(context);
-            return;
+            return HP;
         }
 
         HP -= (byte)context.Damage;
@@ -830,6 +823,8 @@ internal abstract partial class Actor
         {
             KillObjectNormally(context);
         }
+
+        return context.Damage;
     }
 
     protected void KillObjectNormally(CollisionContext context)
@@ -929,7 +924,7 @@ internal abstract partial class Actor
         if (Attributes.Unknown80 || this is VireActor) return;
 
         Facing = Facing.GetOppositeDirection();
-}
+    }
 
     public void ShoveObject(CollisionContext context)
     {
@@ -1437,34 +1432,5 @@ internal abstract partial class Actor
                 ? new Size(distance, 0)
                 : new Size(0, distance);
         }
-    }
-
-    // Are these monster only?
-    // -----------------------
-
-    protected Actor? Shoot(ObjType shotType, int x, int y, Direction facing)
-    {
-        var oldActiveShots = World.ActiveMonsterShots;
-
-        var shot = shotType == ObjType.Boomerang
-            ? Projectile.MakeBoomerang(World, x, y, facing, 0x51, 2.5f, this)
-            : Projectile.MakeProjectile(World, shotType, x, y, facing, this);
-
-        var newActiveShots = World.ActiveMonsterShots;
-        if (oldActiveShots != newActiveShots && newActiveShots > 4)
-        {
-            shot.Delete();
-            return null;
-        }
-
-        World.AddObject(shot);
-        // In the original, they start in state $10. But, that was only a way to say that the object exists.
-        shot.ObjTimer = 0;
-        return shot;
-    }
-
-    protected FireballProjectile? ShootFireball(ObjType type, int x, int y, int? offset = null)
-    {
-        return Game.ShootFireball(type, x, y, offset);
     }
 }

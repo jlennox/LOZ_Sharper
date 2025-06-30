@@ -1,5 +1,5 @@
 ﻿using System.Collections.Immutable;
-using z1.Actors;
+using System.Diagnostics;
 using z1.Render;
 
 namespace z1;
@@ -393,6 +393,7 @@ internal sealed class PlayerSwordActor : Actor
     ];
 
     private static readonly ImmutableArray<byte> _swordStateDurations = [5, 8, 1, 1, 1];
+    private static readonly ImmutableArray<byte> _swordPowers = [0, 0x10, 0x20, 0x40];
 
     public override bool IsMonsterSlot => false;
 
@@ -413,6 +414,9 @@ internal sealed class PlayerSwordActor : Actor
         Owner = owner;
         Decoration = 0;
     }
+
+    public static int GetSwordDamage(World world) => GetSwordDamage(world.GetItem(ItemSlot.Sword));
+    public static int GetSwordDamage(int swordLevel) => _swordPowers.GetClamped(swordLevel);
 
     public static PlayerSwordActor MakeSword(World world, Player owner) => new(world, ObjType.PlayerSword, owner);
     public static PlayerSwordActor MakeRod(World world, Player owner) => new(world, ObjType.Rod, owner);
@@ -435,7 +439,7 @@ internal sealed class PlayerSwordActor : Actor
         _image.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, animIndex);
     }
 
-    private void TryMakeWave()
+    private void TryMakeSwordShot()
     {
         if (State != 2) return;
 
@@ -449,12 +453,14 @@ internal sealed class PlayerSwordActor : Actor
 
         if (makeWave)
         {
-            MakeProjectile();
+            MakeSwordProjectile();
         }
     }
 
-    private void MakeProjectile()
+    private void MakeSwordProjectile()
     {
+        Debug.Assert(Owner != null, nameof(Owner) + " != null");
+
         var x = Owner.X;
         var y = Owner.Y;
         var dir = Owner.Facing;
@@ -482,7 +488,8 @@ internal sealed class PlayerSwordActor : Actor
 
             Game.Sound.PlayEffect(effect);
 
-            var shot = Projectile.MakeProjectile(World, type, x, y, dir, Owner);
+            var damage = GetSwordDamage(World);
+            var shot = Projectile.MakeProjectile(World, type, x, y, dir, damage, ProjectileOptions.None, Owner);
             World.AddObject(shot);
             shot.TileOffset = Owner.TileOffset;
         }
@@ -508,7 +515,7 @@ internal sealed class PlayerSwordActor : Actor
         if (State < LastSwordState)
         {
             Put();
-            TryMakeWave();
+            TryMakeSwordShot();
         }
     }
 

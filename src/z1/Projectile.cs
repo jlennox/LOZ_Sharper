@@ -16,37 +16,58 @@ internal interface IBlockableProjectile
     bool RequiresMagicShield => false;
 }
 
+[Flags]
+internal enum ProjectileOptions
+{
+    None = 0,
+    Piercing = 1 << 0,
+}
+
 internal enum ProjectileState { Flying, Spark, Bounce, Spreading }
 
 internal abstract class Projectile : Actor, IProjectile
 {
     private static readonly DebugLog _log = new(nameof(Projectile));
 
+    public int Damage { get; set; }
+    public bool IsPiercing => _options.HasFlag(ProjectileOptions.Piercing);
     public ProjectileState State = ProjectileState.Flying;
 
     public bool IsPlayerWeapon => Owner!.IsPlayer;
     public override bool IsMonsterSlot => !IsPlayerWeapon;
 
     private Direction _bounceDir = Direction.None;
+    private readonly ProjectileOptions _options;
 
-    protected Projectile(World world, ObjType type, int x, int y, Actor owner)
+    protected Projectile(World world, ObjType type, int x, int y, int damage, ProjectileOptions options, Actor owner)
         : base(world, type, x, y)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(damage);
+
+        _options = options;
+        Damage = damage;
         Owner = owner;
     }
 
     public virtual bool IsInShotStartState() => State == ProjectileState.Flying;
 
-    public static Actor MakeProjectile(World world, ObjType type, int x, int y, Direction moving, Actor actor)
+    public static Projectile MakeProjectile(
+        World world,
+        ObjType type,
+        int x, int y,
+        Direction moving,
+        int damage,
+        ProjectileOptions options,
+        Actor actor)
     {
         return type switch
         {
-            ObjType.FlyingRock => new FlyingRockProjectile(world, x, y, moving, actor),
-            ObjType.PlayerSwordShot => new PlayerSwordProjectile(world, x, y, moving, actor),
-            ObjType.Arrow => new ArrowProjectile(world, x, y, moving, actor),
-            ObjType.MagicWave => new MagicWaveProjectile(world, ObjType.MagicWave, x, y, moving, actor),
-            ObjType.MagicWave2 => new MagicWaveProjectile(world, ObjType.MagicWave2, x, y, moving, actor),
-            _ => throw new Exception()
+            ObjType.FlyingRock => new FlyingRockProjectile(world, x, y, moving, damage, options, actor),
+            ObjType.PlayerSwordShot => new PlayerSwordProjectile(world, x, y, moving, damage, options, actor),
+            ObjType.Arrow => new ArrowProjectile(world, x, y, moving, damage, options, actor),
+            ObjType.MagicWave => new MagicWaveProjectile(world, ObjType.MagicWave, x, y, moving, damage, options, actor),
+            ObjType.MagicWave2 => new MagicWaveProjectile(world, ObjType.MagicWave2, x, y, moving, damage, options, actor),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Invalid ObjType"),
         };
     }
 
@@ -104,13 +125,15 @@ internal abstract class Projectile : Actor, IProjectile
 
 internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
 {
+    public const int MonsterBaseDamage = 0x200;
+
     public bool RequiresMagicShield => true;
 
     private int _distance;
     private readonly SpriteImage _image;
 
-    public PlayerSwordProjectile(World world, int x, int y, Direction direction, Actor owner)
-        : base(world, ObjType.PlayerSwordShot, x, y, owner)
+    public PlayerSwordProjectile(World world, int x, int y, Direction direction, int damage, ProjectileOptions options, Actor owner)
+        : base(world, ObjType.PlayerSwordShot, x, y, damage, options, owner)
     {
         Facing = direction;
         Decoration = 0;
@@ -122,7 +145,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
 
     public static int PlayerCount(World world)
     {
-        return world.GetObjects<PlayerSwordProjectile>().Count(t => t.Owner!.IsPlayer);
+        return world.GetObjects<PlayerSwordProjectile>().Count(t => t.IsPlayerWeapon);
     }
 
     public override void Update()
@@ -207,10 +230,12 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
 
 internal sealed class FlyingRockProjectile : Projectile
 {
+    public const int MonsterBaseDamage = 0x80;
+
     private readonly SpriteImage _image;
 
-    public FlyingRockProjectile(World world, int x, int y, Direction moving, Actor owner)
-        : base(world, ObjType.FlyingRock, x, y, owner)
+    public FlyingRockProjectile(World world, int x, int y, Direction moving, int damage, ProjectileOptions options, Actor owner)
+        : base(world, ObjType.FlyingRock, x, y, damage, options, owner)
     {
         Facing = moving;
         Decoration = 0;
@@ -396,6 +421,7 @@ internal enum BoomerangState { Unknown0, Unknown1, Unknown2, Unknown3, Unknown4,
 
 internal sealed class BoomerangProjectile : Actor, IProjectile
 {
+    public const int MonsterBaseDamage = 0x100;
     public const int YellowsDistance = 0x31;
     public const int RedsDistance = 0xFF;
 
@@ -439,7 +465,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
     public static int PlayerCount(World world)
     {
-        return world.GetObjects<BoomerangProjectile>().Count(t => t.Owner!.IsPlayer);
+        return world.GetObjects<BoomerangProjectile>().Count(t => t.IsPlayerWeapon);
     }
 
     public bool IsInShotStartState()
@@ -639,6 +665,8 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
 internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 {
+    public const int MonsterBaseDamage = 0x400;
+
     private static readonly ImmutableArray<AnimationId> _waveAnimMap = [
         AnimationId.Wave_Right,
         AnimationId.Wave_Left,
@@ -650,8 +678,8 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
     private readonly SpriteImage _image;
 
-    public MagicWaveProjectile(World world, ObjType type, int x, int y, Direction direction, Actor owner)
-        : base(world, type, x, y, owner)
+    public MagicWaveProjectile(World world, ObjType type, int x, int y, Direction direction, int damage, ProjectileOptions options, Actor owner)
+        : base(world, type, x, y, damage, options, owner)
     {
         if (type is not (ObjType.MagicWave or ObjType.MagicWave2))
         {
@@ -667,7 +695,7 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
     public static int PlayerCount(World world)
     {
-        return world.GetObjects<MagicWaveProjectile>().Count(t => t.Owner.IsPlayer);
+        return world.GetObjects<MagicWaveProjectile>().Count(t => t.IsPlayerWeapon);
     }
 
     public override void Update()
@@ -717,6 +745,9 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
 
 internal sealed class ArrowProjectile : Projectile
 {
+    public const int MonsterBaseDamage = 0x80;
+    public const int BaseDamage = 0x20;
+
     private static readonly ImmutableArray<AnimationId> _arrowAnimMap = [
         AnimationId.Arrow_Right,
         AnimationId.Arrow_Left,
@@ -727,8 +758,8 @@ internal sealed class ArrowProjectile : Projectile
     private int _timer;
     private readonly SpriteImage _image;
 
-    public ArrowProjectile(World world, int x, int y, Direction direction, Actor owner)
-        : base(world, ObjType.Arrow, x, y, owner)
+    public ArrowProjectile(World world, int x, int y, Direction direction, int damage, ProjectileOptions options, Actor owner)
+        : base(world, ObjType.Arrow, x, y, damage, options, owner)
     {
         Facing = direction;
         Decoration = 0;
@@ -737,9 +768,15 @@ internal sealed class ArrowProjectile : Projectile
         _image = new SpriteImage(TileSheet.PlayerAndItems, _arrowAnimMap[dirOrd]);
     }
 
+    public static int GetDamage(int arrowLevel)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(arrowLevel);
+        return arrowLevel * BaseDamage;
+    }
+
     public static int PlayerCount(World world)
     {
-        return world.GetObjects<ArrowProjectile>().Count(t => t.Owner.IsPlayer);
+        return world.GetObjects<ArrowProjectile>().Count(t => t.IsPlayerWeapon);
     }
 
     public void SetSpark(int frames = 3)

@@ -21,6 +21,7 @@ internal partial class World
         { ItemId.WoodArrow,      new EquipValue(ItemSlot.Arrow,           1) },
         { ItemId.SilverArrow,    new EquipValue(ItemSlot.Arrow,           2) },
         { ItemId.Bow,            new EquipValue(ItemSlot.Bow,             1) },
+        { ItemId.SilverBow,      new EquipValue(ItemSlot.Bow,             2) },
         { ItemId.MagicKey,       new EquipValue(ItemSlot.MagicKey,        1) },
         { ItemId.Raft,           new EquipValue(ItemSlot.Raft,            1) },
         { ItemId.Ladder,         new EquipValue(ItemSlot.Ladder,          1) },
