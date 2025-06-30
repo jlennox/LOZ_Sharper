@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
 using Silk.NET.Input;
-using z1.Actors;
 
 namespace z1;
 

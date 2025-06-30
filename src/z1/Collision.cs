@@ -1,6 +1,4 @@
-﻿using z1.Actors;
-
-namespace z1;
+﻿namespace z1;
 
 internal sealed class CollisionContext(Actor? weapon, DamageType damageType, int damage, Point distance)
 {
