@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection.Metadata.Ecma335;
 using z1.IO;
 using z1.Render;
 
@@ -344,7 +345,7 @@ internal sealed class GameRoom
     public MazeRoom? Maze { get; set; }
     public RoomSettings Settings { get; }
     public RecorderDestination? RecorderDestination { get; }
-    public EntryPosition? EntryPosition { get; }
+    public EntryPosition? EntryPosition { get; } // For dungeon entrance rooms?
 
     public RoomTileMap RoomMap { get; }
     private readonly RoomTileMap _unmodifiedRoomMap;
@@ -354,6 +355,7 @@ internal sealed class GameRoom
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
     public PersistedRoomState PersistedRoomState => _roomState.Value;
+    public ImmutableArray<RoomPathRequirement> PathRequirements => _pathRequirements.Value;
 
     // JOE: TODO: Uh, this feels wrong...?
     public int LevelKillCount { get; set; }
@@ -368,6 +370,7 @@ internal sealed class GameRoom
     private readonly World _world;
     private readonly int _waterTileCount;
     private readonly Lazy<PersistedRoomState> _roomState;
+    private readonly Lazy<ImmutableArray<RoomPathRequirement>> _pathRequirements;
 
     public GameRoom(World world, GameWorld gameWorld, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
     {
@@ -378,6 +381,7 @@ internal sealed class GameRoom
         GameWorld = gameWorld;
 
         _roomState = new Lazy<PersistedRoomState>(() => world.Profile.GetRoomFlags(this));
+        _pathRequirements = new Lazy<ImmutableArray<RoomPathRequirement>>(GetPathRequirements);
 
         WorldEntry = worldEntry;
         Name = name;
@@ -639,8 +643,138 @@ internal sealed class GameRoom
         return !triforceState.Value.ItemGot;
     }
 
+    private readonly record struct PathSearch(int X, int Y, bool RequiresLadder)
+    {
+        public override string ToString()
+        {
+            return RequiresLadder
+                ? $"({X}, {Y}, WET)"
+                : $"({X}, {Y})";
+        }
+
+        public bool SamePoint(PathSearch other) => X == other.X && Y == other.Y;
+        public int Distance(PathSearch other) => Math.Abs(X - other.X) + Math.Abs(Y - other.Y);
+    }
+
+    // TODO: This is for future randomizer considerations.
+    private ImmutableArray<RoomPathRequirement> GetPathRequirements()
+    {
+        if (!HasUnderworldDoors || UnderworldDoors.Count == 1) return [];
+
+        var paths = new List<RoomPathRequirement>();
+
+        PathSearch GetDoorLocation(Direction direction)
+        {
+            var (corner, _, _) = World.DoorCorner.Get(direction);
+            return new PathSearch(corner.X, corner.Y, false);
+        }
+
+        var walkingSearch = new PriorityQueue<PathSearch, int>();
+        var visited = new HashSet<PathSearch>();
+
+        ImmutableArray<ItemId>? monstersWithLadder = null;
+        ImmutableArray<ItemId>? monsters = null;
+
+        ImmutableArray<ItemId> GetRequirements(DoorType doorType, bool requiresLadder)
+        {
+            if (doorType == DoorType.Shutter)
+            {
+                if (!monsters.HasValue || !monstersWithLadder.HasValue)
+                {
+                    var monsterRequirements = new HashSet<ItemId>();
+                    foreach (var monster in Monsters)
+                    {
+                        if (monster.HasItemRequirement(out var requiredItem)) monsterRequirements.Add(requiredItem);
+                    }
+
+                    monsters = monsterRequirements.ToImmutableArray();
+                    monsterRequirements.Add(ItemId.Ladder);
+                    monstersWithLadder = monsterRequirements.ToImmutableArray();
+                }
+
+                return requiresLadder ? monstersWithLadder.Value : monsters.Value;
+            }
+
+            return requiresLadder ? [ItemId.Ladder] : [];
+        }
+
+        foreach (var (startingDirection, startingDoorType) in UnderworldDoors)
+        {
+            if (startingDoorType is DoorType.None or DoorType.Wall) continue;
+
+            foreach (var (endingDirection, endingDoorType) in UnderworldDoors)
+            {
+                if (endingDirection == startingDirection) continue;
+                if (endingDoorType is DoorType.None or DoorType.Wall) continue;
+
+                var from = GetDoorLocation(startingDirection);
+                var to = GetDoorLocation(endingDirection);
+
+                walkingSearch.Clear();
+                visited.Clear();
+                walkingSearch.Enqueue(from, 0);
+
+                RoomPathRequirement? ladderedPath = null;
+                var foundPathWithNoLadder = false;
+
+                while (walkingSearch.Count > 0)
+                {
+                    var current = walkingSearch.Dequeue();
+                    if (!visited.Add(current)) continue;
+                    if (current.SamePoint(to))
+                    {
+                        var requirements = GetRequirements(endingDoorType, current.RequiresLadder);
+                        var path = new RoomPathRequirement(startingDirection, endingDirection, requirements);
+                        if (!current.RequiresLadder)
+                        {
+                            paths.Add(path);
+                            foundPathWithNoLadder = true;
+                            break;
+                        }
+
+                        ladderedPath = path;
+                    }
+
+                    static IEnumerable<PathSearch> Neighbors(RoomTileMap map, PathSearch point)
+                    {
+                        if (point.X > 0) yield return point with { X = point.X - 1 };
+                        if (point.X < map.Width - 1) yield return point with { X = point.X + 1 };
+                        if (point.Y > 0) yield return point with { Y = point.Y - 1 };
+                        if (point.Y < map.Height - 1) yield return point with { Y = point.Y + 1 };
+                    }
+
+                    foreach (var neighbor in Neighbors(RoomMap, current))
+                    {
+                        if (visited.Contains(neighbor)) continue;
+
+                        // TODO: This does need to determine if it's a double wide water, which means the ladder
+                        // can't cross it.
+                        var behavior = RoomMap.Behavior(neighbor.X, neighbor.Y);
+                        if (behavior.CanWalk() || behavior == TileBehavior.Door)
+                        {
+                            walkingSearch.Enqueue(neighbor, to.Distance(neighbor));
+                        }
+                        else if (behavior == TileBehavior.Water)
+                        {
+                            walkingSearch.Enqueue(neighbor with { RequiresLadder = true }, to.Distance(neighbor));
+                        }
+                    }
+                }
+
+                if (!foundPathWithNoLadder && ladderedPath != null)
+                {
+                    paths.Add(ladderedPath.Value);
+                }
+            }
+        }
+
+        return paths.ToImmutableArray();
+    }
+
     public override string ToString() => $"{GameWorld.Name}/{UniqueId} ({Name})";
 }
+
+internal readonly record struct RoomPathRequirement(Direction StartingDoor, Direction ExitDoor, ImmutableArray<ItemId> Requirements);
 
 internal sealed class GameMapTileLayer
 {

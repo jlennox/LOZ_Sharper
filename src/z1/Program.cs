@@ -74,6 +74,7 @@ namespace z1;
 // Enhancements:
 // * Make an abstracted selectable menu. It takes in X/Y's, figures out what left/right/up/down does, perhaps has an onselect callback.
 //   Perhaps make it use imgui so we get free mouse support?
+// * Cheat: ctrl+arrows (or something) to screen scroll accordingly. Move link to valid square.
 
 // Monsters:
 // * Manhandla:              W8, u1

@@ -70,7 +70,7 @@ internal sealed class Game
     public PregameMenu Menu { get; }
     public GameRecording Recording { get; }
     public GamePlayback? Playback { get; }
-    public bool Headless { get; }
+    public bool Headless { get; init; }
     public GameData Data { get; }
 
     public int FrameCounter { get; private set; }

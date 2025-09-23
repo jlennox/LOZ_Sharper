@@ -464,6 +464,21 @@ public readonly record struct MonsterEntry(ObjType ObjType, bool IsRingleader = 
     [ThreadStatic]
     private static List<MonsterEntry>? _temporaryList;
 
+    public bool HasItemRequirement(out ItemId itemId)
+    {
+        itemId = ObjType switch
+        {
+            ObjType.BlueGohma => ItemId.WoodArrow,
+            ObjType.RedGohma => ItemId.WoodArrow,
+            ObjType.Grumble => ItemId.Food,
+            // ObjType.PondFairy -> ItemId.Recorder?
+            ObjType.Digdogger1 => ItemId.Recorder,
+            ObjType.Digdogger2 => ItemId.Recorder,
+            _ => ItemId.None,
+        };
+        return itemId != ItemId.None;
+    }
+
     public static ImmutableArray<MonsterEntry> ParseMonsters(string? monsterList, out int zoraCount)
     {
         zoraCount = 0;

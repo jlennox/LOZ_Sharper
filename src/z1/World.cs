@@ -1070,7 +1070,7 @@ internal sealed partial class World
         LoadRoom(room);
     }
 
-    private void LoadRoom(GameRoom room)
+    internal void LoadRoom(GameRoom room)
     {
         CurrentRoom = room;
         CurrentWorld = room.GameWorld;
@@ -1078,6 +1078,10 @@ internal sealed partial class World
         LoadMap(room);
     }
 
+    // JOE FIX: This is super confusing now. Why doesn't this just happen when
+    // loading the room? Why not in the exporter? This mixes CurrentRoom/room
+    // which seems _Clearly_ wrong af? If we keep this, why not keep it on the
+    // GameRoom?
     private void UpdateDoorTileBehavior(GameRoom room, Direction doorDir)
     {
         var map = CurrentRoom.RoomMap;
@@ -1088,7 +1092,7 @@ internal sealed partial class World
         var effectiveDoorState = GetEffectiveDoorState(room, doorDir);
         var behavior = DoorStateBehaviors.Get(type).GetBehavior(effectiveDoorState);
 
-        map.SetBlockBehavior(corner,  behavior);
+        map.SetBlockBehavior(corner, behavior);
         map.SetBlock(corner.X, corner.Y, TiledTile.Empty);
 
         if (behavior == TileBehavior.Doorway)

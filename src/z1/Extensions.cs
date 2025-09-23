@@ -237,4 +237,5 @@ internal static class Extensions
 
     public static bool CollidesWall(this TileBehavior behavior) => behavior is TileBehavior.Wall or TileBehavior.Doorway or TileBehavior.Door;
     public static bool CollidesTile(this TileBehavior behavior) => behavior >= TileBehavior.FirstSolid;
+    public static bool CanWalk(this TileBehavior behavior) => behavior is < TileBehavior.FirstSolid or TileBehavior.Doorway;
 }

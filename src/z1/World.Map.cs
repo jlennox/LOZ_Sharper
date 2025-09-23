@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using z1.Actors;
 using z1.Common.IO;
 using z1.IO;
 using z1.Render;
@@ -8,7 +7,7 @@ namespace z1;
 
 internal partial class World
 {
-    private GameWorld GetWorld(GameWorldType type, string destination)
+    internal GameWorld GetWorld(GameWorldType type, string destination)
     {
         Filenames.ExpectSafe(destination);
 
