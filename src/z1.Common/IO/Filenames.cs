@@ -37,11 +37,17 @@ public static class Filenames
 
     public static void ExpectSafe(ReadOnlySpan<char> s)
     {
-        foreach (var c in s)
+        for (var i = 0; i < s.Length; i++)
         {
-            if (c is '/' or '\\' or ':' or '*' or '?' or '"' or '<' or '>' or '|')
+            var c = s[i];
+            if (c < 32 || c is '/' or '\\' or ':' or '*' or '?' or '"' or '<' or '>' or '|')
             {
                 throw new ArgumentException("Invalid character in filename.");
+            }
+
+            if (c == '.' && i + 1 < s.Length && s[i + 1] == '.')
+            {
+                throw new ArgumentException("Invalid sequence in filename.");
             }
         }
     }

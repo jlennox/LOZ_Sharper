@@ -151,17 +151,15 @@ internal sealed class FireActor : Actor
 
     public FireState State
     {
-        get => _state;
+        get;
         set
         {
-            _state = value;
+            field = value;
             if (State == FireState.Standing) World.BeginFadeIn();
         }
     }
 
     private readonly SpriteAnimator _animator;
-
-    private FireState _state;
 
     public FireActor(World world, Actor owner, int x, int y, Direction facing)
         : base(world, ObjType.Fire, x, y)
@@ -276,10 +274,10 @@ internal sealed class BombActor : Actor
 
     public override void Update()
     {
-        ReadOnlySpan<byte> times = [0x30, 0x18, 0xC, 0];
-
         if (ObjTimer == 0)
         {
+            ReadOnlySpan<byte> times = [0x30, 0x18, 0xC, 0];
+
             ObjTimer = times[(int)BombState];
             BombState++;
 

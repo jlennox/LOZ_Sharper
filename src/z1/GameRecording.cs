@@ -282,6 +282,7 @@ internal sealed class GameRecording
 
         game.GameCheats.RanCheat += AddCheat;
     }
+
     public void BeginRecording()
     {
         Enabled = true;

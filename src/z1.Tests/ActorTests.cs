@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using z1.Common;
 using z1.Common.Data;
+using z1.Common.IO;
 
 namespace z1.Tests;
 
@@ -207,5 +208,28 @@ public class ParseMonstersTests
             var actual = MonsterEntry.ParseMonsters(input, out _).ToArray();
             Assert.That(actual, Is.EqualTo(expected));
         }
+    }
+}
+
+[TestFixture]
+public class ExpectSafeTests
+{
+    [Test]
+    [TestCase("..double dots")]
+    [TestCase("double dots..")]
+    [TestCase("double..dots")]
+    [TestCase("C:\\foo")]
+    [TestCase("*foo")]
+    public void ShouldFail(string filename)
+    {
+        Assert.That(() => Filenames.ExpectSafe(filename), Throws.TypeOf<ArgumentException>());
+    }
+
+    [Test]
+    [TestCase("this is.safe")]
+    [TestCase("foo bar")]
+    public void AreSafe(string filename)
+    {
+        Assert.That(() => Filenames.ExpectSafe(filename), Throws.Nothing);
     }
 }

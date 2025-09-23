@@ -252,6 +252,8 @@ internal sealed class PlayerProfile
     public Dictionary<string, PersistedRoomState> RoomState { get; set; } // Key: GameRoom.UniqueId
     public Dictionary<string, DungeonItems> DungeonItems { get; set; } // Key: GameWorld.UniqueId
     public TimeSpan Playtime { get; set; } // JOE: TODO
+    public DateTime CreatedAt { get; set; } // JOE: TODO
+    public DateTime LastModifiedAt { get; set; } // JOE: TODO
 
     public PlayerProfile()
     {
