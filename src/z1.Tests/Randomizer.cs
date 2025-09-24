@@ -56,10 +56,10 @@ internal class Randomizer
         // Horizontal river room.
         // Left = open, top = bomb, right = door, down = blocked;
         var room = GetUnderworldRoom(0, 9, 5, 6);
-        var directions = room.PathRequirements;
-        Ensure(directions, Direction.Right, Direction.Up, ItemId.Ladder);
-        Ensure(directions, Direction.Left, Direction.Up, ItemId.Ladder);
-        Ensure(directions, Direction.Left, Direction.Right);
+        var requirements = room.PathRequirements.Paths;
+        Ensure(requirements, Direction.Right, Direction.Up, ItemId.Ladder);
+        Ensure(requirements, Direction.Left, Direction.Up, ItemId.Ladder);
+        Ensure(requirements, Direction.Left, Direction.Right);
     }
 
     [Test]
@@ -68,9 +68,9 @@ internal class Randomizer
         // Digdogger boss room requires recorder.
 
         var room = GetUnderworldRoom(0, 5, 4, 2);
-        var directions = room.PathRequirements;
-        Ensure(directions, Direction.Right, Direction.Up, ItemId.Recorder);
-        Ensure(directions, Direction.Down, Direction.Up, ItemId.Recorder);
-        Ensure(directions, Direction.Right, Direction.Down);
+        var requirements = room.PathRequirements.Paths;
+        Ensure(requirements, Direction.Right, Direction.Up, ItemId.Recorder);
+        Ensure(requirements, Direction.Down, Direction.Up, ItemId.Recorder);
+        Ensure(requirements, Direction.Right, Direction.Down);
     }
 }

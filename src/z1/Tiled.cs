@@ -355,7 +355,7 @@ internal sealed class GameRoom
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
     public PersistedRoomState PersistedRoomState => _roomState.Value;
-    public ImmutableArray<RoomPathRequirement> PathRequirements => _pathRequirements.Value;
+    public RoomRequirements PathRequirements => _pathRequirements.Value;
 
     // JOE: TODO: Uh, this feels wrong...?
     public int LevelKillCount { get; set; }
@@ -370,7 +370,7 @@ internal sealed class GameRoom
     private readonly World _world;
     private readonly int _waterTileCount;
     private readonly Lazy<PersistedRoomState> _roomState;
-    private readonly Lazy<ImmutableArray<RoomPathRequirement>> _pathRequirements;
+    private readonly Lazy<RoomRequirements> _pathRequirements;
 
     public GameRoom(World world, GameWorld gameWorld, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
     {
@@ -381,7 +381,7 @@ internal sealed class GameRoom
         GameWorld = gameWorld;
 
         _roomState = new Lazy<PersistedRoomState>(() => world.Profile.GetRoomFlags(this));
-        _pathRequirements = new Lazy<ImmutableArray<RoomPathRequirement>>(GetPathRequirements);
+        _pathRequirements = new Lazy<RoomRequirements>(GetPathRequirements);
 
         WorldEntry = worldEntry;
         Name = name;
@@ -657,9 +657,10 @@ internal sealed class GameRoom
     }
 
     // TODO: This is for future randomizer considerations.
-    private ImmutableArray<RoomPathRequirement> GetPathRequirements()
+    private RoomRequirements GetPathRequirements()
     {
-        if (!HasUnderworldDoors || UnderworldDoors.Count == 1) return [];
+        // For the above world, there's the two 2Q caves that require ladder, the fairy pond, and likely others.
+        if (!HasUnderworldDoors || UnderworldDoors.Count == 1) return default;
 
         var paths = new List<RoomPathRequirement>();
 
@@ -672,8 +673,23 @@ internal sealed class GameRoom
         var walkingSearch = new PriorityQueue<PathSearch, int>();
         var visited = new HashSet<PathSearch>();
 
+        HashSet<ItemId>? monsterRequirements = null;
         ImmutableArray<ItemId>? monstersWithLadder = null;
         ImmutableArray<ItemId>? monsters = null;
+
+        HashSet<ItemId> GetMonsterRequirements()
+        {
+            if (monsterRequirements == null)
+            {
+                monsterRequirements = new HashSet<ItemId>();
+                foreach (var monster in Monsters)
+                {
+                    if (monster.HasItemRequirement(out var requiredItem)) monsterRequirements.Add(requiredItem);
+                }
+            }
+
+            return monsterRequirements;
+        }
 
         ImmutableArray<ItemId> GetRequirements(DoorType doorType, bool requiresLadder)
         {
@@ -681,15 +697,10 @@ internal sealed class GameRoom
             {
                 if (!monsters.HasValue || !monstersWithLadder.HasValue)
                 {
-                    var monsterRequirements = new HashSet<ItemId>();
-                    foreach (var monster in Monsters)
-                    {
-                        if (monster.HasItemRequirement(out var requiredItem)) monsterRequirements.Add(requiredItem);
-                    }
-
-                    monsters = monsterRequirements.ToImmutableArray();
-                    monsterRequirements.Add(ItemId.Ladder);
-                    monstersWithLadder = monsterRequirements.ToImmutableArray();
+                    var requirements = new HashSet<ItemId>(GetMonsterRequirements()); // Don't mutate the original.
+                    monsters = requirements.ToImmutableArray();
+                    requirements.Add(ItemId.Ladder);
+                    monstersWithLadder = requirements.ToImmutableArray();
                 }
 
                 return requiresLadder ? monstersWithLadder.Value : monsters.Value;
@@ -768,13 +779,35 @@ internal sealed class GameRoom
             }
         }
 
-        return paths.ToImmutableArray();
+        var hasPushBlock = InteractableBlockObjects
+            .Where(t => t.Interaction.Interaction is Interaction.Push or Interaction.PushVertical)
+            .Select(t => t.Interaction.Requirements == InteractionRequirements.AllEnemiesDefeated)
+            .Any();
+
+        // Compute the difficulty somehow, if we end up wanting it.
+        // For example, Gleeok is difficult, but is worse a room with the square of water, which is yet worse when
+        // there's spike traps in the corners.
+
+        return new RoomRequirements(
+            Direction.None,
+            paths.ToImmutableArray(),
+            hasPushBlock ? GetMonsterRequirements().ToImmutableArray() : null,
+            0);
     }
 
     public override string ToString() => $"{GameWorld.Name}/{UniqueId} ({Name})";
 }
 
-internal readonly record struct RoomPathRequirement(Direction StartingDoor, Direction ExitDoor, ImmutableArray<ItemId> Requirements);
+internal readonly record struct RoomPathRequirement(
+    Direction StartingDoor,
+    Direction ExitDoor,
+    ImmutableArray<ItemId> Requirements);
+
+internal readonly record struct RoomRequirements(
+    Direction ConnectableDirections, // Does not mean they _are_ connected, just that there's nothing hard blocking it from being connected.
+    ImmutableArray<RoomPathRequirement> Paths,
+    ImmutableArray<ItemId>? PushBlockRequirements,
+    int Difficulty);
 
 internal sealed class GameMapTileLayer
 {

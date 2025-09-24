@@ -52,6 +52,8 @@ namespace z1;
 // * Swords and items picked up out of order should not downgrade.
 
 // To check:
+// * "public InteractionRequirements Requirements { get; set; }" should have AllEnemiesDefeated set for dungeon item
+//   rooms I believe?
 // * Boss noises when next to boss room.
 // * Recorder does not work in caves/cellars/underworld.
 // * If food attracts monsters.
