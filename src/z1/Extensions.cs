@@ -107,6 +107,7 @@ internal static class Extensions
     public static T GetRandom<T>(this Random random, T[] array) => array[random.Next(array.Length)];
     public static T GetRandom<T>(this Random random, ImmutableArray<T> array) => array[random.Next(array.Length)];
     public static T GetRandom<T>(this Random random, T a, T b) => random.Next(2) == 0 ? a : b;
+    public static bool GetBool(this Random random) => (random.Next() & 1) == 1;
 
     public static bool IsBlueWalker(this ObjType type)
     {

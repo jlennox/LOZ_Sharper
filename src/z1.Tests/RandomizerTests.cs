@@ -2,9 +2,12 @@
 using System.Collections.Immutable;
 using z1.Common;
 using z1.GUI;
+using z1.Randomizer;
 
 namespace z1.Tests;
-internal class Randomizer
+
+[TestFixture]
+internal class RandomizerTests
 {
     private static readonly Lazy<GLWindow> _lazyWindow = new(GetWindow);
 
@@ -35,6 +38,14 @@ internal class Randomizer
         var actual = requirements.Where(r => r.StartingDoor == start && r.ExitDoor == end).First();
         var expected = new RoomPathRequirement(start, end, items.ToImmutableArray());
         Assert.That(actual.Requirements.Order().ToArray(), Is.EqualTo(expected.Requirements.Order().ToArray()));
+    }
+
+    private static GameWorld GetDungeon(int quest, int dungeon)
+    {
+        var worldId = $"{quest:00}_{dungeon:00}";
+        var window = _lazyWindow.Value;
+        var world = window.Game.World.GetWorld(GameWorldType.Underworld, worldId);
+        return world;
     }
 
     private static GameRoom GetUnderworldRoom(int quest, int dungeon, int x, int y)
@@ -72,5 +83,37 @@ internal class Randomizer
         Ensure(requirements, Direction.Right, Direction.Up, ItemId.Recorder);
         Ensure(requirements, Direction.Down, Direction.Up, ItemId.Recorder);
         Ensure(requirements, Direction.Right, Direction.Down);
+    }
+
+    [Test]
+    // Has staircase against right wall, can only top the others.
+    [TestCase(0, 9, 3, 6, Direction.Up | Direction.Left | Direction.Down, TestName = "Stairs Right")]
+    // The kidnapped's room.
+    [TestCase(0, 9, 2, 3, Direction.Down, TestName = "Kidnapped")]
+    // Old man room in level 1 -- old man blocks passage up.
+    [TestCase(0, 1, 1, 4, Direction.Right | Direction.Left | Direction.Down, TestName = "Oldman")]
+    public void ValidWallsTest(int quest, int level, int x, int y, Direction expected)
+    {
+        var room = GetUnderworldRoom(quest, level, x, y);
+        var directions = room.PathRequirements.ConnectableDirections;
+        Assert.That(directions, Is.EqualTo(expected));
+    }
+
+    [Test]
+    // Has staircase against right wall, can only top the others.
+    [TestCase(1, 7, 12, 5, RoomRequirementFlags.HasStaircase | RoomRequirementFlags.HasPushBlock)]
+    public void CheckFlags(int quest, int level, int x, int y, RoomRequirementFlags expected)
+    {
+        var room = GetUnderworldRoom(quest, level, x, y);
+        var flags = room.PathRequirements.Flags;
+        Assert.That(flags, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ShapeTest()
+    {
+        var dungeon = GetDungeon(0, 1);
+        var state = new RandomizerState(0, new());
+        Randomizer.Randomizer.CreateDungeonShape(dungeon, state);
     }
 }

@@ -1,6 +1,7 @@
 ﻿global using z1.Actors;
 global using z1.Common;
 global using z1.Common.Data;
+global using z1.Randomizer;
 using z1.GUI;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("z1.Tests")]
@@ -54,6 +55,7 @@ namespace z1;
 // To check:
 // * "public InteractionRequirements Requirements { get; set; }" should have AllEnemiesDefeated set for dungeon item
 //   rooms I believe?
+// * "DoorDirectionOrder" says it's in clockwise order but it isn't.
 // * Boss noises when next to boss room.
 // * Recorder does not work in caves/cellars/underworld.
 // * If food attracts monsters.

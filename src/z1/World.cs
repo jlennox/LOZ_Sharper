@@ -960,7 +960,6 @@ internal sealed partial class World
             }
             UpdateDoorTiles(CurrentRoom, direction, roomState);
         }
-
     }
 
     public void IncrementKilledObjectCount(bool allowBombDrop)
