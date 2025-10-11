@@ -7,16 +7,22 @@ namespace z1;
 
 internal partial class World
 {
+    private static readonly Dictionary<string, GameWorld> _gameWorldOverrides = new();
+
     internal GameWorld GetWorld(GameWorldType type, string destination)
     {
         Filenames.ExpectSafe(destination);
 
-        var asset = type switch
+        var assetName = type switch
         {
-            GameWorldType.Underworld => new Asset("Maps", $"Level{destination}.world"),
-            GameWorldType.Overworld => new Asset("Maps", "Overworld.world"),
+            GameWorldType.Underworld => $"Level{destination}",
+            GameWorldType.Overworld => "Overworld",
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, $"World type not support with destination \"{destination}\"")
         };
+
+        if (_gameWorldOverrides.TryGetValue(assetName, out var overriddenWorld)) return overriddenWorld;
+
+        var asset = new Asset("Maps", $"{assetName}.world");
         var tiledWorld = asset.ReadJson<TiledWorld>();
         return new GameWorld(this, tiledWorld, asset.Filename, 0); // JOE: TODO: QUEST  Profile.Quest);
     }
@@ -27,6 +33,11 @@ internal partial class World
     {
         var world = GetWorld(type, destination);
         LoadWorld(world);
+    }
+
+    public void SetWorld(GameWorld world, string destination)
+    {
+        _gameWorldOverrides[destination] = world;
     }
 
     private void LoadWorld(GameWorld world, EntranceHistoryEntry? entranceEntry = null)

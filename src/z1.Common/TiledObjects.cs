@@ -19,6 +19,7 @@ public static class TiledRoomProperties
 {
     // Room
     public const string Id = nameof(Id);
+    public const string OriginalUniqueId = nameof(OriginalUniqueId);
     public const string Monsters = nameof(Monsters);
     public const string CaveSpec = nameof(CaveSpec);
     // When a player "enters" this room from a non-screen scroll, this is where they appear.

@@ -116,4 +116,26 @@ internal class RandomizerTests
         var state = new RandomizerState(0, new());
         Randomizer.Randomizer.CreateDungeonShape(dungeon, state);
     }
+
+    [Test]
+    [TestCase(0, 1, 1, 1)]
+    [TestCase(0, 2, 0, 1)]
+    [TestCase(0, 3, 1, 0)]
+    [TestCase(0, 8, 2, 0)]
+    public void DungeonStatsTest(int quest, int level, int staircaseItemCount, int floorItemCount)
+    {
+        var dungeon = GetDungeon(quest, level);
+        var actual = DungeonStats.Get(dungeon);
+        Assert.That(actual.StaircaseItemCount, Is.EqualTo(staircaseItemCount));
+        Assert.That(actual.FloorItemCount, Is.EqualTo(floorItemCount));
+    }
+
+    [Test]
+    public void Create()
+    {
+        var window = _lazyWindow.Value;
+        var game = window.Game;
+        var state = new RandomizerState(0, new());
+        Randomizer.Randomizer.Randomize(game.World.CurrentWorld, state);
+    }
 }

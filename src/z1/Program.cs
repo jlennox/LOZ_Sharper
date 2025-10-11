@@ -22,6 +22,7 @@ namespace z1;
 // * Player spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
 // * I think we need to reproduce the original game's draw order? IE, bombs should always be drawn over bad guys.
 // * Do bad guys flicker when overlapping each other?
+// * Muldorm (sand worm) can get stuck, broken AI.
 
 // Overworld bugs:
 // * Top right: Secret does not work.
@@ -40,6 +41,7 @@ namespace z1;
 // * Figure out where to define what song is playing.
 // * Refactor game-space to be (0,0), not (0,status bar height).
 // * Make fire shooters and spike traps objects.
+// * Items that upgrade each compass/map you find. Perhaps makes secret unmapped rooms clearer, or the types of room connections.
 
 // Known tiled map issues:
 // * Make recorder destinations spots on the map: ReadOnlySpan<int> teleportYs = [0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D];

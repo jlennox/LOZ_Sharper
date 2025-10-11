@@ -212,6 +212,7 @@ internal sealed class GameWorldMap
 [DebuggerDisplay("{Name}")]
 internal sealed class GameWorld
 {
+    public World World { get; }
     public string UniqueId => Name; // not sure if these will remain the same.
     public string Name { get; }
     public GameRoom[] Rooms { get; }
@@ -225,8 +226,105 @@ internal sealed class GameWorld
 
     public bool IsBossAlive => BossRoom != null && BossRoom.PersistedRoomState.ObjectCount != 0;
 
+    public GameWorld(World world, GameRoom[] rooms, WorldSettings settings, string name)
+    {
+        World = world;
+        Name = name;
+        Rooms = rooms;
+
+        foreach (var room in rooms)
+        {
+            if (room.Settings.IsEntryRoom) EntryRoom = room;
+            if (room.Settings.IsBossRoom) BossRoom = room;
+        }
+
+        Settings = settings;
+        if (Settings.LevelNumber > 0) LevelString = $"Level-{Settings.LevelNumber}";
+
+        EntryRoom ??= Rooms[0];
+
+        TeleportDestinations = Rooms
+            .Where(t => t.RecorderDestination != null)
+            .OrderBy(t => t.RecorderDestination!.Slot)
+            .ToArray();
+
+        var orderedWorldMaps = rooms
+            .OrderBy(t => t.WorldEntry.Y)
+            .ThenBy(t => t.WorldEntry.X)
+            .ToArray();
+
+        // Build out how rooms connect to each other.
+        // This can use a massive optimization.
+        foreach (var room in orderedWorldMaps)
+        {
+            var entry = room.WorldEntry;
+            room.Connections.Clear(); // Needed by the randomizer.
+            if (entry.X > 0)
+            {
+                var leftroom = orderedWorldMaps.FirstOrDefault(t => t.WorldEntry.Right == entry.X && t.WorldEntry.Y == entry.Y);
+                if (leftroom != null)
+                {
+                    room.Connections[Direction.Left] = leftroom;
+                    leftroom.Connections[Direction.Right] = room;
+                }
+            }
+
+            if (entry.Y > 0)
+            {
+                var aboveroom = orderedWorldMaps.FirstOrDefault(t => t.WorldEntry.X == entry.X && t.WorldEntry.Bottom == entry.Y);
+                if (aboveroom != null)
+                {
+                    room.Connections[Direction.Up] = aboveroom;
+                    aboveroom.Connections[Direction.Down] = room;
+                }
+            }
+        }
+
+        GameWorldMap = new GameWorldMap(this);
+    }
+
+    // Hi! Joe here!
+    // I've introduced a bad cyclical dependency! Woe is me! Woe is _us_!
+    // This is why the code is copy pasta and then bulk commented out tier garbo.
+    // GameRoom wants a GameWorld, and that's this object. However, we may need to pre-create all of our rooms.
+    // So we've got a chicken and egg problem. `gameWorld` is only used by the GameRoom constructor to create a unique ID.
+
+    // private GameRoom[] RoomsFromTiledWorld(World world, TiledWorld tiledWorld, string filename, int questId)
+    // {
+    //     var rooms = new GameRoom[tiledWorld.Maps.Length];
+    //     var directory = Path.GetDirectoryName(filename);
+    //     for (var i = 0; i < tiledWorld.Maps.Length; ++i)
+    //     {
+    //         var worldEntry = tiledWorld.Maps![i];
+    //         var asset = new Asset(directory, worldEntry.Filename);
+    //         var tiledmap = asset.ReadJson<TiledMap>();
+    //         var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
+    //         var room = new GameRoom(world, this, worldEntry, entryName, tiledmap, questId);
+    //         rooms[i] = room;
+    //     }
+    //     return rooms;
+    // }
+
+    // public static GameWorld FromTiledWorld(World world, TiledWorld tiledWorld, string filename, int questId)
+    // {
+    //     var rooms = new GameRoom[tiledWorld.Maps.Length];
+    //     var directory = Path.GetDirectoryName(filename);
+    //     for (var i = 0; i < tiledWorld.Maps.Length; ++i)
+    //     {
+    //         var worldEntry = tiledWorld.Maps![i];
+    //         var asset = new Asset(directory, worldEntry.Filename);
+    //         var tiledmap = asset.ReadJson<TiledMap>();
+    //         var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
+    //         var room = new GameRoom(world, this, worldEntry, entryName, tiledmap, questId);
+    //         rooms[i] = room;
+    //     }
+    //
+    //
+    // }
+
     public GameWorld(World world, TiledWorld tiledWorld, string filename, int questId)
     {
+        World = world;
         Name = Path.GetFileNameWithoutExtension(filename);
         if (tiledWorld.Maps == null) throw new Exception($"World {Name} has no maps.");
 
@@ -312,12 +410,13 @@ internal sealed class GameWorld
     }
 }
 
-[DebuggerDisplay("{GameWorld.UniqueId}/{UniqueId} ({Name})")]
+[DebuggerDisplay("{GameWorld.UniqueId}/{UniqueId} ({Name}) ({WorldX},{WorldY})")]
 internal sealed class GameRoom
 {
     public string UniqueId { get; }
     public string Id { get; }
-    public GameWorld GameWorld { get; }
+    public int? OriginalUniqueId { get; } // The unique ID used by the original game, if any.
+    public GameWorld GameWorld { get; set; } // arg, this set is awful.
     public TiledWorldEntry WorldEntry { get; }
     public string Name { get; }
     public int WorldX => WorldEntry.X; // The world position, in pixels.
@@ -326,7 +425,7 @@ internal sealed class GameRoom
     public int Height { get; }
     public int TileWidth { get; set; } // The width of a tile (ie, 8)
     public int TileHeight { get; set; }
-    public int BlockWidth { get; set; } // The width of a tile (ie, 8)
+    public int BlockWidth { get; set; } // The width of a tile (ie, 8) // TODO: Fix this comment.
     public int BlockHeight { get; set; }
     private GameTileSet[] TileSets { get; } = [];
     public GameMapTileLayer[] Layers { get; } = [];
@@ -396,6 +495,7 @@ internal sealed class GameRoom
         RoomMap = new RoomTileMap(Width, Height);
 
         Id = map.GetProperty(TiledRoomProperties.Id) ?? throw new Exception("Room has no room id.");
+        OriginalUniqueId = map.GetIntPropertyOrNull(TiledRoomProperties.OriginalUniqueId);
         UniqueId = $"{gameWorld.UniqueId}/{Id}";
         Monsters = MonsterEntry.ParseMonsters(map.GetProperty(TiledRoomProperties.Monsters), out var zoraCount);
         ZoraCount = zoraCount;

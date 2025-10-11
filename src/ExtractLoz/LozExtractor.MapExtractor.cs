@@ -44,29 +44,32 @@ internal record MapResources(
 
 public unsafe partial class LozExtractor
 {
-    private readonly record struct LevelGroupMap(int QuestId, int LevelNumber);
-
-    private static readonly Dictionary<LevelGroupMap, int> _levelGroupMap = new()
+    // Dungeons are stored on larger maps shared with other dungeons. This contains a quest/level to shared map index.
+    private readonly record struct LevelGroupMap(int QuestId, int LevelNumber)
     {
-        { new LevelGroupMap(0, 1), 0 },
-        { new LevelGroupMap(0, 2), 0 },
-        { new LevelGroupMap(0, 3), 0 },
-        { new LevelGroupMap(0, 4), 0 },
-        { new LevelGroupMap(0, 5), 0 },
-        { new LevelGroupMap(0, 6), 0 },
-        { new LevelGroupMap(0, 7), 1 },
-        { new LevelGroupMap(0, 8), 1 },
-        { new LevelGroupMap(0, 9), 1 },
-        { new LevelGroupMap(1, 1), 2 },
-        { new LevelGroupMap(1, 2), 2 },
-        { new LevelGroupMap(1, 3), 2 },
-        { new LevelGroupMap(1, 4), 2 },
-        { new LevelGroupMap(1, 5), 2 },
-        { new LevelGroupMap(1, 6), 2 },
-        { new LevelGroupMap(1, 7), 3 },
-        { new LevelGroupMap(1, 8), 3 },
-        { new LevelGroupMap(1, 9), 3 },
-    };
+        public static readonly Dictionary<LevelGroupMap, int> Maps = new()
+        {
+            { new LevelGroupMap(0, 1), 0 },
+            { new LevelGroupMap(0, 2), 0 },
+            { new LevelGroupMap(0, 3), 0 },
+            { new LevelGroupMap(0, 4), 0 },
+            { new LevelGroupMap(0, 5), 0 },
+            { new LevelGroupMap(0, 6), 0 },
+            { new LevelGroupMap(0, 7), 1 },
+            { new LevelGroupMap(0, 8), 1 },
+            { new LevelGroupMap(0, 9), 1 },
+            { new LevelGroupMap(1, 1), 2 },
+            { new LevelGroupMap(1, 2), 2 },
+            { new LevelGroupMap(1, 3), 2 },
+            { new LevelGroupMap(1, 4), 2 },
+            { new LevelGroupMap(1, 5), 2 },
+            { new LevelGroupMap(1, 6), 2 },
+            { new LevelGroupMap(1, 7), 3 },
+            { new LevelGroupMap(1, 8), 3 },
+            { new LevelGroupMap(1, 9), 3 },
+        };
+    }
+
     private static byte[,] _wallTileMap = null;
     private static string[] _textTable = null;
 
@@ -184,7 +187,7 @@ public unsafe partial class LozExtractor
             for (var i = 1; i <= 9; i++)
             {
                 var level = new LevelGroupMap(questId, i);
-                var levelGroup = _levelGroupMap[level];
+                var levelGroup = LevelGroupMap.Maps[level];
                 resources = resources with
                 {
                     RoomAttrs = roomAttributes[levelGroup].RoomAttributes,
@@ -256,7 +259,7 @@ public unsafe partial class LozExtractor
             }
         }
 
-        // Draw each map into allExtractedScreens and store the Actions.
+        // Draw each map into allExtractedRooms and store the Actions.
         for (var roomY = 0; roomY < World.WorldHeight; ++roomY)
         {
             for (var roomX = 0; roomX < World.WorldWidth; roomX++)
@@ -294,6 +297,7 @@ public unsafe partial class LozExtractor
             var roomInteractions = new List<RoomInteraction>();
 
             properties.Add(new TiledProperty(TiledRoomProperties.Id, name ?? roomId.GetGameRoomId()));
+            properties.Add(new TiledProperty(TiledRoomProperties.OriginalUniqueId, roomId.UniqueRoomId));
 
             if (resources.IsOverworld)
             {
