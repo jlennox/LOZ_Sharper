@@ -212,6 +212,14 @@ public abstract class InteractableBase
 public sealed class RoomInteraction : InteractableBase
 {
     public override void Initialize(RoomArguments arguments) { }
+
+    public static RoomInteraction CreateOpenShutterDoors() => new()
+    {
+        Name = "FoesDoor",
+        Interaction = Interaction.None,
+        Requirements = InteractionRequirements.AllEnemiesDefeated,
+        Effect = InteractionEffect.OpenShutterDoors,
+    };
 }
 
 public sealed class InteractableBlock : InteractableBase
@@ -278,9 +286,10 @@ public sealed class RoomItem
 [TiledSelectableEnum]
 public enum RoomFlags
 {
-    [TiledIgnore] None = 0,
+    [TiledIgnore]
+    None = 0,
     PlaysSecretChime = 1 << 0,
-    IsEntryRoom = 1 << 1,
+    IsEntrance = 1 << 1,
     // Used to know when to no longer play the bossroar AmbientSound.
     IsBossRoom = 1 << 2,
     IsLadderAllowed = 1 << 3,
@@ -302,7 +311,7 @@ public sealed class RoomSettings
     public BlockType FloorTile { get; set; }
 
     [TiledIgnore, JsonIgnore] public bool PlaysSecretChime => Options.HasFlag(RoomFlags.PlaysSecretChime);
-    [TiledIgnore, JsonIgnore] public bool IsEntryRoom => Options.HasFlag(RoomFlags.IsEntryRoom);
+    [TiledIgnore, JsonIgnore] public bool IsEntrance => Options.HasFlag(RoomFlags.IsEntrance);
     [TiledIgnore, JsonIgnore] public bool IsBossRoom => Options.HasFlag(RoomFlags.IsBossRoom);
     [TiledIgnore, JsonIgnore] public bool IsLadderAllowed => Options.HasFlag(RoomFlags.IsLadderAllowed);
     [TiledIgnore, JsonIgnore] public bool IsDark => Options.HasFlag(RoomFlags.IsDark);

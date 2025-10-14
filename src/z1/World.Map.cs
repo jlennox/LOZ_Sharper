@@ -44,9 +44,9 @@ internal partial class World
     {
         if (entranceEntry == null)
         {
-            LoadRoom(world.EntryRoom);
-            var playerX = world.EntryRoom.EntryPosition?.X;
-            var playerY = world.EntryRoom.EntryPosition?.Y;
+            LoadRoom(world.EntranceRoom);
+            var playerX = world.EntranceRoom.EntryPosition?.X;
+            var playerY = world.EntranceRoom.EntryPosition?.Y;
             if (playerX != null && playerY != null)
             {
                 Game.Player.X = playerX.Value;
@@ -92,8 +92,8 @@ internal partial class World
         {
             _world = world;
             var overworld = world.GetWorld(GameWorldType.Overworld, "Overworld");
-            var pos = overworld.EntryRoom.EntryPosition;
-            _default = new EntranceHistoryEntry(overworld.EntryRoom, new Entrance
+            var pos = overworld.EntranceRoom.EntryPosition;
+            _default = new EntranceHistoryEntry(overworld.EntranceRoom, new Entrance
             {
                 ExitPosition = pos == null ? new PointXY(120, 141) : new PointXY(pos.X, pos.Y)
             });

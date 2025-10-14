@@ -148,8 +148,8 @@ internal sealed class GameWorldMap
         // HEY! This has a big issue of not being able to handle rooms that are not connected to the entry room.
         // To fix this, we need to find rooms not seen, then make logical assumptions about where they go. Yay :)
         var roomsToVisit = new Stack<(GameRoom Room, Point Position)>();
-        roomsToVisit.Push((world.EntryRoom, new Point(0, 0)));
-        var visitedRooms = new HashSet<GameRoom> { world.EntryRoom };
+        roomsToVisit.Push((world.EntranceRoom, new Point(0, 0)));
+        var visitedRooms = new HashSet<GameRoom> { world.EntranceRoom };
         var visitedPositions = new Dictionary<Point, GameRoom>();
         var minX = int.MaxValue;
         var minY = int.MaxValue;
@@ -216,7 +216,7 @@ internal sealed class GameWorld
     public string UniqueId => Name; // not sure if these will remain the same.
     public string Name { get; }
     public GameRoom[] Rooms { get; }
-    public GameRoom EntryRoom { get; }
+    public GameRoom EntranceRoom { get; }
     public GameRoom? BossRoom { get; }
     public GameWorldMap GameWorldMap { get; }
     public GameRoom[] TeleportDestinations { get; }
@@ -234,14 +234,18 @@ internal sealed class GameWorld
 
         foreach (var room in rooms)
         {
-            if (room.Settings.IsEntryRoom) EntryRoom = room;
+            if (room.Settings.IsEntrance)
+            {
+                if (EntranceRoom != null) throw new Exception($"Second entrance room for dungeon \"{name}\" (\"{EntranceRoom.Name}\" and \"{room.Name}\").");
+                EntranceRoom = room;
+            }
             if (room.Settings.IsBossRoom) BossRoom = room;
         }
 
         Settings = settings;
         if (Settings.LevelNumber > 0) LevelString = $"Level-{Settings.LevelNumber}";
 
-        EntryRoom ??= Rooms[0];
+        if (EntranceRoom == null) throw new Exception($"Missing entrance room for dungeon \"{name}\".");
 
         TeleportDestinations = Rooms
             .Where(t => t.RecorderDestination != null)
@@ -338,7 +342,7 @@ internal sealed class GameWorld
             var tiledmap = asset.ReadJson<TiledMap>();
             var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
             var room = new GameRoom(world, this, worldEntry, entryName, tiledmap, questId);
-            if (room.Settings.IsEntryRoom) EntryRoom = room;
+            if (room.Settings.IsEntrance) EntranceRoom = room;
             if (room.Settings.IsBossRoom) BossRoom = room;
             worldMaps[i] = (room, worldEntry);
             Rooms[i] = room;
@@ -347,7 +351,7 @@ internal sealed class GameWorld
         Settings = tiledWorld.GetJsonProperty<WorldSettings>(TiledWorldProperties.WorldSettings);
         if (Settings.LevelNumber > 0) LevelString = $"Level-{Settings.LevelNumber}";
 
-        EntryRoom ??= Rooms[0];
+        EntranceRoom ??= Rooms[0];
 
         TeleportDestinations = Rooms
             .Where(t => t.RecorderDestination != null)
@@ -481,7 +485,7 @@ internal sealed class GameRoom
         GameWorld = gameWorld;
 
         _roomState = new Lazy<PersistedRoomState>(() => world.Profile.GetRoomFlags(this));
-        _pathRequirements = new Lazy<RoomRequirements>(() => Randomizer.Randomizer.GetPathRequirements(this));
+        _pathRequirements = new Lazy<RoomRequirements>(() => Randomizer.Randomizer.GetRoomRequirements(this));
 
         WorldEntry = worldEntry;
         Name = name;

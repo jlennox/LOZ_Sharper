@@ -23,6 +23,8 @@ namespace z1;
 // * I think we need to reproduce the original game's draw order? IE, bombs should always be drawn over bad guys.
 // * Do bad guys flicker when overlapping each other?
 // * Muldorm (sand worm) can get stuck, broken AI.
+// * Can walk through key doors?!
+// * Bomb capacity shop might be broken.
 
 // Overworld bugs:
 // * Top right: Secret does not work.

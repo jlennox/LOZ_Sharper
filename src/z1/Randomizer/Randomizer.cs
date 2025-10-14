@@ -5,7 +5,7 @@ using System.Text;
 namespace z1.Randomizer;
 
 // Randomized dungeon shape passes:
-// 1. Create a shape with the right number of rooms, and mark special rooms (entrance, item staircase, floor drop).
+// 1. Create a shape with the right number of rooms, and mark special rooms (entry, item staircase, floor drop).
 // 2. Fit rooms with specific requirements first -- such as rooms that have items. This is to ensure rooms without
 //    criteria do not pre-emptively drain them from the pool.
 // 3. Fit the rest of the rooms.
@@ -32,12 +32,16 @@ internal readonly record struct RoomRequirements(
     Direction ConnectableDirections, // Does not mean they _are_ connected, just that there's nothing hard blocking it from being connected.
     ImmutableArray<RoomPathRequirement> Paths,
     RoomRequirementFlags Flags,
+    InteractableBlockObject? PushBlock,
+    InteractableBlockObject? Staircase,
     int Difficulty)
 {
     public bool HasStaircase => Flags.HasFlag(RoomRequirementFlags.HasStaircase);
     public bool HasFloorDrop => Flags.HasFlag(RoomRequirementFlags.HasFloorDrop);
     public bool HasPushBlock => Flags.HasFlag(RoomRequirementFlags.HasPushBlock);
     public bool IsEntrance => Flags.HasFlag(RoomRequirementFlags.IsEntrance);
+
+    public bool HasShutterPushBlock => this is { HasPushBlock: true, PushBlock.Interaction.Effect: InteractionEffect.OpenShutterDoors };
 }
 
 internal sealed class RandomizerDungeonFlags
@@ -249,7 +253,6 @@ internal readonly record struct DungeonShape(DungeonShape.Room[,] Layout, Dungeo
             if (cell.GameRoom != null) continue; // Already set.
             if (cell.Type == RoomType.None) continue;
             if (!shouldFit(cell)) continue;
-            // if (cell.Type is not (RoomType.FloorDrop or RoomType.ItemStaircase)) continue;
 
             var requiredDirections = Direction.None;
             if (IsValidPoint(point + new Point(-1, 0))) requiredDirections |= Direction.Left;
@@ -261,17 +264,26 @@ internal readonly record struct DungeonShape(DungeonShape.Room[,] Layout, Dungeo
             for (var i = 0; i < state.RandomDungeonRoomList.Count && cell.GameRoom == null; i++)
             {
                 var room = state.RandomDungeonRoomList[i];
-                var requirements = Randomizer.GetPathRequirements(room);
+                var requirements = Randomizer.GetRoomRequirements(room);
 
                 // TODO: This isn't _really_ what is wanted. We want to ensure all paths are accessible, but we don't
                 // super care that all possible paths in all rooms are connected. IE, it's possible that a tunnel
-                // or alternative path on foot connect them.
+                // or alternative path on foot connects them.
                 // This also may drain valid rooms and only leave a room with a single direction connection that is
                 // not valid for the spot.
                 if ((requiredDirections & requirements.ConnectableDirections) != requiredDirections) continue;
 
                 if (fit(cell, requirements))
                 {
+                    if (cell.Type != RoomType.Entrance)
+                    {
+                        room.Settings.Options &= ~RoomFlags.IsEntrance;
+                    }
+                    else
+                    {
+                        room.Settings.Options |= RoomFlags.IsEntrance;
+                    }
+
                     cell = cell with { GameRoom = room };
                     state.RandomDungeonRoomList.RemoveAt(i);
                     break;
@@ -290,7 +302,7 @@ internal readonly record struct DungeonShape(DungeonShape.Room[,] Layout, Dungeo
     public void FitSpecialRooms(RandomizerState state)
     {
         FitRooms(state,
-            cell => cell.Type is RoomType.FloorDrop or RoomType.ItemStaircase,
+            cell => cell.Type is RoomType.FloorDrop or RoomType.ItemStaircase or RoomType.Entrance,
             (cell, requirements) =>
                 (cell.Type is RoomType.FloorDrop && requirements.HasFloorDrop)
                 || (cell.Type is RoomType.ItemStaircase && requirements.HasStaircase)
@@ -305,7 +317,7 @@ internal readonly record struct DungeonShape(DungeonShape.Room[,] Layout, Dungeo
             (_, _) => true);
     }
 
-    private static readonly DoorType[] _significantDoorTypes = [DoorType.Open, DoorType.Key, DoorType.Bombable, DoorType.FalseWall];
+    private static readonly DoorType[] _significantDoorTypes = [DoorType.Open, DoorType.Key, DoorType.Bombable, DoorType.FalseWall, DoorType.Shutter];
 
     public void RandomizeUnderworldDoors(RandomizerState state)
     {
@@ -332,6 +344,12 @@ internal readonly record struct DungeonShape(DungeonShape.Room[,] Layout, Dungeo
 
         foreach (var room in GetRooms())
         {
+            if (room.Settings.IsEntrance)
+            {
+                room.UnderworldDoors[Direction.Down] = DoorType.Open;
+            }
+
+            var anyShutters = false;
             foreach (var direction in Direction.DoorDirectionOrder)
             {
                 // It was set already from a connecting room.
@@ -347,9 +365,27 @@ internal readonly record struct DungeonShape(DungeonShape.Room[,] Layout, Dungeo
                 var doorType = orderedProbabilities.First(t => t.Probability >= doorRng).Type;
                 room.UnderworldDoors[direction] = doorType;
 
-                // Keys are always open on the other side. Or are they?
-                var connectingDoorType = doorType == DoorType.Key ? DoorType.Open : doorType;
-                connected.UnderworldDoors[direction.GetOppositeDirection()] = connectingDoorType;
+                connected.UnderworldDoors[direction.GetOppositeDirection()] = doorType;
+
+                if (doorType == DoorType.Shutter) anyShutters = true;
+            }
+
+            var requirements = Randomizer.GetRoomRequirements(room);
+            if (anyShutters)
+            {
+                // If we don't have an appropriate push block already, add a room cleared trigger for opening the shutters.
+                if (!requirements.HasShutterPushBlock)
+                {
+                    // err, I hate this .add
+                    room.RoomInteractions = room.RoomInteractions.Add(RoomInteraction.CreateOpenShutterDoors());
+                }
+            }
+            else
+            {
+                if (requirements.HasShutterPushBlock)
+                {
+                    room.InteractableBlockObjects = room.InteractableBlockObjects.Remove(requirements.PushBlock!);
+                }
             }
         }
     }
@@ -402,10 +438,6 @@ internal sealed class Randomizer
         public override string ToString() => RequiresLadder ? $"({X}, {Y}, WET)" : $"({X}, {Y})";
     }
 
-    internal enum RandomRoomType { None, Normal, Entrance, FloorDrop, ItemStaircase }
-
-    internal readonly record struct RandomizedRoom(int X, int Y, Direction Connections, RandomRoomType Type);
-
     private static readonly Dictionary<string, RoomRequirements> _requirementsCache = new();
 
     private static void OverworldRoom()
@@ -414,6 +446,7 @@ internal sealed class Randomizer
 
     private static IEnumerable<GameWorld> GetAllDungeons(GameWorld overworld)
     {
+        var seen = new HashSet<string>();
         foreach (var room in overworld.Rooms)
         {
             foreach (var interactable in room.InteractableBlockObjects)
@@ -422,7 +455,10 @@ internal sealed class Randomizer
                 if (entrance == null) continue;
                 if (entrance.DestinationType != GameWorldType.Underworld) continue;
 
-                yield return overworld.World.GetWorld(GameWorldType.Underworld, entrance.Destination);
+                var dungeon = overworld.World.GetWorld(GameWorldType.Underworld, entrance.Destination);
+                if (!seen.Add(dungeon.Name)) continue;
+
+                yield return dungeon;
             }
         }
     }
@@ -438,14 +474,16 @@ internal sealed class Randomizer
 
     public static void Randomize(GameWorld overworld, RandomizerState state)
     {
-        foreach (var dungeon in GetAllDungeons(overworld))
+        var dungeons = GetAllDungeons(overworld).ToArray();
+
+        foreach (var dungeon in dungeons)
         {
             state.RandomDungeonRoomList.AddRange(dungeon.Rooms);
         }
 
         Shuffle(state.RandomDungeonRoomList, state.RoomListRandom);
 
-        var shapes = GetAllDungeons(overworld)
+        var shapes = dungeons
             .Select(t => (t, DungeonShape.Create(t, state)))
             .ToArray();
 
@@ -472,7 +510,7 @@ internal sealed class Randomizer
         var shape = DungeonShape.Create(world, state);
     }
 
-    public static RoomRequirements GetPathRequirements(GameRoom room)
+    public static RoomRequirements GetRoomRequirements(GameRoom room)
     {
         var cacheId = room.OriginalUniqueId?.ToString() ?? room.UniqueId;
         if (_requirementsCache.TryGetValue(cacheId, out var cached)) return cached;
@@ -492,7 +530,7 @@ internal sealed class Randomizer
         {
             var location = GetEntranceLocation(direction);
             // We're doing 2 because we want the upper-left corner of the block in front of the door.
-            // Stairways only mark that spot -- but I believe it's incorrect that they do?
+            // Stairways only mark that spot -- but I believe that's incorrect and they should make the 2x2 region?
             return direction switch
             {
                 Direction.Right => new Point(location.X - 2, location.Y),
@@ -601,6 +639,8 @@ internal sealed class Randomizer
         // there's spike traps in the corners.
 
         var flags = RoomRequirementFlags.None;
+        InteractableBlockObject? pushBlock = null;
+        InteractableBlockObject? staircase = null;
         foreach (var obj in room.ObjectLayer.Objects)
         {
             switch (obj)
@@ -608,17 +648,19 @@ internal sealed class Randomizer
                 case TileBehaviorGameMapObject { TileBehavior: TileBehavior.Stairs or TileBehavior.SlowStairs }:
                 case InteractableBlockObject { Interaction.Entrance: not null }:
                     flags |= RoomRequirementFlags.HasStaircase;
+                    staircase = obj as InteractableBlockObject;
                     break;
                 case InteractableBlockObject { Interaction.Item: not null }:
                     flags |= RoomRequirementFlags.HasFloorDrop;
                     break;
-                case InteractableBlockObject { Interaction.Interaction: Interaction.Push }:
+                case InteractableBlockObject { Interaction.Interaction: Interaction.Push } blockObject:
                     flags |= RoomRequirementFlags.HasPushBlock;
+                    pushBlock = blockObject;
                     break;
             }
         }
 
-        if (room == room.GameWorld.EntryRoom)
+        if (room.Settings.IsEntrance)
         {
             flags |= RoomRequirementFlags.IsEntrance;
         }
@@ -627,6 +669,8 @@ internal sealed class Randomizer
             validDirections,
             paths.ToImmutableArray(),
             flags,
+            pushBlock,
+            staircase,
             0);
 
         _requirementsCache[cacheId] = roomRequirements;

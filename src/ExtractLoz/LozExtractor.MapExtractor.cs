@@ -415,13 +415,7 @@ public unsafe partial class LozExtractor
 
                 if (uwRoomAttrs.GetSecret() == Secret.FoesDoor)
                 {
-                    roomInteractions.Add(new RoomInteraction
-                    {
-                        Name = "FoesDoor",
-                        Interaction = Interaction.None,
-                        Requirements = InteractionRequirements.AllEnemiesDefeated,
-                        Effect = InteractionEffect.OpenShutterDoors,
-                    });
+                    roomInteractions.Add(RoomInteraction.CreateOpenShutterDoors());
                 }
             }
 
@@ -429,7 +423,7 @@ public unsafe partial class LozExtractor
             if (roomId.Id == startRoomId)
             {
                 properties.Add(TiledProperty.ForClass(TiledRoomProperties.EntryPosition, new EntryPosition(World.StartX, resources.LevelInfoBlock.StartY, Direction.Up)));
-                roomOptions |= RoomFlags.IsEntryRoom;
+                roomOptions |= RoomFlags.IsEntrance;
             }
 
             if (roomInteractions.Count > 0)

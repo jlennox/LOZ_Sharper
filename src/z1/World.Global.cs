@@ -17,7 +17,7 @@ internal partial class World
     {
         if (TryGetConnectedRoom(CurrentRoom, direction, out var nextRoom))
         {
-            entry = default;
+            entry = null;
             return nextRoom;
         }
 
@@ -25,7 +25,7 @@ internal partial class World
         // JOE: Do we support world wrap, per the original?
         if (CurrentRoom.GameWorld.IsOverworld)
         {
-            entry = default;
+            entry = null;
             return CurrentRoom;
         }
 
