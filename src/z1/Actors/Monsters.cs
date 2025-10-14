@@ -886,6 +886,8 @@ internal sealed class PrincessActor : MonsterActor
 internal sealed class StandingFireActor : MonsterActor
 {
     public override bool IsReoccuring => false;
+    public override bool CountsAsLiving => false;
+
     private readonly SpriteAnimator _animator;
 
     public StandingFireActor(World world, int x, int y)

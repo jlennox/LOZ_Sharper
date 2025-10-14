@@ -22,9 +22,12 @@ namespace z1;
 // * Player spawns in wrong place when leaving dungeon. And does not do the correct animation/sound.
 // * I think we need to reproduce the original game's draw order? IE, bombs should always be drawn over bad guys.
 // * Do bad guys flicker when overlapping each other?
-// * Muldorm (sand worm) can get stuck, broken AI.
 // * Can walk through key doors?!
 // * Bomb capacity shop might be broken.
+
+// Sharper broken AIs:
+// * Muldorm (sand worm) can get stuck, broken AI.
+// * The flying monster killed by the recorder is broken.
 
 // Overworld bugs:
 // * Top right: Secret does not work.

@@ -173,7 +173,7 @@ internal sealed class RoomInteractionActor : InteractableActor<RoomInteraction>
 [DebuggerDisplay("{GameObject.Name} ({X},{Y})")]
 internal sealed partial class InteractableBlockActor : InteractableActor<InteractableBlock>
 {
-    private const int MaxSpawnCount = 16;
+    private const int _maxSpawnCount = 16;
 
     public InteractableBlockObject GameObject { get; }
 
@@ -289,7 +289,7 @@ internal sealed partial class InteractableBlockActor : InteractableActor<Interac
         if (Interactable.SpawnedType != null && Interactable.SpawnedType != ObjType.None)
         {
             var count = World.GetObjects().Count(t => t.ObjType == Interactable.SpawnedType.Value);
-            if (count < MaxSpawnCount)
+            if (count < _maxSpawnCount)
             {
                 _stillSpawningActor = World.MakeActivatedObject(
                     Interactable.SpawnedType.Value,
