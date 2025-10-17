@@ -1351,7 +1351,7 @@ internal sealed partial class World
         _triggerShutters = false;
         var dirs = Direction.None;
 
-        foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
+        foreach (var direction in Direction.DoorDirectionOrder)
         {
             if (CurrentRoom.UnderworldDoors[direction] == DoorType.Shutter
                 && !GetEffectiveDoorState(CurrentRoom, direction))

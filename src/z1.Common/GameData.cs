@@ -6,7 +6,12 @@ namespace z1.Common;
 
 public record PointXY(int X, int Y)
 {
+    public static readonly PointXY Zero = new(0, 0);
+
     public PointXY() : this(0, 0) { }
+
+    public static PointXY operator +(PointXY a, PointXY b) => new(a.X + b.X, a.Y + b.Y);
+    public static PointXY operator -(PointXY a, PointXY b) => new(a.X - b.X, a.Y - b.Y);
 }
 
 public sealed class GameData

@@ -201,7 +201,8 @@ internal static class Extensions
         }
     }
 
-    public static Point ToPoint(this PointXY? point) => point == null ? default : new(point.X, point.Y);
+    public static Point ToPoint(this PointXY? point) => point == null ? default : new Point(point.X, point.Y);
+    public static PointXY ToPointXY(this Point point) => new(point.X, point.Y);
 
     public static DrawingFlags GetDrawingFlags(this TiledTile tile)
     {

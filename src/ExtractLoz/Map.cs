@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Runtime.InteropServices;
+#pragma warning disable CA1416
 
 namespace ExtractLoz;
 

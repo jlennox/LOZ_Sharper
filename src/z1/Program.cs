@@ -24,6 +24,7 @@ namespace z1;
 // * Do bad guys flicker when overlapping each other?
 // * Can walk through key doors?!
 // * Bomb capacity shop might be broken.
+// * Sword beams when shot horizontally next to top row in dungeon hit wall.
 
 // Sharper broken AIs:
 // * Muldorm (sand worm) can get stuck, broken AI.

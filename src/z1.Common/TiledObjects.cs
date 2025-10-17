@@ -152,6 +152,52 @@ public sealed class Entrance
     public RoomArguments? Arguments { get; set; }
 
     public override string ToString() => Destination;
+
+    public static Entrance CreateItemCellar(ItemId item, PointXY exitRoom)
+    {
+        return new Entrance
+        {
+            Arguments = new RoomArguments
+            {
+                ExitLeft = $"{exitRoom.X},{exitRoom.Y}",
+                ItemId = item
+            },
+            BlockType = BlockType.Stairs,
+            Destination = CommonUnderworldRoomName.ItemCellar,
+            DestinationType = GameWorldType.UnderworldCommon,
+            EntryPosition = new EntryPosition(48, 96, Direction.Down)
+            {
+                TargetX = 0,
+                TargetY = 96,
+            },
+            ExitPosition = new PointXY(96, 160)
+        };
+    }
+
+    public static Entrance CreateTransportRoom(PointXY roomA, PointXY roomB, bool isLeft)
+    {
+        var (exit, entranceX) = isLeft
+            ? (new PointXY(96, 160), 48)
+            : (new PointXY(96, 192), 192);
+
+        return new Entrance
+        {
+            Arguments = new RoomArguments
+            {
+                ExitLeft = $"{roomA.X},{roomA.Y}",
+                ExitRight = $"{roomB.X},{roomB.Y}",
+            },
+            BlockType = BlockType.Stairs,
+            Destination = CommonUnderworldRoomName.Transport,
+            DestinationType = GameWorldType.UnderworldCommon,
+            EntryPosition = new EntryPosition(entranceX, 96, Direction.Down)
+            {
+                TargetX = 0,
+                TargetY = 96,
+            },
+            ExitPosition = exit
+        };
+    }
 }
 
 public static class CaveExntranceEx
@@ -351,4 +397,19 @@ public sealed class RoomArguments
     public string? ExitLeft { get; set; }
     public string? ExitRight { get; set; }
     public ItemId? ItemId { get; set; }
+
+    public PointXY GetExitLeftPoint() => ParsePoint(ExitLeft ?? throw new Exception($"{nameof(ExitLeft)} is not set."));
+    public PointXY GetExitRightPoint() => ParsePoint(ExitRight ?? throw new Exception($"{nameof(ExitRight)} is not set."));
+
+    private static PointXY ParsePoint(string point)
+    {
+        var commaIndex = point.IndexOf(',');
+        if (commaIndex < 0) throw new FormatException($"Point \"{point}\" is not in the correct format of \"x,y\".");
+
+        var xSpan = point[..commaIndex];
+        var ySpan = point[(commaIndex + 1)..];
+
+        if (!int.TryParse(xSpan, out var x) || !int.TryParse(ySpan, out var y)) throw new FormatException($"Point \"{point}\" contains invalid integers.");
+        return new PointXY(x, y);
+    }
 }
