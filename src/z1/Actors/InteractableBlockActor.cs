@@ -31,9 +31,14 @@ internal abstract partial class InteractableActor<T> : Actor
     private bool _hasPerformedInteraction;
     // This is to avoid a virtual call in the initializer.
     // NOTE: This might be better off setting _hasInteracted, and having CheckRequirements pass if that's set.
+    // 10/16/2025 NOTE: This appears no longer used?
     private bool _setInteracted;
+    // 10/16/2025 NOTE: This, also, appears unused?
     private bool _initializerSetInteracted;
     private bool _hasUpdateRun;
+
+    private bool _checkedForRevealer;
+    private InteractableActor<InteractableBlock>? _revealedBy;
 
     private readonly Lazy<ObjectState> _state;
 
@@ -57,6 +62,23 @@ internal abstract partial class InteractableActor<T> : Actor
         }
 
         UpdateCore();
+    }
+
+    private bool CheckRevealed()
+    {
+        if (Interactable.Interaction != Interaction.Revealed) return false;
+
+        if (!_checkedForRevealer)
+        {
+            _revealedBy = World.GetObjects<InteractableActor<InteractableBlock>>()
+                .FirstOrDefault(t => t.Interactable.Reveals == Interactable.Name)
+                ?? throw new Exception($"Unable to locate object to reveal object named \"{Interactable.Name}\" in room \"{World.CurrentRoom.UniqueId}\"");
+            _checkedForRevealer = true;
+        }
+
+        var revealedBy = _revealedBy ?? throw new Exception($"Revealed object named missing \"{Interactable.Name}\" in room \"{World.CurrentRoom.UniqueId}\"");
+
+        return revealedBy.HasInteracted;
     }
 
     protected virtual UpdateState UpdateCore()
@@ -91,6 +113,14 @@ internal abstract partial class InteractableActor<T> : Actor
             SetInteracted(_initializerSetInteracted);
             _initializerSetInteracted = false;
             return UpdateState.HasInteracted;
+        }
+
+        if (!HasInteracted)
+        {
+            if (CheckRevealed())
+            {
+                SetInteracted(false);
+            }
         }
 
         return HasInteracted ? UpdateState.HasInteracted : UpdateState.Check;
@@ -147,6 +177,8 @@ internal abstract partial class InteractableActor<T> : Actor
         {
             if (World.HasLivingObjects()) return false;
         }
+
+        if (_revealedBy is { HasInteracted: false }) return false;
 
         return true;
     }
@@ -259,6 +291,7 @@ internal sealed partial class InteractableBlockActor : InteractableActor<Interac
                 World.SetMapObjectXY(X, Y, Interactable.Entrance.BlockType);
             }
 
+            // Move out of entrance check?
             if (!initializing)
             {
                 OptionalSound(initializing);

@@ -384,7 +384,7 @@ internal sealed class MapExtractor
         // Fairy,
         // If second quest, do this: _roomAttrs[roomId] = sparseAttr[i].attrs;
         var roomReplacements = isOverworld ? resources.SparseTable.GetItems<byte>(Sparse.RoomReplacement) : default;
-        const string shortcutStairsName = "shortcut stairs";
+        const string shortcutStairsName = nameof(TileAction.Stairs);
         var levelInfoBlock = resources.LevelInfoBlock;
 
         var exitPos = owRoomAttrs.GetExitPosition();
@@ -571,7 +571,7 @@ internal sealed class MapExtractor
             {
                 AddInteractionP(GetTileCoords(0xD0, 0x60), TileAction.Stairs, new InteractableBlock
                 {
-                    Name = nameof(TileAction.Stairs),
+                    Name = shortcutStairsName,
                     Interaction = Interaction.Revealed,
                     Entrance = EntranceWith(stairsBlockType),
                 });
