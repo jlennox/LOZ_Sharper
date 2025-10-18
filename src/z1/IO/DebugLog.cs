@@ -149,4 +149,11 @@ internal sealed class DebugLog
         // JOE: TODO
         Write($"ERROR: 🚨🚨 {s}");
     }
+
+    public void Error(string namespaze, string s)
+    {
+        var log = $"{_name}[{namespaze}]: {s}";
+        // JOE: TODO
+        Write($"ERROR: 🚨🚨 {log}");
+    }
 }

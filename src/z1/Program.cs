@@ -67,12 +67,15 @@ namespace z1;
 // * Boss noises when next to boss room.
 // * Recorder does not work in caves/cellars/underworld.
 // * If food attracts monsters.
+// * Write code to interact with all objects in all rooms. This ensures there's no runtime exceptions in their reference hierarchy.
 
 // TODO:
 // * The dungeon old men use the same sprite as the overworld old men.
 
 // Linting to add:
 // * If world says "AllowWhirlwind" but does not have any recorder destinations, error.
+// * Make sure all ExitLeft/ExitRight's exist.
+// * Make sure no duplicate IDs.
 
 // BUGS TO ADD:
 // * Canana key?

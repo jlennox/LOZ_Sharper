@@ -9,8 +9,15 @@ namespace z1.Actors;
 // - Both push blocks in level 1 (gel and cellar room) should make secret sound when pushed.
 // - Boomerang should make item sound when it appears in level 1.
 
+// The interface is required to allow abstracting between room and block events, which matters in some select scenarios.
+internal interface IInteractableActor
+{
+    bool HasInteracted { get; }
+    InteractableBase InteractableBase { get; }
+}
+
 [DebuggerDisplay("{Interactable.Name} ({X},{Y})")]
-internal abstract partial class InteractableActor<T> : Actor
+internal abstract partial class InteractableActor<T> : Actor, IInteractableActor
     where T : InteractableBase
 {
     protected enum UpdateState { None, HasInteracted, Check }
@@ -18,6 +25,9 @@ internal abstract partial class InteractableActor<T> : Actor
     public override bool IsMonsterSlot => false;
 
     public T Interactable { get; }
+
+    bool IInteractableActor.HasInteracted => HasInteracted;
+    InteractableBase IInteractableActor.InteractableBase => Interactable;
 
     protected ObjectState State => _state.Value;
     protected bool HasInteracted => (State.HasInteracted && Interactable.Persisted)
@@ -38,7 +48,7 @@ internal abstract partial class InteractableActor<T> : Actor
     private bool _hasUpdateRun;
 
     private bool _checkedForRevealer;
-    private InteractableActor<InteractableBlock>? _revealedBy;
+    private IInteractableActor? _revealedBy;
 
     private readonly Lazy<ObjectState> _state;
 
@@ -70,8 +80,8 @@ internal abstract partial class InteractableActor<T> : Actor
 
         if (!_checkedForRevealer)
         {
-            _revealedBy = World.GetObjects<InteractableActor<InteractableBlock>>()
-                .FirstOrDefault(t => t.Interactable.Reveals == Interactable.Name)
+            _revealedBy = World.GetObjects().OfType<IInteractableActor>()
+                .FirstOrDefault(t => t.InteractableBase.Reveals == Interactable.Name)
                 ?? throw new Exception($"Unable to locate object to reveal object named \"{Interactable.Name}\" in room \"{World.CurrentRoom.UniqueId}\"");
             _checkedForRevealer = true;
         }

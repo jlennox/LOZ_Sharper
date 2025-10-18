@@ -737,6 +737,7 @@ public sealed class TiledWorldEntry
 {
     [JsonPropertyName("fileName")]
     public string Filename { get; set; }
+    // The world position, in pixels.
     public int X { get; set; }
     public int Y { get; set; }
     public int Width { get; set; }

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Immutable;
 using z1.Common;
 using z1.GUI;
 using z1.Randomizer;
@@ -33,11 +32,15 @@ internal class RandomizerTests
         }
     }
 
-    private static void Ensure(IEnumerable<RoomPathRequirement> requirements, Direction start, Direction end, params ItemId[] items)
+    private static void Ensure(
+        IReadOnlyDictionary<DoorPair, PathRequirements> requirements,
+        Direction start,
+        Direction end,
+        PathRequirements expectedRequirements)
     {
-        var actual = requirements.Where(r => r.StartingDoor == start && r.ExitDoor == end).First();
-        var expected = new RoomPathRequirement(start, end, items.ToImmutableArray());
-        Assert.That(actual.Requirements.Order().ToArray(), Is.EqualTo(expected.Requirements.Order().ToArray()));
+        var key = new DoorPair(start, end);
+        var actual = requirements[key];
+        Assert.That(actual, Is.EqualTo(expectedRequirements));
     }
 
     private static GameWorld GetDungeon(int quest, int dungeon)
@@ -68,9 +71,9 @@ internal class RandomizerTests
         // Left = open, top = bomb, right = door, down = blocked;
         var room = GetUnderworldRoom(0, 9, 5, 6);
         var requirements = room.PathRequirements.Paths;
-        Ensure(requirements, Direction.Right, Direction.Up, ItemId.Ladder);
-        Ensure(requirements, Direction.Left, Direction.Up, ItemId.Ladder);
-        Ensure(requirements, Direction.Left, Direction.Right);
+        Ensure(requirements, Direction.Right, Direction.Up, PathRequirements.Ladder);
+        Ensure(requirements, Direction.Left, Direction.Up, PathRequirements.Ladder);
+        Ensure(requirements, Direction.Left, Direction.Right, PathRequirements.None);
     }
 
     [Test]
@@ -80,9 +83,9 @@ internal class RandomizerTests
 
         var room = GetUnderworldRoom(0, 5, 4, 2);
         var requirements = room.PathRequirements.Paths;
-        Ensure(requirements, Direction.Right, Direction.Up, ItemId.Recorder);
-        Ensure(requirements, Direction.Down, Direction.Up, ItemId.Recorder);
-        Ensure(requirements, Direction.Right, Direction.Down);
+        Ensure(requirements, Direction.Right, Direction.Up, PathRequirements.Recorder);
+        Ensure(requirements, Direction.Down, Direction.Up, PathRequirements.Recorder);
+        Ensure(requirements, Direction.Right, Direction.Down, PathRequirements.None);
     }
 
     [Test]
@@ -114,7 +117,7 @@ internal class RandomizerTests
     {
         var dungeon = GetDungeon(0, 1);
         var state = new RandomizerState(0, new());
-        Randomizer.Randomizer.CreateDungeonShape(dungeon, state);
+        DungeonState.Create(dungeon, state);
     }
 
     [Test]
@@ -125,7 +128,7 @@ internal class RandomizerTests
     public void DungeonStatsTest(int quest, int level, int staircaseItemCount, int floorItemCount)
     {
         var dungeon = GetDungeon(quest, level);
-        var actual = DungeonStats.Get(dungeon);
+        var actual = DungeonStats.Create(dungeon);
         Assert.That(actual.StaircaseItemCount, Is.EqualTo(staircaseItemCount));
         Assert.That(actual.FloorItemCount, Is.EqualTo(floorItemCount));
     }

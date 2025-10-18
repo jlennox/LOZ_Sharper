@@ -65,6 +65,14 @@ public static class Extensions
 
     public static Stack<T> ToStack<T>(this IEnumerable<T> source) => new(source);
 
+    public static void Add<T>(this Stack<T> stack, T item) => stack.Push(item);
+
+    public static IEnumerable<T> Add<T>(this IEnumerable<T> enumerable, T direction)
+    {
+        foreach (var entry in enumerable) yield return entry;
+        yield return direction;
+    }
+
     extension(Direction)
     {
         public static ImmutableArray<Direction> DoorDirectionOrder => _doorDirectionOrder;

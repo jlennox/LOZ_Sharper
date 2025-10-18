@@ -418,7 +418,7 @@ internal sealed class GameWorld
 internal sealed class GameRoom
 {
     public string UniqueId { get; }
-    public string Id { get; }
+    public string Id { get; set; } // This set is for the randomizer and is :/
     public int? OriginalUniqueId { get; } // The unique ID used by the original game, if any.
     public GameWorld GameWorld { get; set; } // arg, this set is awful.
     public TiledWorldEntry WorldEntry { get; }
@@ -739,6 +739,21 @@ internal sealed class GameRoom
         if (triforceState.Value == null) return false;
 
         return !triforceState.Value.ItemGot;
+    }
+
+    public InteractableBase GetRevealer(InteractableBase revealed)
+    {
+        foreach (var obj in RoomInteractions)
+        {
+            if (obj.Reveals == revealed.Name) return obj;
+        }
+
+        foreach (var obj in InteractableBlockObjects)
+        {
+            if (obj.Interaction.Reveals == revealed.Name) return obj.Interaction;
+        }
+
+        throw new Exception($"Unable to locate object to reveal object named \"{revealed.Name}\" in room \"{UniqueId}\"");
     }
 
     public override string ToString() => $"{GameWorld.Name}/{UniqueId} ({Name})";

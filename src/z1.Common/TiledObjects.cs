@@ -250,7 +250,9 @@ public abstract class InteractableBase
     public InteractionEffect Effect { get; set; }
     public bool Persisted { get; set; }
     public string? Reveals { get; set; }
+
     [TiledIgnore, JsonIgnore] public RoomArguments? ArgumentsIn { get; set; }
+    [TiledIgnore, JsonIgnore] public bool RequiresAllEnemiesDefeated => Requirements.HasFlag(InteractionRequirements.AllEnemiesDefeated);
 
     public abstract void Initialize(RoomArguments arguments);
 }
@@ -398,18 +400,31 @@ public sealed class RoomArguments
     public string? ExitRight { get; set; }
     public ItemId? ItemId { get; set; }
 
+    // YO. This is technically wrong. They're ID's, not points.
     public PointXY GetExitLeftPoint() => ParsePoint(ExitLeft ?? throw new Exception($"{nameof(ExitLeft)} is not set."));
     public PointXY GetExitRightPoint() => ParsePoint(ExitRight ?? throw new Exception($"{nameof(ExitRight)} is not set."));
 
-    private static PointXY ParsePoint(string point)
+    public bool TryGetExitLeftPoint([NotNullWhen(false)] out PointXY point) => TryParsePoint(ExitLeft, out point);
+    public bool TryGetExitRightPoint([NotNullWhen(false)] out PointXY point) => TryParsePoint(ExitRight, out point);
+
+    private static PointXY ParsePoint(string input)
     {
-        var commaIndex = point.IndexOf(',');
-        if (commaIndex < 0) throw new FormatException($"Point \"{point}\" is not in the correct format of \"x,y\".");
+        if (!TryParsePoint(input, out var result)) throw new FormatException($"Point \"{input}\" is not in the correct format of \"x,y\".");
+        return result;
+    }
 
-        var xSpan = point[..commaIndex];
-        var ySpan = point[(commaIndex + 1)..];
+    private static bool TryParsePoint(string? input, [MaybeNullWhen(false)] out PointXY point)
+    {
+        point = null;
+        if (input == null) return false;
+        var commaIndex = input.IndexOf(',');
+        if (commaIndex < 0) return false;
 
-        if (!int.TryParse(xSpan, out var x) || !int.TryParse(ySpan, out var y)) throw new FormatException($"Point \"{point}\" contains invalid integers.");
-        return new PointXY(x, y);
+        var xSpan = input[..commaIndex];
+        var ySpan = input[(commaIndex + 1)..];
+
+        if (!int.TryParse(xSpan, out var x) || !int.TryParse(ySpan, out var y)) return false;
+        point = new PointXY(x, y);
+        return true;
     }
 }
