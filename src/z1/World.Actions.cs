@@ -96,6 +96,7 @@ internal partial class World
         }
     }
 
+    // These points are as tiles.
     internal readonly record struct DoorCorner(Point EntranceCorner, Point Behind, Point TileCornerOffset)
     {
         public static DoorCorner Get(Direction dir) => dir switch

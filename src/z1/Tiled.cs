@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using z1.IO;
 using z1.Render;
@@ -865,6 +864,11 @@ internal sealed class RoomTileMap
                 srcIndex++;
             }
         }
+    }
+
+    public bool IsValid(int tileX, int tileY)
+    {
+        return tileX >= 0 && tileX < Width - 1 && tileY >= 0 && tileY < Height - 1;
     }
 
     public ref TiledTile Tile(int index) => ref Tiles[index];

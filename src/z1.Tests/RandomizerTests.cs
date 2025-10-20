@@ -38,7 +38,7 @@ internal class RandomizerTests
         Direction end,
         PathRequirements expectedRequirements)
     {
-        var key = new DoorPair(start, end);
+        var key = DoorPair.Create(start, end);
         var actual = requirements[key];
         Assert.That(actual, Is.EqualTo(expectedRequirements));
     }

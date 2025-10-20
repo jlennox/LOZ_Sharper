@@ -63,6 +63,18 @@ public static class Extensions
         return item;
     }
 
+    public static void AddRandomly<T>(this List<T> list, T item, Random rng)
+    {
+        var index = rng.Next(list.Count + 1);
+        list.Insert(index, item);
+    }
+
+    public static void AddRangeRandomly<T>(this List<T> list, IList<T> items, Random rng)
+    {
+        list.EnsureCapacity(list.Count + items.Count);
+        foreach (var item in items) list.AddRandomly(item, rng);
+    }
+
     public static Stack<T> ToStack<T>(this IEnumerable<T> source) => new(source);
 
     public static void Add<T>(this Stack<T> stack, T item) => stack.Push(item);

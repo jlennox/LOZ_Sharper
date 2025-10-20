@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Immutable;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
-using OpenTK.Graphics.OpenGL;
 using z1.IO;
 
 namespace z1.Randomizer;
@@ -19,9 +18,362 @@ namespace z1.Randomizer;
 // * Old men aren't seen as blocking north.
 // * 9 isn't randomized?
 
-// TODO:
+internal sealed class Randomizer
+{
+    private readonly record struct DoorToDoorSearchPath(int X, int Y, bool RequiresLadder)
+    {
+        public DoorToDoorSearchPath(Point point, bool requiresLadder) : this(point.X, point.Y, requiresLadder) { }
+        public bool SamePoint(DoorToDoorSearchPath other) => X == other.X && Y == other.Y;
+        public int Distance(DoorToDoorSearchPath other) => Math.Abs(X - other.X) + Math.Abs(Y - other.Y);
+        public override string ToString() => RequiresLadder ? $"({X}, {Y}, WET)" : $"({X}, {Y})";
+    }
 
-internal readonly record struct DoorPair(Direction From, Direction To);
+    private static readonly Dictionary<string, RoomRequirements> _requirementsCache = new();
+    private static readonly DebugLog _log = new(nameof(Randomizer));
+
+    private static void OverworldRoom()
+    {
+    }
+
+    private static IEnumerable<GameWorld> GetAllDungeons(GameWorld overworld)
+    {
+        var seen = new HashSet<string>();
+        foreach (var room in overworld.Rooms)
+        {
+            foreach (var interactable in room.InteractableBlockObjects)
+            {
+                var entrance = interactable.Interaction.Entrance;
+                if (entrance == null) continue;
+                if (entrance.DestinationType != GameWorldType.Underworld) continue;
+
+                var dungeon = overworld.World.GetWorld(GameWorldType.Underworld, entrance.Destination);
+                if (!seen.Add(dungeon.Name)) continue;
+
+                yield return dungeon;
+            }
+        }
+    }
+
+    public static void Randomize(GameWorld overworld, RandomizerState state)
+    {
+        // Randomizing a dungeon is done in multiple passes, some of those passes themselves having multiple passes.
+        // Requirements:
+        // - Stay as random as possible.
+        //   - There should not be any direction bias: Any algorithm that makes mutations and enumerates directions,
+        //     should use a randomized direction order. If they were always done in order, then in many situations
+        //     it would bias the first direction in the list.
+        //   - There should not be any dungeon order bias: Dungeons which are earlier in the enumeration should not
+        //     have an increased or decreased chance of any specific attribute, including rooms or items. The dungeon
+        //     order is not randomized because that could only cover up defects, the algorithm should itself enforce
+        //     this.
+        _log.Write(nameof(Randomize), $"Starting dungeon randomization {state.Seed}.");
+
+        var dungeons = GetAllDungeons(overworld).ToArray();
+        state.Initialize(dungeons);
+
+        // 1. First a shape for each dungeon is determined. Nothing else is set inside the dungeons at this point.
+        var shapes = dungeons
+            .Select(t => (t, DungeonState.Create(t, state)))
+            .ToArray();
+
+        // 2. Next, using a shared pool of all rooms, fit rooms that have requirements (are "special") first.
+        // This includes item rooms, transport entrances, and entrance rooms.
+        // These must be fit in their own separate pass to ensure that earlier dungeons don't deplete them. And if
+        // they're avoided and preserved for later, then once they're "normalized" there will be a heavy bias of them
+        // inside the later dungeons.
+        foreach (var (_, shape) in shapes) shape.FitSpecialRooms(state);
+
+        foreach (var (dungeon, shape) in shapes)
+        {
+            using var logger = _log.CreateScopedFunctionLog(dungeon.UniqueId);
+            logger.Enter($"Randomizing dungeon {dungeon.UniqueId}.");
+
+            // Now that the special rooms are fit, any remaining special rooms can be turned into normal rooms.
+            logger.Write($"{nameof(state.NormalizeRemainingRooms)}...");
+            state.NormalizeRemainingRooms();
+
+            // 3. Fit all normal rooms.
+            logger.Write($"{nameof(shape.FitNormalRooms)}...");
+            shape.FitNormalRooms(state);
+
+            logger.Write($"Shape:\n{shape.GetDebugDisplay()}");
+
+            // A catch-all to ensure the above room fitting happened properly.
+            shape.EnsureAllRoomsAreFit();
+            shape.UpdateRoomIds();
+
+            // Attach the transport hallways to each other. This must be done before adding doors, because this can make
+            // doors in specific locations unneeded.
+            logger.Write($"{nameof(shape.AttachTransportHallways)}...");
+            shape.AttachTransportHallways(state);
+            shape.UpdateRoomCoordinates();
+
+            // Now that all rooms are fit and transports are connected, we the doors are fit.
+            logger.Write($"{nameof(shape.FitDoors)}...");
+            shape.FitDoors(state);
+
+            // And now that doors are fit, we know the item requirements needed to walk to each item room.
+            logger.Write($"{nameof(shape.FitItems)}...");
+            shape.FitItems(state);
+
+            // Place them into the world over the original dungeons.
+            var randomizedDungeon = new GameWorld(dungeon.World, shape.GetGameRooms().ToArray(), dungeon.Settings, dungeon.Name);
+            foreach (var room in shape.GetGameRooms()) room.GameWorld = randomizedDungeon;
+            overworld.World.SetWorld(randomizedDungeon, dungeon.Name);
+        }
+    }
+
+    public static RoomRequirements GetRoomRequirements(GameRoom room)
+    {
+        ArgumentNullException.ThrowIfNull(room);
+
+        // This function operates on tile coordinate space but moves in block space.
+        // Hit detection/etc are done in tile space, but
+        // * We can drastically speed up this problem by moving twice the distance each time.
+        // * When moving over water with the ladder, we can only move one blocks worth. So moving in block
+        //   space already makes that check much easier.
+        const int movementSize = 2;
+
+        var logger = _log.CreateNullScopedFunctionLog(room.UniqueId);
+
+        var cacheId = room.OriginalUniqueId?.ToString() ?? room.UniqueId;
+        if (_requirementsCache.TryGetValue(cacheId, out var cached)) return cached;
+
+        // For the above world, there's the two 2Q caves that require ladder, the fairy pond, and likely others.
+        if (!room.HasUnderworldDoors || room.UnderworldDoors.Count == 1) return default;
+
+        var paths = new Dictionary<DoorPair, PathRequirements>();
+
+        static Point GetLocationInfrontOfEntrance(Direction direction)
+        {
+            const int blockToTileRatio = 2;
+            return direction switch
+            {
+                Direction.Right => new Point(13 * blockToTileRatio, 5 * blockToTileRatio),
+                Direction.Left => new Point(2 * blockToTileRatio, 5 * blockToTileRatio),
+                Direction.Up => new Point(7 * blockToTileRatio, 2 * blockToTileRatio),
+                Direction.Down => new Point(7 * blockToTileRatio, 8 * blockToTileRatio),
+                _ => throw new Exception(),
+            };
+        }
+
+        // Technically... there can be multiple exit locations. The original game only used a static value for all
+        // exits, but it would be nice to ultimately support this.
+        static Point GetTransportExitPosition(GameRoom room)
+        {
+            static Point Core(GameRoom room)
+            {
+                foreach (var currentRoom in room.GameWorld.Rooms)
+                {
+                    foreach (var block in currentRoom.InteractableBlockObjects)
+                    {
+                        var entrance = block.Interaction.Entrance;
+                        if (entrance == null) continue;
+                        var arguments = entrance.Arguments;
+                        if (arguments == null) continue;
+                        if (arguments.ExitLeft == room.Id) return entrance.ExitPosition.ToPoint();
+                        if (arguments.ExitRight == room.Id) return entrance.ExitPosition.ToPoint();
+                    }
+                }
+
+                // This is the default in the OG game, they all transport here.
+                return new Point(0x60, 0xA0);
+            }
+
+            var result = Core(room);
+            return new Point(result.X / room.TileWidth, result.Y / room.TileHeight);
+        }
+
+        var validDirections = Direction.None;
+        var invalidDirections = Direction.None;
+        var hasOldMan = room.CaveSpec is { DoesControlsBlockingWall: true };
+        if (hasOldMan) invalidDirections |= Direction.Up;
+
+        foreach (var direction in Direction.DoorDirectionOrder)
+        {
+            if (invalidDirections.HasFlag(direction)) continue;
+            var infront = GetLocationInfrontOfEntrance(direction);
+            var behavior = room.RoomMap.Behavior(infront.X, infront.Y);
+            logger.Write($"Behavior for door {direction} was {behavior}.");
+            if (behavior is TileBehavior.GenericWalkable or TileBehavior.Sand)
+            {
+                validDirections |= direction;
+            }
+        }
+
+        if (validDirections == Direction.None)
+        {
+            logger.Error("No valid directions found.");
+            throw new Exception($"Room {room.UniqueId} has no valid directions?");
+        }
+
+        var walkingSearch = new PriorityQueue<DoorToDoorSearchPath, int>();
+        var visited = new HashSet<DoorToDoorSearchPath>();
+
+        // Walk from each door to each other door, and record if a ladder was required.
+        // Direction.None is used for transport entrances.
+        foreach (var startingDirection in ((IEnumerable<Direction>)Direction.DoorDirectionOrder).Add(Direction.None))
+        {
+            var isTransportedInEntrance = startingDirection == Direction.None;
+            if (!validDirections.HasFlag(startingDirection) && !isTransportedInEntrance) continue;
+
+            var from = isTransportedInEntrance
+                ? new DoorToDoorSearchPath(GetTransportExitPosition(room), false)
+                : new DoorToDoorSearchPath(GetLocationInfrontOfEntrance(startingDirection), false);
+
+            foreach (var endingDirection in Direction.DoorDirectionOrder)
+            {
+                if (endingDirection == startingDirection) continue;
+                if (!validDirections.HasFlag(endingDirection)) continue;
+
+                var doorPair = DoorPair.Create(startingDirection, endingDirection);
+                if (paths.ContainsKey(doorPair)) continue;
+
+                logger.Enter($"Searching path for {doorPair}...");
+
+                if (room.UniqueId == "Level00_04/1,0") // && doorPair is { From: Direction.Right, To: Direction.Left })
+                {
+                }
+
+                // This has to be infront of it, otherwise we bump into the wall in our path search.
+                // We could alternatively check win conditions inside the next path enumeration code.
+                var to = new DoorToDoorSearchPath(GetLocationInfrontOfEntrance(endingDirection), false);
+
+                walkingSearch.Clear();
+                visited.Clear();
+                walkingSearch.Enqueue(from, 0);
+
+                var hasLadderedPath = false;
+                var foundPathWithNoLadder = false;
+
+                while (walkingSearch.TryDequeue(out var current, out _))
+                {
+                    if (!visited.Add(current)) continue;
+                    if (current.SamePoint(to))
+                    {
+                        if (!current.RequiresLadder)
+                        {
+                            paths.Add(doorPair, PathRequirements.None);
+                            foundPathWithNoLadder = true;
+                            logger.Write($"✅ Found path for {doorPair}.");
+                            break;
+                        }
+
+                        hasLadderedPath = true;
+                    }
+
+                    static IEnumerable<DoorToDoorSearchPath> Neighbors(DoorToDoorSearchPath path)
+                    {
+                        yield return path with { X = path.X - movementSize };
+                        yield return path with { X = path.X + movementSize };
+                        yield return path with { Y = path.Y - movementSize };
+                        yield return path with { Y = path.Y + movementSize };
+                    }
+
+                    var behavior = room.RoomMap.Behavior(current.X, current.Y);
+
+                    foreach (var next in Neighbors(current))
+                    {
+                        if (!room.RoomMap.IsValid(next.X, next.Y)) continue;
+                        if (visited.Contains(next)) continue;
+
+                        var nextBehavior = room.RoomMap.Behavior(next.X, next.Y);
+                        if (nextBehavior == TileBehavior.Water)
+                        {
+                            // The ladder can only cross a single water tile. Do not allow crossing multiple water tiles.
+                            if (behavior == TileBehavior.Water)
+                            {
+                                logger.Write($"❌ Cannot move to {next} -- already in water.");
+                                continue;
+                            }
+
+                            // If we've determined there's a path with a ladder, do not attempt additional ones.
+                            if (hasLadderedPath)
+                            {
+                                logger.Write($"❌ Cannot move to {next} -- already have a laddered path.");
+                                continue;
+                            }
+
+                            walkingSearch.Enqueue(next with { RequiresLadder = true }, to.Distance(next));
+                            continue;
+                        }
+
+                        if (nextBehavior.CanWalk() || nextBehavior == TileBehavior.Door)
+                        {
+                            walkingSearch.Enqueue(next, to.Distance(next));
+                            continue;
+                        }
+
+                        logger.Write($"❌ Cannot move to {next} -- behavior {nextBehavior}.");
+                    }
+                }
+
+                if (!foundPathWithNoLadder && hasLadderedPath)
+                {
+                    paths.Add(doorPair, PathRequirements.Ladder);
+                    logger.Write($"✅ Found path for {doorPair} requiring ladder.");
+                }
+            }
+        }
+
+        if (paths.Count == 0)
+        {
+            logger.Error("Did not connect to other rooms.");
+            throw new Exception($"Room {room.UniqueId} can't connect to other rooms?");
+        }
+
+        // Compute the difficulty somehow, if we end up wanting it.
+        // For example, Gleeok is difficult, but is worse a room with the square of water, which is yet worse when
+        // there's spike traps in the corners.
+
+        var flags = RoomRequirementFlags.None;
+        InteractableBlockObject? pushBlock = null;
+        InteractableBlockObject? staircase = null;
+        foreach (var obj in room.ObjectLayer.Objects)
+        {
+            switch (obj)
+            {
+                case TileBehaviorGameMapObject { TileBehavior: TileBehavior.Stairs or TileBehavior.SlowStairs }:
+                case InteractableBlockObject { Interaction.Entrance: not null }:
+                    flags |= RoomRequirementFlags.HasStaircase;
+                    staircase = obj as InteractableBlockObject;
+                    break;
+                case InteractableBlockObject { Interaction.Item: not null }:
+                    flags |= RoomRequirementFlags.HasFloorDrop;
+                    break;
+                case InteractableBlockObject { Interaction.Interaction: Interaction.Push } blockObject:
+                    flags |= RoomRequirementFlags.HasPushBlock;
+                    pushBlock = blockObject;
+                    break;
+            }
+        }
+
+        if (room.Settings.IsEntrance)
+        {
+            flags |= RoomRequirementFlags.IsEntrance;
+        }
+
+        var roomRequirements = new RoomRequirements(
+            validDirections,
+            paths,
+            flags,
+            pushBlock,
+            staircase);
+
+        _requirementsCache[cacheId] = roomRequirements;
+        return roomRequirements;
+    }
+
+    // Move from this class?
+    public static bool PathRequirementsAllows(PathRequirements requirements, ItemId item) => item switch
+    {
+        ItemId.Ladder => !requirements.HasFlag(PathRequirements.Ladder),
+        ItemId.Recorder => !requirements.HasFlag(PathRequirements.Recorder),
+        ItemId.WoodArrow or ItemId.SilverArrow => !requirements.HasFlag(PathRequirements.Arrow),
+        ItemId.Food => !requirements.HasFlag(PathRequirements.Food),
+        _ => true,
+    };
+}
 
 [Flags] // NIT: Drop "Flags", just pluralize it.
 internal enum RoomRequirementFlags
@@ -43,13 +395,40 @@ internal enum PathRequirements
     Food = 1 << 3,
 }
 
+internal readonly record struct DoorPair
+{
+    private DoorPair(Direction From, Direction To)
+    {
+        this.From = From;
+        this.To = To;
+    }
+
+    public static DoorPair Create(Direction from, Direction to)
+    {
+        if (from == to) throw new Exception();
+
+        // This does make the assumption that if you can go from A to B, that you can go from B to A.
+        // I believe this to always be true.
+        return from < to ? new DoorPair(from, to) : new DoorPair(to, from);
+    }
+
+    public override string ToString() => $"{From}→{To}";
+    public Direction From { get; init; }
+    public Direction To { get; init; }
+
+    public void Deconstruct(out Direction from, out Direction to)
+    {
+        from = From;
+        to = To;
+    }
+}
+
 internal readonly record struct RoomRequirements(
     Direction ConnectableDirections, // Does not mean they _are_ connected, just that there's nothing hard blocking it from being connected.
     IReadOnlyDictionary<DoorPair, PathRequirements> Paths,
     RoomRequirementFlags Flags,
     InteractableBlockObject? PushBlock,
-    InteractableBlockObject? Staircase,
-    int Difficulty)
+    InteractableBlockObject? Staircase)
 {
     public bool HasStaircase => Flags.HasFlag(RoomRequirementFlags.HasStaircase);
     public bool HasFloorDrop => Flags.HasFlag(RoomRequirementFlags.HasFloorDrop);
@@ -74,6 +453,13 @@ internal readonly record struct RoomRequirements(
         return requirements;
     }
 
+    public static PathRequirements GetShutterRequirements(GameRoom room)
+    {
+        if (!room.UnderworldDoors.Any(static t => t.Value == DoorType.Shutter)) return PathRequirements.None;
+
+        return GetRequirementItems(room.Monsters.Select(t => t.ObjType));
+    }
+
     private static PathRequirements GetRequirementItem(ObjType type)
     {
         return type switch
@@ -90,243 +476,7 @@ internal readonly record struct RoomRequirements(
 
     private static PathRequirements GetRequirementItems(IEnumerable<ObjType> type)
     {
-        var requirements = PathRequirements.None;
-        foreach (var t in type) requirements |= GetRequirementItem(t);
-        return requirements;
-    }
-}
-
-internal sealed class RandomizerDungeonFlags
-{
-    public bool Rooms { get; set; } = true;
-    public bool Shapes { get; set; } = true;
-    public int ShapesSizeVariance { get; set; } = 2;
-    public bool RandomizeMonsters { get; set; } = true;
-    public bool AlwaysHaveCompass { get; set; } = true;
-    public bool AlwaysHaveMap { get; set; } = true;
-    public bool AllowFalseWalls { get; set; } = false;
-}
-
-internal sealed class RandomizerFlags
-{
-    public RandomizerDungeonFlags Dungeon { get; } = new();
-
-    public void CheckIntegrity()
-    {
-        if (Dungeon is { Shapes: true, Rooms: false })
-        {
-            throw new InvalidOperationException("Cannot randomize dungeon shapes without randomizing rooms.");
-        }
-    }
-}
-
-// IDEA: Make an attribute that allows each property to specify its bit location, for the flag textualization.
-internal sealed class RandomizerState
-{
-    public int Seed { get; }
-    public RandomizerFlags Flags { get; }
-    public Random RoomListRandom { get; }
-    public Random RoomRandom { get; }
-
-    public List<GameRoom> RandomDungeonRoomList { get; } = new();
-
-    public List<ItemId> DungeonItems { get; } = [
-        // ItemId.WoodSword,
-        // ItemId.WhiteSword,
-        // ItemId.MagicSword,
-        // ItemId.Food,
-        ItemId.Recorder,
-        ItemId.BlueCandle,
-        ItemId.RedCandle,
-        // ItemId.WoodArrow,
-        ItemId.SilverArrow,
-        ItemId.Bow,
-        ItemId.MagicKey,
-        ItemId.Raft,
-        ItemId.Ladder,
-        // ItemId.PowerTriforce,
-        ItemId.Rod,
-        ItemId.Book,
-        // ItemId.BlueRing,
-        ItemId.RedRing,
-        ItemId.Bracelet,
-        // ItemId.Letter,
-        ItemId.WoodBoomerang,
-        ItemId.MagicBoomerang];
-
-    public RandomizerState(int seed, RandomizerFlags flags)
-    {
-        Seed = seed;
-        Flags = flags;
-
-        var seedRandom = new Random(seed);
-        RoomListRandom = new Random(seedRandom.Next());
-        RoomRandom = new Random(seedRandom.Next());
-
-        DungeonItems.Shuffle(RoomRandom);
-    }
-
-
-    // All special rooms have been fit. Now strip all the interactions that make rooms "special" from them from the
-    // remaining pool.
-    public void RemoveSpecialnessFromRemainingRooms()
-    {
-        var toremove = new List<InteractableBase>();
-        foreach (var room in RandomDungeonRoomList)
-        {
-            toremove.Clear();
-
-            foreach (var obj in room.InteractableBlockObjects)
-            {
-                if (obj.Interaction.Entrance != null)
-                {
-                    toremove.Add(obj.Interaction);
-
-                    if (obj.Interaction.Interaction == Interaction.Revealed)
-                    {
-                        toremove.Add(room.GetRevealer(obj.Interaction));
-                    }
-                }
-            }
-
-            room.InteractableBlockObjects = room.InteractableBlockObjects
-                .Where(t => !toremove.Contains(t.Interaction))
-                .ToImmutableArray();
-        }
-    }
-}
-
-internal readonly record struct DungeonStats
-{
-    private readonly record struct DoorProbability(int Probability, DoorType Type);
-
-    private static readonly DoorType[] _significantDoorTypes = [DoorType.Open, DoorType.Key, DoorType.Bombable, DoorType.FalseWall, DoorType.Shutter];
-    private static readonly DebugLog _log = new(nameof(DungeonStats));
-
-    public int StaircaseItemCount { get; init; }
-    public int FloorItemCount { get; init; }
-    public Dictionary<DoorType, int> DoorTypeCounts { get; init; }
-    public int TrainsportStairsCount { get; init; }
-
-    private readonly DoorProbability[] _orderedDoorProbabilities;
-    private readonly int _totalDoorCount;
-
-    public DungeonStats(int staircaseItemCount, int floorItemCount, Dictionary<DoorType, int> doorTypeCounts, int trainsportStairsCount)
-    {
-        if (trainsportStairsCount % 2 != 0) throw new ArgumentOutOfRangeException(nameof(trainsportStairsCount), trainsportStairsCount, "Must be even.");
-
-        StaircaseItemCount = staircaseItemCount;
-        FloorItemCount = floorItemCount;
-        DoorTypeCounts = doorTypeCounts;
-        TrainsportStairsCount = trainsportStairsCount;
-
-        // From the doors in the original dungeon, compute the probabilities of each one showing up.
-        var probabilities = new List<DoorProbability>();
-        var runningCount = 0;
-
-        foreach (var type in _significantDoorTypes)
-        {
-            var count = doorTypeCounts.GetValueOrDefault(type, 0);
-            runningCount += count;
-            probabilities.Add(new DoorProbability(runningCount, type));
-        }
-        _orderedDoorProbabilities = probabilities.OrderBy(t => t.Probability).ToArray();
-
-        _totalDoorCount = _significantDoorTypes.Sum(t => doorTypeCounts.GetValueOrDefault(t, 0));
-        if (_totalDoorCount == 0) throw new Exception("The dungeon has no doors.");
-    }
-
-    public DoorType GetRandomDoorType(Random rng)
-    {
-        var doorRng = rng.Next(_totalDoorCount);
-        return _orderedDoorProbabilities.First(t => t.Probability >= doorRng).Type;
-    }
-
-    // Perhaps dynamically create this list?
-    private static bool IsDungeonItem(ItemId? item) => item
-        is ItemId.WoodSword
-        or ItemId.WhiteSword
-        or ItemId.MagicSword
-        or ItemId.Food
-        or ItemId.Recorder
-        or ItemId.BlueCandle
-        or ItemId.RedCandle
-        or ItemId.WoodArrow
-        or ItemId.SilverArrow
-        or ItemId.Bow
-        or ItemId.MagicKey
-        or ItemId.Raft
-        or ItemId.Ladder
-        or ItemId.PowerTriforce
-        or ItemId.Rod
-        or ItemId.Book
-        or ItemId.BlueRing
-        or ItemId.RedRing
-        or ItemId.Bracelet
-        or ItemId.Letter
-        or ItemId.WoodBoomerang
-        or ItemId.MagicBoomerang;
-
-    private static bool HasItemStaircase(GameRoom room)
-    {
-        var itemId = room.InteractableBlockObjects
-            .Select(static t => t.Interaction.Entrance?.Arguments?.ItemId)
-            .FirstOrDefault(IsDungeonItem);
-
-        if (itemId != null)
-        {
-            _log.Write(nameof(HasItemStaircase), $"Found {itemId} in room {room.UniqueId}.");
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool HasFloorItem(GameRoom room)
-    {
-        var itemId = room.InteractableBlockObjects
-            .Select(static t => t.Interaction.Item?.Item)
-            .FirstOrDefault(IsDungeonItem);
-
-        if (itemId != null)
-        {
-            _log.Write(nameof(HasFloorItem), $"Found {itemId} in room {room.UniqueId}.");
-            return true;
-        }
-
-        return false;
-    }
-
-    public static DungeonStats Create(GameWorld world)
-    {
-        static bool HasTransportStairs(GameRoom room)
-        {
-            return room.InteractableBlockObjects.Any(static t => t.Interaction.Entrance?.Destination == CommonUnderworldRoomName.Transport);
-        }
-
-        _log.Write(nameof(Create), $"Creating for {world.UniqueId}.");
-
-        var staircaseItemCount = world.Rooms.Count(HasItemStaircase);
-        var floorItemCount = world.Rooms.Count(HasFloorItem);
-        var doorTypeCounts = world.Rooms
-            .SelectMany(static t => t.UnderworldDoors.Values)
-            .GroupBy(static t => t)
-            .ToDictionary(static g => g.Key, static g => g.Count());
-        var transportStairsCount = world.Rooms.Count(HasTransportStairs);
-
-        _log.Write(nameof(Create),
-            $"{nameof(staircaseItemCount)}: {staircaseItemCount}, " +
-            $"{nameof(floorItemCount)}: {floorItemCount}, " +
-            $"{nameof(transportStairsCount)}: {transportStairsCount}");
-
-        return new DungeonStats(staircaseItemCount, floorItemCount, doorTypeCounts, transportStairsCount);
-    }
-
-    public void Deconstruct(out int staircaseItemCount, out int floorItemCount, out Dictionary<DoorType, int> doorTypeCounts)
-    {
-        staircaseItemCount = StaircaseItemCount;
-        floorItemCount = FloorItemCount;
-        doorTypeCounts = DoorTypeCounts;
+        return type.Aggregate(PathRequirements.None, static (current, t) => current | GetRequirementItem(t));
     }
 }
 
@@ -341,6 +491,15 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         Direction RequiredDoors = Direction.None)
     {
         public bool IsSpecialRoom => Type is RoomType.FloorDrop or RoomType.ItemStaircase or RoomType.Entrance or RoomType.TransportStaircase;
+        public GameRoom DemandGameRoom => GameRoom ?? throw new Exception("Room not fit.");
+
+        public void EnsureValidDoors()
+        {
+            if (RequiredDoors != Direction.None) return;
+            if (Type == RoomType.TransportStaircase) return;
+
+            throw new Exception($"{GameRoom!.UniqueId} Room does not have valid doors.");
+        }
 
         public override string ToString()
         {
@@ -391,24 +550,27 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         var stats = DungeonStats.Create(world);
         var (staircaseItemCount, floorItemCount, _) = stats;
         var rng = state.RoomRandom;
+        using var logger = _log.CreateScopedFunctionLog(world.UniqueId);
+        logger.Enter("Creating dungeon shape.");
 
         var hasCompass = state.Flags.Dungeon.AlwaysHaveCompass || rng.GetBool();
         var hasMap = state.Flags.Dungeon.AlwaysHaveMap || rng.GetBool();
 
         if (hasCompass) ++floorItemCount;
         if (hasMap) ++floorItemCount;
+        ++floorItemCount; // Triforce.
 
         var sizeVariance = state.Flags.Dungeon.ShapesSizeVariance;
         var newSize = world.Rooms.Length + rng.Next(-sizeVariance, sizeVariance);
-        var layout = new Cell[_maxWidth, _maxHeight];
-        var roomCount = 0;// JOE: TODO: Randomize this. At least make the X be random.
-        var entrance = new Point(_maxWidth / 2, _maxHeight - 1);
+        var roomCount = 0;
+        var entrance = new Point(rng.Next(0, _maxWidth), _maxHeight - 1);
         var roomType = RoomType.Entrance;
-        var normalRooms = new List<Point>();
-        var restartsStat = 0; // for debugging
-        var iterationsStat = 0; // for debugging
+        var normalCells = new List<Point>();
+        var restartsStat = 0;
+        var iterationsStat = 0;
         var checkDirections = Direction.DoorDirectionOrder;
 
+        var layout = new Cell[_maxWidth, _maxHeight];
         foreach (var point in EachPoint())
         {
             layout[point.X, point.Y] = new Cell(RoomType.None, point);
@@ -419,8 +581,8 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         {
             ++restartsStat;
 
-            _log.Write(nameof(Create),
-                $"Placing rooms for dungeon {world.UniqueId} " +
+            logger.Write(
+                $"Placing rooms" +
                 $"{nameof(newSize)} {newSize}, " +
                 $"{nameof(restartsStat)} {restartsStat}, " +
                 $"{nameof(iterationsStat)} {iterationsStat}, " +
@@ -432,7 +594,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 ref var cell = ref layout[current.X, current.Y];
                 if (cell.Type == RoomType.None)
                 {
-                    if (roomType == RoomType.Normal) normalRooms.Add(current);
+                    if (roomType == RoomType.Normal) normalCells.Add(current);
                     cell = cell with { Type = roomType };
                     roomType = RoomType.Normal;
                     roomCount++;
@@ -454,25 +616,30 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         {
             for (var i = 0; i < count; i++)
             {
-                if (normalRooms.Count == 0) throw new Exception();
-                var index = rng.Next(normalRooms.Count);
-                var roomPoint = normalRooms[index];
-                ref var cell = ref layout[roomPoint.X, roomPoint.Y];
+                if (normalCells.Count == 0) throw new Exception();
+                var index = rng.Next(normalCells.Count);
+                var cellPoint = normalCells[index];
+                ref var cell = ref layout[cellPoint.X, cellPoint.Y];
                 cell = cell with { Type = type };
-                normalRooms.RemoveAt(index);
+                normalCells.RemoveAt(index);
             }
         }
 
         void SetRoomItemRandomly(RoomType type, ItemId item)
         {
-            var rooms = EachPoint().Where(t => layout[t.X, t.Y].Type == type).ToArray();
-            if (rooms.Length == 0) throw new Exception();
+            var cells = EachPoint()
+                .Select(t => layout[t.X, t.Y])
+                .Where(t => t.Type == type)
+                .Where(t => t.Item == ItemId.None)
+                .ToArray();
+            if (cells.Length == 0) throw new Exception();
 
-            var index = rng.Next(rooms.Length);
-            var roomPoint = rooms[index];
-            ref var cell = ref layout[roomPoint.X, roomPoint.Y];
+            var index = rng.Next(cells.Length);
+            var randomCell = cells[index];
+            var point = randomCell.Point;
+            ref var cell = ref layout[point.X, point.Y];
             cell = cell with { Item = item };
-            _log.Write(nameof(Create), $"SetRoomItemRandomly: {item} in room at {roomPoint}.");
+            logger.Write($"{nameof(SetRoomItemRandomly)}: {item} in room at {point.X},{point.Y}.");
         }
 
         SetRoomTypeRandomly(staircaseItemCount, RoomType.ItemStaircase);
@@ -480,6 +647,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
         if (hasCompass) SetRoomItemRandomly(RoomType.FloorDrop, ItemId.Compass);
         if (hasMap) SetRoomItemRandomly(RoomType.FloorDrop, ItemId.Map);
+        SetRoomItemRandomly(RoomType.FloorDrop, ItemId.TriforcePiece);
 
         return new DungeonState(world, layout, stats, entrance);
     }
@@ -573,12 +741,15 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
     public void FitItems(RandomizerState state)
     {
+        using var logger = _log.CreateScopedFunctionLog(Dungeon.UniqueId);
+
+        logger.Enter($"Fitting items to:\n{GetDebugDisplay()}");
+
         ItemId FitItem(Cell cell)
         {
             if (state.DungeonItems.Count == 0)
             {
-                _log.Error(nameof(FitItems), $"No more dungeon items to fit into {cell}.");
-                throw new Exception("No more dungeon items to fit.");
+                throw logger.Fatal($"No more dungeon items to fit into {cell}.");
             }
 
             for (var i = 0; i < state.DungeonItems.Count; i++)
@@ -588,43 +759,45 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 {
                     if (!Randomizer.PathRequirementsAllows(requirements, item))
                     {
-                        _log.Write(nameof(FitItems), $"❌ Cannot fit {item} in {cell} due to requirements {requirements}.");
+                        logger.Write($"❌ Cannot fit {item} in {cell} due to requirements {requirements}.");
                         continue;
                     }
 
                     state.DungeonItems.RemoveAt(i);
-                    _log.Write(nameof(FitItems), $"✅ Fit {item} in {cell} with requirements {requirements}.");
+                    logger.Write($"✅ Fit {item} in {cell} with requirements {requirements}.");
                     return item;
                 }
+
+                throw logger.Fatal($"Failed to fit {item} into {cell}");
             }
 
-            var requirementsList = TryWalkToRoom(EntranceLocation, cell.Point).ToArray();
-            _log.Error(nameof(FitItems), $"Failed to fit any items into {cell}");
-
-            throw new Exception($"Failed to fit any items into {cell}");
+            // var requirementsList = TryWalkToRoom(EntranceLocation, cell.Point).ToArray();
+            throw logger.Fatal($"Failed to fit any item into {cell}");
         }
 
         foreach (var cell in GetValidCells())
         {
             if (cell.Type != RoomType.ItemStaircase) continue;
 
-            _log.Write(nameof(FitItems), $"Fitting RoomType.ItemStaircase in {cell}.");
+            logger.Write($"Fitting RoomType.ItemStaircase in {cell}.");
             var room = cell.GameRoom ?? throw new Exception();
             var staircase = room.InteractableBlockObjects.First(static t => t.Interaction.Entrance != null);
 
-            staircase.Interaction.Entrance = Entrance.CreateItemCellar(FitItem(cell), cell.Point.ToPointXY());
+            var item = FitItem(cell);
+            staircase.Interaction.Entrance = Entrance.CreateItemCellar(item, cell.Point.ToPointXY());
         }
 
         foreach (var cell in GetValidCells())
         {
             if (cell.Type != RoomType.FloorDrop) continue;
 
-            _log.Write(nameof(FitItems), $"Fitting RoomType.FloorDrop in {cell} ({cell.Item}).");
+            logger.Write($"Fitting RoomType.FloorDrop in {cell} ({cell.Item}).");
             var room = cell.GameRoom ?? throw new Exception();
-            var floorItem = room.InteractableBlockObjects.First(static t => t.Interaction.Item?.Item != null);
-            floorItem.Interaction.Item = new RoomItem
+            var block = room.InteractableBlockObjects.First(static t => t.Interaction.Item?.Item != null);
+            var item = cell.Item == ItemId.None ? FitItem(cell) : cell.Item;
+            block.Interaction.Item = new RoomItem
             {
-                Item = cell.Item == ItemId.None ? FitItem(cell) : cell.Item,
+                Item = item,
                 Options = ItemObjectOptions.IsRoomItem | ItemObjectOptions.MakeItemSound
             };
         }
@@ -636,8 +809,8 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
         foreach (var cell in GetValidCells())
         {
-            var gameRoom = cell.GameRoom ?? throw new Exception("Room not fit.");
-            gameRoom.Id = $"{Dungeon.UniqueId}/{cell.Point.X},{cell.Point.Y} ({cell.GameRoom.UniqueId})";
+            var gameRoom = cell.DemandGameRoom;
+            gameRoom.Id = $"{Dungeon.UniqueId}/{cell.Point.X},{cell.Point.Y} ({gameRoom.UniqueId})";
         }
     }
 
@@ -647,6 +820,9 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
         _hasTransportsAttached = true;
         if (Stats.TrainsportStairsCount == 0) return;
+
+        using var logger = _log.CreateScopedFunctionLog(Dungeon.UniqueId);
+        logger.Enter("Attaching transport staircases.");
 
         var rng = state.RoomRandom;
         var cells = GetValidCells().Where(static t => t.Type == RoomType.TransportStaircase).Shuffle(rng).ToStack();
@@ -664,6 +840,8 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
             stairsA.Interaction.Entrance = Entrance.CreateTransportRoom(cellA.Point.ToPointXY(), cellB.Point.ToPointXY(), true);
             stairsB.Interaction.Entrance = Entrance.CreateTransportRoom(cellA.Point.ToPointXY(), cellB.Point.ToPointXY(), false);
+
+            logger.Write($"Attaching {cellA} -> {cellB}");
         }
 
         if (cells.Count > 0) throw new UnreachableCodeException();
@@ -687,8 +865,21 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
         // If we've visited a map before with identical set of requirements and entry point, then there's no reason to repeat it.
         var visited = new HashSet<TryWalkVisited>();
-        var paths = new Stack<TryWalkSearchPath> { new TryWalkSearchPath(start, PathRequirements.None, Direction.Down) };
+        var paths = new PriorityQueue<TryWalkSearchPath, int>();
+        paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, Direction.Down), 0);
         var seenRequirements = new HashSet<PathRequirements>();
+
+        static int Distance(Point a, Point b, PathRequirements requirements)
+        {
+            // Drastically deprioritize paths with more requirements.
+            var shift = (int)Popcnt.PopCount((uint)requirements);
+            var distance = Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
+            return distance << shift;
+        }
+
+        using var logger = _log.CreateScopedFunctionLog(Dungeon.UniqueId);
+
+        logger.Enter($"Starting walk from {start.X},{start.Y} to {destination.X},{destination.Y} ({(ignoreDoors ? "ignoring doors" : "")}).");
 
         static IEnumerable<InteractableBlockObject> GetTransportBlocks(GameRoom? room)
         {
@@ -726,13 +917,18 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             return false;
         }
 
-        while (paths.TryPop(out var current))
+        while (paths.TryDequeue(out var current, out _))
         {
             if (current.Point == destination)
             {
+                // Only report back unique requirement sets.
                 if (seenRequirements.Add(current.Requirements))
                 {
+                    logger.Write($"✅ Can walk to {destination.X},{destination.Y} with requirements {current.Requirements}.");
                     yield return current.Requirements;
+
+                    // There _should be_ no need to continue on.
+                    if (current.Requirements == PathRequirements.None) yield break;
                 }
                 continue;
             }
@@ -743,29 +939,58 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             if (cell.Type == RoomType.None) continue;
             var room = cell.GameRoom ?? throw new Exception("Room not fit.");
 
-
             // Add the other end of a transport staircase to toVisit.
-            if (TryGetTransportExit(cell.GameRoom, out var exit))
+            if (TryGetTransportExit(cell.GameRoom, out var transportExit))
             {
                 var transportRequirements = current.Requirements | RoomRequirements.GetStairRequirements(room);
-                paths.Push(new TryWalkSearchPath(exit, transportRequirements, Direction.None));
+                paths.Enqueue(
+                    new TryWalkSearchPath(transportExit, transportRequirements, Direction.None),
+                    Distance(transportExit, destination, transportRequirements));
             }
 
             var roomRequirements = Randomizer.GetRoomRequirements(room);
 
             foreach (var direction in Direction.DoorDirectionOrder)
             {
-                if (!ignoreDoors && !cell.RequiredDoors.HasFlag(direction)) continue;
-                if (!roomRequirements.ConnectableDirections.HasFlag(direction)) continue;
                 var next = current.Point + direction.GetOffset();
                 if (!IsValidPoint(next)) continue;
+                if (current.EntryDirection == direction) continue;
+                if (this[next].Type == RoomType.None) continue;
 
-                paths.Push(new TryWalkSearchPath(next, current.Requirements, direction.GetOppositeDirection()));
+                if (!ignoreDoors && !cell.RequiredDoors.HasFlag(direction))
+                {
+                    logger.Write($"❌ {room.Id} cannot go {direction} due to missing cell.RequiredDoors.");
+                    continue;
+                }
+
+                if (!roomRequirements.ConnectableDirections.HasFlag(direction))
+                {
+                    logger.Write($"❌ {room.Id} cannot go {direction} due to missing roomRequirements.ConnectableDirections.");
+                    continue;
+                }
+
+                var doorPair = DoorPair.Create(current.EntryDirection, direction);
+                if (!roomRequirements.Paths.TryGetValue(doorPair, out var pathRequirements))
+                {
+                    // This can happen in the case of T rooms. Southern door enters to a non-crossable water-room,
+                    // but the other 3 walls can reach each other.
+                    logger.Write($"❌ {room.Id} cannot move {doorPair} due to missing roomRequirements.Paths for {doorPair}. T room?");
+                    continue;
+                }
+
+                var requirements = current.Requirements
+                    | RoomRequirements.GetShutterRequirements(room)
+                    | pathRequirements;
+
+                logger.Write($"➡️ From {room.Id} going {direction}->{next.X},{next.Y} with requirements {requirements}.");
+                paths.Enqueue(
+                    new TryWalkSearchPath(next, requirements, direction.GetOppositeDirection()),
+                    Distance(next, destination, requirements));
             }
         }
     }
 
-    public void FitUnderworldDoors(RandomizerState state)
+    public void FitDoors(RandomizerState state)
     {
         // Fitting doors is done in two passes.
         // 1. Walk from the entrance, in a random order, checking if you can get to the next rooms (CanWalkToRoom).
@@ -780,6 +1005,8 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         _hasDoorsFit = true;
         var rng = state.RoomRandom;
         var directions = Direction.DoorDirectionOrder.ToArray();
+        using var logger = _log.CreateScopedFunctionLog(Dungeon.UniqueId);
+        logger.Enter("Fitting doors.");
 
         IEnumerable<(Point Location, Direction Direction)> GetAdjoiningRooms(Point point)
         {
@@ -798,6 +1025,17 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         // set them as we generate the main room, so once we get to them, we'll see they have a door there and skip.
         foreach (var room in GetGameRooms()) room.UnderworldDoors.Clear();
 
+        void AddRequiredDoor(Point location, Direction direction)
+        {
+            ref var cell = ref this[location];
+            cell = cell with { RequiredDoors = cell.RequiredDoors | direction };
+
+            // This can OOB but it should always be valid, or we've made an invalid map elsewhere.
+            var adjoiningPoint = location + direction.GetOffset();
+            ref var adjoining = ref this[adjoiningPoint];
+            adjoining = adjoining with { RequiredDoors = adjoining.RequiredDoors | direction.GetOppositeDirection() };
+        }
+
         // 1. Walk randomly from the entrance, with full back tracking, making sure each room is reachable.
         // If not, mark a door as needed.
         var visited = new HashSet<Point>();
@@ -805,7 +1043,27 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         while (toVisit.TryPop(out var location))
         {
             if (!visited.Add(location)) continue;
-            ref var current = ref this[location];
+            ref var cell = ref this[location];
+            var loopCounter = 0;
+
+            var requirements = Randomizer.GetRoomRequirements(cell.DemandGameRoom);
+            if (requirements.ConnectableDirections == Direction.None)
+            {
+                logger.Write(GetDebugDisplay());
+                throw logger.Fatal($"Room {cell} has no connectable directions.");
+            }
+
+            var connectableCount = Popcnt.PopCount((uint)requirements.ConnectableDirections);
+            if (connectableCount == 1)
+            {
+                var oneDirection = requirements.ConnectableDirections;
+                logger.Write($"Room {cell} has only one connectable direction ({oneDirection}).");
+
+                AddRequiredDoor(location, oneDirection);
+                continue;
+            }
+
+            var canConnect = new List<(Point Location, Direction Direction)>();
 
             foreach (var (nextLocation, direction) in GetAdjoiningRooms(location))
             {
@@ -813,30 +1071,131 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 toVisit.Push(nextLocation);
 
                 // Likely added from a connecting room.
-                if (current.RequiredDoors.HasFlag(direction)) continue;
-                // We can already visit this room. Adding a door is not needed.
-                // TODO: Figure out a probability here that isn't 50/50?
-                if (CanWalkToRoom(EntranceLocation, nextLocation, true) && rng.GetBool()) continue;
+                if (cell.RequiredDoors.HasFlag(direction)) continue;
 
-                current = current with { RequiredDoors = current.RequiredDoors | direction };
-                ref var adjoining = ref this[nextLocation];
-                adjoining = adjoining with { RequiredDoors = adjoining.RequiredDoors | direction.GetOppositeDirection() };
+                var canWalkToRoom = CanWalkToRoom(EntranceLocation, nextLocation, true);
+                if (canWalkToRoom)
+                {
+                    canConnect.Add((nextLocation, direction));
+                }
             }
 
-            if (current.RequiredDoors == Direction.None)
+            if (canConnect.Count == 0)
             {
-                _log.Error(nameof(FitUnderworldDoors), $"Room at {location.X},{location.Y} has no required doors after walk.");
-                throw new Exception("Room has no required doors after walk.");
+                logger.Write($"Room {cell} had no connectable connections...");
+                continue;
+            }
+
+            // Fit doors until we have added at least one.
+            var addedDoorCount = 0;
+            do
+            {
+                logger.Write($"Checking {cell} Type:{cell.Type}, RequiredDoors:{cell.RequiredDoors}, loopCounter:{loopCounter}, addedDoorCount:{addedDoorCount}");
+
+                foreach (var (nextLocation, direction) in canConnect)
+                {
+                    // TODO: Figure out a probability here that isn't 50/50?
+                    if (rng.GetBool())
+                    {
+                        logger.Write($"Could walk {direction}, but randomized no door.");
+                        continue;
+                    }
+
+                    // cell = cell with { RequiredDoors = cell.RequiredDoors | direction };
+                    // ref var adjoining = ref this[nextLocation];
+                    // adjoining = adjoining with { RequiredDoors = adjoining.RequiredDoors | direction.GetOppositeDirection() };
+                    AddRequiredDoor(location, direction);
+                    logger.Write($"Added {direction}.");
+                    ++addedDoorCount;
+                }
+                ++loopCounter;
+            } while (cell.Type != RoomType.TransportStaircase
+                && loopCounter < 100
+                && addedDoorCount == 0);
+
+            if (cell.Type != RoomType.TransportStaircase && addedDoorCount == 0)
+            {
+                logger.Write(GetDebugDisplay());
+                throw logger.Fatal($"Room {cell.DemandGameRoom} has no required doors after walk.");
+            }
+
+            if (addedDoorCount == 0)
+            {
+                // throw logger.Fatal($"Added zero doors.");
             }
         }
+
+        Cell[] cellList = []; // GetValidCells().Select(t => t.DemandGameRoom).ToArray();
+
+        bool AddDoorAtRandom()
+        {
+            if (cellList.Length == 0)
+            {
+                cellList = GetValidCells().ToArray();
+                if (cellList.Length == 0) throw logger.Fatal("No rooms to add random door to.");
+            }
+
+            cellList.Shuffle(rng);
+
+            foreach (var cell in cellList)
+            {
+                var room = cell.DemandGameRoom;
+                var requirements = Randomizer.GetRoomRequirements(room);
+                foreach (var adjoining in GetAdjoiningRooms(cell.Point))
+                {
+                    // Already has a door there.
+                    if (cell.RequiredDoors.HasFlag(adjoining.Direction)) continue;
+                    if (!requirements.ConnectableDirections.HasFlag(adjoining.Direction)) continue;
+                    AddRequiredDoor(cell.Point, adjoining.Direction);
+                    logger.Write($"Randomly added door {adjoining.Direction} to {cell}.");
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool TryWalkToAllRooms()
+        {
+            foreach (var cell in GetValidCells())
+            {
+                if (!CanWalkToRoom(EntranceLocation, cell.Point))
+                {
+                    logger.Write($"❌ Room at {cell} is not reachable from entrance.");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Our above algorithm doesn't ensure the level is correct. It added doors randomly. Lets go room by room to
+        // check that we can reach them. If we can't, lets add one random door to the level until they're all reachable.
+        // I'm not in-love with this solution. Something that works on the potential path between the unconnected room
+        // and the entrance would likely result in less restart loops, and perhaps a better (more interesting) dungeon
+        // layout? But I don't feel it would be "random" enough -- bias in the path selection would lead to bias in the
+        // dungeon layout.
+        var walkDungeonAttempts = 0;
+        while (true)
+        {
+            if (TryWalkToAllRooms()) break;
+
+            if (!AddDoorAtRandom())
+            {
+                logger.Write(GetDebugDisplay());
+                throw logger.Fatal("Unable to add more doors to make all rooms reachable.");
+            }
+
+            ++walkDungeonAttempts;
+        }
+
+        logger.Write($"✅ Made dungeon walkable in {walkDungeonAttempts} attempts.");
 
         // 2. Walk the rooms and fit doors according to our probabilities.
         foreach (var point in EachPoint())
         {
             var cell = this[point];
-            var room = cell.GameRoom;
             if (cell.Type == RoomType.None) continue;
-            if (room == null) throw new Exception("Room not fit.");
+            var room = cell.DemandGameRoom;
 
             // This is a given. We only support Player coming in from the bottom.
             if (room.Settings.IsEntrance)
@@ -900,15 +1259,16 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         }
     }
 
-    public void PrintDebugShape()
-    {
-        _log.Write(nameof(PrintDebugShape), $"{Dungeon.UniqueId} layout:\n{GetDebugDisplay()}");
-    }
+    private static ReadOnlySpan<char> _hexChars => "0123456789ABCDEF";
 
     public string GetDebugDisplay()
     {
-        var sb = new StringBuilder(_maxWidth * _maxHeight + _maxWidth + 100);
+        const int displayGridCharCount = _maxWidth * _maxHeight + _maxWidth;
+        var sb = new StringBuilder(displayGridCharCount * 2 + 100);
 
+        sb.AppendLine($"Map of {Dungeon.UniqueId}");
+        sb.Append("   ");
+        for (var i = 0; i < _maxWidth; i++) sb.Append(i);
         sb.Append("   ");
         for (var i = 0; i < _maxWidth; i++) sb.Append(i);
         sb.AppendLine();
@@ -930,306 +1290,17 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                     _ => '?',
                 });
             }
+
+            sb.Append("   ");
+
+            for (var x = 0; x < _maxWidth; x++)
+            {
+                sb.Append(_hexChars[(int)this[new Point(x, y)].RequiredDoors]);
+            }
+
             sb.AppendLine();
         }
         return sb.ToString();
     }
 }
 
-internal sealed class Randomizer
-{
-    private readonly record struct DoorToDoorSearchPath(int X, int Y, bool RequiresLadder)
-    {
-        public DoorToDoorSearchPath(Point point, bool requiresLadder) : this(point.X, point.Y, requiresLadder) { }
-        public bool SamePoint(DoorToDoorSearchPath other) => X == other.X && Y == other.Y;
-        public int Distance(DoorToDoorSearchPath other) => Math.Abs(X - other.X) + Math.Abs(Y - other.Y);
-
-        public override string ToString() => RequiresLadder ? $"({X}, {Y}, WET)" : $"({X}, {Y})";
-    }
-
-    private static readonly Dictionary<string, RoomRequirements> _requirementsCache = new();
-    private static readonly DebugLog _log = new(nameof(Randomizer));
-
-    private static void OverworldRoom()
-    {
-    }
-
-    private static IEnumerable<GameWorld> GetAllDungeons(GameWorld overworld)
-    {
-        var seen = new HashSet<string>();
-        foreach (var room in overworld.Rooms)
-        {
-            foreach (var interactable in room.InteractableBlockObjects)
-            {
-                var entrance = interactable.Interaction.Entrance;
-                if (entrance == null) continue;
-                if (entrance.DestinationType != GameWorldType.Underworld) continue;
-
-                var dungeon = overworld.World.GetWorld(GameWorldType.Underworld, entrance.Destination);
-                if (!seen.Add(dungeon.Name)) continue;
-
-                yield return dungeon;
-            }
-        }
-    }
-
-    public static void Randomize(GameWorld overworld, RandomizerState state)
-    {
-        _log.Write(nameof(Randomize), $"Starting dungeon randomization {state.Seed}.");
-
-        var dungeons = GetAllDungeons(overworld).ToArray();
-
-        foreach (var dungeon in dungeons)
-        {
-            state.RandomDungeonRoomList.AddRange(dungeon.Rooms);
-
-            // I think we now properly fix the dangling staircases problem.
-            // foreach (var room in dungeon.Rooms)
-            // {
-            //     var requirements = GetRoomRequirements(room);
-            //     if (requirements.HasStaircase)
-            //     {
-            //         // TOFIX: OK. So this is wrong. Unfit staircases should just be removed?
-            //         var staircase = room.InteractableBlockObjects.First(static t => t.Interaction.Entrance != null);
-            //         staircase.Interaction.Entrance = Entrance.CreateItemCellar(ItemId.FiveRupees, PointXY.Zero);
-            //     }
-            // }
-        }
-
-        state.RandomDungeonRoomList.Shuffle(state.RoomListRandom);
-
-        var shapes = dungeons
-            .Select(t => (t, DungeonState.Create(t, state)))
-            .ToArray();
-
-        // 1. Fit all special rooms must be fit.
-        foreach (var (_, shape) in shapes) shape.FitSpecialRooms(state);
-
-        foreach (var (dungeon, shape) in shapes)
-        {
-            state.RemoveSpecialnessFromRemainingRooms();
-            // 2. Fit all normal rooms.
-            shape.FitNormalRooms(state);
-            // Exception if any rooms are still not fit.
-            shape.EnsureAllRoomsAreFit();
-            shape.UpdateRoomIds();
-            shape.PrintDebugShape();
-            // Attach the transport hallways to each other. This must be done before adding doors, because this can make
-            // doors in specific locations unneeded.
-            shape.AttachTransportHallways(state);
-            shape.UpdateRoomCoordinates();
-            // This must happen after recreating the gameworld because room connections are created inside of that constructor.
-            // That might be a refactoring point sometime later.
-            shape.FitUnderworldDoors(state);
-            shape.FitItems(state);
-            var randomizedDungeon = new GameWorld(dungeon.World, shape.GetGameRooms().ToArray(), dungeon.Settings, dungeon.Name);
-            foreach (var room in shape.GetGameRooms()) room.GameWorld = randomizedDungeon;
-            overworld.World.SetWorld(randomizedDungeon, dungeon.Name);
-        }
-    }
-
-    public static RoomRequirements GetRoomRequirements(GameRoom room)
-    {
-        ArgumentNullException.ThrowIfNull(room);
-
-        var cacheId = room.OriginalUniqueId?.ToString() ?? room.UniqueId;
-        if (_requirementsCache.TryGetValue(cacheId, out var cached)) return cached;
-
-        // For the above world, there's the two 2Q caves that require ladder, the fairy pond, and likely others.
-        if (!room.HasUnderworldDoors || room.UnderworldDoors.Count == 1) return default;
-
-        var paths = new Dictionary<DoorPair, PathRequirements>();
-
-        static DoorToDoorSearchPath GetEntranceLocation(Direction direction)
-        {
-            var (corner, _, _) = World.DoorCorner.Get(direction);
-            return new DoorToDoorSearchPath(corner.X, corner.Y, false);
-        }
-
-        static Point GetLocationInfrontOfEntrance(Direction direction)
-        {
-            var location = GetEntranceLocation(direction);
-            // We're doing 2 because we want the upper-left corner of the block in front of the door.
-            // Stairways only mark that spot -- but I believe that's incorrect and they should make the 2x2 region?
-            return direction switch
-            {
-                Direction.Right => new Point(location.X - 2, location.Y),
-                Direction.Left => new Point(location.X + 2, location.Y),
-                Direction.Up => new Point(location.X, location.Y + 2),
-                Direction.Down => new Point(location.X, location.Y - 2),
-                _ => throw new Exception(),
-            };
-        }
-
-        // Technically... there can be multiple exit locations. The original game only used a static value for all
-        // exits, but it would be nice to ultimately support this.
-        static Point GetTransportExitPosition(GameRoom room)
-        {
-            static Point Core(GameRoom room)
-            {
-                foreach (var currentRoom in room.GameWorld.Rooms)
-                {
-                    foreach (var block in currentRoom.InteractableBlockObjects)
-                    {
-                        var entrance = block.Interaction.Entrance;
-                        if (entrance == null) continue;
-                        var arguments = entrance.Arguments;
-                        if (arguments == null) continue;
-                        if (arguments.ExitLeft == room.Id) return entrance.ExitPosition.ToPoint();
-                        if (arguments.ExitRight == room.Id) return entrance.ExitPosition.ToPoint();
-                    }
-                }
-
-                // This is the default in the OG game, they all transport here.
-                return new Point(0x60, 0xA0);
-            }
-
-            var result = Core(room);
-            return new Point(result.X / room.TileWidth, result.Y / room.TileHeight);
-        }
-
-        var validDirections = Direction.None;
-        var invalidDirections = Direction.None;
-        var hasOldMan = room.CaveSpec is { DoesControlsBlockingWall: true };
-        if (hasOldMan) invalidDirections |= Direction.Up;
-
-        foreach (var direction in Direction.DoorDirectionOrder)
-        {
-            if (invalidDirections.HasFlag(direction)) continue;
-            var infront = GetLocationInfrontOfEntrance(direction);
-            var behavior = room.RoomMap.Behavior(infront.X, infront.Y);
-            if (behavior is TileBehavior.GenericWalkable or TileBehavior.Sand)
-            {
-                validDirections |= direction;
-            }
-        }
-
-        var walkingSearch = new PriorityQueue<DoorToDoorSearchPath, int>();
-        var visited = new HashSet<DoorToDoorSearchPath>();
-
-        // Walk from each door to each other door, and record if a ladder was required.
-        // Direction.None is used for transport entrances.
-        foreach (var startingDirection in ((IEnumerable<Direction>)Direction.DoorDirectionOrder).Add(Direction.None))
-        {
-            var isTransportedInEntrance = startingDirection == Direction.None;
-            if (!validDirections.HasFlag(startingDirection) && !isTransportedInEntrance) continue;
-
-            var from = isTransportedInEntrance
-                ? new DoorToDoorSearchPath(GetTransportExitPosition(room), false)
-                : GetEntranceLocation(startingDirection);
-
-            foreach (var endingDirection in Direction.DoorDirectionOrder)
-            {
-                if (endingDirection == startingDirection) continue;
-                if (!validDirections.HasFlag(endingDirection)) continue;
-
-                var to = GetEntranceLocation(endingDirection);
-
-                walkingSearch.Clear();
-                visited.Clear();
-                walkingSearch.Enqueue(from, 0);
-
-                var hasLadderedPath = false;
-                var foundPathWithNoLadder = false;
-
-                while (walkingSearch.TryDequeue(out var current, out _))
-                {
-                    if (!visited.Add(current)) continue;
-                    if (current.SamePoint(to))
-                    {
-                        if (!current.RequiresLadder)
-                        {
-                            paths.Add(new DoorPair(startingDirection, endingDirection), PathRequirements.None);
-                            foundPathWithNoLadder = true;
-                            break;
-                        }
-
-                        hasLadderedPath = true;
-                    }
-
-                    static IEnumerable<DoorToDoorSearchPath> Neighbors(RoomTileMap map, DoorToDoorSearchPath point)
-                    {
-                        if (point.X > 0) yield return point with { X = point.X - 1 };
-                        if (point.X < map.Width - 1) yield return point with { X = point.X + 1 };
-                        if (point.Y > 0) yield return point with { Y = point.Y - 1 };
-                        if (point.Y < map.Height - 1) yield return point with { Y = point.Y + 1 };
-                    }
-
-                    foreach (var neighbor in Neighbors(room.RoomMap, current))
-                    {
-                        if (visited.Contains(neighbor)) continue;
-
-                        // TODO: This does need to determine if it's a double wide water, which means the ladder
-                        // can't cross it.
-                        var behavior = room.RoomMap.Behavior(neighbor.X, neighbor.Y);
-                        if (behavior.CanWalk() || behavior == TileBehavior.Door)
-                        {
-                            walkingSearch.Enqueue(neighbor, to.Distance(neighbor));
-                        }
-                        else if (behavior == TileBehavior.Water)
-                        {
-                            walkingSearch.Enqueue(neighbor with { RequiresLadder = true }, to.Distance(neighbor));
-                        }
-                    }
-                }
-
-                if (!foundPathWithNoLadder && hasLadderedPath)
-                {
-                    paths.Add(new DoorPair(startingDirection, endingDirection), PathRequirements.Ladder);
-                }
-            }
-        }
-
-        // Compute the difficulty somehow, if we end up wanting it.
-        // For example, Gleeok is difficult, but is worse a room with the square of water, which is yet worse when
-        // there's spike traps in the corners.
-
-        var flags = RoomRequirementFlags.None;
-        InteractableBlockObject? pushBlock = null;
-        InteractableBlockObject? staircase = null;
-        foreach (var obj in room.ObjectLayer.Objects)
-        {
-            switch (obj)
-            {
-                case TileBehaviorGameMapObject { TileBehavior: TileBehavior.Stairs or TileBehavior.SlowStairs }:
-                case InteractableBlockObject { Interaction.Entrance: not null }:
-                    flags |= RoomRequirementFlags.HasStaircase;
-                    staircase = obj as InteractableBlockObject;
-                    break;
-                case InteractableBlockObject { Interaction.Item: not null }:
-                    flags |= RoomRequirementFlags.HasFloorDrop;
-                    break;
-                case InteractableBlockObject { Interaction.Interaction: Interaction.Push } blockObject:
-                    flags |= RoomRequirementFlags.HasPushBlock;
-                    pushBlock = blockObject;
-                    break;
-            }
-        }
-
-        if (room.Settings.IsEntrance)
-        {
-            flags |= RoomRequirementFlags.IsEntrance;
-        }
-
-        var roomRequirements = new RoomRequirements(
-            validDirections,
-            paths,
-            flags,
-            pushBlock,
-            staircase,
-            0);
-
-        _requirementsCache[cacheId] = roomRequirements;
-        return roomRequirements;
-    }
-
-    // Move from this class?
-    public static bool PathRequirementsAllows(PathRequirements requirements, ItemId item) => item switch
-    {
-        ItemId.Ladder => !requirements.HasFlag(PathRequirements.Ladder),
-        ItemId.Recorder => !requirements.HasFlag(PathRequirements.Recorder),
-        ItemId.WoodArrow or ItemId.SilverArrow => !requirements.HasFlag(PathRequirements.Arrow),
-        ItemId.Food => !requirements.HasFlag(PathRequirements.Food),
-        _ => true,
-    };
-}

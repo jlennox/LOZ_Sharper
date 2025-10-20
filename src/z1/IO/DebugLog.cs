@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -19,6 +20,52 @@ internal enum DebugLogDestination
 internal readonly record struct FunctionLog(DebugLog DebugLog, string FunctionName)
 {
     public void Write(string s) => DebugLog.Write(FunctionName, s);
+}
+
+internal readonly record struct ScopedFunctionLog : IDisposable
+{
+    private static int _indentation = 1;
+    public DebugLog DebugLog { get; init; }
+    public string FunctionName { get; init; }
+
+    public ScopedFunctionLog(DebugLog DebugLog, string FunctionName)
+    {
+        this.DebugLog = DebugLog;
+        this.FunctionName = FunctionName;
+
+        ++_indentation;
+    }
+
+    private static string Indentation => new('\t', _indentation);
+    private static string IndentationEnter => new('\t', _indentation - 1);
+
+    public void Enter(string s) => DebugLog.Write(FunctionName, $"{IndentationEnter}+ {s}");
+    public void Write(string s) => DebugLog.Write(FunctionName, $"{Indentation}{s}");
+    public void Error(string s) => DebugLog.Error(FunctionName, $"{Indentation}{s}");
+
+    public Exception Fatal(string s)
+    {
+        DebugLog.Error(FunctionName, $"{Indentation}{s}");
+        return new Exception(s);
+    }
+
+    public void Dispose()
+    {
+        --_indentation;
+    }
+}
+
+internal readonly record struct NullScopedFunctionLog(DebugLog DebugLog, string FunctionName)
+{
+    public void Enter(string s) {}
+    public void Write(string s) {}
+    public void Error(string s) => DebugLog.Error(FunctionName, $"\t{s}");
+
+    public Exception Fatal(string s)
+    {
+        DebugLog.Error(FunctionName, $"\t{s}");
+        return new Exception(s);
+    }
 }
 
 internal sealed class DebugLogWriter : IDisposable
@@ -123,6 +170,15 @@ internal sealed class DebugLog
     }
 
     public FunctionLog CreateFunctionLog([CallerMemberName] string functionName = "") => new(this, functionName);
+    public ScopedFunctionLog CreateScopedFunctionLog(string scope, [CallerMemberName] string functionName = "")
+    {
+        return new ScopedFunctionLog(this, $"{functionName}->{scope}");
+    }
+
+    public NullScopedFunctionLog CreateNullScopedFunctionLog(string scope, [CallerMemberName] string functionName = "")
+    {
+        return new NullScopedFunctionLog(this, $"{functionName}->{scope}");
+    }
 
     public void Write(string namespaze, string s)
     {
