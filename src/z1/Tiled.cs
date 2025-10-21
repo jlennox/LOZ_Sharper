@@ -31,7 +31,7 @@ internal sealed class GameTileSet
     public GameTileSet(string name, int tileSetId, TiledTileSet tileset)
     {
         Name = name;
-        // JOE: TODO: This `Path.GetFileName` makes me want to cry, infact, most things about how assets work now does.
+        // JOE: TODO: This `Path.GetFileName` makes me want to cry, infact, most things about how assets work do.
         Image = Graphics.CreateImage(new Asset(Path.GetFileName(tileset.Image)));
         Behaviors = new TileBehavior[tileset.TileCount + 1];
 

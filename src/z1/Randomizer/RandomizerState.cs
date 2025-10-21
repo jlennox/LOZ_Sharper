@@ -30,20 +30,7 @@ internal sealed class RandomizerFlags
 
 internal sealed class RandomizerState
 {
-    public int Seed { get; }
-    public RandomizerFlags Flags { get; }
-    public Random RoomListRandom { get; }
-    public Random MonsterRandom { get; }
-    public Random RoomRandom { get; }
-
-    public List<GameRoom> RandomDungeonRoomList { get; } = new();
-
-    public List<ImmutableArray<MonsterEntry>> MonstersDungeonsA { get; } = new(); // Dungeons 1-4
-    public List<ImmutableArray<MonsterEntry>> MonstersDungeonsB { get; } = new(); // Dungeons 5-9
-    public List<ImmutableArray<MonsterEntry>> MonstersOverworld { get; } = new();
-    public List<ImmutableArray<MonsterEntry>> MonstersAll { get; } = new();
-
-    public List<ItemId> DungeonItems { get; } = [
+    private static readonly ImmutableArray<ItemId> _allDungeonItems = [
         // ItemId.WoodSword,
         // ItemId.WhiteSword,
         // ItemId.MagicSword,
@@ -65,7 +52,27 @@ internal sealed class RandomizerState
         ItemId.Bracelet,
         // ItemId.Letter,
         ItemId.WoodBoomerang,
-        ItemId.MagicBoomerang];
+        ItemId.MagicBoomerang
+    ];
+
+    public int Seed { get; }
+    public RandomizerFlags Flags { get; }
+    public Random RoomListRandom { get; }
+    public Random MonsterRandom { get; }
+    public Random RoomRandom { get; }
+    public Random ItemRandom { get; }
+
+    private readonly int _doorRandomSeed;
+
+    public List<GameRoom> RandomDungeonRoomList { get; } = new();
+
+    private bool _isInitialized = false;
+    private readonly List<ImmutableArray<MonsterEntry>> _monstersDungeonsA = new(); // Dungeons 1-4
+    private readonly List<ImmutableArray<MonsterEntry>> _monstersDungeonsB = new(); // Dungeons 5-9
+    private readonly List<ImmutableArray<MonsterEntry>> _monstersOverworld = new();
+    private readonly List<ImmutableArray<MonsterEntry>> _monstersAll = new();
+
+    public List<ItemId> DungeonItems { get; } = [];
 
     public RandomizerState(int seed, RandomizerFlags flags)
     {
@@ -75,56 +82,64 @@ internal sealed class RandomizerState
         var seedRandom = new Random(seed);
         RoomListRandom = new Random(seedRandom.Next());
         MonsterRandom = new Random(seedRandom.Next());
+        _doorRandomSeed = seedRandom.Next();
         RoomRandom = new Random(seedRandom.Next());
+        ItemRandom = new Random(seedRandom.Next());
 
-        DungeonItems.Shuffle(RoomRandom);
+        RerandomizeItemList();
+    }
+
+    public void RerandomizeItemList()
+    {
+        DungeonItems.Clear();
+        DungeonItems.AddRangeRandomly(_allDungeonItems, ItemRandom);
     }
 
     public void Initialize(IEnumerable<GameWorld> dungeons)
     {
+        if (_isInitialized) throw new Exception();
         if (RandomDungeonRoomList.Count > 0) throw new Exception();
-        if (MonstersDungeonsA.Count > 0) throw new Exception();
-        if (MonstersDungeonsB.Count > 0) throw new Exception();
-        if (MonstersAll.Count > 0) throw new Exception();
+        if (_monstersDungeonsA.Count > 0) throw new Exception();
+        if (_monstersDungeonsB.Count > 0) throw new Exception();
+        if (_monstersAll.Count > 0) throw new Exception();
 
+        _isInitialized = true;
         foreach (var dungeon in dungeons)
         {
             RandomDungeonRoomList.AddRangeRandomly(dungeon.Rooms, RoomListRandom);
 
-            var monsterList = dungeon.Settings.LevelNumber <= 4 ? MonstersDungeonsA : MonstersDungeonsB;
+            var monsterList = dungeon.Settings.LevelNumber <= 4 ? _monstersDungeonsA : _monstersDungeonsB;
             foreach (var room in dungeon.Rooms)
             {
                 monsterList.AddRandomly(room.Monsters, MonsterRandom);
-                MonstersAll.AddRandomly(room.Monsters, MonsterRandom);
+                _monstersAll.AddRandomly(room.Monsters, MonsterRandom);
             }
         }
     }
 
-    // All special rooms have been fit. Now strip all the interactions that make rooms "special" from them from the
-    // remaining pool.
-    public void NormalizeRemainingRooms()
+    // Recreate this seed for each dungeon to help keep consistency with generator changes. I guess?
+    public Random CreateDoorRandom(int levelNumber) => new(_doorRandomSeed + levelNumber);
+
+    private List<ImmutableArray<MonsterEntry>> GetMonsterListForDungeonNumber(int number)
     {
-        var toremove = new List<InteractableBase>();
-        foreach (var room in RandomDungeonRoomList)
+        return number switch
         {
-            toremove.Clear();
+            <= 4 => _monstersDungeonsA,
+            <= 9 => _monstersDungeonsB,
+            _ => _monstersOverworld
+        };
+    }
 
-            foreach (var obj in room.InteractableBlockObjects)
-            {
-                if (obj.Interaction.Entrance != null)
-                {
-                    toremove.Add(obj.Interaction);
+    public ImmutableArray<MonsterEntry> GetRoomMonsters(GameRoom room)
+    {
+        DemandInitialized();
 
-                    if (obj.Interaction.Interaction == Interaction.Revealed)
-                    {
-                        toremove.Add(room.GetRevealer(obj.Interaction));
-                    }
-                }
-            }
+        var monsterPool = GetMonsterListForDungeonNumber(room.GameWorld.Settings.LevelNumber);
+        return monsterPool.Pop();
+    }
 
-            room.InteractableBlockObjects = room.InteractableBlockObjects
-                .Where(t => !toremove.Contains(t.Interaction))
-                .ToImmutableArray();
-        }
+    private void DemandInitialized()
+    {
+        if (!_isInitialized) throw new Exception("RandomizerState is not initialized.");
     }
 }
