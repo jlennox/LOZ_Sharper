@@ -38,7 +38,7 @@ namespace z1.Actors;
 internal sealed class PersonActor : Actor
 {
     public const int PersonWallY = 0x8E;
-    private const int DisappearTime = 0x40;
+    private const int _disappearTime = 0x40;
 
     private enum PersonState
     {
@@ -94,8 +94,6 @@ internal sealed class PersonActor : Actor
         // If it's not a persisted, create an ephemeral state.
         _objectState = (spec.IsPersisted ? state : null) ?? new ObjectState();
         HP = 0;
-        // This isn't used anymore. The effect is implemented a different way.
-        // Game.World.SetPersonWallY(0x8D);
 
         // Room has been previously paid for. Clear it out.
         if (_objectState.ItemGot)
@@ -207,7 +205,6 @@ internal sealed class PersonActor : Actor
     {
         if (base.Delete())
         {
-            if (_spec.DoesControlsBlockingWall) Game.World.SetPersonWallY(0);
             if (_spec.DoesControlsShutters) Game.World.TriggerShutters(); // JOE: NOTE: In the original code, this was OpenShutters.
             foreach (var item in _itemActors) item.Delete();
             return true;
@@ -353,7 +350,7 @@ internal sealed class PersonActor : Actor
         if (_spec.IsPickUp)
         {
             _state = PersonState.PickedUp;
-            ObjTimer = DisappearTime;
+            ObjTimer = _disappearTime;
             Game.World.LiftItem(item.ItemId);
             Game.Sound.PushSong(SongId.ItemLift);
         }
@@ -423,7 +420,6 @@ internal sealed class PersonActor : Actor
         {
             _objectState.ItemGot = true;
             Game.World.SetItem(ItemSlot.Food, 0);
-            Game.World.SetPersonWallY(0);
 
             var food = Game.World.GetObject<FoodActor>();
             food?.Delete();
@@ -446,7 +442,7 @@ internal sealed class PersonActor : Actor
         if (food != null)
         {
             _state = PersonState.PickedUp;
-            ObjTimer = DisappearTime;
+            ObjTimer = _disappearTime;
             Game.Sound.PlayEffect(SoundEffect.Secret);
         }
     }

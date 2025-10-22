@@ -127,7 +127,6 @@ public enum CaveSpecOptions
     Pay = 1 << 3,
     PickUp = 1 << 4,
     ControlsShutterDoors = 1 << 5,
-    ControlsBlockingWall = 1 << 6,
     // Check they have the item when they enter (level 9 entrance)
     EntranceCheck = 1 << 7,
     // Charge them when they enter (overworld mugger rooms)
@@ -174,7 +173,6 @@ public sealed class ShopSpec
     [TiledIgnore, JsonIgnore] public bool IsPay => HasOption(CaveSpecOptions.Pay);
     [TiledIgnore, JsonIgnore] public bool IsPickUp => HasOption(CaveSpecOptions.PickUp);
     [TiledIgnore, JsonIgnore] public bool DoesControlsShutters => HasOption(CaveSpecOptions.ControlsShutterDoors);
-    [TiledIgnore, JsonIgnore] public bool DoesControlsBlockingWall => HasOption(CaveSpecOptions.ControlsBlockingWall);
     [TiledIgnore, JsonIgnore] public bool HasEntranceCheck => HasOption(CaveSpecOptions.EntranceCheck);
     [TiledIgnore, JsonIgnore] public bool HasEntranceCost => HasOption(CaveSpecOptions.EntranceCost);
     [TiledIgnore, JsonIgnore] public bool IsPersisted => HasOption(CaveSpecOptions.Persisted);

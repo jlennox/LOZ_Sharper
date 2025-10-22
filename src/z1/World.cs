@@ -1000,11 +1000,6 @@ internal sealed partial class World
         _fakePlayerPos = new Point(x, y);
     }
 
-    public void SetPersonWallY(int y)
-    {
-        _state.Play.PersonWallY = y;
-    }
-
     public int GetFadeStep()
     {
         return _darkRoomFadeStep;

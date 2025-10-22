@@ -1029,6 +1029,7 @@ internal sealed class Player : Actor, IThrower
         }
         else    // Shop
         {
+            // This is an overworld shop, so having the hard check here is proper.
             dir = StopAtPersonWall(dir);
 
             // Handling 3 shortcut stairs in shortcut cave is handled by the Person obj, instead of here.
@@ -1197,6 +1198,7 @@ internal sealed class Player : Actor, IThrower
 
     private Direction FindUnblockedDir(Direction dir)
     {
+        // JOE TODO 10/22/2025: This code seems weird?
         var collision = World.CollidesWithTileMoving(X, Y, dir, true);
         if (!collision.Collides)
         {

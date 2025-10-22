@@ -14,7 +14,6 @@ internal struct PlayState
     public bool AnimatingRoomColors;
     public short LiftItemTimer;
     public ItemId LiftItemId;
-    public int PersonWallY;
     private DeferredEventSource? _waterDryoutEvent;
 
     public void Reset()
@@ -23,7 +22,6 @@ internal struct PlayState
         AnimatingRoomColors = false;
         LiftItemTimer = 0;
         LiftItemId = 0;
-        PersonWallY = 0;
         CancelWaterDryoutEvent();
     }
 
