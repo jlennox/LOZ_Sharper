@@ -93,6 +93,22 @@ internal sealed class Game
         Menu.OnProfileSelected += SetProfile;
     }
 
+    public Game(GameIO io, PlayerProfile playerProfile)
+    {
+        _io = io;
+        Data = new Asset(Filenames.GameData).ReadJson<GameData>();
+
+        World = new World(this);
+        Player = new Player(World);
+        GameCheats = new GameCheats(this, Input);
+        DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
+        Menu = new PregameMenu(this, SaveFolder.Profiles.Profiles);
+        var seed = Random.Shared.Next();
+        Recording = new GameRecording(this, seed);
+
+        SetProfile(playerProfile);
+    }
+
     public Game(GameIO io, GameRecordingState playback, bool headless = false) : this(io)
     {
         Headless = headless;
@@ -107,6 +123,11 @@ internal sealed class Game
         Player.Profile = profile;
         profile.Start();
         World.Start();
+
+        if (profile.RandomizerSeed != null)
+        {
+            Randomizer.Randomizer.Create(World.CurrentWorld, new RandomizerState(profile.RandomizerSeed.Value, new()));
+        }
     }
 
     public void Update()

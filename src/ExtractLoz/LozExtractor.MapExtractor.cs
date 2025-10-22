@@ -297,7 +297,7 @@ public unsafe partial class LozExtractor
             var roomInteractions = new List<RoomInteraction>();
 
             properties.Add(new TiledProperty(TiledRoomProperties.Id, name ?? roomId.GetGameRoomId()));
-            properties.Add(new TiledProperty(TiledRoomProperties.OriginalUniqueId, roomId.UniqueRoomId));
+            properties.Add(new TiledProperty(TiledRoomProperties.OriginalUniqueId, roomAttr.GetUniqueRoomId()));
 
             if (resources.IsOverworld)
             {
@@ -571,7 +571,6 @@ public unsafe partial class LozExtractor
                     (RoomId.FromUniqueRoomId(0x79), CommonOverworldRoomName.Cave),
                     (RoomId.FromUniqueRoomId(0x7A), CommonOverworldRoomName.Shortcut)
                 ];
-
 
             foreach (var (commonRoomId, commonRoomName) in cellarRoomIds)
             {

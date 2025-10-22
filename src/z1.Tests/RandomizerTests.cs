@@ -1,35 +1,40 @@
 ﻿using System;
 using z1.Common;
 using z1.GUI;
+using z1.IO;
 using z1.Randomizer;
+using z1.Render;
 
 namespace z1.Tests;
 
 [TestFixture]
 internal class RandomizerTests
 {
-    private static readonly Lazy<GLWindow> _lazyWindow = new(GetWindow);
+    private static readonly Lazy<Game> _lazyGame = new(GetNormalGame);
 
-    private static GLWindow GetWindow()
+    private Game Game => _lazyGame.Value;
+
+    private static Game GetRandomizedGame()
     {
-        var window = new GLWindow(true);
-        window.Game = new Game(new GameIO()) { Headless = true };
-        window.Game.Menu.StartWorld(PlayerProfile.CreateForRecording());
-        window.Game.Sound.SetMute(true);
-        return window;
+        return new Game(new GameIO(), PlayerProfile.CreateForRecording(12345)) { Headless = true };
+    }
+
+    private static Game GetNormalGame()
+    {
+        return new Game(new GameIO(), PlayerProfile.CreateForRecording()) { Headless = true };
+    }
+
+    [OneTimeSetUp]
+    public void SetUp()
+    {
+        Asset.Initialize();
+        Graphics.HeadlessInitialize();
     }
 
     [OneTimeTearDown]
     public void TearDown()
     {
-        if (_lazyWindow.IsValueCreated)
-        {
-            try
-            {
-                _lazyWindow.Value.Dispose();
-            }
-            catch { }
-        }
+
     }
 
     private static void Ensure(
@@ -43,23 +48,21 @@ internal class RandomizerTests
         Assert.That(actual, Is.EqualTo(expectedRequirements));
     }
 
-    private static GameWorld GetDungeon(int quest, int dungeon)
+    private GameWorld GetDungeon(int quest, int dungeon)
     {
         var worldId = $"{quest:00}_{dungeon:00}";
-        var window = _lazyWindow.Value;
-        var world = window.Game.World.GetWorld(GameWorldType.Underworld, worldId);
+        var world = Game.World.GetWorld(GameWorldType.Underworld, worldId);
         return world;
     }
 
-    private static GameRoom GetUnderworldRoom(int quest, int dungeon, int x, int y)
+    private GameRoom GetUnderworldRoom(int quest, int dungeon, int x, int y)
     {
         var worldId = $"{quest:00}_{dungeon:00}";
         var roomId = $"Level{worldId}/{x},{y}";
-        var window = _lazyWindow.Value;
 
-        var world = window.Game.World.GetWorld(GameWorldType.Underworld, worldId);
+        var world = Game.World.GetWorld(GameWorldType.Underworld, worldId);
         var room = world.GetRoomById(roomId);
-        window.Game.World.LoadRoom(room);
+        Game.World.LoadRoom(room);
 
         return room;
     }
@@ -70,7 +73,7 @@ internal class RandomizerTests
         // Horizontal river room.
         // Left = open, top = bomb, right = door, down = blocked;
         var room = GetUnderworldRoom(0, 9, 5, 6);
-        var requirements = room.PathRequirements.Paths;
+        var requirements = RoomRequirements.Get(room).Paths;
         Ensure(requirements, Direction.Right, Direction.Up, PathRequirements.Ladder);
         Ensure(requirements, Direction.Left, Direction.Up, PathRequirements.Ladder);
         Ensure(requirements, Direction.Left, Direction.Right, PathRequirements.None);
@@ -82,7 +85,7 @@ internal class RandomizerTests
         // Digdogger boss room requires recorder.
 
         var room = GetUnderworldRoom(0, 5, 4, 2);
-        var requirements = room.PathRequirements.Paths;
+        var requirements = RoomRequirements.Get(room).Paths;
         Ensure(requirements, Direction.Right, Direction.Up, PathRequirements.Recorder);
         Ensure(requirements, Direction.Down, Direction.Up, PathRequirements.Recorder);
         Ensure(requirements, Direction.Right, Direction.Down, PathRequirements.None);
@@ -91,14 +94,14 @@ internal class RandomizerTests
     [Test]
     // Has staircase against right wall, can only top the others.
     [TestCase(0, 9, 3, 6, Direction.Up | Direction.Left | Direction.Down, TestName = "Stairs Right")]
-    // The kidnapped's room.
-    [TestCase(0, 9, 2, 3, Direction.Down, TestName = "Kidnapped")]
+    // The Princess's room.
+    [TestCase(0, 9, 2, 3, Direction.Down, TestName = "Princess")]
     // Old man room in level 1 -- old man blocks passage up.
     [TestCase(0, 1, 1, 4, Direction.Right | Direction.Left | Direction.Down, TestName = "Oldman")]
     public void ValidWallsTest(int quest, int level, int x, int y, Direction expected)
     {
         var room = GetUnderworldRoom(quest, level, x, y);
-        var directions = room.PathRequirements.ConnectableDirections;
+        var directions = RoomRequirements.Get(room).ConnectableDirections;
         Assert.That(directions, Is.EqualTo(expected));
     }
 
@@ -108,7 +111,7 @@ internal class RandomizerTests
     public void CheckFlags(int quest, int level, int x, int y, RoomRequirementFlags expected)
     {
         var room = GetUnderworldRoom(quest, level, x, y);
-        var flags = room.PathRequirements.Flags;
+        var flags = RoomRequirements.Get(room).Flags;
         Assert.That(flags, Is.EqualTo(expected));
     }
 
@@ -136,9 +139,6 @@ internal class RandomizerTests
     [Test]
     public void Create()
     {
-        var window = _lazyWindow.Value;
-        var game = window.Game;
-        var state = new RandomizerState(0, new());
-        Randomizer.Randomizer.Randomize(game.World.CurrentWorld, state);
+        var game = new Game(new GameIO(), PlayerProfile.CreateForRecording(12345)) { Headless = true };
     }
 }

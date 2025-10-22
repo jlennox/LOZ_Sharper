@@ -458,7 +458,6 @@ internal sealed class GameRoom
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
     public PersistedRoomState PersistedRoomState => _roomState.Value;
-    public RoomRequirements PathRequirements => _pathRequirements.Value;
 
     // JOE: TODO: Uh, this feels wrong...?
     public int LevelKillCount { get; set; }
@@ -473,7 +472,6 @@ internal sealed class GameRoom
     private readonly World _world;
     private readonly int _waterTileCount;
     private readonly Lazy<PersistedRoomState> _roomState;
-    private readonly Lazy<RoomRequirements> _pathRequirements;
 
     public GameRoom(World world, GameWorld gameWorld, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
     {
@@ -484,7 +482,6 @@ internal sealed class GameRoom
         GameWorld = gameWorld;
 
         _roomState = new Lazy<PersistedRoomState>(() => world.Profile.GetRoomFlags(this));
-        _pathRequirements = new Lazy<RoomRequirements>(() => Randomizer.Randomizer.GetRoomRequirements(this));
 
         WorldEntry = worldEntry;
         Name = name;

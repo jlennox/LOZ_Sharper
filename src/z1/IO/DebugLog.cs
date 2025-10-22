@@ -57,8 +57,8 @@ internal readonly record struct ScopedFunctionLog : IDisposable
         if (ShouldWrite(LogLevel.Error)) DebugLog.Error(FunctionName, $"{Indentation}{s}");
     }
 
-    // Always write fatals.
-    public Exception Fatal(string s) => DebugLog.Fatal(FunctionName, $"{Indentation}{s}");
+    // Always write fatals (don't check ShouldWrite).
+    public Exception Fatal(string s) => DebugLog.Fatal(FunctionName, $"{Indentation}{s}", s);
 
     public void Dispose()
     {
@@ -143,10 +143,8 @@ internal sealed class DebugLogWriter : IDisposable
             if (wroteError) fs2.Flush();
 
             // TODO: Actual log rotation.
-            if (fs.Length > _maxLogSize)
-            {
-                fs.SetLength(0);
-            }
+            if (fs.Length > _maxLogSize) fs.SetLength(0);
+            if (fs2.Length > _maxLogSize) fs2.SetLength(0);
 
             WaitHandle.WaitAny(waitEvents);
         }
@@ -211,7 +209,7 @@ internal sealed class DebugLog
         return new ScopedFunctionLog(this, $"{functionName}->{scope}", level);
     }
 
-    private void Write(string? namespaze, string s, LogLevel level)
+    internal void Write(string? namespaze, string s, LogLevel level)
     {
         if (_disabled) return;
         if (level < _level) return;
@@ -233,12 +231,18 @@ internal sealed class DebugLog
     public Exception Fatal(string namespaze, string s)
     {
         Write(namespaze, s, LogLevel.Fatal);
-        return new Exception(s);
+        return new Exception(s.Trim());
+    }
+
+    public Exception Fatal(string namespaze, string s, string exception)
+    {
+        Write(namespaze, s, LogLevel.Fatal);
+        return new Exception(exception);
     }
 
     public Exception Fatal(string s)
     {
         Write(null, s, LogLevel.Fatal);
-        return new Exception(s);
+        return new Exception(s.Trim());
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using z1.Common.Data;
@@ -323,6 +324,7 @@ public enum ItemObjectOptions
 }
 
 [TiledClass]
+[DebuggerDisplay("{Item} ({Options})")]
 public sealed class RoomItem
 {
     public ItemId Item { get; set; }

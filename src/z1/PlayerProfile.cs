@@ -254,15 +254,17 @@ internal sealed class PlayerProfile
     public TimeSpan Playtime { get; set; } // JOE: TODO
     public DateTime CreatedAt { get; set; } // JOE: TODO
     public DateTime LastModifiedAt { get; set; } // JOE: TODO
+    public int? RandomizerSeed { get; set; }
 
     public PlayerProfile()
     {
     }
 
-    public static PlayerProfile CreateForRecording()
+    public static PlayerProfile CreateForRecording(int? seed = null)
     {
         var profile = new PlayerProfile();
         profile.Initialize();
+        profile.RandomizerSeed = seed;
         return profile;
     }
 

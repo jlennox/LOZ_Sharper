@@ -76,6 +76,7 @@ namespace z1;
 // * If world says "AllowWhirlwind" but does not have any recorder destinations, error.
 // * Make sure all ExitLeft/ExitRight's exist.
 // * Make sure no duplicate IDs.
+// * Check for double entrances.
 
 // BUGS TO ADD:
 // * Canana key?
