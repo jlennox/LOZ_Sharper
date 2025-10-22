@@ -4,6 +4,7 @@ using z1.Common.Data;
 
 namespace z1.Common;
 
+// JOE 10/20/2025: OK. So I don't remember why this is a class. That should be looked into :)
 public record PointXY(int X, int Y)
 {
     public static readonly PointXY Zero = new(0, 0);
@@ -12,6 +13,48 @@ public record PointXY(int X, int Y)
 
     public static PointXY operator +(PointXY a, PointXY b) => new(a.X + b.X, a.Y + b.Y);
     public static PointXY operator -(PointXY a, PointXY b) => new(a.X - b.X, a.Y - b.Y);
+
+    public override string ToString() => $"({X},{Y})";
+}
+
+public readonly record struct ZPoint(int X, int Y)
+{
+    public const int TileSize = 8;
+    public const int BlockSize = 16;
+    public const int TilesPerBlock = 2;
+
+    public static readonly ZPoint Zero = new(0, 0);
+
+    public static ZPoint operator +(ZPoint a, ZPoint b) => new(a.X + b.X, a.Y + b.Y);
+    public static ZPoint operator -(ZPoint a, ZPoint b) => new(a.X - b.X, a.Y - b.Y);
+    public static implicit operator ZTilePoint(ZPoint p) => new(p.X / TileSize, p.Y / TileSize);
+    public static implicit operator ZBlockPoint(ZPoint p) => new(p.X / BlockSize, p.Y / BlockSize);
+
+    public override string ToString() => $"({X},{Y})";
+}
+
+public readonly record struct ZTilePoint(int X, int Y)
+{
+    public static readonly ZTilePoint Zero = new(0, 0);
+
+    public static ZTilePoint operator +(ZTilePoint a, ZTilePoint b) => new(a.X + b.X, a.Y + b.Y);
+    public static ZTilePoint operator -(ZTilePoint a, ZTilePoint b) => new(a.X - b.X, a.Y - b.Y);
+    public static implicit operator ZPoint(ZTilePoint p) => new(p.X * ZPoint.TileSize, p.Y * ZPoint.TileSize);
+    public static implicit operator ZBlockPoint(ZTilePoint p) => new(p.X / ZPoint.TilesPerBlock, p.Y / ZPoint.TilesPerBlock);
+
+    public override string ToString() => $"({X},{Y})";
+}
+
+public readonly record struct ZBlockPoint(int X, int Y)
+{
+    public static readonly ZBlockPoint Zero = new(0, 0);
+
+    public static ZBlockPoint operator +(ZBlockPoint a, ZBlockPoint b) => new(a.X + b.X, a.Y + b.Y);
+    public static ZBlockPoint operator -(ZBlockPoint a, ZBlockPoint b) => new(a.X - b.X, a.Y - b.Y);
+    public static implicit operator ZPoint(ZBlockPoint p) => new(p.X * ZPoint.BlockSize, p.Y * ZPoint.BlockSize);
+    public static implicit operator ZTilePoint(ZBlockPoint p) => new(p.X * ZPoint.TilesPerBlock, p.Y * ZPoint.TilesPerBlock);
+
+    public override string ToString() => $"({X},{Y})";
 }
 
 public sealed class GameData
