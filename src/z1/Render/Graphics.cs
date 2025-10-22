@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Silk.NET.GLFW;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
@@ -144,6 +145,24 @@ internal static class Graphics
             new ImageSheet(TileSheet.NpcsOverworld, new Asset("owNpcs.png"), new Asset("owNpcsSheet.tab")),
             new ImageSheet(TileSheet.NpcsUnderworld, new Asset("uwNpcs.png"), new Asset("uwNpcsSheet.tab")),
         ]);
+    }
+
+    public static unsafe void HeadlessInitialize()
+    {
+        using var glfw = Glfw.GetApi();
+        glfw.Init();
+
+        glfw.WindowHint(WindowHintBool.Visible, false);
+        glfw.WindowHint(WindowHintClientApi.ClientApi, ClientApi.OpenGL);
+
+        var window = glfw.CreateWindow(1, 1, string.Empty, null, null);
+        glfw.MakeContextCurrent(window);
+
+        var gl = GL.GetApi(glfw.GetProcAddress);
+
+        Initialize(gl);
+        GLSpriteShader.Initialize(gl);
+        GLVertexArray.Initialize(gl);
     }
 
     public static void StartRender()
