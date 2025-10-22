@@ -229,8 +229,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
         public override string ToString()
         {
-            var room = GameRoom ?? throw new Exception("Room not fit.");
-            return $"{room.Id} (point: {Point.X},{Point.Y}, type: {Type})";
+            return $"{(GameRoom?.UniqueId ?? "No room")} (point: {Point.X},{Point.Y}, type: {Type})";
         }
     }
 
@@ -386,6 +385,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         Func<Cell, bool> shouldFit,
         Func<Cell, RoomRequirements, bool> fit)
     {
+        using var logger = _log.CreateScopedFunctionLog(Dungeon.UniqueId);
         foreach (var point in EachPoint())
         {
             ref var cell = ref this[point];
@@ -393,11 +393,11 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             if (cell.Type == RoomType.None) continue;
             if (!shouldFit(cell)) continue;
 
-            var requiredDirections = Direction.None;
-            if (IsValidPoint(point + new Point(-1, 0))) requiredDirections |= Direction.Left;
-            if (IsValidPoint(point + new Point(1, 0))) requiredDirections |= Direction.Right;
-            if (IsValidPoint(point + new Point(0, -1))) requiredDirections |= Direction.Up;
-            if (IsValidPoint(point + new Point(0, 1))) requiredDirections |= Direction.Down;
+            var adjoiningRooms = Direction.None;
+            if (IsValidPoint(point + new Point(-1, 0))) adjoiningRooms |= Direction.Left;
+            if (IsValidPoint(point + new Point(1, 0))) adjoiningRooms |= Direction.Right;
+            if (IsValidPoint(point + new Point(0, -1))) adjoiningRooms |= Direction.Up;
+            if (IsValidPoint(point + new Point(0, 1))) adjoiningRooms |= Direction.Down;
 
             // Find a room that meets the criteria.
             for (var i = 0; i < state.RandomDungeonRoomList.Count && cell.GameRoom == null; i++)
@@ -405,9 +405,14 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 var room = state.RandomDungeonRoomList[i];
                 var requirements = RoomRequirements.Get(room);
 
-                // TOFIX: This may drain valid rooms and only leave a room with a single direction connection that is
-                // not valid for the spot.
-                // if ((requiredDirections & requirements.ConnectableDirections) != requiredDirections) continue;
+                // Some rooms such as the Princess room contain no stairs and have limited places doors can be. If this
+                // cell is invalid given those limitations then try the next room.
+                if ((adjoiningRooms & requirements.ConnectableDirections) == 0
+                    && cell.Type != RoomType.TransportStaircase)
+                {
+                    logger.Error($"Unable to fit {room.UniqueId} to {cell}. adjoiningRooms: {adjoiningRooms}, ConnectableDirections: {requirements.ConnectableDirections}");
+                    continue;
+                }
 
                 if (fit(cell, requirements))
                 {
@@ -426,9 +431,11 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 }
             }
 
+            // TODO: This needs to throw a recoverable exception. If the Princess room ends up close to the end of the
+            // list then it's very possible to be impossible to fit (doubly so because we pass the bottom row last).
             if (cell.GameRoom == null)
             {
-                throw new Exception("Exhausted rooms without being able to fit.");
+                throw logger.Fatal("Exhausted rooms without being able to fit.");
             }
         }
     }
