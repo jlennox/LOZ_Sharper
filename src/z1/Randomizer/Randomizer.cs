@@ -116,6 +116,15 @@ internal sealed class Randomizer
         // All items are fit.
         // Ensure RequiredDoors and actual room doors line up.
         // Validate all cell.Point's are correct.
+        foreach (var (dungeon, shape) in shapes)
+        {
+            using var logger = _log.CreateScopedFunctionLog($"Spoilers: {dungeon.UniqueId}");
+            logger.Write(shape.GetDebugDisplay());
+            foreach (var cell in shape.GetValidCells())
+            {
+                var room = cell.DemandGameRoom;
+            }
+        }
     }
 
     // TODO: Move this off to something that modifies Game objects.
@@ -1074,12 +1083,14 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         using var logger = _log.CreateScopedFunctionLog(Dungeon.UniqueId);
         for (var attempt = 0; attempt < 1_000; attempt++)
         {
+            // Recreate this seed for each dungeon to help keep consistency with generator changes. I guess? The
+            // room shuffling will still make it different each time.
             var rng = state.CreateDoorRandom(Dungeon.Settings.LevelNumber);
             logger.Enter($"Fitting doors attempt {attempt}.");
             try
             {
 
-                FitDoorsCore(state, rng);
+                FitDoorsCore(rng);
                 return;
             }
             catch (RecoverableRandomizerException ex)
@@ -1092,7 +1103,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         throw logger.Fatal("Exhausted door fitting attempts...");
     }
 
-    private void FitDoorsCore(RandomizerState state, Random rng)
+    private void FitDoorsCore(Random rng)
     {
         // Fitting doors is done in two passes.
         // 1. Walk from the entrance, in a random order, checking if you can get to the next rooms (CanWalkToRoom).
@@ -1242,21 +1253,12 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 var requirements = RoomRequirements.Get(room);
                 foreach (var adjoining in GetAdjoiningRooms(cell.Point))
                 {
-                    if ($"Randomly added door {adjoining.Direction} to {cell}." == "Randomly added door Right to Level00_08/3,6 (Level00_05/5,2) (point: 3,6, type: Normal).")
-                    {
-                    }
                     // Already has a door there.
                     if (cell.RequiredDoors.HasFlag(adjoining.Direction)) continue;
                     // Can't have a good there.
                     if (!requirements.ConnectableDirections.HasFlag(adjoining.Direction)) continue;
 
-                    if ($"Randomly added door {adjoining.Direction} to {cell}." == "Randomly added door Right to Level00_08/3,6 (Level00_05/5,2) (point: 3,6, type: Normal).")
-                    {
-                    }
-
-                    ref var cellx = ref this[point];
                     AddRequiredDoor(cell.Point, adjoining.Direction);
-                    ref var cellxx = ref this[point];
                     logger.Write($"Randomly added door {adjoining.Direction} to {cell}.");
                     return true;
                 }
@@ -1287,9 +1289,13 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         bool RefitDoorsUntilWalkable()
         {
             var attempts = 0;
-            for (; attempts < 1_0000000000; attempts++)
+            for (; attempts < 100; attempts++)
             {
-                if (TryWalkToAllRooms()) break;
+                if (TryWalkToAllRooms())
+                {
+                    logger.Write($"✅ Made dungeon walkable in {attempts} attempts.");
+                    return true;
+                }
 
                 if (!AddDoorAtRandom())
                 {
@@ -1301,8 +1307,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 ++attempts;
             }
 
-            logger.Write($"✅ Made dungeon walkable in {attempts} attempts.");
-            return true;
+            return false;
         }
 
         if (!RefitDoorsUntilWalkable())
@@ -1314,40 +1319,48 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         // TODO: Remove doors until either a random number is reached, or removing said door would make the level
         // unsolvable.
 
-        // 2. Walk the rooms and fit doors according to our probabilities.
-        foreach (var point in EachPoint())
+        // Pass over each room and set door types according to our requirements.
+        var doorTypeGrid = EachValidPoint().ToDictionary(static t => t, static _ => new Dictionary<Direction, DoorType>());
+        foreach (var cell in GetValidCells())
         {
-            var cell = this[point];
-            if (cell.Type == RoomType.None) continue;
-            var room = cell.DemandGameRoom;
+            var doorTypeCell = doorTypeGrid[cell.Point];
 
             // This is a given. We only support Player coming in from the bottom.
-            if (room.Settings.IsEntrance)
+            if (cell.Type == RoomType.Entrance)
             {
-                room.UnderworldDoors[Direction.Down] = DoorType.Open;
+                doorTypeCell[Direction.Down] = DoorType.Open;
             }
 
-            var anyShutters = false;
             foreach (var direction in Direction.DoorDirectionOrder)
             {
-                // It was set already from an adjoining room.
-                if (room.UnderworldDoors.ContainsKey(direction)) continue;
+                // This door was already set from an adjoining room.
+                if (doorTypeCell.ContainsKey(direction)) continue;
 
-                if (!room.Connections.TryGetValue(direction, out var connected) ||
-                    !cell.RequiredDoors.HasFlag(direction))
-                {
-                    room.UnderworldDoors[direction] = DoorType.Wall;
-                    continue;
-                }
+                // Our algorithm has decided no door goes here.
+                if (!cell.RequiredDoors.HasFlag(direction)) continue;
 
                 var doorType = Stats.GetRandomDoorType(rng);
-                room.UnderworldDoors[direction] = doorType;
+                doorTypeCell.Add(direction, doorType);
 
-                connected.UnderworldDoors[direction.GetOppositeDirection()] = doorType;
+                // Also set the adjoining room's door because they must line up on both sides.
+                // Can OOB here, but only if our map is invalid.
+                var connected = doorTypeGrid[cell.Point + direction.GetOffset()];
+                connected.Add(direction.GetOppositeDirection(), doorType);
+            }
+        }
 
-                if (doorType == DoorType.Shutter) anyShutters = true;
+        // Now update the actual room layouts with the doors and make further adjustments as needed.
+        foreach (var cell in GetValidCells())
+        {
+            var room = cell.DemandGameRoom;
+            var grid = doorTypeGrid[cell.Point];
+            foreach (var direction in Direction.DoorDirectionOrder)
+            {
+                var type = grid.GetValueOrDefault(direction, DoorType.Wall);
+                room.UnderworldDoors[direction] = type;
             }
 
+            var anyShutters = grid.Any(static t => t.Value == DoorType.Shutter);
             var requirements = RoomRequirements.Get(room);
             if (anyShutters)
             {
@@ -1414,7 +1427,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
         foreach (var cell in GetValidCells())
         {
-            // if (!cell.RequiresStaircase) RemoveStaircase(cell.DemandGameRoom);
+            if (!cell.RequiresStaircase) RemoveStaircase(cell.DemandGameRoom);
         }
     }
 

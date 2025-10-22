@@ -117,7 +117,6 @@ internal sealed class RandomizerState
         }
     }
 
-    // Recreate this seed for each dungeon to help keep consistency with generator changes. I guess?
     public Random CreateDoorRandom(int levelNumber) => new(_doorRandomSeed + levelNumber);
 
     private List<ImmutableArray<MonsterEntry>> GetMonsterListForDungeonNumber(int number)
