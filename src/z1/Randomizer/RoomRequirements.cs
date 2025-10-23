@@ -13,6 +13,18 @@ internal enum RoomRequirementFlags
     IsEntrance = 1 << 3,
 }
 
+
+[Flags]
+internal enum PathRequirements
+{
+    None,
+    Ladder = 1 << 0,
+    Recorder = 1 << 1,
+    Arrow = 1 << 2,
+    Food = 1 << 3,
+    Raft = 1 << 4,
+}
+
 internal readonly record struct RoomRequirements(
     RoomEntrances ConnectableEntrances, // Does not mean they _are_ connected, just that there's nothing hard blocking it from being connected.
     IReadOnlyDictionary<DoorPair, PathRequirements> Paths,
@@ -20,11 +32,17 @@ internal readonly record struct RoomRequirements(
     InteractableBlockObject? PushBlock,
     InteractableBlockObject? Staircase)
 {
+    private delegate bool TryGetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance, out Point point, out PathRequirements requirements);
+
     private readonly record struct RoomPaths(Dictionary<DoorPair, PathRequirements> Paths, RoomEntrances ValidEntrances);
 
-    private readonly record struct DoorToDoorSearchPath(int X, int Y, bool RequiresLadder)
+    private readonly record struct DoorToDoorSearchPath(int X, int Y, PathRequirements Requirements)
     {
-        public DoorToDoorSearchPath(Point point, bool requiresLadder) : this(point.X, point.Y, requiresLadder) { }
+        public DoorToDoorSearchPath(Point point, PathRequirements requirements) : this(point.X, point.Y, requirements) { }
+
+        public bool RequiresLadder => Requirements.HasFlag(PathRequirements.Ladder);
+
+        public DoorToDoorSearchPath WithRequirement(PathRequirements requirement) => this with { Requirements = Requirements | requirement };
         public bool SamePoint(DoorToDoorSearchPath other) => X == other.X && Y == other.Y;
         public int Distance(DoorToDoorSearchPath other) => Math.Abs(X - other.X) + Math.Abs(Y - other.Y);
         public override string ToString() => RequiresLadder ? $"({X}, {Y}, WET)" : $"({X}, {Y})";
@@ -52,10 +70,23 @@ internal readonly record struct RoomRequirements(
     {
         if (room.HasUnderworldDoors) throw new Exception();
 
-        static bool TryGetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance, out Point point)
+        static RoomEntrances GetRaftEntrance(GameRoom room, out Point point)
         {
-            const int blockToTileRatio = 2;
+            var raftSpot = room.InteractableBlockObjects
+                .SingleOrDefault(static t => t.Interaction.Raft != null);
+            var direction = raftSpot?.Interaction.Raft?.Direction;
+            if (raftSpot == null)
+            {
+                point = default;
+                return RoomEntrances.None;
+            }
 
+            point = new Point(raftSpot.X / room.TileWidth, raftSpot.Y / room.TileHeight);
+            return direction.ToEntrance();
+        }
+
+        static bool TryGetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance, out Point point, out PathRequirements requirements)
+        {
             bool TryPoint(int x, int y, out Point point)
             {
                 var behavior = room.RoomMap.Behavior(x, y);
@@ -69,19 +100,28 @@ internal readonly record struct RoomRequirements(
                 return false;
             }
 
+            var raftEntrance = GetRaftEntrance(room, out var raftPoint);
+            if (entrance == raftEntrance)
+            {
+                requirements = PathRequirements.Raft;
+                point = raftPoint;
+                return true;
+            }
+
+            requirements = PathRequirements.None;
             if (entrance is RoomEntrances.Left or RoomEntrances.Right)
             {
-                var x = entrance == RoomEntrances.Right ? room.Width - blockToTileRatio : 0;
+                var x = entrance == RoomEntrances.Right ? room.Width - ZPoint.TilesPerBlock : 0;
 
-                for (var y = 0; y < room.Height; y += blockToTileRatio)
+                for (var y = 0; y < room.Height; y += ZPoint.TilesPerBlock)
                 {
                     if (TryPoint(x, y, out point)) return true;
                 }
             }
-            if (entrance is RoomEntrances.Up or RoomEntrances.Down)
+            if (entrance is RoomEntrances.Top or RoomEntrances.Bottom)
             {
-                var y = entrance == RoomEntrances.Down ? room.Height - blockToTileRatio : 0;
-                for (var x = 0; x < room.Width; x += blockToTileRatio)
+                var y = entrance == RoomEntrances.Bottom ? room.Height - ZPoint.TilesPerBlock : 0;
+                for (var x = 0; x < room.Width; x += ZPoint.TilesPerBlock)
                 {
                     if (TryPoint(x, y, out point)) return true;
                 }
@@ -91,7 +131,7 @@ internal readonly record struct RoomRequirements(
                 var caveEntrance = room.InteractableBlockObjects.FirstOrDefault(static t => t.Interaction.Entrance != null);
                 if (caveEntrance != null)
                 {
-                    point = new Point(caveEntrance.X, caveEntrance.Y);
+                    point = new Point(caveEntrance.X / room.TileWidth, caveEntrance.Y / room.TileHeight);
                     return true;
                 }
             }
@@ -100,100 +140,76 @@ internal readonly record struct RoomRequirements(
             return false;
         }
 
-        static Point GetLocationInfrontOfEntrance(GameRoom room, RoomEntrances direction)
-        {
-            if (TryGetLocationInfrontOfEntrance(room, direction, out var point)) return point;
-            throw new Exception($"Could not find location infront of entrance for entrance {direction} in room {room.UniqueId}.");
-        }
-
-        // I hate the amount of rework being done here, even if it's not that expensive. We use
-        // TryGetLocationInfrontOfEntrance now, then GetLocationInfrontOfEntrance is used later.
-        var validEntrances = RoomEntrances.EntranceOrderWithStairway.Where(t => TryGetLocationInfrontOfEntrance(room, t, out _)).BitwiseOr();
-
-        throw new NotSupportedException();
+        return GetRoomPathsCore(room, TryGetLocationInfrontOfEntrance);
     }
 
     private static RoomPaths GetUnderworldRoomPaths(GameRoom room)
     {
         if (!room.HasUnderworldDoors) throw new Exception();
 
-        static RoomEntrances GetValidEntrances(GameRoom room)
-        {
-            var validEntrances = RoomEntrances.None;
-            var invalidEntrances = RoomEntrances.None;
-            // All cave people block upward movement, except grumbles can be removed.
-            var hasOldMan = room.CaveSpec != null && room.CaveSpec.PersonType != PersonType.Grumble;
-            if (hasOldMan) invalidEntrances |= RoomEntrances.Up;
-
-            foreach (var direction in RoomEntrances.EntranceOrder)
-            {
-                if (invalidEntrances.HasFlag(direction)) continue;
-                var infront = GetLocationInfrontOfEntrance(room, direction);
-                var behavior = room.RoomMap.Behavior(infront.X, infront.Y);
-                _log.Write($"Behavior for door {direction} was {behavior}.");
-                // Do not use CanWalk because we need to detect Stairs/etc.
-                if (behavior is TileBehavior.GenericWalkable or TileBehavior.Sand)
-                {
-                    validEntrances |= direction;
-                }
-            }
-
-            return validEntrances;
-        }
-
         // The location "infront" of the door is used. This is where the player needs to walk to to be able to get to
         // the door. Our map data may not have "doors" actually assigned to this room, so we can't search for them
         // directly.
-        static Point GetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance)
+        static bool TryGetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance, out Point point, out PathRequirements requirements)
         {
-            const int blockToTileRatio = 2;
-            return entrance switch
+            requirements = PathRequirements.None;
+            // All cave people block upward movement, except grumbles which can be removed.
+            var hasOldMan = room.CaveSpec != null && room.CaveSpec.PersonType != PersonType.Grumble;
+            if (hasOldMan && entrance == RoomEntrances.Top)
             {
-                RoomEntrances.None => GetTransportExitPosition(room),
-                RoomEntrances.Right => new Point(13 * blockToTileRatio, 5 * blockToTileRatio),
-                RoomEntrances.Left => new Point(2 * blockToTileRatio, 5 * blockToTileRatio),
-                RoomEntrances.Up => new Point(7 * blockToTileRatio, 2 * blockToTileRatio),
-                RoomEntrances.Down => new Point(7 * blockToTileRatio, 8 * blockToTileRatio),
+                point = default;
+                return false;
+            }
+
+            if (entrance == RoomEntrances.Stairs)
+            {
+                return TryGetTransportExitPosition(room, out point);
+            }
+
+            point = entrance switch
+            {
+                RoomEntrances.Right => new Point(13 * ZPoint.TilesPerBlock, 5 * ZPoint.TilesPerBlock),
+                RoomEntrances.Left => new Point(2 * ZPoint.TilesPerBlock, 5 * ZPoint.TilesPerBlock),
+                RoomEntrances.Top => new Point(7 * ZPoint.TilesPerBlock, 2 * ZPoint.TilesPerBlock),
+                RoomEntrances.Bottom => new Point(7 * ZPoint.TilesPerBlock, 8 * ZPoint.TilesPerBlock),
                 _ => throw new Exception(),
             };
+
+            var behavior = room.RoomMap.Behavior(point.X, point.Y);
+            // Do not use CanWalk because we need to detect Stairs as invalid entrance locations.
+            return behavior is TileBehavior.GenericWalkable or TileBehavior.Sand;
         }
 
         // Technically... there can be multiple exit locations. The original game only used a static value for all
         // exits, but it would be nice to ultimately support this.
-        static Point GetTransportExitPosition(GameRoom room)
+        static bool TryGetTransportExitPosition(GameRoom room, out Point point)
         {
-            static Point Core(GameRoom room)
+            // Scan each room in this world for an entrance that exits into this passed in room.
+            foreach (var currentRoom in room.GameWorld.Rooms)
             {
-                foreach (var currentRoom in room.GameWorld.Rooms)
+                foreach (var block in currentRoom.InteractableBlockObjects)
                 {
-                    foreach (var block in currentRoom.InteractableBlockObjects)
+                    var entrance = block.Interaction.Entrance;
+                    if (entrance == null) continue;
+                    var arguments = entrance.Arguments;
+                    if (arguments == null) continue;
+                    if (arguments.ExitLeft == room.Id || arguments.ExitRight == room.Id)
                     {
-                        var entrance = block.Interaction.Entrance;
-                        if (entrance == null) continue;
-                        var arguments = entrance.Arguments;
-                        if (arguments == null) continue;
-                        if (arguments.ExitLeft == room.Id) return entrance.ExitPosition.ToPoint();
-                        if (arguments.ExitRight == room.Id) return entrance.ExitPosition.ToPoint();
+                        var exitPosition = entrance.ExitPosition ?? throw new Exception();
+                        point = new Point(exitPosition.X / room.TileWidth, exitPosition.Y / room.TileHeight);
+                        return true;
                     }
                 }
-
-                // This is the default in the OG game, they all transport here.
-                return new Point(0x60, 0xA0);
             }
 
-            var result = Core(room);
-            return new Point(result.X / room.TileWidth, result.Y / room.TileHeight);
+            point = default;
+            return false;
         }
 
-        return GetRoomPathsCore(room, GetValidEntrances(room), GetLocationInfrontOfEntrance);
+        return GetRoomPathsCore(room, TryGetLocationInfrontOfEntrance);
     }
 
-    private delegate Point GetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance);
-
-    private static RoomPaths GetRoomPathsCore(
-        GameRoom room,
-        RoomEntrances validEntrances,
-        GetLocationInfrontOfEntrance getLocationInfrontOfEntrance)
+    private static RoomPaths GetRoomPathsCore(GameRoom room, TryGetLocationInfrontOfEntrance tryGetLocationInfrontOfEntrance)
     {
         // The original unique room ID was a reference to the specific room layout. Monsters/doors/etc was contained
         // else where and referenced by "the original room ID" into other tables, thusly, we can save a lot of
@@ -206,22 +222,43 @@ internal readonly record struct RoomRequirements(
         // - We can drastically speed up checks by moving twice the distance each time.
         // - The player can only move over a single block of water when using the ladder. So moving in block space
         //   already makes that check much easier.
-        const int movementSize = 2;
+        const int movementSize = ZPoint.TilesPerBlock;
 
         using var logger = _log.CreateScopedFunctionLog(room.UniqueId);
-
-        if (validEntrances == RoomEntrances.None) throw logger.Fatal($"Room {room.UniqueId} has no valid directions.");
 
         var paths = new Dictionary<DoorPair, PathRequirements>();
         var walkingSearch = new PriorityQueue<DoorToDoorSearchPath, int>();
         var visited = new HashSet<DoorToDoorSearchPath>();
+        var validEntrances = RoomEntrances.None;
 
         // Walk from each door to each other door, and record if a ladder was required.
         // Direction.None is used for transport entrances.
-        foreach (var doorPair in DoorPair.GetAllPairs(validEntrances, true))
+        foreach (var doorPair in DoorPair.GetAllPairs(true))
         {
-            var from = new DoorToDoorSearchPath(getLocationInfrontOfEntrance(room, doorPair.From), false);
-            var to = new DoorToDoorSearchPath(getLocationInfrontOfEntrance(room, doorPair.To), false);
+            var fromIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.From, out var fromLocation, out var fromRequirements);
+            var toIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.To, out var toLocation, out var toRequirements);
+
+            if (fromIsValid) validEntrances |= doorPair.From;
+            if (toIsValid) validEntrances |= doorPair.To;
+
+            if (!fromIsValid)
+            {
+                logger.Write($"❌ Skipping path for {doorPair} -- no valid location infront of entrance {doorPair.From}.");
+                continue;
+            }
+
+            if (!toIsValid)
+            {
+                logger.Write($"❌ Skipping path for {doorPair} -- no valid location infront of entrance {doorPair.To}.");
+                continue;
+            }
+
+            var asdasda = room.RoomMap.DebugDisplay();
+
+            // Since our directions are treated ambidextrously, both requirements go on the "from" path. IE, if you can
+            // leave this room with the raft, then you must also need the raft to enter it.
+            var from = new DoorToDoorSearchPath(fromLocation, fromRequirements | toRequirements);
+            var to = new DoorToDoorSearchPath(toLocation, PathRequirements.None);
 
             logger.Enter($"Searching path for {doorPair}...");
 
@@ -237,9 +274,11 @@ internal readonly record struct RoomRequirements(
                 if (!visited.Add(current)) continue;
                 if (current.SamePoint(to))
                 {
+                    // TODO: The way this works with `RequiresLadder` instead of generic requirements isn't the best
+                    // now that other requirements than ladder exists.
                     if (!current.RequiresLadder)
                     {
-                        paths.Add(doorPair, PathRequirements.None);
+                        paths.Add(doorPair, current.Requirements);
                         foundPathWithNoLadder = true;
                         logger.Write($"✅ Found path for {doorPair}.");
                         break;
@@ -256,7 +295,6 @@ internal readonly record struct RoomRequirements(
                     yield return path with { Y = path.Y + movementSize };
                 }
 
-                var behavior = room.RoomMap.Behavior(current.X, current.Y);
 
                 foreach (var next in Neighbors(current))
                 {
@@ -266,6 +304,8 @@ internal readonly record struct RoomRequirements(
                     var nextBehavior = room.RoomMap.Behavior(next.X, next.Y);
                     if (nextBehavior == TileBehavior.Water)
                     {
+                        var behavior = room.RoomMap.Behavior(current.X, current.Y);
+
                         // The ladder can only cross a single water tile. Do not allow crossing multiple water tiles.
                         if (behavior == TileBehavior.Water)
                         {
@@ -280,7 +320,7 @@ internal readonly record struct RoomRequirements(
                             continue;
                         }
 
-                        walkingSearch.Enqueue(next with { RequiresLadder = true }, to.Distance(next));
+                        walkingSearch.Enqueue(next.WithRequirement(PathRequirements.Ladder), to.Distance(next));
                         continue;
                     }
 
@@ -306,7 +346,7 @@ internal readonly record struct RoomRequirements(
         bool IsPrincessRoom()
         {
             // Not exact but good enough.
-            return validEntrances == RoomEntrances.Down &&
+            return validEntrances == RoomEntrances.Bottom &&
                 room.InteractableBlockObjects.Any(static t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
         }
 

@@ -36,6 +36,7 @@ internal sealed class RandomizerState
     public Random MonsterRandom { get; }
     public Random RoomRandom { get; }
     public Random ItemRandom { get; }
+    public Random OverworldMapRandom { get; }
 
     private readonly int _doorRandomSeed;
 
@@ -54,12 +55,14 @@ internal sealed class RandomizerState
         Seed = seed;
         Flags = flags;
 
+        // To help preserve seed stability, avoid ever re-ordering these. Add new seeds to the end.
         var seedRandom = new Random(seed);
         RoomListRandom = new Random(seedRandom.Next());
         MonsterRandom = new Random(seedRandom.Next());
         _doorRandomSeed = seedRandom.Next();
         RoomRandom = new Random(seedRandom.Next());
         ItemRandom = new Random(seedRandom.Next());
+        OverworldMapRandom = new Random(seedRandom.Next());
 
         RerandomizeItemList();
     }

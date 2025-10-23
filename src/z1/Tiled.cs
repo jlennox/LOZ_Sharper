@@ -336,7 +336,7 @@ internal sealed class GameWorld
         var worldMaps = new (GameRoom Room, TiledWorldEntry Entry)[tiledWorld.Maps.Length];
         for (var i = 0; i < tiledWorld.Maps.Length; ++i)
         {
-            var worldEntry = tiledWorld.Maps![i];
+            var worldEntry = tiledWorld.Maps[i];
             var asset = new Asset(directory, worldEntry.Filename);
             var tiledmap = asset.ReadJson<TiledMap>();
             var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
@@ -956,6 +956,7 @@ internal sealed class RoomTileMap
                     TileBehavior.Cave => 'C',
                     TileBehavior.Door => 'D',
                     TileBehavior.Doorway => 'O',
+                    TileBehavior.GenericSolid => 'X',
                     _ => '?'
                 });
             }

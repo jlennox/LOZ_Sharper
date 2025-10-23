@@ -240,4 +240,18 @@ internal static class Extensions
     public static bool CollidesWall(this TileBehavior behavior) => behavior is TileBehavior.Wall or TileBehavior.Doorway or TileBehavior.Door;
     public static bool CollidesTile(this TileBehavior behavior) => behavior >= TileBehavior.FirstSolid;
     public static bool CanWalk(this TileBehavior behavior) => behavior is < TileBehavior.FirstSolid or TileBehavior.Doorway;
+
+    extension(Point)
+    {
+        public static IEnumerable<Point> FromRange(int width, int height)
+        {
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    yield return new Point(x, y);
+                }
+            }
+        }
+    }
 }

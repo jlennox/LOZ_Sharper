@@ -9,8 +9,7 @@ namespace z1.Randomizer;
 
 // Known issues:
 // * 9 isn't randomized?
-
-// TODO: Make DungeonState store the items and what their requirements are. This will be used for randomizing the OW.
+// * Make 9 entrance always have the triforce block above it and no rooms to the left/right.
 
 internal sealed class Randomizer
 {
@@ -132,9 +131,6 @@ internal sealed class Randomizer
 
     private static void Lint(IEnumerable<DungeonState> shapes, RandomizerState state)
     {
-        // LINTER TODO:
-        // Ensure RequiredDoors and actual room doors line up.
-
         // Make sure all rooms were only used once.
         var seenRooms = new HashSet<string>();
 
@@ -242,17 +238,119 @@ internal sealed class Randomizer
     }
 }
 
-[Flags]
-internal enum PathRequirements
+internal record OverworldState(GameWorld Overworld, OverworldState.Cell[,] Layout, ImmutableArray<DungeonState> Dungeons, Point EntranceLocation)
 {
-    None,
-    Ladder = 1 << 0,
-    Recorder = 1 << 1,
-    Arrow = 1 << 2,
-    Food = 1 << 3,
-}
+    internal readonly record struct Cell
+    {
+        public Point Point { get; init; }
+        public GameRoom GameRoom { get; init; }
+        public RoomType RoomType { get; init; }
+        public string? LevelName { get; init; }
 
-internal record OverworldState(GameWorld Overworld, ImmutableArray<DungeonState> Dungeons);
+        public bool HasRoomItem => _roomItem != null;
+
+        private readonly RoomItem? _roomItem;
+
+        public Cell(Point point, GameRoom room)
+        {
+            Point = point;
+            GameRoom = room;
+
+            _roomItem = GameRoom.InteractableBlockObjects
+                .Select(static t => t.Interaction.Item)
+                .SingleOrDefault(static t => t != null);
+        }
+
+        public void SetItem(ItemId itemId)
+        {
+            var roomItem = _roomItem ?? throw new Exception("No item object to set item on.");
+            roomItem.Item = itemId;
+        }
+
+        public override string ToString() => $"{GameRoom.UniqueId} (point: {Point.X},{Point.Y})";
+    }
+
+    internal enum RoomType { Normal, Cave, DungeonCave }
+
+    private const int _maxWidth = 16;
+    private const int _maxHeight = 8;
+
+    private static readonly DebugLog _log = new(nameof(OverworldState), DebugLogDestination.File);
+
+    public ref Cell this[Point i] => ref Layout[i.X, i.Y];
+    private bool _hasFitItems = false;
+    private bool _hasFitDungeonEntrances = false;
+
+    private static IEnumerable<Point> EachPoint() => Point.FromRange(_maxWidth, _maxHeight);
+
+    public static OverworldState Create(GameWorld overworld, ImmutableArray<DungeonState> dungeons, RandomizerState state)
+    {
+        static Cell[,] GetRoomGrid(GameWorld overworld)
+        {
+            static bool IsTopLeftRoom(GameRoom room)
+            {
+                var connections = room.Connections;
+                return connections.Count == 2
+                    && connections.ContainsKey(Direction.Right)
+                    && connections.ContainsKey(Direction.Down);
+            }
+
+            var layout = new Cell[_maxWidth, _maxHeight];
+            // Since grid style coordinates are not baked into the game engine, determine the top left room so we have a
+            // known entry point (0, 0) and walk the connections from there.
+            var topLeftRoom = overworld.Rooms.Single(IsTopLeftRoom);
+            var visited = new HashSet<GameRoom>(_maxWidth * _maxHeight);
+            var path = new Stack<(GameRoom Room, Point Point)> { (topLeftRoom, new Point(0, 0)) };
+            while (path.TryPop(out var entry))
+            {
+                if (!visited.Add(entry.Room)) continue;
+                layout[entry.Point.X, entry.Point.Y] = new Cell(entry.Point, entry.Room);
+
+                foreach (var connection in entry.Room.Connections)
+                {
+                    var nextPoint = entry.Point + connection.Key.GetOffset();
+                    path.Push((connection.Value, nextPoint));
+                }
+            }
+
+            return layout;
+        }
+
+        var rng = state.OverworldMapRandom;
+        var layout = GetRoomGrid(overworld);
+        var entranceLocation = new Point(rng.Next(_maxWidth), rng.Next(_maxHeight));
+
+        return new OverworldState(
+            overworld,
+            layout,
+            dungeons,
+            entranceLocation);
+    }
+
+    private void CanWalkTo(Point start, Point end)
+    {
+    }
+
+    public void FitItems(RandomizerState state)
+    {
+        _hasFitItems = true;
+    }
+
+    public void FitDungeonEntrances(RandomizerState state)
+    {
+        if (!_hasFitItems) throw new Exception("Must fit items first.");
+        _hasFitDungeonEntrances = true;
+    }
+
+    public void FitCaveEntrances(RandomizerState state)
+    {
+        if (!_hasFitDungeonEntrances) throw new Exception("Must fit dungeon entrances first.");
+    }
+
+    public void RandomizeStores(RandomizerState state)
+    {
+    }
+}
 
 internal readonly record struct DungeonItem(ItemId Item, Point Location, PathRequirements Requirements)
 {
@@ -298,16 +396,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
     private bool _hasIdsUpdated;
     private bool _hasDoorsFit;
 
-    private static IEnumerable<Point> EachPoint()
-    {
-        for (var y = 0; y < _maxHeight; y++)
-        {
-            for (var x = 0; x < _maxWidth; x++)
-            {
-                yield return new Point(x, y);
-            }
-        }
-    }
+    private static IEnumerable<Point> EachPoint() => Point.FromRange(_maxWidth, _maxHeight);
 
     private IEnumerable<Point> EachValidPoint()
     {
@@ -447,8 +536,8 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             var adjoiningRooms = RoomEntrances.None;
             if (IsValidPoint(point + new Point(-1, 0))) adjoiningRooms |= RoomEntrances.Left;
             if (IsValidPoint(point + new Point(1, 0))) adjoiningRooms |= RoomEntrances.Right;
-            if (IsValidPoint(point + new Point(0, -1))) adjoiningRooms |= RoomEntrances.Up;
-            if (IsValidPoint(point + new Point(0, 1))) adjoiningRooms |= RoomEntrances.Down;
+            if (IsValidPoint(point + new Point(0, -1))) adjoiningRooms |= RoomEntrances.Top;
+            if (IsValidPoint(point + new Point(0, 1))) adjoiningRooms |= RoomEntrances.Bottom;
 
             // Find a room that meets the criteria.
             for (var i = 0; i < state.RandomDungeonRoomList.Count && cell.GameRoom == null; i++)
@@ -581,7 +670,6 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 throw new RecoverableRandomizerException($"Failed to fit {item} into {cell}.");
             }
 
-            // var requirementsList = TryWalkToRoom(EntranceLocation, cell.Point).ToArray();
             throw logger.Fatal($"Failed to fit any item into {cell}");
         }
 
@@ -678,7 +766,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         // If we've visited a map before with identical set of requirements and entry point, then there's no reason to repeat it.
         var visited = new HashSet<TryWalkVisited>();
         var paths = new PriorityQueue<TryWalkSearchPath, long>();
-        paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.Down), 0);
+        paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.Bottom), 0);
         var seenRequirements = new HashSet<PathRequirements>();
 
         static long Distance(Point a, Point b, PathRequirements requirements)

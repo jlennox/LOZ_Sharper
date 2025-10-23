@@ -146,6 +146,9 @@ internal sealed class DebugLogWriter : IDisposable
             if (fs.Length > _maxLogSize) fs.SetLength(0);
             if (fs2.Length > _maxLogSize) fs2.SetLength(0);
 
+            // Give a mild amount of time to allow multiple lines to build back up.
+            Thread.Sleep(100);
+
             WaitHandle.WaitAny(waitEvents);
         }
 

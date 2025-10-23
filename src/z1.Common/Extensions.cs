@@ -20,7 +20,6 @@ public static class Extensions
         return collection.ElementAt(index);
     }
 
-
     public static T GetClamped<T>(this ReadOnlySpan<T> collection, int index)
         where T : notnull
     {
@@ -28,6 +27,7 @@ public static class Extensions
         index = Math.Clamp(index, 0, collection.Length - 1);
         return collection[index];
     }
+
     extension(Direction)
     {
         public static ImmutableArray<Direction> DoorDirectionOrder => _doorDirectionOrder;
