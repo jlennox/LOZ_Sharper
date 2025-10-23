@@ -10,6 +10,8 @@ namespace z1.Randomizer;
 // Known issues:
 // * 9 isn't randomized?
 
+// TODO: Make DungeonState store the items and what their requirements are. This will be used for randomizing the OW.
+
 internal sealed class Randomizer
 {
     private static readonly DebugLog _log = new(nameof(Randomizer));
@@ -66,7 +68,7 @@ internal sealed class Randomizer
 
         // 1. First a shape for each dungeon is determined. Nothing else is set inside the dungeons at this point.
         var shapes = dungeons
-            .Select(t => (t, DungeonState.Create(t, state)))
+            .Select(t => DungeonState.Create(t, state))
             .ToArray();
 
         // 2. Using the shared pool of all rooms, fit rooms that have requirements (are "special") first.
@@ -74,15 +76,16 @@ internal sealed class Randomizer
         // These must be fit in their own separate pass to ensure that earlier dungeons don't deplete them. And if
         // they're avoided and preserved for later, then once they're "normalized" there will be a heavy bias of them
         // inside the later dungeons.
-        foreach (var (_, shape) in shapes) shape.FitSpecialRooms(state);
+        foreach (var shape in shapes) shape.FitSpecialRooms(state);
 
         // TODO: Build another pass where all rooms that don't have ValidDoors == All are put into a list. Then all
         // shape parts where they could possibly fit without issue (ie, Princess room can't be on a bottom wall) are
         // put into a shuffled list, and they are fit at random. This will prevent down stream issues from happening.
         // Or just ensure they fit during normal room fitting?
 
-        foreach (var (dungeon, shape) in shapes)
+        foreach (var shape in shapes)
         {
+            var dungeon = shape.Dungeon;
             using var logger = _log.CreateScopedFunctionLog(dungeon.UniqueId);
             logger.Enter($"Randomizing dungeon {dungeon.UniqueId}.");
 
@@ -121,20 +124,99 @@ internal sealed class Randomizer
         }
 
         // As a final pass, remove all now unused staircases and related handlers.
-        foreach (var (_, shape) in shapes) shape.NormalizeRooms();
+        foreach (var shape in shapes) shape.NormalizeRooms();
 
+        Lint(shapes, state);
+        PrintSpoiler(shapes);
+    }
+
+    private static void Lint(IEnumerable<DungeonState> shapes, RandomizerState state)
+    {
         // LINTER TODO:
-        // Make sure each room only appears once.
-        // All items are fit.
         // Ensure RequiredDoors and actual room doors line up.
-        // Validate all cell.Point's are correct.
-        foreach (var (dungeon, shape) in shapes)
+
+        // Make sure all rooms were only used once.
+        var seenRooms = new HashSet<string>();
+
+        // Make sure all items were only used once.
+        var seenItems = new HashSet<ItemId>();
+
+        foreach (var shape in shapes.OrderBy(t => t.Dungeon.Settings.LevelNumber))
         {
-            using var logger = _log.CreateScopedFunctionLog($"Spoilers: {dungeon.UniqueId}");
-            logger.Write(shape.GetDebugDisplay());
+            var dungeon = shape.Dungeon;
+            using var logger = _log.CreateScopedFunctionLog(dungeon.UniqueId);
+
+            foreach (var room in shape.GetGameRooms())
+            {
+                if (!seenRooms.Add(room.UniqueId)) throw logger.Fatal($"Room {room.UniqueId} appears multiple times.");
+
+                foreach (var item in room.InteractableBlockObjects
+                    .Select(t => t.Interaction.Entrance?.Arguments?.ItemId)
+                    .Where(DungeonStats.IsDungeonItem)
+                    .Cast<ItemId>())
+                {
+                    if (!seenItems.Add(item))
+                    {
+                        throw logger.Fatal($"Item {item} appears multiple times.");
+                    }
+                }
+            }
+
             foreach (var cell in shape.GetValidCells())
             {
                 var room = cell.DemandGameRoom;
+
+                // Ensure the Point stored on each cell is correct.
+                var actualCell = shape[cell.Point];
+                if (cell != actualCell) throw logger.Fatal($"Cell mismatch at {cell.Point}: expected {cell}, got {actualCell}.");
+
+                // Ensure RequiredDoors and actual room doors line up.
+                var actualDoors = room.UnderworldDoors
+                    .Where(static t => t.Value is not (DoorType.Wall or DoorType.None))
+                    .BitwiseOr(t => t.Key.ToEntrance());
+                var missingDoors = cell.RequiredDoors & actualDoors;
+                if (missingDoors != RoomEntrances.None)
+                {
+                    throw logger.Fatal($"Room {room.UniqueId} is missing required doors {missingDoors} for cell {cell}.");
+                }
+            }
+        }
+
+        // TODO: Arg, a lot of this is incorrect because they can end up on the overworld :)
+        void LintState()
+        {
+            using var logger = _log.CreateScopedFunctionLog("RandomizerStateLint");
+
+            // All items stored by the randomizer state must be placed.
+            if (state.DungeonItems.Count > 0)
+            {
+                throw logger.Fatal($"Not all items were placed: " + string.Join(", ", state.DungeonItems));
+            }
+
+            // Double check that all items from AllDungeonItems are, infact, in the dungeons.
+            foreach (var item in DungeonStats.AllDungeonItems)
+            {
+                if (!seenItems.Contains(item))
+                {
+                    throw _log.Fatal($"Item {item} was not placed into any dungeon.");
+                }
+            }
+        }
+
+        LintState();
+    }
+
+    private static void PrintSpoiler(IEnumerable<DungeonState> shapes)
+    {
+        foreach (var shape in shapes.OrderBy(t => t.Dungeon.Settings.LevelNumber))
+        {
+            var dungeon = shape.Dungeon;
+            using var logger = _log.CreateScopedFunctionLog(dungeon.UniqueId);
+            logger.Enter($"Dungeon spoilers for {dungeon.UniqueId}.");
+            logger.Write($"✅ {shape.GetDebugDisplay()}");
+            foreach (var item in shape.DungeonItems)
+            {
+                logger.Write($"✅ {item}");
             }
         }
     }
@@ -160,16 +242,6 @@ internal sealed class Randomizer
     }
 }
 
-[Flags] // NIT: Drop "Flags", just pluralize it.
-internal enum RoomRequirementFlags
-{
-    None,
-    HasStaircase = 1 << 0,
-    HasFloorDrop = 1 << 1,
-    HasPushBlock = 1 << 2,
-    IsEntrance = 1 << 3,
-}
-
 [Flags]
 internal enum PathRequirements
 {
@@ -180,32 +252,11 @@ internal enum PathRequirements
     Food = 1 << 3,
 }
 
-internal readonly record struct DoorPair
+internal record OverworldState(GameWorld Overworld, ImmutableArray<DungeonState> Dungeons);
+
+internal readonly record struct DungeonItem(ItemId Item, Point Location, PathRequirements Requirements)
 {
-    private DoorPair(Direction From, Direction To)
-    {
-        this.From = From;
-        this.To = To;
-    }
-
-    public static DoorPair Create(Direction from, Direction to)
-    {
-        if (from == to) throw new Exception();
-
-        // This does make the assumption that if you can go from A to B, that you can go from B to A.
-        // I believe this to always be true.
-        return from < to ? new DoorPair(from, to) : new DoorPair(to, from);
-    }
-
-    public override string ToString() => $"{From}→{To}";
-    public Direction From { get; init; }
-    public Direction To { get; init; }
-
-    public void Deconstruct(out Direction from, out Direction to)
-    {
-        from = From;
-        to = To;
-    }
+    public override string ToString() => $"{Item} at ({Location.X},{Location.Y}) requires {Requirements}.";
 }
 
 internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, DungeonStats Stats, Point EntranceLocation)
@@ -216,7 +267,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         Point Point,
         ItemId Item = ItemId.None,
         GameRoom? GameRoom = null,
-        Direction RequiredDoors = Direction.None)
+        RoomEntrances RequiredDoors = RoomEntrances.None)
     {
         public bool IsSpecialRoom => Type is RoomType.FloorDrop or RoomType.ItemStaircase or RoomType.Entrance or RoomType.TransportStaircase;
         public GameRoom DemandGameRoom => GameRoom ?? throw new Exception("Room not fit.");
@@ -229,7 +280,8 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
         public override string ToString()
         {
-            return $"{(GameRoom?.UniqueId ?? "No room")} (point: {Point.X},{Point.Y}, type: {Type})";
+            var roomDescription = GameRoom?.UniqueId ?? "No room";
+            return $"{roomDescription} (point: {Point.X},{Point.Y}, type: {Type})";
         }
     }
 
@@ -239,7 +291,9 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
     private static readonly DebugLog _log = new(nameof(DungeonState), DebugLogDestination.File);
     private static bool IsValidPoint(Point p) => p.X is >= 0 and < _maxWidth && p.Y is >= 0 and < _maxHeight;
 
-    private ref Cell this[Point i] => ref Layout[i.X, i.Y];
+    public ImmutableArray<DungeonItem> DungeonItems { get; private set; } = [];
+
+    public ref Cell this[Point i] => ref Layout[i.X, i.Y];
     private bool _hasTransportsAttached;
     private bool _hasIdsUpdated;
     private bool _hasDoorsFit;
@@ -345,26 +399,23 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             for (var i = 0; i < count; i++)
             {
                 if (normalCells.Count == 0) throw new Exception();
-                var index = rng.Next(normalCells.Count);
-                var cellPoint = normalCells[index];
+                var cellPoint = normalCells.PopRandomly(rng);
                 ref var cell = ref layout[cellPoint.X, cellPoint.Y];
                 cell = cell with { Type = type };
-                normalCells.RemoveAt(index);
             }
         }
 
         void SetRoomItemRandomly(RoomType type, ItemId item)
         {
-            var cells = EachPoint()
+            var emptyItemCells = EachPoint()
                 .Select(t => layout[t.X, t.Y])
                 .Where(t => t.Type == type)
                 .Where(t => t.Item == ItemId.None)
                 .ToArray();
-            if (cells.Length == 0) throw new Exception();
+            if (emptyItemCells.Length == 0) throw new Exception();
 
-            var index = rng.Next(cells.Length);
-            var randomCell = cells[index];
-            var point = randomCell.Point;
+            var index = rng.Next(emptyItemCells.Length);
+            var point = emptyItemCells[index].Point;
             ref var cell = ref layout[point.X, point.Y];
             cell = cell with { Item = item };
             logger.Write($"{nameof(SetRoomItemRandomly)}: {item} in room at {point.X},{point.Y}.");
@@ -393,11 +444,11 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             if (cell.Type == RoomType.None) continue;
             if (!shouldFit(cell)) continue;
 
-            var adjoiningRooms = Direction.None;
-            if (IsValidPoint(point + new Point(-1, 0))) adjoiningRooms |= Direction.Left;
-            if (IsValidPoint(point + new Point(1, 0))) adjoiningRooms |= Direction.Right;
-            if (IsValidPoint(point + new Point(0, -1))) adjoiningRooms |= Direction.Up;
-            if (IsValidPoint(point + new Point(0, 1))) adjoiningRooms |= Direction.Down;
+            var adjoiningRooms = RoomEntrances.None;
+            if (IsValidPoint(point + new Point(-1, 0))) adjoiningRooms |= RoomEntrances.Left;
+            if (IsValidPoint(point + new Point(1, 0))) adjoiningRooms |= RoomEntrances.Right;
+            if (IsValidPoint(point + new Point(0, -1))) adjoiningRooms |= RoomEntrances.Up;
+            if (IsValidPoint(point + new Point(0, 1))) adjoiningRooms |= RoomEntrances.Down;
 
             // Find a room that meets the criteria.
             for (var i = 0; i < state.RandomDungeonRoomList.Count && cell.GameRoom == null; i++)
@@ -407,10 +458,10 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
                 // Some rooms such as the Princess room contain no stairs and have limited places doors can be. If this
                 // cell is invalid given those limitations then try the next room.
-                if ((adjoiningRooms & requirements.ConnectableDirections) == 0
+                if ((adjoiningRooms & requirements.ConnectableEntrances) == 0
                     && cell.Type != RoomType.TransportStaircase)
                 {
-                    logger.Error($"Unable to fit {room.UniqueId} to {cell}. adjoiningRooms: {adjoiningRooms}, ConnectableDirections: {requirements.ConnectableDirections}");
+                    logger.Error($"Unable to fit {room.UniqueId} to {cell}. adjoiningRooms: {adjoiningRooms}, ConnectableEntrances: {requirements.ConnectableEntrances}");
                     continue;
                 }
 
@@ -471,12 +522,14 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
     {
         foreach (var cell in GetValidCells())
         {
-            if (cell.GameRoom == null) throw new Exception($"Room at {cell.Point.X},{cell.Point.Y} not fit.");
+            if (cell.GameRoom == null) throw new Exception($"Room at {cell} not fit.");
         }
     }
 
     public void FitItems(RandomizerState state)
     {
+        DungeonItems = [];
+
         using var logger = _log.CreateScopedFunctionLog(Dungeon.UniqueId);
         for (var attempt = 0; attempt < 1000; ++attempt)
         {
@@ -520,11 +573,12 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                     }
 
                     state.DungeonItems.RemoveAt(i);
-                    logger.Write($"✅ Fit {item} in {cell} with requirements {requirements}.");
+                    logger.Write($"✅ Fit item {item} in {cell} with requirements {requirements}.");
+                    DungeonItems = DungeonItems.Add(new DungeonItem(item, cell.Point, requirements));
                     return item;
                 }
 
-                throw new RecoverableRandomizerException($"Failed to fit {item} into {cell}");
+                throw new RecoverableRandomizerException($"Failed to fit {item} into {cell}.");
             }
 
             // var requirementsList = TryWalkToRoom(EntranceLocation, cell.Point).ToArray();
@@ -608,13 +662,12 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         if (cells.Count > 0) throw new UnreachableCodeException();
     }
 
-    private readonly record struct TryWalkSearchPath(Point Point, PathRequirements Requirements, Direction EntryDirection);
-    private readonly record struct TryWalkVisited(Point Point, PathRequirements Requirements, Direction EntryDirection);
+    private readonly record struct TryWalkSearchPath(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
+    private readonly record struct TryWalkVisited(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
 
     private bool CanWalkToRoom(Point start, Point destination, bool ignoreDoors = false)
     {
-        foreach (var _ in TryWalkToRoom(start, destination, ignoreDoors)) return true;
-        return false;
+        return TryWalkToRoom(start, destination, ignoreDoors).Any();
     }
 
     private IEnumerable<PathRequirements> TryWalkToRoom(Point start, Point destination, bool ignoreDoors = false)
@@ -625,7 +678,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         // If we've visited a map before with identical set of requirements and entry point, then there's no reason to repeat it.
         var visited = new HashSet<TryWalkVisited>();
         var paths = new PriorityQueue<TryWalkSearchPath, long>();
-        paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, Direction.Down), 0);
+        paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.Down), 0);
         var seenRequirements = new HashSet<PathRequirements>();
 
         static long Distance(Point a, Point b, PathRequirements requirements)
@@ -703,13 +756,13 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             {
                 var transportRequirements = current.Requirements | RoomRequirements.GetStairRequirements(room);
                 paths.Enqueue(
-                    new TryWalkSearchPath(transportExit, transportRequirements, Direction.None),
+                    new TryWalkSearchPath(transportExit, transportRequirements, RoomEntrances.Stairs),
                     Distance(transportExit, destination, transportRequirements));
             }
 
             var roomRequirements = RoomRequirements.Get(room);
 
-            foreach (var direction in Direction.DoorDirectionOrder)
+            foreach (var direction in RoomEntrances.EntranceOrder)
             {
                 var next = current.Point + direction.GetOffset();
                 if (!IsValidPoint(next)) continue;
@@ -722,9 +775,9 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                     continue;
                 }
 
-                if (!roomRequirements.ConnectableDirections.HasFlag(direction))
+                if (!roomRequirements.ConnectableEntrances.HasFlag(direction))
                 {
-                    logger.Write($"❌ {room.Id} cannot go {direction} due to missing roomRequirements.ConnectableDirections.");
+                    logger.Write($"❌ {room.Id} cannot go {direction} due to missing roomRequirements.ConnectableEntrances.");
                     continue;
                 }
 
@@ -743,7 +796,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
                 logger.Write($"➡️ From {room.Id} going {direction}->{next.X},{next.Y} with requirements {requirements}.");
                 paths.Enqueue(
-                    new TryWalkSearchPath(next, requirements, direction.GetOppositeDirection()),
+                    new TryWalkSearchPath(next, requirements, direction.GetOpposite()),
                     Distance(next, destination, requirements));
             }
         }
@@ -800,10 +853,10 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         // as unreachable and create a heavy bias and predictable layout.
 
         _hasDoorsFit = true;
-        var directions = Direction.DoorDirectionOrder.ToArray();
+        var directions = RoomEntrances.EntranceOrder.ToArray();
         using var logger = _log.CreateScopedFunctionLog(Dungeon.UniqueId);
 
-        IEnumerable<(Point Location, Direction Direction)> GetAdjoiningRooms(Point point)
+        IEnumerable<(Point Location, RoomEntrances Direction)> GetAdjoiningRooms(Point point)
         {
             directions.Shuffle(rng);
             foreach (var direction in directions)
@@ -822,11 +875,11 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             foreach (var point in EachValidPoint())
             {
                 ref var cell = ref this[point];
-                cell = cell with { RequiredDoors = Direction.None };
+                cell = cell with { RequiredDoors = RoomEntrances.None };
             }
         }
 
-        void AddRequiredDoor(Point location, Direction direction)
+        void AddRequiredDoor(Point location, RoomEntrances direction)
         {
             ref var cell = ref this[location];
             cell = cell with { RequiredDoors = cell.RequiredDoors | direction };
@@ -834,7 +887,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             // This can OOB, but it should always be valid, or we've made an invalid map elsewhere.
             var adjoiningPoint = location + direction.GetOffset();
             ref var adjoining = ref this[adjoiningPoint];
-            adjoining = adjoining with { RequiredDoors = adjoining.RequiredDoors | direction.GetOppositeDirection() };
+            adjoining = adjoining with { RequiredDoors = adjoining.RequiredDoors | direction.GetOpposite() };
         }
 
         // We're going to mark-sweep this. The mark phase is clearing out all the doors on GameRooms.
@@ -855,23 +908,23 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             var loopCounter = 0;
 
             var requirements = RoomRequirements.Get(cell.DemandGameRoom);
-            if (requirements.ConnectableDirections == Direction.None)
+            if (requirements.ConnectableEntrances == RoomEntrances.None)
             {
                 logger.Write(GetDebugDisplay());
                 throw logger.Fatal($"Room {cell} has no connectable directions.");
             }
 
-            var connectableCount = Popcnt.PopCount((uint)requirements.ConnectableDirections);
+            var connectableCount = Popcnt.PopCount((uint)requirements.ConnectableEntrances);
             if (connectableCount == 1)
             {
-                var oneDirection = requirements.ConnectableDirections;
+                var oneDirection = requirements.ConnectableEntrances;
                 logger.Write($"Room {cell} has only one connectable direction ({oneDirection}).");
 
                 AddRequiredDoor(location, oneDirection);
                 continue;
             }
 
-            var canConnect = new List<(Point Location, Direction Direction)>();
+            var canConnect = new List<(Point Location, RoomEntrances Direction)>();
             foreach (var (nextLocation, direction) in GetAdjoiningRooms(location))
             {
                 // I _think_ pushing this prior to other checks is the correct move?
@@ -940,7 +993,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                     // Already has a door there.
                     if (cell.RequiredDoors.HasFlag(adjoining.Direction)) continue;
                     // Can't have a good there.
-                    if (!requirements.ConnectableDirections.HasFlag(adjoining.Direction)) continue;
+                    if (!requirements.ConnectableEntrances.HasFlag(adjoining.Direction)) continue;
 
                     AddRequiredDoor(cell.Point, adjoining.Direction);
                     logger.Write($"Randomly added door {adjoining.Direction} to {cell}.");

@@ -39,8 +39,8 @@ internal class RandomizerTests
 
     private static void Ensure(
         IReadOnlyDictionary<DoorPair, PathRequirements> requirements,
-        Direction start,
-        Direction end,
+        RoomEntrances start,
+        RoomEntrances end,
         PathRequirements expectedRequirements)
     {
         var key = DoorPair.Create(start, end);
@@ -74,9 +74,9 @@ internal class RandomizerTests
         // Left = open, top = bomb, right = door, down = blocked;
         var room = GetUnderworldRoom(0, 9, 5, 6);
         var requirements = RoomRequirements.Get(room).Paths;
-        Ensure(requirements, Direction.Right, Direction.Up, PathRequirements.Ladder);
-        Ensure(requirements, Direction.Left, Direction.Up, PathRequirements.Ladder);
-        Ensure(requirements, Direction.Left, Direction.Right, PathRequirements.None);
+        Ensure(requirements, RoomEntrances.Right, RoomEntrances.Up, PathRequirements.Ladder);
+        Ensure(requirements, RoomEntrances.Left, RoomEntrances.Up, PathRequirements.Ladder);
+        Ensure(requirements, RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None);
     }
 
     [Test]
@@ -86,22 +86,22 @@ internal class RandomizerTests
 
         var room = GetUnderworldRoom(0, 5, 4, 2);
         var requirements = RoomRequirements.Get(room).Paths;
-        Ensure(requirements, Direction.Right, Direction.Up, PathRequirements.Recorder);
-        Ensure(requirements, Direction.Down, Direction.Up, PathRequirements.Recorder);
-        Ensure(requirements, Direction.Right, Direction.Down, PathRequirements.None);
+        Ensure(requirements, RoomEntrances.Right, RoomEntrances.Up, PathRequirements.Recorder);
+        Ensure(requirements, RoomEntrances.Down, RoomEntrances.Up, PathRequirements.Recorder);
+        Ensure(requirements, RoomEntrances.Right, RoomEntrances.Down, PathRequirements.None);
     }
 
     [Test]
     // Has staircase against right wall, can only top the others.
-    [TestCase(0, 9, 3, 6, Direction.Up | Direction.Left | Direction.Down, TestName = "Stairs Right")]
+    [TestCase(0, 9, 3, 6, RoomEntrances.Up | RoomEntrances.Left | RoomEntrances.Down, TestName = "Stairs Right")]
     // The Princess's room.
-    [TestCase(0, 9, 2, 3, Direction.Down, TestName = "Princess")]
+    [TestCase(0, 9, 2, 3, RoomEntrances.Down, TestName = "Princess")]
     // Old man room in level 1 -- old man blocks passage up.
-    [TestCase(0, 1, 1, 4, Direction.Right | Direction.Left | Direction.Down, TestName = "Oldman")]
-    public void ValidWallsTest(int quest, int level, int x, int y, Direction expected)
+    [TestCase(0, 1, 1, 4, RoomEntrances.Right | RoomEntrances.Left | RoomEntrances.Down, TestName = "Oldman")]
+    public void ValidWallsTest(int quest, int level, int x, int y, RoomEntrances expected)
     {
         var room = GetUnderworldRoom(quest, level, x, y);
-        var directions = RoomRequirements.Get(room).ConnectableDirections;
+        var directions = RoomRequirements.Get(room).ConnectableEntrances;
         Assert.That(directions, Is.EqualTo(expected));
     }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Immutable;
 using z1.IO;
 
 namespace z1.Randomizer;
@@ -6,6 +7,31 @@ namespace z1.Randomizer;
 internal readonly record struct DungeonStats
 {
     private readonly record struct DoorProbability(int Probability, DoorType Type);
+
+    public static readonly ImmutableArray<ItemId> AllDungeonItems = [
+        // ItemId.WoodSword,
+        // ItemId.WhiteSword,
+        // ItemId.MagicSword,
+        // ItemId.Food,
+        ItemId.Recorder,
+        ItemId.BlueCandle,
+        ItemId.RedCandle,
+        // ItemId.WoodArrow,
+        ItemId.SilverArrow,
+        ItemId.Bow,
+        ItemId.MagicKey,
+        ItemId.Raft,
+        ItemId.Ladder,
+        // ItemId.PowerTriforce,
+        ItemId.Rod,
+        ItemId.Book,
+        // ItemId.BlueRing,
+        ItemId.RedRing,
+        ItemId.Bracelet,
+        // ItemId.Letter,
+        ItemId.WoodBoomerang,
+        ItemId.MagicBoomerang
+    ];
 
     private static readonly DoorType[] _significantDoorTypes = [DoorType.Open, DoorType.Key, DoorType.Bombable, DoorType.FalseWall, DoorType.Shutter];
     private static readonly DebugLog _log = new(nameof(DungeonStats));
@@ -50,29 +76,7 @@ internal readonly record struct DungeonStats
     }
 
     // Perhaps dynamically create this list?
-    private static bool IsDungeonItem(ItemId? item) => item
-        is ItemId.WoodSword
-        or ItemId.WhiteSword
-        or ItemId.MagicSword
-        or ItemId.Food
-        or ItemId.Recorder
-        or ItemId.BlueCandle
-        or ItemId.RedCandle
-        or ItemId.WoodArrow
-        or ItemId.SilverArrow
-        or ItemId.Bow
-        or ItemId.MagicKey
-        or ItemId.Raft
-        or ItemId.Ladder
-        or ItemId.PowerTriforce
-        or ItemId.Rod
-        or ItemId.Book
-        or ItemId.BlueRing
-        or ItemId.RedRing
-        or ItemId.Bracelet
-        or ItemId.Letter
-        or ItemId.WoodBoomerang
-        or ItemId.MagicBoomerang;
+    public static bool IsDungeonItem(ItemId? item) => item != null && AllDungeonItems.Contains(item.Value);
 
     private static bool HasItemStaircase(GameRoom room)
     {

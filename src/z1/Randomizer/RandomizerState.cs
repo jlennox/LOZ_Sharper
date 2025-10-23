@@ -30,31 +30,6 @@ internal sealed class RandomizerFlags
 
 internal sealed class RandomizerState
 {
-    private static readonly ImmutableArray<ItemId> _allDungeonItems = [
-        // ItemId.WoodSword,
-        // ItemId.WhiteSword,
-        // ItemId.MagicSword,
-        // ItemId.Food,
-        ItemId.Recorder,
-        ItemId.BlueCandle,
-        ItemId.RedCandle,
-        // ItemId.WoodArrow,
-        ItemId.SilverArrow,
-        ItemId.Bow,
-        ItemId.MagicKey,
-        ItemId.Raft,
-        ItemId.Ladder,
-        // ItemId.PowerTriforce,
-        ItemId.Rod,
-        ItemId.Book,
-        // ItemId.BlueRing,
-        ItemId.RedRing,
-        ItemId.Bracelet,
-        // ItemId.Letter,
-        ItemId.WoodBoomerang,
-        ItemId.MagicBoomerang
-    ];
-
     public int Seed { get; }
     public RandomizerFlags Flags { get; }
     public Random RoomListRandom { get; }
@@ -92,7 +67,7 @@ internal sealed class RandomizerState
     public void RerandomizeItemList()
     {
         DungeonItems.Clear();
-        DungeonItems.AddRangeRandomly(_allDungeonItems, ItemRandom);
+        DungeonItems.AddRangeRandomly(DungeonStats.AllDungeonItems, ItemRandom);
     }
 
     public void Initialize(IEnumerable<GameWorld> dungeons)
