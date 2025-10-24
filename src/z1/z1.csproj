@@ -21,7 +21,6 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\z1.SourceGenerator\z1.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <None Remove="font-addendum.png" />
     <None Remove="icon.ico" />
     <None Remove="UbuntuMono-Regular.ttf" />
