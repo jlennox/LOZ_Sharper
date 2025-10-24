@@ -208,10 +208,7 @@ internal sealed class GameCheats
         {
             game.World.KillAllObjects();
             var objects = game.World.GetObjects<InteractableBlockActor>().ToArray();
-            foreach (var obj in objects)
-            {
-                obj.DebugSetInteracted();
-            }
+            foreach (var obj in objects) obj.DebugSetInteracted();
             game.Toast("Killed all objects.");
         }
     }

@@ -211,15 +211,15 @@ public static class CaveExntranceEx
 
 public sealed class InteractionItemRequirement
 {
-    public ItemSlot ItemSlot { get; set; }
+    public ItemSlot Slot { get; set; }
     // Item needs to be "at least" this level. IE, if set to 1 and they have level 2, it still triggers.
-    public int ItemLevel { get; set; }
+    public int Level { get; set; }
 
     public InteractionItemRequirement() { }
-    public InteractionItemRequirement(ItemSlot itemSlot, int itemLevel)
+    public InteractionItemRequirement(ItemSlot slot, int level)
     {
-        ItemSlot = itemSlot;
-        ItemLevel = itemLevel;
+        Slot = slot;
+        Level = level;
     }
 }
 

@@ -779,6 +779,8 @@ internal abstract class GameMapObject
     public int Height { get; }
     public ImmutableDictionary<string, string> Properties { get; }
 
+    public Rectangle GetBounds() => new(X, Y, Width, Height);
+
     protected GameRoom Room { get; }
     protected TiledLayerObject LayerObject { get; }
 
@@ -798,6 +800,7 @@ internal abstract class GameMapObject
 
 internal sealed class RoomTileMap
 {
+    // In tiles.
     public int Width { get; }
     public int Height { get; }
 

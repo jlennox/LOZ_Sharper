@@ -23,18 +23,25 @@ internal readonly record struct DoorPair
     }
 
     // Returns each unique pair of directions.
-    public static IEnumerable<DoorPair> GetAllPairs(bool includeStairs)
+    public static IEnumerable<DoorPair> GetAllPairs(GameRoom room)
     {
         var seen = new HashSet<DoorPair>();
-        var startingEntrances = includeStairs ? RoomEntrances.EntranceOrderWithStairs : RoomEntrances.EntranceOrder;
 
-        foreach (var start in startingEntrances)
+        foreach (var start in RoomEntrances.EntranceOrderWithStairs)
         {
             foreach (var end in RoomEntrances.EntranceOrder)
             {
                 if (start == end) continue;
                 var pair = Create(start, end);
                 if (seen.Add(pair)) yield return pair;
+            }
+        }
+
+        if (room.EntryPosition != null)
+        {
+            foreach (var end in RoomEntrances.EntranceOrderWithStairs)
+            {
+                yield return Create(RoomEntrances.Entry, end);
             }
         }
     }

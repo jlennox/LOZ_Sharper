@@ -84,6 +84,11 @@ internal struct Rectangle
         Width = size.Width;
         Height = size.Height;
     }
+
+    public bool IntersectsWith(Rectangle rect)
+    {
+        return rect.Left < Right && Left < rect.Right && rect.Top < Bottom && Top < rect.Bottom;
+    }
 }
 
 [DebuggerDisplay("{Width},{Height}")]

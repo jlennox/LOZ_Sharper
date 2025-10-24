@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using z1.IO;
 
 namespace z1.Randomizer;
@@ -13,7 +14,7 @@ internal enum RoomRequirementFlags
     IsEntrance = 1 << 3,
 }
 
-
+// _Technically,_ these things can also have "level" requirements. IE, Ganon requires Arrow level 2.
 [Flags]
 internal enum PathRequirements
 {
@@ -23,6 +24,7 @@ internal enum PathRequirements
     Arrow = 1 << 2,
     Food = 1 << 3,
     Raft = 1 << 4,
+    Bracelet = 1 << 5,
 }
 
 internal readonly record struct RoomRequirements(
@@ -101,6 +103,14 @@ internal readonly record struct RoomRequirements(
                 return behavior.CanWalk();
             }
 
+            Point PointFromObjectSpace(int x, int y)
+            {
+                var tileX = x / room.TileWidth;
+                var tileY = y / room.TileHeight;
+                // Sometimes we'll be starting on a half tile, so be sure to round them out.
+                return new Point(tileX - (tileX % 2), tileY - (tileY % 2));
+            }
+
             var raftEntrance = GetRaftEntrance(room, out var raftPoint);
             if (entrance == raftEntrance)
             {
@@ -111,17 +121,30 @@ internal readonly record struct RoomRequirements(
 
             requirements = PathRequirements.None;
 
-            if (entrance == RoomEntrances.Stairs)
+            switch (entrance)
             {
-                var caveEntrance = room.InteractableBlockObjects.FirstOrDefault(static t => t.Interaction.Entrance != null);
-                if (caveEntrance != null)
+                case RoomEntrances.Stairs:
                 {
-                    points = [new Point(caveEntrance.X / room.TileWidth, caveEntrance.Y / room.TileHeight)];
-                    return true;
-                }
+                    var caveEntrance = room.InteractableBlockObjects.FirstOrDefault(static t => t.Interaction.Entrance != null);
+                    if (caveEntrance != null)
+                    {
+                        points = [PointFromObjectSpace(caveEntrance.X, caveEntrance.Y)];
+                        return true;
+                    }
 
-                points = [];
-                return false;
+                    points = [];
+                    return false;
+                }
+                case RoomEntrances.Entry:
+                    var entry = room.EntryPosition;
+                    if (entry != null)
+                    {
+                        points = [PointFromObjectSpace(entry.X, entry.Y)];
+                        return true;
+                    }
+
+                    points = [];
+                    return false;
             }
 
             IEnumerable<Point> XRange(int y)
@@ -244,6 +267,104 @@ internal readonly record struct RoomRequirements(
         return GetRoomPathsCore(room, TryGetLocationInfrontOfEntrance);
     }
 
+    private enum PathTileBehavior { Solid, Walkable, Water, Bracelet }
+
+    private readonly record struct PathBehaviorMap
+    {
+        // Contains Tile space information but only stores Block space data.
+        // Meaning, the top left of each block contains the behavior, but the other 3 tiles in the block are ignored.
+        public int Width { get; init; }
+        public int Height { get; init; }
+        public PathTileBehavior[,] Behaviors { get; init; }
+
+        public PathTileBehavior this[Point point] => Behaviors[point.X, point.Y];
+        public PathTileBehavior this[int x, int y] => Behaviors[x, y];
+
+        private PathBehaviorMap(int width, int height, PathTileBehavior[,] behaviors)
+        {
+            Width = width;
+            Height = height;
+            Behaviors = behaviors;
+        }
+
+        public bool IsValid(Point point) => point.X >= 0 && point.X < Width && point.Y >= 0 && point.Y < Height;
+
+        public static PathBehaviorMap Create(GameRoom room)
+        {
+            var width = room.RoomMap.Width;
+            var height = room.RoomMap.Height;
+            var behaviorMap = new PathTileBehavior[width, height];
+            for (var y = 0; y < room.RoomMap.Height; y += ZPoint.TilesPerBlock)
+            {
+                for (var x = 0; x < room.RoomMap.Width; x += ZPoint.TilesPerBlock)
+                {
+                    var behavior = room.RoomMap.Behavior(x, y);
+                    if (behavior == TileBehavior.Water)
+                    {
+                        behaviorMap[x, y] = PathTileBehavior.Water;
+                        continue;
+                    }
+
+                    if (behavior.CanWalk() || behavior == TileBehavior.Door)
+                    {
+                        behaviorMap[x, y] = PathTileBehavior.Walkable;
+                        continue;
+                    }
+
+                    var worldX = x * ZPoint.TileSize;
+                    var worldY = y * ZPoint.TileSize;
+                    var bounds = new Rectangle(worldX, worldY, ZPoint.TileSize, ZPoint.TileSize);
+                    var objs = room.InteractableBlockObjects.SingleOrDefault(t => t.GetBounds().IntersectsWith(bounds));
+                    if (objs?.Interaction is
+                        {
+                            Interaction: Interaction.Push or Interaction.PushVertical,
+                            ItemRequirement.Slot: ItemSlot.Bracelet
+                        })
+                    {
+                        behaviorMap[x, y] = PathTileBehavior.Bracelet;
+                        continue;
+                    }
+
+                    // Mark these as walkable because some will be hidden under bombable walls, etc, and wont be
+                    // in the normal behavior map.
+                    if (objs?.Interaction is { Entrance: not null })
+                    {
+                        behaviorMap[x, y] = PathTileBehavior.Walkable;
+                        continue;
+                    }
+
+                    behaviorMap[x, y] = PathTileBehavior.Solid;
+                }
+            }
+
+            return new PathBehaviorMap(width, height, behaviorMap);
+        }
+
+        public string ToDebugString()
+        {
+            var sb = new StringBuilder();
+
+            for (var y = 0; y < Height; y += ZPoint.TilesPerBlock)
+            {
+                for (var x = 0; x < Width; x += ZPoint.TilesPerBlock)
+                {
+                    sb.Append(this[x, y] switch
+                    {
+                        PathTileBehavior.Solid => 'X',
+                        PathTileBehavior.Walkable => '.',
+                        PathTileBehavior.Water => '~',
+                        PathTileBehavior.Bracelet => 'B',
+                        _ => '?',
+                    });
+                }
+
+                sb.AppendLine();
+            }
+
+            return sb.ToString();
+        }
+    }
+
     private static RoomPaths GetRoomPathsCore(GameRoom room, TryGetLocationInfrontOfEntrance tryGetLocationInfrontOfEntrance)
     {
         // The original unique room ID was a reference to the specific room layout. Monsters/doors/etc was contained
@@ -266,9 +387,12 @@ internal readonly record struct RoomRequirements(
         var visited = new HashSet<DoorToDoorSearchPath>();
         var validEntrances = RoomEntrances.None;
 
+        var behaviorMap = PathBehaviorMap.Create(room);
+        var asdasdsd = behaviorMap.ToDebugString();
+
         // Walk from each door to each other door, and record if a ladder was required.
         // Direction.None is used for transport entrances.
-        foreach (var doorPair in DoorPair.GetAllPairs(true))
+        foreach (var doorPair in DoorPair.GetAllPairs(room))
         {
             var fromIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.From, out var fromLocations, out var fromRequirements);
             var toIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.To, out var toLocations, out var toRequirements);
@@ -296,7 +420,9 @@ internal readonly record struct RoomRequirements(
                 var from = new DoorToDoorSearchPath(fromLocation, fromRequirements | toRequirements);
                 var to = new DoorToDoorSearchPath(toLocation, PathRequirements.None);
 
-                logger.Enter($"Searching path for {doorPair}...");
+                void Enqueue(DoorToDoorSearchPath path) => walkingSearch.Enqueue(path, to.Distance(path));
+
+                logger.Enter($"Searching path for {doorPair} ({fromLocation.X},{fromLocation.Y})->({toLocation.X},{toLocation.Y})...");
 
                 walkingSearch.Clear();
                 visited.Clear();
@@ -337,33 +463,36 @@ internal readonly record struct RoomRequirements(
                         if (!room.RoomMap.IsValid(next.X, next.Y)) continue;
                         if (visited.Contains(next)) continue;
 
-                        var nextBehavior = room.RoomMap.Behavior(next.X, next.Y);
-                        if (nextBehavior == TileBehavior.Water)
+                        var nextBehavior = behaviorMap[next.X, next.Y];
+                        switch (nextBehavior)
                         {
-                            var behavior = room.RoomMap.Behavior(current.X, current.Y);
-
-                            // The ladder can only cross a single water tile. Do not allow crossing multiple water tiles.
-                            if (behavior == TileBehavior.Water)
+                            case PathTileBehavior.Water:
                             {
-                                logger.Write($"❌ Cannot move to {next} -- already in water.");
+                                var behavior = behaviorMap[current.X, current.Y];
+
+                                // The ladder can only cross a single water tile. Do not allow crossing multiple water tiles.
+                                if (behavior == PathTileBehavior.Water)
+                                {
+                                    logger.Write($"❌ Cannot move to {next} -- already in water.");
+                                    continue;
+                                }
+
+                                // If we've determined there's a path with a ladder, do not attempt additional ones.
+                                if (hasLadderedPath)
+                                {
+                                    logger.Write($"❌ Cannot move to {next} -- already have a laddered path.");
+                                    continue;
+                                }
+
+                                Enqueue(next.WithRequirement(PathRequirements.Ladder));
                                 continue;
                             }
-
-                            // If we've determined there's a path with a ladder, do not attempt additional ones.
-                            if (hasLadderedPath)
-                            {
-                                logger.Write($"❌ Cannot move to {next} -- already have a laddered path.");
+                            case PathTileBehavior.Bracelet:
+                                Enqueue(next.WithRequirement(PathRequirements.Bracelet));
                                 continue;
-                            }
-
-                            walkingSearch.Enqueue(next.WithRequirement(PathRequirements.Ladder), to.Distance(next));
-                            continue;
-                        }
-
-                        if (nextBehavior.CanWalk() || nextBehavior == TileBehavior.Door)
-                        {
-                            walkingSearch.Enqueue(next, to.Distance(next));
-                            continue;
+                            case PathTileBehavior.Walkable:
+                                Enqueue(next);
+                                continue;
                         }
 
                         logger.Write($"❌ Cannot move to {next} -- behavior {nextBehavior}.");

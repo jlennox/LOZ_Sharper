@@ -197,8 +197,8 @@ internal abstract partial class InteractableActor<T> : Actor, IInteractableActor
     {
         var requirement = Interactable.ItemRequirement;
         if (requirement == null) return true;
-        var actualValue = World.GetItem(requirement.ItemSlot);
-        return actualValue >= requirement.ItemLevel;
+        var actualValue = World.GetItem(requirement.Slot);
+        return actualValue >= requirement.Level;
     }
 }
 

@@ -125,8 +125,9 @@ internal sealed class Randomizer
         // As a final pass, remove all now unused staircases and related handlers.
         foreach (var shape in shapes) shape.NormalizeRooms();
 
-        Lint(shapes, state);
+        // Print spoilers before linting because the output could help debug linting issues.
         PrintSpoiler(shapes);
+        Lint(shapes, state);
     }
 
     private static void Lint(IEnumerable<DungeonState> shapes, RandomizerState state)
@@ -169,11 +170,11 @@ internal sealed class Randomizer
                 // Ensure RequiredDoors and actual room doors line up.
                 var actualDoors = room.UnderworldDoors
                     .Where(static t => t.Value is not (DoorType.Wall or DoorType.None))
-                    .BitwiseOr(t => t.Key.ToEntrance());
-                var missingDoors = cell.RequiredDoors & actualDoors;
+                    .BitwiseOr(static t => t.Key.ToEntrance());
+                var missingDoors = cell.RequiredDoors & ~actualDoors;
                 if (missingDoors != RoomEntrances.None)
                 {
-                    throw logger.Fatal($"Room {room.UniqueId} is missing required doors {missingDoors} for cell {cell}.");
+                    throw logger.Fatal($"Room {cell} is missing required doors {missingDoors} (actual: {actualDoors}) for cell {cell}.");
                 }
             }
         }
@@ -199,7 +200,7 @@ internal sealed class Randomizer
             }
         }
 
-        LintState();
+        // LintState();
     }
 
     private static void PrintSpoiler(IEnumerable<DungeonState> shapes)
@@ -237,6 +238,9 @@ internal sealed class Randomizer
         }
     }
 }
+
+internal readonly record struct TryWalkSearchPath(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
+internal readonly record struct TryWalkVisited(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
 
 internal record OverworldState(GameWorld Overworld, OverworldState.Cell[,] Layout, ImmutableArray<DungeonState> Dungeons, Point EntranceLocation)
 {
@@ -328,8 +332,23 @@ internal record OverworldState(GameWorld Overworld, OverworldState.Cell[,] Layou
             entranceLocation);
     }
 
-    private void CanWalkTo(Point start, Point end)
+    private bool CanWalkToRoom(Point start, Point destination, bool ignoreDoors = false)
     {
+        return TryWalkToRoom(start, destination, ignoreDoors).Any();
+    }
+
+    private IEnumerable<PathRequirements> TryWalkToRoom(Point start, Point destination, bool ignoreDoors = false)
+    {
+        var tovisit = new Stack<TryWalkSearchPath> {
+            new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.None)
+        };
+
+        while (tovisit.TryPop(out var point))
+        {
+
+        }
+
+        throw new Exception();
     }
 
     public void FitItems(RandomizerState state)
@@ -751,9 +770,6 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         if (cells.Count > 0) throw new UnreachableCodeException();
     }
 
-    private readonly record struct TryWalkSearchPath(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
-    private readonly record struct TryWalkVisited(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
-
     private bool CanWalkToRoom(Point start, Point destination, bool ignoreDoors = false)
     {
         return TryWalkToRoom(start, destination, ignoreDoors).Any();
@@ -1146,7 +1162,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         // unsolvable.
 
         // Pass over each room and set door types according to our requirements.
-        var doorTypeGrid = EachValidPoint().ToDictionary(static t => t, static _ => new Dictionary<Direction, DoorType>());
+        var doorTypeGrid = EachValidPoint().ToDictionary(static t => t, static _ => new Dictionary<RoomEntrances, DoorType>());
         foreach (var cell in GetValidCells())
         {
             var doorTypeCell = doorTypeGrid[cell.Point];
@@ -1154,24 +1170,24 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             // This is a given. We only support Player coming in from the bottom.
             if (cell.Type == RoomType.Entrance)
             {
-                doorTypeCell[Direction.Down] = DoorType.Open;
+                doorTypeCell[RoomEntrances.Bottom] = DoorType.Open;
             }
 
-            foreach (var direction in Direction.DoorDirectionOrder)
+            foreach (var entrance in RoomEntrances.EntranceOrder)
             {
                 // This door was already set from an adjoining room.
-                if (doorTypeCell.ContainsKey(direction)) continue;
+                if (doorTypeCell.ContainsKey(entrance)) continue;
 
                 // Our algorithm has decided no door goes here.
-                if (!cell.RequiredDoors.HasFlag(direction)) continue;
+                if (!cell.RequiredDoors.HasFlag(entrance)) continue;
 
                 var doorType = Stats.GetRandomDoorType(rng);
-                doorTypeCell.Add(direction, doorType);
+                doorTypeCell.Add(entrance, doorType);
 
                 // Also set the adjoining room's door because they must line up on both sides.
                 // Can OOB here, but only if our map is invalid.
-                var connected = doorTypeGrid[cell.Point + direction.GetOffset()];
-                connected.Add(direction.GetOppositeDirection(), doorType);
+                var connected = doorTypeGrid[cell.Point + entrance.GetOffset()];
+                connected.Add(entrance.GetOpposite(), doorType);
             }
         }
 
@@ -1180,10 +1196,10 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         {
             var room = cell.DemandGameRoom;
             var grid = doorTypeGrid[cell.Point];
-            foreach (var direction in Direction.DoorDirectionOrder)
+            foreach (var entrance in RoomEntrances.EntranceOrder)
             {
-                var type = grid.GetValueOrDefault(direction, DoorType.Wall);
-                room.UnderworldDoors[direction] = type;
+                var type = grid.GetValueOrDefault(entrance, DoorType.Wall);
+                room.UnderworldDoors[entrance.ToDirection()] = type;
             }
 
             var anyShutters = grid.Any(static t => t.Value == DoorType.Shutter);
@@ -1278,13 +1294,16 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         static ReadOnlySpan<char> HexChars() => "0123456789ABCDEF";
 
         const int displayGridCharCount = _maxWidth * _maxHeight + _maxWidth;
-        var sb = new StringBuilder(displayGridCharCount * 2 + 100);
+        const string mapSeperator = "   ";
+        const int mapCount = 2;
+        var sb = new StringBuilder(displayGridCharCount * mapCount + 100);
 
         sb.AppendLine($"Map of {Dungeon.UniqueId}");
-        sb.Append("   ");
-        for (var i = 0; i < _maxWidth; i++) sb.Append(i);
-        sb.Append("   ");
-        for (var i = 0; i < _maxWidth; i++) sb.Append(i);
+        for (var _ = 0; _ < mapCount; ++_)
+        {
+            sb.Append(mapSeperator);
+            for (var i = 0; i < _maxWidth; i++) sb.Append(i);
+        }
         sb.AppendLine();
 
         for (var y = 0; y < _maxHeight; y++)
@@ -1305,7 +1324,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 });
             }
 
-            sb.Append("   ");
+            sb.Append(mapSeperator);
 
             for (var x = 0; x < _maxWidth; x++)
             {

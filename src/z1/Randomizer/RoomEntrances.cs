@@ -3,15 +3,20 @@ using System.Collections.Immutable;
 
 namespace z1.Randomizer;
 
+// This is different enough from Direction that it deserves its own value.
+// Notably, Stairs. Before Direction.None was re-used for stairs, but you can't
+// test a bitwise value set for 0.
+// This may want to be propagated into the actual game logic later?
 [Flags]
 internal enum RoomEntrances
 {
     None = 0,
-    Right = 1 << 0,
-    Left = 1 << 1,
-    Bottom = 1 << 2,
-    Top = 1 << 3,
-    Stairs = 1 << 4,
+    Right = 1,
+    Left = 2,
+    Bottom = 4,
+    Top = 8,
+    Stairs = 16,
+    Entry = 32, // In the overworld when you spawn in.
 }
 
 internal static class Extensions
@@ -51,6 +56,16 @@ internal static class Extensions
     {
         null => RoomEntrances.None,
         _ => ToEntrance(direction.Value),
+    };
+
+    public static Direction ToDirection(this RoomEntrances entrance) => entrance switch
+    {
+        RoomEntrances.None => Direction.None,
+        RoomEntrances.Right => Direction.Right,
+        RoomEntrances.Left => Direction.Left,
+        RoomEntrances.Bottom => Direction.Down,
+        RoomEntrances.Top => Direction.Up,
+        _ => throw new Exception(),
     };
 
     extension(RoomEntrances)

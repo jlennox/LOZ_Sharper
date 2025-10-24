@@ -83,6 +83,7 @@ internal sealed class DebugLogWriter : IDisposable
     private static readonly Lazy<string> _logErrorFile = new(() => Path.Combine(Directories.Save, Path.Combine("logs-error.txt")));
 
     private readonly CancellationTokenSource _cts = new();
+    private readonly CancellationTokenSource _exiting = new();
     private readonly AutoResetEvent _linesAvailableEvent = new(false);
     private readonly ConcurrentQueue<LogEntry> _entries = new();
     private readonly Thread _thread;
@@ -97,6 +98,14 @@ internal sealed class DebugLogWriter : IDisposable
             Priority = ThreadPriority.BelowNormal,
         };
         _thread.Start();
+
+        // 'eh, I'm not sure this works. I had a thread.sleep in the main loop to help bulk writes, but
+        // this didn't cause it to drain before a task exited.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            _exiting.Cancel();
+            Dispose(); // force drain before exit
+        };
     }
 
     private void WriterThread()
@@ -104,7 +113,7 @@ internal sealed class DebugLogWriter : IDisposable
         using var fs = File.Open(_logFile.Value, FileMode.Create, FileAccess.Write, FileShare.Read);
         using var fs2 = File.Open(_logErrorFile.Value, FileMode.Create, FileAccess.Write, FileShare.Read);
         var reusedbuffer = new byte[5 * 1024];
-        var waitEvents = new[] { _linesAvailableEvent, _cts.Token.WaitHandle };
+        var waitEvents = new[] { _linesAvailableEvent, _cts.Token.WaitHandle, _exiting.Token.WaitHandle };
 
         while (!_cts.IsCancellationRequested)
         {
@@ -145,9 +154,6 @@ internal sealed class DebugLogWriter : IDisposable
             // TODO: Actual log rotation.
             if (fs.Length > _maxLogSize) fs.SetLength(0);
             if (fs2.Length > _maxLogSize) fs2.SetLength(0);
-
-            // Give a mild amount of time to allow multiple lines to build back up.
-            Thread.Sleep(100);
 
             WaitHandle.WaitAny(waitEvents);
         }
