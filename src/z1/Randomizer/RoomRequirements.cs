@@ -32,7 +32,11 @@ internal readonly record struct RoomRequirements(
     InteractableBlockObject? PushBlock,
     InteractableBlockObject? Staircase)
 {
-    private delegate bool TryGetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance, out Point point, out PathRequirements requirements);
+    private delegate bool TryGetLocationInfrontOfEntrance(
+        GameRoom room,
+        RoomEntrances entrance,
+        out Point[] point,
+        out PathRequirements requirements);
 
     private readonly record struct RoomPaths(Dictionary<DoorPair, PathRequirements> Paths, RoomEntrances ValidEntrances);
 
@@ -85,59 +89,82 @@ internal readonly record struct RoomRequirements(
             return direction.ToEntrance();
         }
 
-        static bool TryGetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance, out Point point, out PathRequirements requirements)
+        static bool TryGetLocationInfrontOfEntrance(
+            GameRoom room,
+            RoomEntrances entrance,
+            out Point[] points,
+            out PathRequirements requirements)
         {
-            bool TryPoint(int x, int y, out Point point)
+            bool CanWalkOnPoint(Point point)
             {
-                var behavior = room.RoomMap.Behavior(x, y);
-                if (behavior.CanWalk())
-                {
-                    point = new Point(x, y);
-                    return true;
-                }
-
-                point = default;
-                return false;
+                var behavior = room.RoomMap.Behavior(point.X, point.Y);
+                return behavior.CanWalk();
             }
 
             var raftEntrance = GetRaftEntrance(room, out var raftPoint);
             if (entrance == raftEntrance)
             {
                 requirements = PathRequirements.Raft;
-                point = raftPoint;
+                points = [raftPoint];
                 return true;
             }
 
             requirements = PathRequirements.None;
-            if (entrance is RoomEntrances.Left or RoomEntrances.Right)
-            {
-                var x = entrance == RoomEntrances.Right ? room.Width - ZPoint.TilesPerBlock : 0;
 
-                for (var y = 0; y < room.Height; y += ZPoint.TilesPerBlock)
-                {
-                    if (TryPoint(x, y, out point)) return true;
-                }
-            }
-            if (entrance is RoomEntrances.Top or RoomEntrances.Bottom)
-            {
-                var y = entrance == RoomEntrances.Bottom ? room.Height - ZPoint.TilesPerBlock : 0;
-                for (var x = 0; x < room.Width; x += ZPoint.TilesPerBlock)
-                {
-                    if (TryPoint(x, y, out point)) return true;
-                }
-            }
-            else if (entrance == RoomEntrances.Stairs)
+            if (entrance == RoomEntrances.Stairs)
             {
                 var caveEntrance = room.InteractableBlockObjects.FirstOrDefault(static t => t.Interaction.Entrance != null);
                 if (caveEntrance != null)
                 {
-                    point = new Point(caveEntrance.X / room.TileWidth, caveEntrance.Y / room.TileHeight);
+                    points = [new Point(caveEntrance.X / room.TileWidth, caveEntrance.Y / room.TileHeight)];
                     return true;
                 }
+
+                points = [];
+                return false;
             }
 
-            point = default;
-            return false;
+            IEnumerable<Point> XRange(int y)
+            {
+                for (var x = 0; x < room.Width; x += ZPoint.TilesPerBlock) yield return new Point(x, y);
+            }
+
+            IEnumerable<Point> YRange(int x)
+            {
+                for (var y = 0; y < room.Height; y += ZPoint.TilesPerBlock) yield return new Point(x, y);
+            }
+
+            var range = entrance switch
+            {
+                RoomEntrances.Right => YRange(room.Width - ZPoint.TilesPerBlock),
+                RoomEntrances.Left => YRange(0),
+                RoomEntrances.Top => XRange(0),
+                RoomEntrances.Bottom => XRange(room.Height - ZPoint.TilesPerBlock),
+                _ => throw new Exception(),
+            };
+
+            // We want to find the first in each series that is uninterrupted.
+            // _ = walkable, X = non-walkable.
+            // __X__
+            // Should return (0,0), and (3,0). Because these are used for walking sources/destinations, it can be
+            // assumed that in the above example, if you can walk from (0,0), then (0,1) is equivalent because they are
+            // connected.
+            var foundPoints = new List<Point>();
+            var lastFound = false;
+            foreach (var point in range)
+            {
+                if (CanWalkOnPoint(point))
+                {
+                    if (!lastFound) foundPoints.Add(point);
+                    lastFound = true;
+                    continue;
+                }
+
+                lastFound = false;
+            }
+
+            points = foundPoints.ToArray();
+            return foundPoints.Count > 0;
         }
 
         return GetRoomPathsCore(room, TryGetLocationInfrontOfEntrance);
@@ -150,23 +177,29 @@ internal readonly record struct RoomRequirements(
         // The location "infront" of the door is used. This is where the player needs to walk to to be able to get to
         // the door. Our map data may not have "doors" actually assigned to this room, so we can't search for them
         // directly.
-        static bool TryGetLocationInfrontOfEntrance(GameRoom room, RoomEntrances entrance, out Point point, out PathRequirements requirements)
+        static bool TryGetLocationInfrontOfEntrance(
+            GameRoom room,
+            RoomEntrances entrance,
+            out Point[] points,
+            out PathRequirements requirements)
         {
             requirements = PathRequirements.None;
             // All cave people block upward movement, except grumbles which can be removed.
             var hasOldMan = room.CaveSpec != null && room.CaveSpec.PersonType != PersonType.Grumble;
             if (hasOldMan && entrance == RoomEntrances.Top)
             {
-                point = default;
+                points = default;
                 return false;
             }
 
             if (entrance == RoomEntrances.Stairs)
             {
-                return TryGetTransportExitPosition(room, out point);
+                var found = TryGetTransportExitPosition(room, out var stairsPoint);
+                points = found ? [stairsPoint] : [];
+                return found;
             }
 
-            point = entrance switch
+            var point = entrance switch
             {
                 RoomEntrances.Right => new Point(13 * ZPoint.TilesPerBlock, 5 * ZPoint.TilesPerBlock),
                 RoomEntrances.Left => new Point(2 * ZPoint.TilesPerBlock, 5 * ZPoint.TilesPerBlock),
@@ -177,7 +210,9 @@ internal readonly record struct RoomRequirements(
 
             var behavior = room.RoomMap.Behavior(point.X, point.Y);
             // Do not use CanWalk because we need to detect Stairs as invalid entrance locations.
-            return behavior is TileBehavior.GenericWalkable or TileBehavior.Sand;
+            var isWalkable = behavior is TileBehavior.GenericWalkable or TileBehavior.Sand;
+            points = isWalkable ? [point] : [];
+            return isWalkable;
         }
 
         // Technically... there can be multiple exit locations. The original game only used a static value for all
@@ -235,109 +270,113 @@ internal readonly record struct RoomRequirements(
         // Direction.None is used for transport entrances.
         foreach (var doorPair in DoorPair.GetAllPairs(true))
         {
-            var fromIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.From, out var fromLocation, out var fromRequirements);
-            var toIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.To, out var toLocation, out var toRequirements);
+            var fromIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.From, out var fromLocations, out var fromRequirements);
+            var toIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.To, out var toLocations, out var toRequirements);
 
             if (fromIsValid) validEntrances |= doorPair.From;
             if (toIsValid) validEntrances |= doorPair.To;
 
             if (!fromIsValid)
             {
-                logger.Write($"❌ Skipping path for {doorPair} -- no valid location infront of entrance {doorPair.From}.");
+                logger.Write($"❌ Skipping path for {doorPair} -- no valid location for entrance {doorPair.From}.");
                 continue;
             }
 
             if (!toIsValid)
             {
-                logger.Write($"❌ Skipping path for {doorPair} -- no valid location infront of entrance {doorPair.To}.");
+                logger.Write($"❌ Skipping path for {doorPair} -- no valid location for entrance {doorPair.To}.");
                 continue;
             }
 
-            var asdasda = room.RoomMap.DebugDisplay();
-
-            // Since our directions are treated ambidextrously, both requirements go on the "from" path. IE, if you can
-            // leave this room with the raft, then you must also need the raft to enter it.
-            var from = new DoorToDoorSearchPath(fromLocation, fromRequirements | toRequirements);
-            var to = new DoorToDoorSearchPath(toLocation, PathRequirements.None);
-
-            logger.Enter($"Searching path for {doorPair}...");
-
-            walkingSearch.Clear();
-            visited.Clear();
-            walkingSearch.Enqueue(from, 0);
-
-            var hasLadderedPath = false;
-            var foundPathWithNoLadder = false;
-
-            while (walkingSearch.TryDequeue(out var current, out _))
+            var entranceLocations = fromLocations.SelectMany(_ => toLocations, static (fromLoc, toLoc) => (fromLoc, toLoc));
+            foreach (var (fromLocation, toLocation) in entranceLocations)
             {
-                if (!visited.Add(current)) continue;
-                if (current.SamePoint(to))
+                // Since our directions are treated ambidextrously, both requirements go on the "from" path. IE, if you can
+                // leave this room with the raft, then you must also need the raft to enter it.
+                var from = new DoorToDoorSearchPath(fromLocation, fromRequirements | toRequirements);
+                var to = new DoorToDoorSearchPath(toLocation, PathRequirements.None);
+
+                logger.Enter($"Searching path for {doorPair}...");
+
+                walkingSearch.Clear();
+                visited.Clear();
+                walkingSearch.Enqueue(from, 0);
+
+                var hasLadderedPath = false;
+                var foundPathWithNoLadder = false;
+
+                while (walkingSearch.TryDequeue(out var current, out _))
                 {
-                    // TODO: The way this works with `RequiresLadder` instead of generic requirements isn't the best
-                    // now that other requirements than ladder exists.
-                    if (!current.RequiresLadder)
+                    if (!visited.Add(current)) continue;
+                    if (current.SamePoint(to))
                     {
-                        paths.Add(doorPair, current.Requirements);
-                        foundPathWithNoLadder = true;
-                        logger.Write($"✅ Found path for {doorPair}.");
-                        break;
+                        // TODO: The way this works with `RequiresLadder` instead of generic requirements isn't the best
+                        // now that other requirements than ladder exists. I believe it's still _logically_ correct
+                        // given the map design.
+                        if (!current.RequiresLadder)
+                        {
+                            paths.Add(doorPair, current.Requirements);
+                            foundPathWithNoLadder = true;
+                            logger.Write($"✅ Found path for {doorPair}.");
+                            break;
+                        }
+
+                        hasLadderedPath = true;
                     }
 
-                    hasLadderedPath = true;
-                }
-
-                static IEnumerable<DoorToDoorSearchPath> Neighbors(DoorToDoorSearchPath path)
-                {
-                    yield return path with { X = path.X - movementSize };
-                    yield return path with { X = path.X + movementSize };
-                    yield return path with { Y = path.Y - movementSize };
-                    yield return path with { Y = path.Y + movementSize };
-                }
-
-
-                foreach (var next in Neighbors(current))
-                {
-                    if (!room.RoomMap.IsValid(next.X, next.Y)) continue;
-                    if (visited.Contains(next)) continue;
-
-                    var nextBehavior = room.RoomMap.Behavior(next.X, next.Y);
-                    if (nextBehavior == TileBehavior.Water)
+                    static IEnumerable<DoorToDoorSearchPath> Neighbors(DoorToDoorSearchPath path)
                     {
-                        var behavior = room.RoomMap.Behavior(current.X, current.Y);
+                        yield return path with { X = path.X - movementSize };
+                        yield return path with { X = path.X + movementSize };
+                        yield return path with { Y = path.Y - movementSize };
+                        yield return path with { Y = path.Y + movementSize };
+                    }
 
-                        // The ladder can only cross a single water tile. Do not allow crossing multiple water tiles.
-                        if (behavior == TileBehavior.Water)
+                    foreach (var next in Neighbors(current))
+                    {
+                        if (!room.RoomMap.IsValid(next.X, next.Y)) continue;
+                        if (visited.Contains(next)) continue;
+
+                        var nextBehavior = room.RoomMap.Behavior(next.X, next.Y);
+                        if (nextBehavior == TileBehavior.Water)
                         {
-                            logger.Write($"❌ Cannot move to {next} -- already in water.");
+                            var behavior = room.RoomMap.Behavior(current.X, current.Y);
+
+                            // The ladder can only cross a single water tile. Do not allow crossing multiple water tiles.
+                            if (behavior == TileBehavior.Water)
+                            {
+                                logger.Write($"❌ Cannot move to {next} -- already in water.");
+                                continue;
+                            }
+
+                            // If we've determined there's a path with a ladder, do not attempt additional ones.
+                            if (hasLadderedPath)
+                            {
+                                logger.Write($"❌ Cannot move to {next} -- already have a laddered path.");
+                                continue;
+                            }
+
+                            walkingSearch.Enqueue(next.WithRequirement(PathRequirements.Ladder), to.Distance(next));
                             continue;
                         }
 
-                        // If we've determined there's a path with a ladder, do not attempt additional ones.
-                        if (hasLadderedPath)
+                        if (nextBehavior.CanWalk() || nextBehavior == TileBehavior.Door)
                         {
-                            logger.Write($"❌ Cannot move to {next} -- already have a laddered path.");
+                            walkingSearch.Enqueue(next, to.Distance(next));
                             continue;
                         }
 
-                        walkingSearch.Enqueue(next.WithRequirement(PathRequirements.Ladder), to.Distance(next));
-                        continue;
+                        logger.Write($"❌ Cannot move to {next} -- behavior {nextBehavior}.");
                     }
-
-                    if (nextBehavior.CanWalk() || nextBehavior == TileBehavior.Door)
-                    {
-                        walkingSearch.Enqueue(next, to.Distance(next));
-                        continue;
-                    }
-
-                    logger.Write($"❌ Cannot move to {next} -- behavior {nextBehavior}.");
                 }
-            }
 
-            if (!foundPathWithNoLadder && hasLadderedPath)
-            {
-                paths.Add(doorPair, PathRequirements.Ladder);
-                logger.Write($"✅ Found path for {doorPair} requiring ladder.");
+                if (!foundPathWithNoLadder && hasLadderedPath)
+                {
+                    paths.Add(doorPair, PathRequirements.Ladder);
+                    logger.Write($"✅ Found path for {doorPair} requiring ladder.");
+                }
+
+                if (foundPathWithNoLadder) break;
             }
         }
 

@@ -318,6 +318,7 @@ internal record OverworldState(GameWorld Overworld, OverworldState.Cell[,] Layou
 
         var rng = state.OverworldMapRandom;
         var layout = GetRoomGrid(overworld);
+        // This needs to avoid placing the entrance on an island, ie, dungeon 4 entrance.
         var entranceLocation = new Point(rng.Next(_maxWidth), rng.Next(_maxHeight));
 
         return new OverworldState(

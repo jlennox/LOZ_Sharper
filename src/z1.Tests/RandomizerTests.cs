@@ -103,11 +103,11 @@ internal class RandomizerTests
 
     [Test]
     // Has staircase against right wall, can only top the others.
-    [TestCase(0, 9, 3, 6, RoomEntrances.Top | RoomEntrances.Left | RoomEntrances.Bottom, TestName = "Stairs Right")]
+    [TestCase(0, 9, 3, 6, RoomEntrances.Top | RoomEntrances.Left | RoomEntrances.Bottom | RoomEntrances.Stairs, TestName = "Stairs Right")]
     // The Princess's room.
     [TestCase(0, 9, 2, 3, RoomEntrances.Bottom, TestName = "Princess")]
     // Old man room in level 1 -- old man blocks passage up.
-    [TestCase(0, 1, 1, 4, RoomEntrances.Right | RoomEntrances.Left | RoomEntrances.Bottom | RoomEntrances.Stairs, TestName = "Oldman")]
+    [TestCase(0, 1, 1, 4, RoomEntrances.Right | RoomEntrances.Left | RoomEntrances.Bottom, TestName = "Oldman")]
     public void ValidUnderworldWallsTest(int quest, int level, int x, int y, RoomEntrances expected)
     {
         var room = GetUnderworldRoom(quest, level, x, y);
@@ -129,36 +129,42 @@ internal class RandomizerTests
     public void RaftTest()
     {
         var room = GetOverworldRoom(5, 5);
-        var paths = RoomRequirements.Get(room).Paths.ToList();
+        var paths = RoomRequirements.Get(room).Paths.ToArray();
 
-        PathRequirements ConsumeRequirements(RoomEntrances a, RoomEntrances b)
+        //    01234567890123456789012345678901
+        //  0:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //  1:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //  2:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //  3:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //  4:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //  5:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //  6:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //  7:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        //  8:~~~~~~~~~~~~~~~~__~~~~~~~~~~~~~~
+        //  9:~~~~~~~~~~~~~~~~__~~~~~~~~~~~~~~
+        // 10:__________~~~~__________________
+        // 11:__________~~~~__________________
+        // 12:XXXX______~~~~______________XXXX
+        // 13:XXXX______~~~~______________XXXX
+        // 14:XXXX______~~~~______________XXXX
+        // 15:XXXX______~~~~______________XXXX
+        // 16:XXXX______~~~~______________XXXX
+        // 17:XXXX______~~~~______________XXXX
+        // 18:XXXX______~~~~______XX__XX__XXXX
+        // 19:XXXX______~~~~______XX__XX__XXXX
+        // 20:XXXX______~~~~______XX__XX__XXXX
+        // 21:XXXX______~~~~______XX__XX__XXXX
+
+        var expected = new[]
         {
-            var key = DoorPair.Create(a, b);
-            var path = paths.Single(p => p.Key == key);
-            paths.RemoveAll(p => p.Key == key);
-            return path.Value;
-        }
+            new KeyValuePair<DoorPair, PathRequirements>(DoorPair.Create(RoomEntrances.Bottom, RoomEntrances.Left), PathRequirements.None),
+            new KeyValuePair<DoorPair, PathRequirements>(DoorPair.Create(RoomEntrances.Bottom, RoomEntrances.Right), PathRequirements.None),
 
-        void AssertPath(RoomEntrances a, RoomEntrances b, PathRequirements expected)
-        {
-            var actual = ConsumeRequirements(a, b);
-            Assert.That(actual, Is.EqualTo(expected));
-        }
+            new KeyValuePair<DoorPair, PathRequirements>(DoorPair.Create(RoomEntrances.Top, RoomEntrances.Right), PathRequirements.Raft),
+            new KeyValuePair<DoorPair, PathRequirements>(DoorPair.Create(RoomEntrances.Top, RoomEntrances.Bottom), PathRequirements.Raft),
+        };
 
-        // WWWWWWWWWWWWWW
-        // WWWWWWWWWRWWWW
-        //      WW
-        // B    WW     BB
-        // B    WW     BB
-
-        AssertPath(RoomEntrances.Left, RoomEntrances.Bottom, PathRequirements.None);
-        AssertPath(RoomEntrances.Right, RoomEntrances.Bottom, PathRequirements.None);
-
-        AssertPath(RoomEntrances.Top, RoomEntrances.Left, PathRequirements.Raft);
-        AssertPath(RoomEntrances.Top, RoomEntrances.Left, PathRequirements.Raft);
-        AssertPath(RoomEntrances.Top, RoomEntrances.Bottom, PathRequirements.Raft);
-
-        Assert.That(paths, Is.Empty);
+        Assert.That(paths, Is.EquivalentTo(expected));
     }
 
     [Test]
