@@ -25,6 +25,8 @@ internal enum PathRequirements
     Food = 1 << 3,
     Raft = 1 << 4,
     Bracelet = 1 << 5,
+
+    Impossible = 1 << 30,
 }
 
 internal readonly record struct RoomRequirements(
@@ -54,8 +56,8 @@ internal readonly record struct RoomRequirements(
         public override string ToString() => RequiresLadder ? $"({X}, {Y}, WET)" : $"({X}, {Y})";
     }
 
-    private static readonly DebugLog _log = new(nameof(RoomArguments));
-    private static readonly Dictionary<int, RoomPaths> _doorCache = new();
+    private static readonly DebugLog _log = new(nameof(RoomArguments), DebugLogDestination.File);
+    private static readonly Dictionary<string, RoomPaths> _doorCache = new();
     private static readonly Dictionary<string, RoomRequirements> _requirementsCache = new();
 
     public bool HasStaircase => Flags.HasFlag(RoomRequirementFlags.HasStaircase);
@@ -64,6 +66,18 @@ internal readonly record struct RoomRequirements(
     public bool IsEntrance => Flags.HasFlag(RoomRequirementFlags.IsEntrance);
 
     public bool HasShutterPushBlock => this is { HasPushBlock: true, PushBlock.Interaction.Effect: InteractionEffect.OpenShutterDoors };
+
+    private static bool GetItemPoint(GameRoom room, out Point point)
+    {
+        var itemBlock = room.InteractableBlockObjects.SingleOrDefault(static t => t.Interaction.Item != null);
+        if (itemBlock == null)
+        {
+            point = default;
+            return false;
+        }
+        point = new Point(itemBlock.X / room.TileWidth, itemBlock.Y / room.TileHeight);
+        return true;
+    }
 
     private static RoomPaths GetRoomPaths(GameRoom room)
     {
@@ -136,6 +150,7 @@ internal readonly record struct RoomRequirements(
                     return false;
                 }
                 case RoomEntrances.Entry:
+                {
                     var entry = room.EntryPosition;
                     if (entry != null)
                     {
@@ -145,6 +160,17 @@ internal readonly record struct RoomRequirements(
 
                     points = [];
                     return false;
+                }
+                case RoomEntrances.Item:
+                {
+                    if (GetItemPoint(room, out var itemPoint))
+                    {
+                        points = [itemPoint];
+                        return true;
+                    }
+                    points = [];
+                    return false;
+                }
             }
 
             IEnumerable<Point> XRange(int y)
@@ -211,15 +237,31 @@ internal readonly record struct RoomRequirements(
             var hasOldMan = room.CaveSpec != null && room.CaveSpec.PersonType != PersonType.Grumble;
             if (hasOldMan && entrance == RoomEntrances.Top)
             {
-                points = default;
+                points = [];
                 return false;
             }
 
-            if (entrance == RoomEntrances.Stairs)
+            switch (entrance)
             {
-                var found = TryGetTransportExitPosition(room, out var stairsPoint);
-                points = found ? [stairsPoint] : [];
-                return found;
+                case RoomEntrances.Stairs:
+                {
+                    var found = TryGetTransportExitPosition(room, out var stairsPoint);
+                    points = found ? [stairsPoint] : [];
+                    return found;
+                }
+                case RoomEntrances.Item:
+                {
+                    if (GetItemPoint(room, out var itemPoint))
+                    {
+                        points = [itemPoint];
+                        return true;
+                    }
+                    points = [];
+                    return false;
+                }
+                case RoomEntrances.Entry:
+                    points = [];
+                    return false;
             }
 
             var point = entrance switch
@@ -267,20 +309,20 @@ internal readonly record struct RoomRequirements(
         return GetRoomPathsCore(room, TryGetLocationInfrontOfEntrance);
     }
 
-    private enum PathTileBehavior { Solid, Walkable, Water, Bracelet }
-
     private readonly record struct PathBehaviorMap
     {
+        private static readonly DebugLog _log = new(nameof(PathBehaviorMap), DebugLogDestination.File);
+
         // Contains Tile space information but only stores Block space data.
         // Meaning, the top left of each block contains the behavior, but the other 3 tiles in the block are ignored.
-        public int Width { get; init; }
-        public int Height { get; init; }
-        public PathTileBehavior[,] Behaviors { get; init; }
+        private int Width { get; }
+        private int Height { get; }
+        private PathRequirements[,] Behaviors { get; }
 
-        public PathTileBehavior this[Point point] => Behaviors[point.X, point.Y];
-        public PathTileBehavior this[int x, int y] => Behaviors[x, y];
+        public PathRequirements this[Point point] => Behaviors[point.X, point.Y];
+        public PathRequirements this[int x, int y] => Behaviors[x, y];
 
-        private PathBehaviorMap(int width, int height, PathTileBehavior[,] behaviors)
+        private PathBehaviorMap(int width, int height, PathRequirements[,] behaviors)
         {
             Width = width;
             Height = height;
@@ -291,9 +333,18 @@ internal readonly record struct RoomRequirements(
 
         public static PathBehaviorMap Create(GameRoom room)
         {
+            var waterDryout = room.InteractableBlockObjects
+                .Where(t => t.Interaction.Effect == InteractionEffect.DryoutWater)
+                .FirstOrDefault();
+
+            // This is very limited in a lot of respects but it works for the current game maps.
+            var waterRestriction = waterDryout?.Interaction.Interaction == Interaction.Recorder
+                ? PathRequirements.Recorder
+                : PathRequirements.Ladder;
+
             var width = room.RoomMap.Width;
             var height = room.RoomMap.Height;
-            var behaviorMap = new PathTileBehavior[width, height];
+            var behaviorMap = new PathRequirements[width, height];
             for (var y = 0; y < room.RoomMap.Height; y += ZPoint.TilesPerBlock)
             {
                 for (var x = 0; x < room.RoomMap.Width; x += ZPoint.TilesPerBlock)
@@ -301,39 +352,49 @@ internal readonly record struct RoomRequirements(
                     var behavior = room.RoomMap.Behavior(x, y);
                     if (behavior == TileBehavior.Water)
                     {
-                        behaviorMap[x, y] = PathTileBehavior.Water;
+                        behaviorMap[x, y] = waterRestriction;
                         continue;
                     }
 
                     if (behavior.CanWalk() || behavior == TileBehavior.Door)
                     {
-                        behaviorMap[x, y] = PathTileBehavior.Walkable;
+                        behaviorMap[x, y] = PathRequirements.None;
                         continue;
                     }
 
                     var worldX = x * ZPoint.TileSize;
                     var worldY = y * ZPoint.TileSize;
                     var bounds = new Rectangle(worldX, worldY, ZPoint.TileSize, ZPoint.TileSize);
-                    var objs = room.InteractableBlockObjects.SingleOrDefault(t => t.GetBounds().IntersectsWith(bounds));
-                    if (objs?.Interaction is
+                    var objs = room.InteractableBlockObjects.Where(t => t.GetBounds().IntersectsWith(bounds)).ToArray();
+
+                    if (objs.Any(t =>
+                        t.Interaction is
                         {
                             Interaction: Interaction.Push or Interaction.PushVertical,
                             ItemRequirement.Slot: ItemSlot.Bracelet
-                        })
+                        }))
                     {
-                        behaviorMap[x, y] = PathTileBehavior.Bracelet;
+                        behaviorMap[x, y] = PathRequirements.Bracelet;
                         continue;
                     }
 
                     // Mark these as walkable because some will be hidden under bombable walls, etc, and wont be
                     // in the normal behavior map.
-                    if (objs?.Interaction is { Entrance: not null })
+                    if (objs.Any(t => t.Interaction is { Entrance: not null }))
                     {
-                        behaviorMap[x, y] = PathTileBehavior.Walkable;
+                        behaviorMap[x, y] = PathRequirements.None;
                         continue;
                     }
 
-                    behaviorMap[x, y] = PathTileBehavior.Solid;
+                    // When an object is touched and marked with TouchOnce it is removed from the map, so for path
+                    // finding purposes, treat these as removed.
+                    if (objs.Any(t => t.Interaction is { Interaction: Interaction.TouchOnce }))
+                    {
+                        behaviorMap[x, y] = PathRequirements.None;
+                        continue;
+                    }
+
+                    behaviorMap[x, y] = PathRequirements.Impossible;
                 }
             }
 
@@ -350,10 +411,11 @@ internal readonly record struct RoomRequirements(
                 {
                     sb.Append(this[x, y] switch
                     {
-                        PathTileBehavior.Solid => 'X',
-                        PathTileBehavior.Walkable => '.',
-                        PathTileBehavior.Water => '~',
-                        PathTileBehavior.Bracelet => 'B',
+                        PathRequirements.Impossible => 'X',
+                        PathRequirements.None => '.',
+                        PathRequirements.Ladder => '~',
+                        PathRequirements.Bracelet => 'B',
+                        PathRequirements.Recorder => 'R',
                         _ => '?',
                     });
                 }
@@ -370,8 +432,8 @@ internal readonly record struct RoomRequirements(
         // The original unique room ID was a reference to the specific room layout. Monsters/doors/etc was contained
         // else where and referenced by "the original room ID" into other tables, thusly, we can save a lot of
         // recomputation by this caching.
-        var cacheId = room.OriginalUniqueId;
-        if (cacheId.HasValue && _doorCache.TryGetValue(cacheId.Value, out var cached)) return cached;
+        var cacheId = $"{room.GameWorld.Name}/{room.OriginalUniqueId}";
+        if (_doorCache.TryGetValue(cacheId, out var cached)) return cached;
 
         // This function operates on tile coordinate space but moves in block space (thusly, movementSize = 2).
         // Hit detection/etc are done in tile space, but
@@ -380,7 +442,7 @@ internal readonly record struct RoomRequirements(
         //   already makes that check much easier.
         const int movementSize = ZPoint.TilesPerBlock;
 
-        using var logger = _log.CreateScopedFunctionLog(room.UniqueId);
+        using var logger = _log.CreateNamedScopedFunctionLog(room.UniqueId);
 
         var paths = new Dictionary<DoorPair, PathRequirements>();
         var walkingSearch = new PriorityQueue<DoorToDoorSearchPath, int>();
@@ -466,12 +528,16 @@ internal readonly record struct RoomRequirements(
                         var nextBehavior = behaviorMap[next.X, next.Y];
                         switch (nextBehavior)
                         {
-                            case PathTileBehavior.Water:
+                            case PathRequirements.Impossible:
+                                logger.Write($"❌ Cannot move to {next} -- behavior {nextBehavior}.");
+                                continue;
+
+                            case PathRequirements.Ladder:
                             {
                                 var behavior = behaviorMap[current.X, current.Y];
 
                                 // The ladder can only cross a single water tile. Do not allow crossing multiple water tiles.
-                                if (behavior == PathTileBehavior.Water)
+                                if (behavior == PathRequirements.Ladder)
                                 {
                                     logger.Write($"❌ Cannot move to {next} -- already in water.");
                                     continue;
@@ -487,15 +553,10 @@ internal readonly record struct RoomRequirements(
                                 Enqueue(next.WithRequirement(PathRequirements.Ladder));
                                 continue;
                             }
-                            case PathTileBehavior.Bracelet:
-                                Enqueue(next.WithRequirement(PathRequirements.Bracelet));
-                                continue;
-                            case PathTileBehavior.Walkable:
-                                Enqueue(next);
-                                continue;
                         }
 
-                        logger.Write($"❌ Cannot move to {next} -- behavior {nextBehavior}.");
+                        Enqueue(next.WithRequirement(nextBehavior));
+                        continue;
                     }
                 }
 
@@ -509,22 +570,13 @@ internal readonly record struct RoomRequirements(
             }
         }
 
-        // The princess room is unique in it's the only room with a single possible doorway. We'd normally consider this
-        // an error, which is important to ensure the algorithm is correct.
-        bool IsPrincessRoom()
+        if (validEntrances == RoomEntrances.None)
         {
-            // Not exact but good enough.
-            return validEntrances == RoomEntrances.Bottom &&
-                room.InteractableBlockObjects.Any(static t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
-        }
-
-        if (paths.Count == 0 && !IsPrincessRoom())
-        {
-            throw logger.Fatal($"Room {room.UniqueId} can't connect to other rooms?");
+            throw logger.Fatal($"Room does not have any valid entrances.");
         }
 
         var entry = new RoomPaths(paths, validEntrances);
-        if (cacheId.HasValue) _doorCache[cacheId.Value] = entry;
+        _doorCache[cacheId] = entry;
         return entry;
     }
 
@@ -532,10 +584,10 @@ internal readonly record struct RoomRequirements(
     {
         ArgumentNullException.ThrowIfNull(room);
 
-        using var logger = _log.CreateScopedFunctionLog(room.UniqueId, level: LogLevel.Error);
-
         var cacheId = room.UniqueId;
         if (_requirementsCache.TryGetValue(cacheId, out var cached)) return cached;
+
+        using var logger = _log.CreateNamedScopedFunctionLog(room.UniqueId, level: LogLevel.Error);
 
         var flags = RoomRequirementFlags.None;
         InteractableBlockObject? pushBlock = null;
@@ -583,7 +635,20 @@ internal readonly record struct RoomRequirements(
         ItemId.Recorder => !requirements.HasFlag(PathRequirements.Recorder),
         ItemId.WoodArrow or ItemId.SilverArrow => !requirements.HasFlag(PathRequirements.Arrow),
         ItemId.Food => !requirements.HasFlag(PathRequirements.Food),
+        ItemId.Raft => !requirements.HasFlag(PathRequirements.Raft),
+        ItemId.Bracelet => !requirements.HasFlag(PathRequirements.Bracelet),
         _ => true,
+    };
+
+    public static PathRequirements ItemCausesRequirement(ItemId item) => item switch
+    {
+        ItemId.Ladder => PathRequirements.Ladder,
+        ItemId.Recorder => PathRequirements.Recorder,
+        ItemId.WoodArrow or ItemId.SilverArrow => PathRequirements.Arrow,
+        ItemId.Food => PathRequirements.Food,
+        ItemId.Raft => PathRequirements.Raft,
+        ItemId.Bracelet => PathRequirements.Bracelet,
+        _ => PathRequirements.None,
     };
 
     public static PathRequirements GetStairRequirements(GameRoom room)

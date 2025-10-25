@@ -96,6 +96,7 @@ public sealed class MazeRoom
     public Direction ExitDirection { get; set; }
 }
 
+[DebuggerDisplay("{X},{Y} ({Facing})")]
 public sealed class EntryPosition
 {
     public int X { get; set; }

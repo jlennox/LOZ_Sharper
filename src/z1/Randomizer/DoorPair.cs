@@ -15,7 +15,7 @@ internal readonly record struct DoorPair
 
     public static DoorPair Create(RoomEntrances from, RoomEntrances to)
     {
-        if (from == to) throw new Exception();
+        if (from == to) throw new Exception($"Cannot construct a DoorPair from two identical entrances {from}->{to}.");
 
         // This does make the assumption that if you can go from A to B, that you can go from B to A.
         // I believe this to always be true.
@@ -44,13 +44,17 @@ internal readonly record struct DoorPair
                 yield return Create(RoomEntrances.Entry, end);
             }
         }
+
+        if (room.HasFloorItem())
+        {
+            foreach (var end in RoomEntrances.EntranceOrderWithStairs)
+            {
+                yield return Create(RoomEntrances.Item, end);
+            }
+        }
     }
+
+    public bool Contains(RoomEntrances entrance) => From == entrance || To == entrance;
 
     public override string ToString() => $"{From}→{To}";
-
-    public void Deconstruct(out RoomEntrances from, out RoomEntrances to)
-    {
-        from = From;
-        to = To;
-    }
 }

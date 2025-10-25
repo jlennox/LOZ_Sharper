@@ -37,6 +37,8 @@ internal sealed class RandomizerState
     public Random RoomRandom { get; }
     public Random ItemRandom { get; }
     public Random OverworldMapRandom { get; }
+    public Random OverworldItemRandom { get; }
+    public Random OverworldCaveRandom { get; }
 
     private readonly int _doorRandomSeed;
 
@@ -63,6 +65,8 @@ internal sealed class RandomizerState
         RoomRandom = new Random(seedRandom.Next());
         ItemRandom = new Random(seedRandom.Next());
         OverworldMapRandom = new Random(seedRandom.Next());
+        OverworldItemRandom = new Random(seedRandom.Next());
+        OverworldCaveRandom = new Random(seedRandom.Next());
 
         RerandomizeItemList();
     }

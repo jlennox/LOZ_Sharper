@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace z1.Common;
@@ -37,6 +38,19 @@ public static class CollectionExtensions
         var item = list[^1];
         list.RemoveAt(list.Count - 1);
         return item;
+    }
+
+    public static bool TryPop<T>(this List<T> list, [MaybeNullWhen(false)] out T item)
+    {
+        if (list.Count == 0)
+        {
+            item = default;
+            return false;
+        }
+
+        item = list[^1];
+        list.RemoveAt(list.Count - 1);
+        return true;
     }
 
     public static T PopRandomly<T>(this List<T> list, Random rng)

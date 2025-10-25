@@ -448,7 +448,7 @@ internal sealed class GameRoom
     public MazeRoom? Maze { get; set; }
     public RoomSettings Settings { get; }
     public RecorderDestination? RecorderDestination { get; }
-    public EntryPosition? EntryPosition { get; } // For dungeon entrance rooms?
+    public EntryPosition? EntryPosition { get; set; } // For the initial player spawn position.
 
     public RoomTileMap RoomMap { get; }
     private readonly RoomTileMap _unmodifiedRoomMap;

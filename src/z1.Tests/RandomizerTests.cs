@@ -1,5 +1,4 @@
 ﻿using System;
-using z1.Actors;
 using z1.Common;
 using z1.IO;
 using z1.Randomizer;
@@ -106,21 +105,9 @@ internal readonly record struct PathRequirmentCase(RoomEntrances From, RoomEntra
 }
 
 [TestFixture]
-internal class RoomRequirementsTests : RandomizerTestBase
+internal class UnderworldRoomRequirementsTests : RandomizerTestBase
 {
-
-    private void EnsureOverworld(int x, int y, params PathRequirmentCase[] expectedCases)
-    {
-        var room = GetOverworldRoom(x, y);
-        var actual = RoomRequirements.Get(room).Paths.ToArray();
-        var expected = expectedCases
-            .Select(static t => t.ToKeyValuePair())
-            .ToArray();
-        Assert.That(actual, Is.EquivalentTo(expected));
-    }
-
-
-    private void EnsureUnderworld(int quest, int dungeon, int x, int y, params PathRequirmentCase[] expectedCases)
+    private void Ensure(int quest, int dungeon, int x, int y, params PathRequirmentCase[] expectedCases)
     {
         var room = GetUnderworldRoom(quest, dungeon, x, y);
         var actual = RoomRequirements.Get(room).Paths.ToArray();
@@ -128,20 +115,6 @@ internal class RoomRequirementsTests : RandomizerTestBase
             .Select(static t => t.ToKeyValuePair())
             .ToArray();
         Assert.That(actual, Is.EquivalentTo(expected));
-    }
-
-    [Test]
-    public void HorizontalRiverRoomUnderworld()
-    {
-        EnsureUnderworld(0, 9, 5, 6,
-            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
-            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Bottom, PathRequirements.None),
-            new PathRequirmentCase(RoomEntrances.Right, RoomEntrances.Bottom, PathRequirements.None),
-
-            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Right, PathRequirements.Ladder),
-            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Left, PathRequirements.Ladder),
-            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Bottom, PathRequirements.Ladder)
-        );
     }
 
     [Test]
@@ -159,9 +132,48 @@ internal class RoomRequirementsTests : RandomizerTestBase
     }
 
     [Test]
+    public void HorizontalRiverRoomUnderworld()
+    {
+        Ensure(0, 9, 5, 6,
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Bottom, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Right, RoomEntrances.Bottom, PathRequirements.None),
+
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Right, PathRequirements.Ladder),
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Left, PathRequirements.Ladder),
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Bottom, PathRequirements.Ladder)
+        );
+    }
+
+    [Test]
+    // Has staircase against right wall, can only top the others.
+    [TestCase(1, 7, 12, 5, RoomRequirementFlags.HasStaircase | RoomRequirementFlags.HasPushBlock)]
+    public void CheckFlags(int quest, int level, int x, int y, RoomRequirementFlags expected)
+    {
+        var room = GetUnderworldRoom(quest, level, x, y);
+        var flags = RoomRequirements.Get(room).Flags;
+        Assert.That(flags, Is.EqualTo(expected));
+    }
+}
+
+[TestFixture]
+internal class OverworldRoomRequirementsTests : RandomizerTestBase
+{
+    private void Ensure(int x, int y, params PathRequirmentCase[] expectedCases)
+    {
+        var room = GetOverworldRoom(x, y);
+        var asd = room.RoomMap.DebugDisplay();
+        var actual = RoomRequirements.Get(room).Paths.ToArray();
+        var expected = expectedCases
+            .Select(static t => t.ToKeyValuePair())
+            .ToArray();
+        Assert.That(actual, Is.EquivalentTo(expected));
+    }
+
+    [Test]
     // Ensure raft spot is detected as valid "Top" entrance.
     [TestCase(5, 5, RoomEntrances.Top | RoomEntrances.Left | RoomEntrances.Right | RoomEntrances.Bottom, TestName = "Raft")]
-    public void ValidWallsOverworld(int x, int y, RoomEntrances expected)
+    public void ValidWalls(int x, int y, RoomEntrances expected)
     {
         var room = GetOverworldRoom(x, y);
         var directions = RoomRequirements.Get(room).ConnectableEntrances;
@@ -169,7 +181,7 @@ internal class RoomRequirementsTests : RandomizerTestBase
     }
 
     [Test]
-    public void RaftOverworld()
+    public void Raft()
     {
         //    01234567890123456789012345678901
         //  0:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -195,7 +207,7 @@ internal class RoomRequirementsTests : RandomizerTestBase
         // 20:XXXX______~~~~______XX__XX__XXXX
         // 21:XXXX______~~~~______XX__XX__XXXX
 
-        EnsureOverworld(5, 5,
+        Ensure(5, 5,
             new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Left, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Right, PathRequirements.None),
 
@@ -205,10 +217,10 @@ internal class RoomRequirementsTests : RandomizerTestBase
     }
 
     [Test]
-    public void BraceletOverworld()
+    public void Bracelet()
     {
         // Map to the right of vanilla start.
-        EnsureOverworld(9, 7,
+        Ensure(9, 7,
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
 
             new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Left, PathRequirements.Bracelet),
@@ -217,17 +229,9 @@ internal class RoomRequirementsTests : RandomizerTestBase
     }
 
     [Test]
-    public void RecorderOverworld()
+    public void BombableRiver()
     {
-        EnsureOverworld(2, 4,
-            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Stairs, PathRequirements.Recorder)
-        );
-    }
-
-    [Test]
-    public void BombableRiverOverworld()
-    {
-        EnsureOverworld(9, 1,
+        Ensure(9, 1,
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
 
             new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Left, PathRequirements.Ladder),
@@ -236,9 +240,9 @@ internal class RoomRequirementsTests : RandomizerTestBase
     }
 
     [Test]
-    public void StartingRoomOverworld()
+    public void StartingRoom()
     {
-        EnsureOverworld(7, 7,
+        Ensure(7, 7,
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Top, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Right, PathRequirements.None),
@@ -253,12 +257,43 @@ internal class RoomRequirementsTests : RandomizerTestBase
     }
 
     [Test]
-    // Has staircase against right wall, can only top the others.
-    [TestCase(1, 7, 12, 5, RoomRequirementFlags.HasStaircase | RoomRequirementFlags.HasPushBlock)]
-    public void CheckFlags(int quest, int level, int x, int y, RoomRequirementFlags expected)
+    public void HeartItem()
     {
-        var room = GetUnderworldRoom(quest, level, x, y);
-        var flags = RoomRequirements.Get(room).Flags;
-        Assert.That(flags, Is.EqualTo(expected));
+        Ensure(15, 5,
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Bottom, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Item, RoomEntrances.Top, PathRequirements.Ladder),
+            new PathRequirmentCase(RoomEntrances.Item, RoomEntrances.Bottom, PathRequirements.Ladder)
+        );
+    }
+
+    [Test]
+    public void Level6Entrance()
+    {
+        Ensure(2, 2,
+            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Stairs, PathRequirements.None)
+        );
+    }
+
+    [Test]
+    public void Level7Entrance()
+    {
+        Ensure(2, 4,
+            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Stairs, PathRequirements.Recorder)
+        );
+    }
+
+    [Test]
+    public void BracletRoom()
+    {
+        // The bracelet starts off "covered" so ensure that it's still considered reachable.
+        Ensure(4, 2,
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Right, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Left, PathRequirements.None),
+
+            new PathRequirmentCase(RoomEntrances.Item, RoomEntrances.Left, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Item, RoomEntrances.Right, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Item, RoomEntrances.Top, PathRequirements.None)
+        );
     }
 }

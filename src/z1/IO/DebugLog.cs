@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -24,15 +25,19 @@ internal readonly record struct FunctionLog(DebugLog DebugLog, string FunctionNa
 internal readonly record struct ScopedFunctionLog : IDisposable
 {
     private static int _indentation = 1;
+    private static readonly List<string> _names = new();
+
     public DebugLog DebugLog { get; init; }
     public string FunctionName { get; init; }
     private readonly LogLevel _level;
 
-    public ScopedFunctionLog(DebugLog DebugLog, string FunctionName, LogLevel level = LogLevel.Debug)
+    public ScopedFunctionLog(DebugLog debugLog, string functionName, LogLevel level = LogLevel.Debug)
     {
         _level = level;
-        this.DebugLog = DebugLog;
-        this.FunctionName = FunctionName;
+        DebugLog = debugLog;
+
+        _names.Add(functionName);
+        FunctionName = string.Join("->", _names);
 
         ++_indentation;
     }
@@ -62,6 +67,7 @@ internal readonly record struct ScopedFunctionLog : IDisposable
 
     public void Dispose()
     {
+        _names.RemoveAt(_names.Count - 1);
         --_indentation;
     }
 }
@@ -213,9 +219,14 @@ internal sealed class DebugLog
     }
 
     public FunctionLog CreateFunctionLog([CallerMemberName] string functionName = "") => new(this, functionName);
-    public ScopedFunctionLog CreateScopedFunctionLog(string scope, [CallerMemberName] string functionName = "", LogLevel level = LogLevel.Debug)
+    public ScopedFunctionLog CreateNamedScopedFunctionLog(string scope, [CallerMemberName] string functionName = "", LogLevel level = LogLevel.Debug)
     {
         return new ScopedFunctionLog(this, $"{functionName}->{scope}", level);
+    }
+
+    public ScopedFunctionLog CreateScopedFunctionLog([CallerMemberName] string functionName = "", LogLevel level = LogLevel.Debug)
+    {
+        return new ScopedFunctionLog(this, functionName, level);
     }
 
     internal void Write(string? namespaze, string s, LogLevel level)

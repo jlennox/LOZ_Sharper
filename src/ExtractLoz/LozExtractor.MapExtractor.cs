@@ -519,8 +519,10 @@ public unsafe partial class LozExtractor
             };
 
             var objectLayers = questObjects
-                .Where(t => t.Count > 0)
-                .Select(TransformObjectsIntoLayer)
+                .Select((objects, index) => (layer: TransformObjectsIntoLayer(objects, index), objects))
+                // This has to come second or we've lost our "quest as index" based filtering.
+                .Where(t => t.objects.Count > 0)
+                .Select(t => t.layer)
                 .ToArray();
 
             var tiledmap = new TiledMap
