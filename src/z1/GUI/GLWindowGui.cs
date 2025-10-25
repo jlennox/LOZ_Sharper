@@ -215,7 +215,7 @@ internal static class GLWindowGui
                 Debug.WriteLine("Exception " + e);
             }
         }
-        if (ImGui.BeginMenu("Spawn", game.Player.Profile != null))
+        if (ImGui.BeginMenu("Spawn", game.Player?.Profile != null))
         {
             if (ImGui.BeginMenu("Overworld"))
             {
@@ -331,7 +331,7 @@ internal static class GLWindowGui
             game.World.LoadOverworldRoom(x, y);
         }
 
-        if (ImGui.BeginMenu("Warp", game.Player.Profile != null))
+        if (ImGui.BeginMenu("Warp", game.Player?.Profile != null))
         {
             if (ImGui.MenuItem("Level 1")) Warp(game, 1);
             if (ImGui.MenuItem("Level 1 (Entrance)")) WarpOW(game, 7, 3);
@@ -389,7 +389,7 @@ internal static class GLWindowGui
             game.World.DebugSpawnCave(caves => caves.First(t => t.PersonType == type));
         }
 
-        if (ImGui.BeginMenu("Person", game.Player.Profile != null))
+        if (ImGui.BeginMenu("Person", game.Player?.Profile != null))
         {
             if (ImGui.MenuItem("Cave 1: Wooden")) SpawnCave(game, CaveId.Cave1);
             if (ImGui.MenuItem("Cave 2: Take any")) SpawnCave(game, CaveId.Cave2);
@@ -439,7 +439,7 @@ internal static class GLWindowGui
         {
             if (ImGui.MenuItem("Clear secrets")) game.GameCheats.TriggerCheat<GameCheats.ClearSecretsCheat>();
             if (ImGui.MenuItem("Clear history")) game.GameCheats.TriggerCheat<GameCheats.ClearHistoryCheat>();
-            if (ImGui.MenuItem("Clear Items")) game.Player.Profile.Reset();
+            if (ImGui.MenuItem("Clear Items")) game.Player?.Profile.Reset();
             if (ImGui.MenuItem("Reload assets")) AssetLoader.Initialize();
 
             ImGui.SeparatorText("Rendering");

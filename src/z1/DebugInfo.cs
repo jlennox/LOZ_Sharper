@@ -5,11 +5,11 @@ namespace z1;
 
 internal sealed class DebugInfo
 {
-    private readonly Game _game;
+    private readonly Game? _game;
     private readonly DebugInfoConfiguration _configuration;
     private readonly List<string> _sb = new();
 
-    public DebugInfo(Game game, DebugInfoConfiguration configuration)
+    public DebugInfo(Game? game, DebugInfoConfiguration configuration)
     {
         _game = game;
         _configuration = configuration;
@@ -23,11 +23,11 @@ internal sealed class DebugInfo
 
         if (_configuration.RoomId)
         {
-            var room = _game.World.CurrentRoom;
+            // var room = _game.World.CurrentRoom;
             // _sb.Add($"r:{room.X},{room.Y} ({_game.World.CurRoomId})");
         }
 
-        if (_configuration.ActiveShots) _sb.Add($"shots:{_game.World.ActiveMonsterShots}");
+        if (_configuration.ActiveShots) _sb.Add($"shots:{_game?.World?.ActiveMonsterShots ?? 0}");
 
         var y = 2;
         const int x = 80;

@@ -522,13 +522,15 @@ internal sealed class SubmenuType
         }
     }
 
-    private static int GetDoorTileOffset(GameRoom room)
+    private PersistedRoomState GetRoomState(GameRoom room) => _game.World.Profile.GetRoomFlags(room);
+
+    private int GetDoorTileOffset(GameRoom room)
     {
         if (!room.HasUnderworldDoors) return 0;
 
         var doorSum = 0;
         var doorBit = 8;
-        var flags = room.PersistedRoomState;
+        var flags = GetRoomState(room);
         for (; doorBit != 0; doorBit >>= 1)
         {
             var direction = (Direction)doorBit;
@@ -598,7 +600,7 @@ internal sealed class SubmenuType
                 if (room == null) continue;
                 if (!room.Settings.HiddenFromMap)
                 {
-                    if (room.PersistedRoomState.VisitState)
+                    if (GetRoomState(room).VisitState)
                     {
                         var tile = 0xD0 + GetDoorTileOffset(room);
                         GlobalFunctions.DrawChar(tile, x, y, (Palette)1, DrawingFlags.NoTransparency, DrawOrder.Sprites);

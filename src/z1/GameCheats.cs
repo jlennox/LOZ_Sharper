@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
 using Silk.NET.Input;
+using z1.UI;
 
 namespace z1;
 
@@ -408,10 +409,13 @@ internal sealed class GameCheats
     {
         _game = game;
         _input = input;
+
+        _input.OnKeyPressed += OnKeyPressed;
     }
 
-    public void OnKeyPressed(Key key)
+    private void OnKeyPressed(KeyboardMapping map)
     {
+        var key = map.Key;
         var chr = key.GetKeyCharacter();
         if (chr == '\0') return;
 

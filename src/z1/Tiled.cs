@@ -211,7 +211,6 @@ internal sealed class GameWorldMap
 [DebuggerDisplay("{Name}")]
 internal sealed class GameWorld
 {
-    public World World { get; }
     public string UniqueId => Name; // not sure if these will remain the same.
     public string Name { get; }
     public GameRoom[] Rooms { get; }
@@ -223,11 +222,8 @@ internal sealed class GameWorld
     public string? LevelString { get; }
     public bool IsOverworld => Settings.WorldType == GameWorldType.Overworld;
 
-    public bool IsBossAlive => BossRoom != null && BossRoom.PersistedRoomState.ObjectCount != 0;
-
-    public GameWorld(World world, GameRoom[] rooms, WorldSettings settings, string name)
+    public GameWorld(GameRoom[] rooms, WorldSettings settings, string name)
     {
-        World = world;
         Name = name;
         Rooms = rooms;
 
@@ -325,9 +321,8 @@ internal sealed class GameWorld
     //
     // }
 
-    public GameWorld(World world, TiledWorld tiledWorld, string filename, int questId)
+    public GameWorld(TiledWorld tiledWorld, string filename, int questId)
     {
-        World = world;
         Name = Path.GetFileNameWithoutExtension(filename);
         if (tiledWorld.Maps == null) throw new Exception($"World {Name} has no maps.");
 
@@ -340,7 +335,7 @@ internal sealed class GameWorld
             var asset = new Asset(directory, worldEntry.Filename);
             var tiledmap = asset.ReadJson<TiledMap>();
             var entryName = Path.GetFileNameWithoutExtension(worldEntry.Filename);
-            var room = new GameRoom(world, this, worldEntry, entryName, tiledmap, questId);
+            var room = new GameRoom(this, worldEntry, entryName, tiledmap, questId);
             if (room.Settings.IsEntrance) EntranceRoom = room;
             if (room.Settings.IsBossRoom) BossRoom = room;
             worldMaps[i] = (room, worldEntry);
@@ -390,10 +385,12 @@ internal sealed class GameWorld
         GameWorldMap = new GameWorldMap(this);
     }
 
-    public static GameWorld Load(World world, string filename, int questId)
+    public static GameWorld Load(string filename, int questId)
     {
-        return new GameWorld(world, new Asset(filename).ReadJson<TiledWorld>(), filename, questId);
+        return new GameWorld(new Asset(filename).ReadJson<TiledWorld>(), filename, questId);
     }
+
+    public bool IsBossAlive(PlayerProfile profiler) => BossRoom != null && profiler.GetRoomFlags(BossRoom).ObjectCount != 0;
 
     public void ResetLevelKillCounts()
     {
@@ -454,10 +451,8 @@ internal sealed class GameRoom
     private readonly RoomTileMap _unmodifiedRoomMap;
     public bool HidePlayerMapCursor { get; set; }
     public bool IsTriforceRoom { get; set; }
-    public bool HasTriforce => DoesContainTriforce();
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
-    public PersistedRoomState PersistedRoomState => _roomState.Value;
 
     // JOE: TODO: Uh, this feels wrong...?
     public int LevelKillCount { get; set; }
@@ -469,19 +464,14 @@ internal sealed class GameRoom
     public bool IsCellar => GameWorld.Settings.WorldType == GameWorldType.UnderworldCommon;
     public bool IsCave => GameWorld.Settings.WorldType == GameWorldType.OverworldCommon;
 
-    private readonly World _world;
     private readonly int _waterTileCount;
-    private readonly Lazy<PersistedRoomState> _roomState;
 
-    public GameRoom(World world, GameWorld gameWorld, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
+    public GameRoom(GameWorld gameWorld, TiledWorldEntry worldEntry, string name, TiledMap map, int questId)
     {
         ArgumentNullException.ThrowIfNull(map.Layers);
         ArgumentNullException.ThrowIfNull(map.TileSets);
 
-        _world = world;
         GameWorld = gameWorld;
-
-        _roomState = new Lazy<PersistedRoomState>(() => world.Profile.GetRoomFlags(this));
 
         WorldEntry = worldEntry;
         Name = name;
@@ -650,12 +640,12 @@ internal sealed class GameRoom
         return waterCount;
     }
 
-    public Cell GetRandomWaterTile()
+    public Cell GetRandomWaterTile(Random rng)
     {
         if (_waterTileCount == 0) throw new Exception($"No water found for Zora's in map \"{Name}\"");
 
         var waterCount = 0;
-        var randomCell = _world.Game.Random.Next(0, _waterTileCount);
+        var randomCell = rng.Next(0, _waterTileCount);
         for (var tileY = 0; tileY < Height - 1; tileY++)
         {
             for (var tileX = 0; tileX < Width - 1; tileX++)
@@ -727,11 +717,12 @@ internal sealed class GameRoom
         return true;
     }
 
-    private bool DoesContainTriforce()
+    public bool DoesContainTriforce(PlayerProfile profile)
     {
         if (!IsTriforceRoom) return false;
 
-        var triforceState = PersistedRoomState.ObjectState.FirstOrDefault(static t => t.Value.ItemId == ItemId.TriforcePiece);
+        var state = profile.GetRoomFlags(this);
+        var triforceState = state.ObjectState.FirstOrDefault(static t => t.Value.ItemId == ItemId.TriforcePiece);
         if (triforceState.Value == null) return false;
 
         return !triforceState.Value.ItemGot;

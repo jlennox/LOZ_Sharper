@@ -5,6 +5,29 @@ using z1.Render;
 
 namespace z1;
 
+internal sealed class MapProvider
+{
+    private static readonly Dictionary<string, GameWorld> _gameWorldOverrides = new();
+
+    internal GameWorld GetWorld(GameWorldType type, string destination)
+    {
+        Filenames.ExpectSafe(destination);
+
+        var assetName = type switch
+        {
+            GameWorldType.Underworld => $"Level{destination}",
+            GameWorldType.Overworld => "Overworld",
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, $"World type not support with destination \"{destination}\"")
+        };
+
+        if (_gameWorldOverrides.TryGetValue(assetName, out var overriddenWorld)) return overriddenWorld;
+
+        var asset = new Asset("Maps", $"{assetName}.world");
+        var tiledWorld = asset.ReadJson<TiledWorld>();
+        return new GameWorld(tiledWorld, asset.Filename, 0); // JOE: TODO: QUEST  Profile.Quest);
+    }
+}
+
 internal partial class World
 {
     private static readonly Dictionary<string, GameWorld> _gameWorldOverrides = new();
@@ -24,7 +47,7 @@ internal partial class World
 
         var asset = new Asset("Maps", $"{assetName}.world");
         var tiledWorld = asset.ReadJson<TiledWorld>();
-        return new GameWorld(this, tiledWorld, asset.Filename, 0); // JOE: TODO: QUEST  Profile.Quest);
+        return new GameWorld(tiledWorld, asset.Filename, 0); // JOE: TODO: QUEST  Profile.Quest);
     }
 
     private void LoadOverworld() => LoadWorld(GameWorldType.Overworld, "Overworld");
@@ -38,6 +61,11 @@ internal partial class World
     public void SetWorld(GameWorld world, string destination)
     {
         _gameWorldOverrides[destination] = world;
+
+        if (destination == "Overworld")
+        {
+            _overworld = world;
+        }
     }
 
     private void LoadWorld(GameWorld world, EntranceHistoryEntry? entranceEntry = null)
@@ -145,7 +173,7 @@ internal partial class World
         room.Reset();
         LoadLayout(room);
 
-        var roomState = room.PersistedRoomState;
+        var roomState = GetRoomState(room);
 
         if (room.HasUnderworldDoors)
         {

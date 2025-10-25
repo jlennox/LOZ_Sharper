@@ -294,15 +294,22 @@ internal sealed class GameRecording
         // This isn't the best, it's used while creating test data only.
         var file = Filenames.GetRecordingFilename() + (compress ? ".br" : "");
         using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(State));
-        Stream fs = File.OpenWrite(file);
+        Stream? fs = null;
 
-        if (compress)
+        try
         {
-            fs = new BrotliStream(fs, CompressionMode.Compress, false);
-        }
+            fs = File.OpenWrite(file);
+            if (compress)
+            {
+                fs = new BrotliStream(fs, CompressionMode.Compress, false);
+            }
 
-        stream.CopyTo(fs);
-        fs.Dispose();
+            stream.CopyTo(fs);
+        }
+        finally
+        {
+            fs?.Dispose();
+        }
     }
 
     public void AddInput(HashSet<GameButton> buttons)

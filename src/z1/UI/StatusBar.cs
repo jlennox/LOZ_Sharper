@@ -215,7 +215,7 @@ internal sealed class StatusBar
                     // If this looks wrong, it's likely related to MiniMapColumnOffset.
                     if (showTriforce && room.IsTriforceRoom)
                     {
-                        var palette = (_world.Game.FrameCounter & 0x10) == 0 && room.HasTriforce
+                        var palette = (_world.Game.FrameCounter & 0x10) == 0 && room.DoesContainTriforce(_world.Profile)
                             ? Palette.Red
                             : Palette.SeaPal;
 

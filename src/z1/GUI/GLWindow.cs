@@ -22,6 +22,7 @@ internal sealed class GLWindow : IDisposable
     private static readonly DebugLog _log = new(nameof(GLWindow));
 
     public Game Game = null!;
+    private readonly GameIO _io;
 
     public WaitHandle OnloadEvent => _onloadEvent.WaitHandle;
     private readonly ManualResetEventSlim _onloadEvent = new();
@@ -56,6 +57,9 @@ internal sealed class GLWindow : IDisposable
             throw;
             Environment.Exit(1);
         }
+
+        // Must initialize after Asset.
+        _io = new();
 
         var options = WindowOptions.Default with
         {
@@ -98,7 +102,7 @@ internal sealed class GLWindow : IDisposable
         }
 
         Graphics.Initialize(_gl);
-        Game = new Game(new GameIO());
+        Game = new Game(_io);
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
         _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);
@@ -175,12 +179,12 @@ internal sealed class GLWindow : IDisposable
 
     private void OnGamepadButtonDown(IGamepad gamepad, Button button)
     {
-        Game.Input.SetGamepadButton(button.Name);
+        _io.Input.SetGamepadButton(button.Name);
     }
 
     private void OnGamepadButtonUp(IGamepad gamepad, Button button)
     {
-        Game.Input.UnsetGamepadButton(button.Name);
+        _io.Input.UnsetGamepadButton(button.Name);
     }
 
     private void OnGamePadTriggerMoved(IGamepad gamepad, Trigger trigger)
@@ -191,8 +195,8 @@ internal sealed class GLWindow : IDisposable
         var set = trigger.Position >= AnalogThreshold;
         switch (trigger.Index)
         {
-            case 0: Game.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;
-            case 1: Game.Input.ToggleGamepadButton(GamepadButton.TriggerRight, set); break;
+            case 0: _io.Input.ToggleGamepadButton(GamepadButton.TriggerLeft, set); break;
+            case 1: _io.Input.ToggleGamepadButton(GamepadButton.TriggerRight, set); break;
         }
     }
 
@@ -214,32 +218,32 @@ internal sealed class GLWindow : IDisposable
         switch (thumbstick.X)
         {
             case < -AnalogThreshold:
-                Game.Input.ToggleGamepadButton(left, true);
-                Game.Input.ToggleGamepadButton(right, false);
+                _io.Input.ToggleGamepadButton(left, true);
+                _io.Input.ToggleGamepadButton(right, false);
                 break;
             case > AnalogThreshold:
-                Game.Input.ToggleGamepadButton(left, false);
-                Game.Input.ToggleGamepadButton(right, true);
+                _io.Input.ToggleGamepadButton(left, false);
+                _io.Input.ToggleGamepadButton(right, true);
                 break;
             default:
-                Game.Input.ToggleGamepadButton(left, false);
-                Game.Input.ToggleGamepadButton(right, false);
+                _io.Input.ToggleGamepadButton(left, false);
+                _io.Input.ToggleGamepadButton(right, false);
                 break;
         }
 
         switch (thumbstick.Y)
         {
             case < -AnalogThreshold:
-                Game.Input.ToggleGamepadButton(up, true);
-                Game.Input.ToggleGamepadButton(down, false);
+                _io.Input.ToggleGamepadButton(up, true);
+                _io.Input.ToggleGamepadButton(down, false);
                 break;
             case > AnalogThreshold:
-                Game.Input.ToggleGamepadButton(up, false);
-                Game.Input.ToggleGamepadButton(down, true);
+                _io.Input.ToggleGamepadButton(up, false);
+                _io.Input.ToggleGamepadButton(down, true);
                 break;
             default:
-                Game.Input.ToggleGamepadButton(up, false);
-                Game.Input.ToggleGamepadButton(down, false);
+                _io.Input.ToggleGamepadButton(up, false);
+                _io.Input.ToggleGamepadButton(down, false);
                 break;
         }
     }
@@ -247,7 +251,7 @@ internal sealed class GLWindow : IDisposable
     private void OnFocusChanged(bool focused)
     {
         // This is to prevent keys from getting stuck due to the lack of focus causing an OnKeyUp event to be missed.
-        if (!focused) Game.Input.UnsetAllInput();
+        if (!focused) _io.Input.UnsetAllInput();
     }
 
     private static KeyboardMapping GetKeyMapping(IKeyboard kb, Key key)
@@ -264,19 +268,18 @@ internal sealed class GLWindow : IDisposable
         var altModifier = isAltPressed || isAlt? KeyboardModifiers.Alt : KeyboardModifiers.None;
         var ctrlModifier = isCtrlPressed || isCtrl ? KeyboardModifiers.Control : KeyboardModifiers.None;
 
-        return  new KeyboardMapping(key, shiftModifier | altModifier | ctrlModifier);
+        return new KeyboardMapping(key, shiftModifier | altModifier | ctrlModifier);
     }
 
     private void OnKeyDown(IKeyboard kb, Key key, int whoknows)
     {
         var mapping = GetKeyMapping(kb, key);
 
-        Game.Input.SetKey(mapping);
-        Game.GameCheats.OnKeyPressed(key);
+        _io.Input.SetKey(mapping);
 
         _lastKeyWasAlt = key is Key.AltLeft or Key.AltRight;
 
-        if (Game.Input.IsButtonPressing(GameButton.FullScreenToggle)) ToggleFullscreen();
+        if (_io.Input.IsButtonPressing(GameButton.FullScreenToggle)) ToggleFullscreen();
     }
 
     private void OnKeyUp(IKeyboard kb, Key key, int whoknows)
@@ -289,7 +292,7 @@ internal sealed class GLWindow : IDisposable
             _lastShowMenu = _showMenu;
         }
 
-        Game.Input.UnsetKey(GetKeyMapping(kb, key));
+        _io.Input.UnsetKey(GetKeyMapping(kb, key));
     }
     #endregion
 
@@ -343,6 +346,7 @@ internal sealed class GLWindow : IDisposable
 
         var gl = _gl ?? throw new Exception();
         var window = _window ?? throw new Exception();
+        var game = Game ?? throw new Exception();
 
         Graphics.StartRender();
         gl.Viewport(_viewport.X, _viewport.Y, (uint)_viewport.Width, (uint)_viewport.Height);
@@ -366,12 +370,12 @@ internal sealed class GLWindow : IDisposable
             {
                 for (var i = 0; i < Game.Cheats.MhzDisaster; i++)
                 {
-                    Game.Update();
+                    game.Update();
                 }
             }
             else
             {
-                Game.Update();
+                game.Update();
             }
             _updateTimer.Stop();
             ups = _updatesPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);

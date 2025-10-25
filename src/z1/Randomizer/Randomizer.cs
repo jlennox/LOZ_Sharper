@@ -123,9 +123,10 @@ internal sealed class Randomizer
             shape.FitItems(state);
 
             // Place them into the world over the original dungeons.
-            var randomizedDungeon = new GameWorld(dungeon.World, shape.GetGameRooms().ToArray(), dungeon.Settings, dungeon.Name);
+            var randomizedDungeon = new GameWorld(shape.GetGameRooms().ToArray(), dungeon.Settings, dungeon.Name);
             foreach (var room in shape.GetGameRooms()) room.GameWorld = randomizedDungeon;
-            overworld.World.SetWorld(randomizedDungeon, dungeon.Name);
+            // JOE TODO: 10/25/2025 RESTRUCTURE
+            // overworld.World.SetWorld(randomizedDungeon, dungeon.Name);
         }
 
         var overworldx = OverworldState.Create(overworld, shapes.ToImmutableArray(), state);
@@ -133,8 +134,9 @@ internal sealed class Randomizer
         overworldx.FitDungeonEntrances(state);
         overworldx.FitCaveEntrances(state);
 
-        var randomizedOverworld = new GameWorld(overworld.World, overworldx.GetGameRooms().ToArray(), overworld.Settings, overworld.Name);
-        overworld.World.SetWorld(randomizedOverworld, overworld.Name);
+        var randomizedOverworld = new GameWorld(overworldx.GetGameRooms().ToArray(), overworld.Settings, overworld.Name);
+        // JOE TODO: 10/25/2025 RESTRUCTURE
+        // overworld.World.SetWorld(randomizedOverworld, overworld.Name);
 
         // As a final pass, remove all now unused staircases and related handlers.
         foreach (var shape in shapes) shape.NormalizeRooms();
@@ -244,15 +246,19 @@ internal sealed class Randomizer
                 if (entrance == null) continue;
                 if (entrance.DestinationType != GameWorldType.Underworld) continue;
 
-                var dungeon = overworld.World.GetWorld(GameWorldType.Underworld, entrance.Destination);
-                if (!seen.Add(dungeon.Name)) continue;
-
-                yield return dungeon;
+                // JOE TODO: 10/25/2025 RESTRUCTURE
+                // var dungeon = overworld.World.GetWorld(GameWorldType.Underworld, entrance.Destination);
+                // if (!seen.Add(dungeon.Name)) continue;
+                //
+                // yield return dungeon;
             }
         }
+
+        throw new NotImplementedException();
     }
 }
 
+// A*'ish searching for walking between rooms to a destination.
 internal readonly record struct WalkSearchPathQueue(Point End)
 {
     private readonly PriorityQueue<TryWalkSearchPath, long> _queue = new();
@@ -291,6 +297,7 @@ internal readonly record struct TryWalkSearchPath(Point Point, PathRequirements 
     }
 }
 
+// TODO: Delete me. Always use WalkSearchPathQueue.
 internal readonly record struct TryWalkVisited(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
 
 internal record OverworldState

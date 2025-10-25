@@ -8,7 +8,7 @@ namespace z1.UI;
 internal abstract class Menu
 {
     public abstract void Update();
-    public abstract void Draw();
+    public abstract void Draw(int frameCounter);
 
     protected static void DrawFileIcon(PlayerProfile profile, int x, int y, int quest)
     {
@@ -28,23 +28,27 @@ internal sealed class PregameMenu : Menu
 {
     public bool IsActive { get; private set; }
 
-    public Action<PlayerProfile> OnProfileSelected;
+    public Action<PlayerProfile>? OnProfileSelected;
 
-    private readonly Game _game;
+    private readonly Input _input;
+    private readonly ISound _sound;
+    private readonly GameEnhancements _enhancements;
     private readonly List<PlayerProfile> _profiles;
     private Menu _currentMenu;
 
-    public PregameMenu(Game game, List<PlayerProfile> profiles)
+    public PregameMenu(Input input, ISound sound, GameEnhancements enhancements, List<PlayerProfile> profiles)
     {
         IsActive = true;
-        _game = game;
+        _input = input;
+        _sound = sound;
+        _enhancements = enhancements;
         _profiles = profiles;
 
-        _currentMenu = new ProfileSelectMenu(_game, this, _profiles);
+        _currentMenu = new ProfileSelectMenu(input, sound, this, _profiles);
     }
 
     public override void Update() => _currentMenu.Update();
-    public override void Draw() => _currentMenu.Draw();
+    public override void Draw(int frameCounter) => _currentMenu.Draw(frameCounter);
 
     public bool UpdateIfActive()
     {
@@ -57,11 +61,11 @@ internal sealed class PregameMenu : Menu
         return false;
     }
 
-    public bool DrawIfActive()
+    public bool DrawIfActive(int frameCounter)
     {
         if (IsActive)
         {
-            Draw();
+            Draw(frameCounter);
             return true;
         }
 
@@ -77,28 +81,28 @@ internal sealed class PregameMenu : Menu
     public void GotoFileMenu(int page = 0)
     {
         IsActive = true;
-        _currentMenu = new ProfileSelectMenu(_game, this, _profiles, page);
+        _currentMenu = new ProfileSelectMenu(_input, _sound, this, _profiles, page);
     }
 
     public void GotoRegisterMenu()
     {
         IsActive = true;
-        _currentMenu = new RegisterMenu(_game, this, _profiles);
+        _currentMenu = new RegisterMenu(_input, _sound, _enhancements, this, _profiles);
     }
 
     public void GotoEliminateMenu(int page)
     {
         IsActive = true;
-        _currentMenu = new EliminateMenu(_game, this, _profiles, page);
+        _currentMenu = new EliminateMenu(_input, _sound, this, _profiles, page);
     }
 }
 
 internal sealed class ProfileSelectMenu : Menu
 {
-    private const int MaxProfiles = SaveFolder.MaxProfiles;
-    private const int RegisterIndex = MaxProfiles;
-    private const int EliminateIndex = RegisterIndex + 1;
-    private const int FinalIndex = EliminateIndex + 1;
+    private const int _maxProfiles = SaveFolder.MaxProfiles;
+    private const int _registerIndex = _maxProfiles;
+    private const int _eliminateIndex = _registerIndex + 1;
+    private const int _finalIndex = _eliminateIndex + 1;
 
     private static readonly Rectangle _mainBox = new(0x18, 0x40, 0xD0, 0x90);
 
@@ -115,16 +119,18 @@ internal sealed class ProfileSelectMenu : Menu
 
     private int _selectedIndex;
     private readonly List<PlayerProfile> _profiles;
-    private readonly Game _game;
+    private readonly Input _input;
+    private readonly ISound _sound;
     private readonly PregameMenu _menu;
     private int _page = 0;
     private int _pageCount = 0;
     private string _pageString = "";
     private readonly string _menuStr = "press alt for menu";
 
-    public ProfileSelectMenu(Game game, PregameMenu menu, List<PlayerProfile> profiles, int page = 0)
+    public ProfileSelectMenu(Input input, ISound sound, PregameMenu menu, List<PlayerProfile> profiles, int page = 0)
     {
-        _game = game;
+        _input = input;
+        _sound = sound;
         _menu = menu;
         _profiles = profiles;
 
@@ -164,38 +170,38 @@ internal sealed class ProfileSelectMenu : Menu
 
     public override void Update()
     {
-        if (_game.Input.IsAnyButtonPressing(GameButton.Select, GameButton.Down))
+        if (_input.IsAnyButtonPressing(GameButton.Select, GameButton.Down))
         {
             SelectNext(1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Up))
+        else if (_input.IsButtonPressing(GameButton.Up))
         {
             SelectNext(-1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        if (_game.Input.IsButtonPressing(GameButton.Left))
+        if (_input.IsButtonPressing(GameButton.Left))
         {
             SetPage(-1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Right))
+        else if (_input.IsButtonPressing(GameButton.Right))
         {
             SetPage(1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Start))
+        else if (_input.IsButtonPressing(GameButton.Start))
         {
             switch (_selectedIndex)
             {
-                case < MaxProfiles: _menu.StartWorld(_profiles.GetProfile(_page, _selectedIndex)); break;
-                case RegisterIndex: _menu.GotoRegisterMenu(); break;
-                case EliminateIndex: _menu.GotoEliminateMenu(_page); break;
+                case < _maxProfiles: _menu.StartWorld(_profiles.GetProfile(_page, _selectedIndex)); break;
+                case _registerIndex: _menu.GotoRegisterMenu(); break;
+                case _eliminateIndex: _menu.GotoEliminateMenu(_page); break;
             }
         }
     }
 
-    public override void Draw()
+    public override void Draw(int frameCounter)
     {
         Graphics.Begin();
 
@@ -233,7 +239,7 @@ internal sealed class ProfileSelectMenu : Menu
         }
         else
         {
-            y = 0xA8 + (_selectedIndex - MaxProfiles) * 16;
+            y = 0xA8 + (_selectedIndex - _maxProfiles) * 16;
         }
         GlobalFunctions.DrawChar(Chars.FullHeart, 0x28, y, (Palette)7);
 
@@ -245,9 +251,9 @@ internal sealed class ProfileSelectMenu : Menu
         do
         {
             _selectedIndex += direction;
-            if (_selectedIndex >= FinalIndex) _selectedIndex = 0;
-            if (_selectedIndex < 0) _selectedIndex = FinalIndex - 1;
-        } while (_selectedIndex < MaxProfiles && !_profiles.GetProfile(_page, _selectedIndex).IsActive());
+            if (_selectedIndex >= _finalIndex) _selectedIndex = 0;
+            if (_selectedIndex < 0) _selectedIndex = _finalIndex - 1;
+        } while (_selectedIndex < _maxProfiles && !_profiles.GetProfile(_page, _selectedIndex).IsActive());
     }
 
     private void SelectFirst()
@@ -261,21 +267,23 @@ internal sealed class ProfileSelectMenu : Menu
             }
         }
 
-        _selectedIndex = RegisterIndex;
+        _selectedIndex = _registerIndex;
     }
 }
 
 internal sealed class EliminateMenu : Menu
 {
-    private readonly Game _game;
+    private readonly Input _input;
+    private readonly ISound _sound;
     private readonly PregameMenu _menu;
     private readonly List<PlayerProfile> _profiles;
     private readonly int _page;
     private int _selectedIndex = -1; // Account for first SelectNext. JOE: TODO: Recode all menu's into generic selection API.
 
-    public EliminateMenu(Game game, PregameMenu menu, List<PlayerProfile> profiles, int page)
+    public EliminateMenu(Input input, ISound sound, PregameMenu menu, List<PlayerProfile> profiles, int page)
     {
-        _game = game;
+        _input = input;
+        _sound = sound;
         _menu = menu;
         _profiles = profiles;
         _page = page;
@@ -298,22 +306,22 @@ internal sealed class EliminateMenu : Menu
         var index = _profiles.GetIndex(_page, _selectedIndex);
         _profiles.RemoveAt(index);
         SaveFolder.SaveProfiles();
-        _game.Sound.PlayEffect(SoundEffect.PlayerHit);
+        _sound.PlayEffect(SoundEffect.PlayerHit);
     }
 
     public override void Update()
     {
-        if (_game.Input.IsAnyButtonPressing(GameButton.Select, GameButton.Down))
+        if (_input.IsAnyButtonPressing(GameButton.Select, GameButton.Down))
         {
             SelectNext(1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Up))
+        else if (_input.IsButtonPressing(GameButton.Up))
         {
             SelectNext(-1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Start))
+        else if (_input.IsButtonPressing(GameButton.Start))
         {
             switch (_selectedIndex)
             {
@@ -323,7 +331,7 @@ internal sealed class EliminateMenu : Menu
         }
     }
 
-    public override void Draw()
+    public override void Draw(int frameCounter)
     {
         Graphics.Begin();
 
@@ -380,7 +388,9 @@ internal sealed class RegisterMenu : Menu
         CharSetStr3,
     ];
 
-    private readonly Game _game;
+    private readonly Input _input;
+    private readonly ISound _sound;
+    private readonly GameEnhancements _enhancements;
     private readonly PregameMenu _menu;
     private readonly List<PlayerProfile> _profiles;
     private readonly PlayerProfile _profile;
@@ -388,9 +398,11 @@ internal sealed class RegisterMenu : Menu
     private int _charPosCol;
     private int _charPosRow;
 
-    public RegisterMenu(Game game, PregameMenu menu, List<PlayerProfile> profiles)
+    public RegisterMenu(Input input, ISound sound, GameEnhancements enhancements, PregameMenu menu, List<PlayerProfile> profiles)
     {
-        _game = game;
+        _input = input;
+        _sound = sound;
+        _enhancements = enhancements;
         _menu = menu;
         _profiles = profiles;
 
@@ -481,57 +493,57 @@ internal sealed class RegisterMenu : Menu
 
     public override void Update()
     {
-        if (_game.Input.IsButtonPressing(GameButton.Start))
+        if (_input.IsButtonPressing(GameButton.Start))
         {
             CommitFiles();
             _menu.GotoFileMenu();
         }
 
-        if (_game.Input.IsButtonPressing(GameButton.A))
+        if (_input.IsButtonPressing(GameButton.A))
         {
             AddCharToName(GetSelectedChar());
-            _game.Sound.PlayEffect(SoundEffect.PutBomb);
+            _sound.PlayEffect(SoundEffect.PutBomb);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.B))
+        else if (_input.IsButtonPressing(GameButton.B))
         {
             // JOE: I hate this :)
             // MoveNextNamePosition();
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Right))
+        else if (_input.IsButtonPressing(GameButton.Right))
         {
             MoveCharSetCursorH(1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Left))
+        else if (_input.IsButtonPressing(GameButton.Left))
         {
             MoveCharSetCursorH(-1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Down))
+        else if (_input.IsButtonPressing(GameButton.Down))
         {
             MoveCharSetCursorV(1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
-        else if (_game.Input.IsButtonPressing(GameButton.Up))
+        else if (_input.IsButtonPressing(GameButton.Up))
         {
             MoveCharSetCursorV(-1);
-            _game.Sound.PlayEffect(SoundEffect.Cursor);
+            _sound.PlayEffect(SoundEffect.Cursor);
         }
 
-        if (_game.Enhancements.ImprovedMenus)
+        if (_enhancements.ImprovedMenus)
         {
-            foreach (var c in _game.Input.GetCharactersPressing())
+            foreach (var c in _input.GetCharactersPressing())
             {
                 if (c != '\0')
                 {
                     AddCharToName(c);
-                    _game.Sound.PlayEffect(SoundEffect.PutBomb);
+                    _sound.PlayEffect(SoundEffect.PutBomb);
                 }
             }
         }
     }
 
-    public override void Draw()
+    public override void Draw(int frameCounter)
     {
         Graphics.Begin();
         Graphics.Clear(SKColors.Black);
@@ -539,7 +551,7 @@ internal sealed class RegisterMenu : Menu
         int y;
         const int nameX = 0x28 + 8 + 16;
 
-        var showCursor = ((_game.FrameCounter >> 3) & 1) != 0;
+        var showCursor = ((frameCounter >> 3) & 1) != 0;
         if (showCursor)
         {
             var x = nameX + (_namePos * 8);
@@ -552,7 +564,7 @@ internal sealed class RegisterMenu : Menu
         }
 
         GlobalFunctions.DrawBox(0x28, 0x80, 0xB8, 0x48);
-        if (_game.Enhancements.ImprovedMenus)
+        if (_enhancements.ImprovedMenus)
         {
             GlobalFunctions.DrawString("Type or input name", 0x28, 0x68, 0);
         }

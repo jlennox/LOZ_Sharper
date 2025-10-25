@@ -87,16 +87,11 @@ internal static class InputButtonsExtensions
 
 internal readonly struct InputButtons
 {
-    public readonly HashSet<GameButton> Buttons;
-    public readonly HashSet<char> Characters;
-    public readonly HashSet<FunctionButton> Functions;
+    public readonly HashSet<GameButton> Buttons = new();
+    public readonly HashSet<char> Characters = new();
+    public readonly HashSet<FunctionButton> Functions = new();
 
-    public InputButtons()
-    {
-        Buttons = new HashSet<GameButton>();
-        Characters = new HashSet<char>();
-        Functions = new HashSet<FunctionButton>();
-    }
+    public InputButtons() { }
 
     public bool Set(GameButton value) => Buttons.Add(value);
     public bool Has(GameButton value) => Buttons.Contains(value);
@@ -121,7 +116,11 @@ internal readonly struct InputButtons
 
 internal sealed class Input
 {
+    public delegate void OnKeyPressedDelegate(KeyboardMapping mapping);
+
     private static readonly DebugLog _traceLog = new(nameof(Input), DebugLogDestination.None);
+
+    public event OnKeyPressedDelegate OnKeyPressed;
 
     private readonly InputButtons _oldInputState = new();
     private readonly InputButtons _inputState = new();
@@ -174,6 +173,9 @@ internal sealed class Input
         if (SetGameButton(_configuration.Keyboard, _inputState.Buttons, map)) return true;
         if (SetGameButton(_configuration.Functions, _inputState.Functions, map)) return true;
         SetLetter(map.Key.GetKeyCharacter());
+
+        OnKeyPressed?.Invoke(map);
+
         return false;
     }
 

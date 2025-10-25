@@ -12,13 +12,14 @@ internal sealed class GameIO
     public ISound Sound { get; set; }
     public Input Input { get; }
     public Random Random { get; private set; } // Do not use for things like particle effects, this is the seedable random.
+    public int Seed { get; }
 
     public GameIO()
     {
         Input = new Input(Configuration.Input);
         Sound = new Sound(Configuration.Audio);
-        var seed = Random.Shared.Next();
-        Random = new Random(seed);
+        Seed = Random.Shared.Next();
+        Random = new Random(Seed);
     }
 }
 
@@ -46,6 +47,8 @@ internal sealed class Game
 {
     private static readonly DebugLog _log = new(nameof(Game));
 
+    // It might seem weird that these are in a static context, but cheats effect systems like the actual rendering which
+    // is above the game class. It wouldn't be difficult to make that not-so, but... why.
     public static class Cheats
     {
         public static bool SpeedUp = false;
@@ -58,17 +61,17 @@ internal sealed class Game
 
     public GameEnhancements Enhancements => Configuration.Enhancements;
 
-    public World World { get; }
+    public World World { get; private set; }
     public Player Player { get; set; }
     public GameConfiguration Configuration => _io.Configuration;
     public ISound Sound => _io.Sound;
     public Input Input => _io.Input;
     public Random Random => _io.Random;
-    public GameCheats GameCheats { get; }
+    public GameCheats GameCheats { get; private set; }
     public OnScreenDisplay OnScreenDisplay { get; } = new();
-    public DebugInfo DebugInfo { get; }
+    public DebugInfo DebugInfo { get; private set; }
     public PregameMenu Menu { get; }
-    public GameRecording Recording { get; }
+    public GameRecording Recording { get; private set; }
     public GamePlayback? Playback { get; }
     public bool Headless { get; init; }
     public GameData Data { get; }
@@ -80,15 +83,13 @@ internal sealed class Game
     public Game(GameIO io)
     {
         _io = io;
-        Data = new Asset(Filenames.GameData).ReadJson<GameData>();
 
-        World = new World(this);
-        Player = new Player(World);
-        GameCheats = new GameCheats(this, Input);
+        // Arg. Nothing that accepts 'this' as an argument should be constructed here.
+        // The issue is most things _should not be_ constructed until a profile is selected.
+
+        Data = new Asset(Filenames.GameData).ReadJson<GameData>();
+        Menu = new PregameMenu(Input, Sound, Enhancements, SaveFolder.Profiles.Profiles);
         DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
-        Menu = new PregameMenu(this, SaveFolder.Profiles.Profiles);
-        var seed = Random.Shared.Next();
-        Recording = new GameRecording(this, seed);
 
         Menu.OnProfileSelected += SetProfile;
     }
@@ -96,15 +97,10 @@ internal sealed class Game
     public Game(GameIO io, PlayerProfile playerProfile)
     {
         _io = io;
-        Data = new Asset(Filenames.GameData).ReadJson<GameData>();
 
-        World = new World(this);
-        Player = new Player(World);
-        GameCheats = new GameCheats(this, Input);
+        Data = new Asset(Filenames.GameData).ReadJson<GameData>();
+        Menu = new PregameMenu(Input, Sound, Enhancements, SaveFolder.Profiles.Profiles);
         DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
-        Menu = new PregameMenu(this, SaveFolder.Profiles.Profiles);
-        var seed = Random.Shared.Next();
-        Recording = new GameRecording(this, seed);
 
         SetProfile(playerProfile);
     }
@@ -120,7 +116,15 @@ internal sealed class Game
 
     private void SetProfile(PlayerProfile profile)
     {
-        Player.Profile = profile;
+        World = new World(this);
+        Player = new Player(World)
+        {
+            Profile = profile
+        };
+
+        GameCheats = new GameCheats(this, Input);
+        Recording = new GameRecording(this, _io.Seed);
+
         profile.Start();
         World.Start();
 
@@ -143,8 +147,8 @@ internal sealed class Game
         CheckInput();
         if (!Menu.UpdateIfActive()) World.Update();
         Sound.Update();
-        GameCheats.Update();
-        Recording.Record();
+        GameCheats?.Update();
+        Recording?.Record();
 
         // Input comes last because it marks the buttons as old. We read them on a callback which happens async.
         Input.Update();
@@ -207,7 +211,7 @@ internal sealed class Game
     {
         if (Headless) return;
 
-        if (!Menu.DrawIfActive()) World.Draw();
+        if (!Menu.DrawIfActive(FrameCounter)) World.Draw();
         OnScreenDisplay.Draw();
         DebugInfo.Draw();
         Graphics.FinishRender();

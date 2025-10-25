@@ -119,7 +119,7 @@ internal sealed partial class World
     private readonly Dictionary<GameWorldType, GameWorld> _commonWorlds = [];
     public GameWorld CurrentWorld;
     public GameRoom CurrentRoom;
-    public PersistedRoomState CurrentPersistedRoomState => CurrentRoom.PersistedRoomState;
+    public PersistedRoomState CurrentPersistedRoomState => Profile.GetRoomFlags(CurrentRoom);
 
     private int _rowCount;
     private int _colCount;
@@ -188,7 +188,6 @@ internal sealed partial class World
         Game = game;
 
         _entranceHistory = new EntranceHistory(this);
-
         _roomHistory = new RoomHistory(game, RoomHistoryLength);
         _statusBar = new StatusBar(this);
         Menu = new SubmenuType(game);
@@ -219,17 +218,18 @@ internal sealed partial class World
         }
     }
 
+    // TODO 10/25/2025 restructuring: Lets try and marge this into the constructor.
     public void Start()
     {
-        _overworld = GameWorld.Load(this, "Maps/Overworld.world", 1);
+        _overworld = GameWorld.Load("Maps/Overworld.world", 1);
         LoadOverworld();
         GotoLoadOverworld();
-        _commonWorlds[GameWorldType.OverworldCommon] = GameWorld.Load(this, "Maps/OverworldCommon.world", 1);
-        _commonWorlds[GameWorldType.UnderworldCommon] = GameWorld.Load(this, "Maps/UnderworldCommon.world", 1);
+        _commonWorlds[GameWorldType.OverworldCommon] = GameWorld.Load("Maps/OverworldCommon.world", 1);
+        _commonWorlds[GameWorldType.UnderworldCommon] = GameWorld.Load("Maps/UnderworldCommon.world", 1);
     }
 
     // This irl should be moved over to tests.
-    private void Validate()
+    private static void Validate()
     {
         // Ensure there's one defined for each.
         foreach (var action in Enum.GetValues<DoorType>()) DoorStateFaces.GetState(action, true);
@@ -736,7 +736,7 @@ internal sealed partial class World
             // JOE: TODO: This does sadly limit the usage of the boss roar, and I'm not sure how it behaves in the overworld.
             // Instead have a "killed boss" flag?
             var isBossRoar = ambientSound.Value is SoundEffect.BossRoar1 or SoundEffect.BossRoar2 or SoundEffect.BossRoar3;
-            if (!isBossRoar || CurrentWorld.IsBossAlive)
+            if (!isBossRoar || CurrentWorld.IsBossAlive(Profile))
             {
                 Game.Sound.PlayEffect(ambientSound.Value, true, Sound.AmbientInstance);
                 playedSound = true;
@@ -877,11 +877,13 @@ internal sealed partial class World
         }
     }
 
+    private PersistedRoomState GetRoomState(GameRoom room) => Profile.GetRoomFlags(room);
+
     private bool GetEffectiveDoorState(GameRoom room, Direction doorDir)
     {
         // TODO: the original game does it a little different, by looking at $EE.
         var type = room.UnderworldDoors[doorDir];
-        return room.PersistedRoomState.IsDoorOpen(doorDir)
+        return GetRoomState(room).IsDoorOpen(doorDir)
             || (type == DoorType.Shutter && _tempShutters && room == _tempShutterRoom) // JOE: I think doing object instance comparisons is fine?
             || (_tempShutterDoorDir == doorDir && room == _tempShutterRoom);
     }
@@ -950,7 +952,7 @@ internal sealed partial class World
         _tempShutterRoom = CurrentRoom;
         Game.Sound.PlayEffect(SoundEffect.Door);
 
-        var roomState = CurrentRoom.PersistedRoomState;
+        var roomState = CurrentPersistedRoomState;
 
         foreach (var direction in TiledRoomProperties.DoorDirectionOrder)
         {
@@ -1151,7 +1153,7 @@ internal sealed partial class World
         MakeWhirlwind();
         _roomHistory.AddRoomToHistory();
 
-        CurrentRoom.PersistedRoomState.VisitState = true;
+        CurrentPersistedRoomState.VisitState = true;
     }
 
     private void UpdatePlay()
@@ -1385,7 +1387,7 @@ internal sealed partial class World
             OpenShutters();
         }
 
-        var roomState = CurrentRoom.PersistedRoomState;
+        var roomState = CurrentPersistedRoomState;
 
         foreach (var dir in TiledRoomProperties.DoorDirectionOrder)
         {
@@ -1403,7 +1405,7 @@ internal sealed partial class World
             }
 
             roomState.SetDoorState(dir, PersistedDoorState.Open);
-            nextRoom.PersistedRoomState.SetDoorState(oppositeDir, PersistedDoorState.Open);
+            GetRoomState(nextRoom).SetDoorState(oppositeDir, PersistedDoorState.Open);
             if (type != DoorType.Bombable)
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);
@@ -1499,7 +1501,7 @@ internal sealed partial class World
                 var doorType = CurrentRoom.UnderworldDoors[direction];
                 if (doorType != DoorType.Bombable) continue;
 
-                var doorState = CurrentRoom.PersistedRoomState.IsDoorOpen(direction);
+                var doorState = CurrentPersistedRoomState.IsDoorOpen(direction);
                 if (doorState) continue;
 
                 var doorMiddle = _doorMiddles[direction];
@@ -1602,7 +1604,7 @@ internal sealed partial class World
 
     private void SaveObjectCount()
     {
-        var flags = CurrentRoom.PersistedRoomState;
+        var flags = CurrentPersistedRoomState;
 
         if (IsOverworld())
         {
@@ -1647,7 +1649,7 @@ internal sealed partial class World
 
     private void CalcObjCountToMake(ref ObjType type, ref int count)
     {
-        var flags = CurrentRoom.PersistedRoomState;
+        var flags = CurrentPersistedRoomState;
 
         if (IsOverworld())
         {
@@ -1869,7 +1871,7 @@ internal sealed partial class World
         if (CurrentRoom.CaveSpec != null)
         {
             // The nameof isn't my favorite here...
-            var state = CurrentRoom.PersistedRoomState.GetObjectState(nameof(ShopSpec));
+            var state = CurrentPersistedRoomState.GetObjectState(nameof(ShopSpec));
             MakePersonRoomObjects(CurrentRoom.CaveSpec, state);
         }
 
@@ -2515,7 +2517,7 @@ internal sealed partial class World
             {
                 Game.Sound.PlayEffect(SoundEffect.Door);
                 UpdateDoorTileBehavior(CurrentRoom, origShutterDoorDir);
-                UpdateDoorTiles(CurrentRoom, origShutterDoorDir, CurrentRoom.PersistedRoomState);
+                UpdateDoorTiles(CurrentRoom, origShutterDoorDir, CurrentPersistedRoomState);
             }
 
             _statusBar.EnableFeatures(StatusBarFeatures.All, true);
@@ -3040,8 +3042,8 @@ internal sealed partial class World
     {
         var world = entrance.DestinationType switch
         {
-            GameWorldType.OverworldCommon => GameWorld.Load(this, "Maps/OverworldCommon.world", 1),
-            GameWorldType.UnderworldCommon => GameWorld.Load(this, "Maps/UnderworldCommon.world", 1),
+            GameWorldType.OverworldCommon => GameWorld.Load("Maps/OverworldCommon.world", 1),
+            GameWorldType.UnderworldCommon => GameWorld.Load("Maps/UnderworldCommon.world", 1),
             _ => throw new Exception($"Unsupported entrance type \"{entrance.DestinationType}\""),
         };
 
