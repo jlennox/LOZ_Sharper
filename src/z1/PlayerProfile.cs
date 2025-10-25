@@ -367,4 +367,9 @@ internal static class PlayerProfileExtensions
             ? null
             : profiles[profileIndex];
     }
+
+    public static PlayerProfile DemandProfile(this List<PlayerProfile> profiles, int page, int index)
+    {
+        return profiles.GetProfile(page, index) ?? throw new InvalidOperationException($"No profile at page {page}, index {index}.");
+    }
 }

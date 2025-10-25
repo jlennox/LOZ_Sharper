@@ -161,7 +161,7 @@ internal sealed class ProfileSelectMenu : Menu
         _page = (int)((uint)page % _pageCount);
         _pageString = GetCentered($"< Page {_page + 1}/{_pageCount} >");
 
-        if (!_profiles.GetProfile(_page, _selectedIndex).IsActive())
+        if (!_profiles.DemandProfile(_page, _selectedIndex).IsActive())
         {
             _selectedIndex = 0;
             SelectFirst();
@@ -194,7 +194,7 @@ internal sealed class ProfileSelectMenu : Menu
         {
             switch (_selectedIndex)
             {
-                case < _maxProfiles: _menu.StartWorld(_profiles.GetProfile(_page, _selectedIndex)); break;
+                case < _maxProfiles: _menu.StartWorld(_profiles.DemandProfile(_page, _selectedIndex)); break;
                 case _registerIndex: _menu.GotoRegisterMenu(); break;
                 case _eliminateIndex: _menu.GotoEliminateMenu(_page); break;
             }
@@ -253,14 +253,14 @@ internal sealed class ProfileSelectMenu : Menu
             _selectedIndex += direction;
             if (_selectedIndex >= _finalIndex) _selectedIndex = 0;
             if (_selectedIndex < 0) _selectedIndex = _finalIndex - 1;
-        } while (_selectedIndex < _maxProfiles && !_profiles.GetProfile(_page, _selectedIndex).IsActive());
+        } while (_selectedIndex < _maxProfiles && !_profiles.DemandProfile(_page, _selectedIndex).IsActive());
     }
 
     private void SelectFirst()
     {
         for (var i = 0; i < SaveFolder.MaxProfiles; i++)
         {
-            if (_profiles.GetProfile(_page, _selectedIndex).IsActive())
+            if (_profiles.DemandProfile(_page, _selectedIndex).IsActive())
             {
                 _selectedIndex = i;
                 return;
@@ -369,23 +369,23 @@ internal sealed class EliminateMenu : Menu
 
 internal sealed class RegisterMenu : Menu
 {
-    private const string Quest2Name = "zelda";
-    private const string RegisterEndStr = "Press Start To Register";
+    private const string _quest2Name = "zelda";
+    private const string _registerEndStr = "Press Start To Register";
 
-    private const string CharSetStrBlank = "                     ";
-    private const string CharSetStr0 = "A B C D E F G H I J K";
-    private const string CharSetStr1 = "L M N O P Q R S T U V";
-    private const string CharSetStr2 = "W X Y Z - . , ! ' & .";
-    private const string CharSetStr3 = "0 1 2 3 4 5 6 7 8 9  ";
+    private const string _charSetStrBlank = "                     ";
+    private const string _charSetStr0 = "A B C D E F G H I J K";
+    private const string _charSetStr1 = "L M N O P Q R S T U V";
+    private const string _charSetStr2 = "W X Y Z - . , ! ' & .";
+    private const string _charSetStr3 = "0 1 2 3 4 5 6 7 8 9  ";
 
     private static readonly ImmutableArray<string> _charSetStrs = [
-        CharSetStr0,
-        CharSetStrBlank,
-        CharSetStr1,
-        CharSetStrBlank,
-        CharSetStr2,
-        CharSetStrBlank,
-        CharSetStr3,
+        _charSetStr0,
+        _charSetStrBlank,
+        _charSetStr1,
+        _charSetStrBlank,
+        _charSetStr2,
+        _charSetStrBlank,
+        _charSetStr3,
     ];
 
     private readonly Input _input;
@@ -437,7 +437,7 @@ internal sealed class RegisterMenu : Menu
 
     private void MoveCharSetCursorH(int dir)
     {
-        var fullSize = CharSetStr0.Length * _charSetStrs.Length;
+        var fullSize = _charSetStr0.Length * _charSetStrs.Length;
 
         for (var i = 0; i < fullSize; i++)
         {
@@ -445,10 +445,10 @@ internal sealed class RegisterMenu : Menu
 
             if (_charPosCol < 0)
             {
-                _charPosCol = CharSetStr0.Length - 1;
+                _charPosCol = _charSetStr0.Length - 1;
                 MoveCharSetCursorV(-1, false);
             }
-            else if (_charPosCol >= CharSetStr0.Length)
+            else if (_charPosCol >= _charSetStr0.Length)
             {
                 _charPosCol = 0;
                 MoveCharSetCursorV(1, false);
@@ -481,7 +481,7 @@ internal sealed class RegisterMenu : Menu
     {
         _profiles.Add(_profile);
         // JOE: TODO: Move to be profile method.
-        if (_profile.Name.IEquals(Quest2Name))
+        if (_profile.Name.IEquals(_quest2Name))
         {
             // JOE: TODO: QUEST _profile.Quest = 1;
         }
@@ -568,7 +568,7 @@ internal sealed class RegisterMenu : Menu
         {
             GlobalFunctions.DrawString("Type or input name", 0x28, 0x68, 0);
         }
-        GlobalFunctions.DrawString(RegisterEndStr, 0x28, 0x78, 0);
+        GlobalFunctions.DrawString(_registerEndStr, 0x28, 0x78, 0);
 
         y = 0x88;
         for (var i = 0; i < _charSetStrs.Length; i++, y += 8)

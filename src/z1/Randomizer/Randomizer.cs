@@ -21,25 +21,27 @@ internal sealed class Randomizer
 {
     private static readonly DebugLog _log = new(nameof(Randomizer), DebugLogDestination.File);
 
-    public static void Create(GameWorld overworld, RandomizerState state)
+    public static WorldProvider Create(RandomizerState state)
     {
         var timer = Stopwatch.StartNew();
 
         _log.Write(nameof(Create), $"Starting dungeon randomization {state.Seed}.");
         try
         {
-            CreateCore(overworld, state);
+            return CreateCore(state);
         }
         catch (Exception e)
         {
             _log.Error($"Dungeon randomization failed: {e}");
             throw;
         }
-
-        _log.Write(nameof(Create), $"Finished dungeon randomization in {timer.Elapsed}.");
+        finally
+        {
+            _log.Write(nameof(Create), $"Finished dungeon randomization in {timer.Elapsed}.");
+        }
     }
 
-    public static void CreateCore(GameWorld overworld, RandomizerState state)
+    public static WorldProvider CreateCore(RandomizerState state)
     {
         // Randomizing a dungeon is done in multiple passes. Some passes themselves having multiple passes.
         //
@@ -68,7 +70,11 @@ internal sealed class Randomizer
         // - The retry attempt counts are largely arbitrary. I'm not sure it matters. My main concerns are preventing
         //   infinite loops, but more so, detecting failed states.
 
-        var dungeons = GetAllDungeons(overworld).ToArray();
+        var baseWorldProvider = new AssetWorldProvider();
+        var randomizedWorldProvider = new MemoryWorldProvider();
+        var overworld = baseWorldProvider.GetWorld(GameWorldType.Overworld, "Overworld");
+
+        var dungeons = GetAllDungeons(baseWorldProvider, overworld).ToArray();
         state.Initialize(dungeons);
 
         // 1. First a shape for each dungeon is determined. Nothing else is set inside the dungeons at this point.
@@ -125,8 +131,7 @@ internal sealed class Randomizer
             // Place them into the world over the original dungeons.
             var randomizedDungeon = new GameWorld(shape.GetGameRooms().ToArray(), dungeon.Settings, dungeon.Name);
             foreach (var room in shape.GetGameRooms()) room.GameWorld = randomizedDungeon;
-            // JOE TODO: 10/25/2025 RESTRUCTURE
-            // overworld.World.SetWorld(randomizedDungeon, dungeon.Name);
+            randomizedWorldProvider.SetWorld(randomizedDungeon, dungeon.Name);
         }
 
         var overworldx = OverworldState.Create(overworld, shapes.ToImmutableArray(), state);
@@ -135,8 +140,7 @@ internal sealed class Randomizer
         overworldx.FitCaveEntrances(state);
 
         var randomizedOverworld = new GameWorld(overworldx.GetGameRooms().ToArray(), overworld.Settings, overworld.Name);
-        // JOE TODO: 10/25/2025 RESTRUCTURE
-        // overworld.World.SetWorld(randomizedOverworld, overworld.Name);
+        randomizedWorldProvider.SetWorld(randomizedOverworld, overworld.Name);
 
         // As a final pass, remove all now unused staircases and related handlers.
         foreach (var shape in shapes) shape.NormalizeRooms();
@@ -144,6 +148,8 @@ internal sealed class Randomizer
         // Print spoilers before linting because the output could help debug linting issues.
         PrintSpoiler(shapes);
         Lint(shapes, state);
+
+        return randomizedWorldProvider;
     }
 
     private static void Lint(IEnumerable<DungeonState> shapes, RandomizerState state)
@@ -235,7 +241,7 @@ internal sealed class Randomizer
     }
 
     // TODO: Move this off to something that modifies Game objects.
-    private static IEnumerable<GameWorld> GetAllDungeons(GameWorld overworld)
+    private static IEnumerable<GameWorld> GetAllDungeons(WorldProvider provider, GameWorld overworld)
     {
         var seen = new HashSet<string>();
         foreach (var room in overworld.Rooms)
@@ -246,15 +252,12 @@ internal sealed class Randomizer
                 if (entrance == null) continue;
                 if (entrance.DestinationType != GameWorldType.Underworld) continue;
 
-                // JOE TODO: 10/25/2025 RESTRUCTURE
-                // var dungeon = overworld.World.GetWorld(GameWorldType.Underworld, entrance.Destination);
-                // if (!seen.Add(dungeon.Name)) continue;
-                //
-                // yield return dungeon;
+                var dungeon = provider.GetWorld(GameWorldType.Underworld, entrance.Destination);
+                if (!seen.Add(dungeon.Name)) continue;
+
+                yield return dungeon;
             }
         }
-
-        throw new NotImplementedException();
     }
 }
 

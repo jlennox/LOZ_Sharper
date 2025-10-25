@@ -116,7 +116,11 @@ internal sealed class Game
 
     private void SetProfile(PlayerProfile profile)
     {
-        World = new World(this);
+        var worldProvider = profile.RandomizerSeed != null
+            ? Randomizer.Randomizer.Create(new RandomizerState(profile.RandomizerSeed.Value, new()))
+            : new AssetWorldProvider();
+
+        World = new World(this, worldProvider);
         Player = new Player(World)
         {
             Profile = profile
@@ -127,11 +131,6 @@ internal sealed class Game
 
         profile.Start();
         World.Start();
-
-        if (profile.RandomizerSeed != null)
-        {
-            Randomizer.Randomizer.Create(World.CurrentWorld, new RandomizerState(profile.RandomizerSeed.Value, new()));
-        }
     }
 
     public void Update()
