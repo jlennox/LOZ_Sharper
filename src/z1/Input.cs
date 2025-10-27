@@ -170,11 +170,13 @@ internal sealed class Input
 
     public bool SetKey(KeyboardMapping map)
     {
+        // Always perform the callback, regardless of if it's a game input or not. Perhaps down the road some callers
+        // will want an argument letting them know, or setup a second binding.
+        OnKeyPressed?.Invoke(map);
+
         if (SetGameButton(_configuration.Keyboard, _inputState.Buttons, map)) return true;
         if (SetGameButton(_configuration.Functions, _inputState.Functions, map)) return true;
         SetLetter(map.Key.GetKeyCharacter());
-
-        OnKeyPressed?.Invoke(map);
 
         return false;
     }
