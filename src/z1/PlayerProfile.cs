@@ -339,7 +339,7 @@ internal sealed class PlayerProfile
         ReadOnlySpan<byte> palette = [0x29, 0x32, 0x16];
 
         var value = Items.Get(ItemSlot.Ring);
-        Graphics.SetColorIndexed(Palette.Player, 1, palette[value]);
+        GraphicPalettes.SetColorIndexed(Palette.Player, 1, palette[value]);
     }
 
     public static PlayerProfile MakeDefault() => new();

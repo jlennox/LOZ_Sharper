@@ -209,7 +209,7 @@ internal sealed class RoomInteractionActor : InteractableActor<RoomInteraction>
     {
     }
 
-    public override void Draw() { }
+    public override void Draw(Graphics graphics) { }
 }
 
 [DebuggerDisplay("{GameObject.Name} ({X},{Y})")]
@@ -392,9 +392,9 @@ internal sealed partial class InteractableBlockActor : InteractableActor<Interac
         return true;
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
-        _raft?.Draw();
+        _raft?.Draw(graphics);
     }
 }
 
@@ -678,11 +678,11 @@ internal sealed class RaftInteraction
         return true;
     }
 
-    public void Draw()
+    public void Draw(Graphics graphics)
     {
         if (_raftDirection != null)
         {
-            _raftImage.Draw(TileSheet.PlayerAndItems, _interactive.X, _interactive.Y, Palette.Player, DrawOrder.Sprites);
+            _raftImage.Draw(graphics, TileSheet.PlayerAndItems, _interactive.X, _interactive.Y, Palette.Player, DrawOrder.Sprites);
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace z1.Actors;
+﻿using z1.Render;
+
+namespace z1.Actors;
 
 internal sealed class FoodActor : Actor
 {
@@ -40,7 +42,7 @@ internal sealed class FoodActor : Actor
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         GlobalFunctions.DrawItemWide(Game, ItemId.Food, X, Y);
     }

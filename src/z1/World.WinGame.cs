@@ -241,41 +241,41 @@ internal partial class World
         }
     }
 
-    private void DrawWinGame()
+    private void DrawWinGame(Graphics graphics)
     {
         SKColor backColor;
 
-        using (var _ = Graphics.SetClip(0, 0, Global.StdViewWidth, Global.StdViewHeight))
+        using (var _ = graphics.SetClip(0, 0, Global.StdViewWidth, Global.StdViewHeight))
         {
             if (_state.WinGame.Substate == WinGameState.Substates.Colors)
             {
                 ReadOnlySpan<int> sysColors = [0x0F, 0x2A, 0x16, 0x12];
                 var frame = _state.WinGame.Timer & 3;
                 var sysColor = sysColors[frame];
-                ClearScreen(sysColor);
-                backColor = Graphics.GetSystemColor(sysColor);
+                ClearScreen(graphics, sysColor);
+                backColor = GraphicPalettes.GetSystemColor(sysColor);
             }
             else
             {
-                ClearScreen();
+                ClearScreen(graphics);
                 backColor = SKColors.Black;
             }
         }
 
-        _statusBar.Draw(_submenuOffsetY, backColor);
+        _statusBar.Draw(graphics, _submenuOffsetY, backColor);
 
         if (_state.WinGame.Substate == WinGameState.Substates.Start)
         {
             var left = _state.WinGame.Left;
             var width = _state.WinGame.Right - _state.WinGame.Left;
 
-            using (var _ = Graphics.SetClip(left, TileMapBaseY, width, TileMapHeight))
+            using (var _ = graphics.SetClip(left, TileMapBaseY, width, TileMapHeight))
             {
-                DrawRoomNoObjects(true);
+                DrawRoomNoObjects(graphics, true);
             }
 
-            Game.Player.Draw();
-            DrawObjects();
+            Game.Player.Draw(graphics);
+            DrawObjects(graphics);
         }
         else
         {
@@ -284,19 +284,19 @@ internal partial class World
             switch (_state.WinGame.NpcVisual)
             {
                 case WinGameState.NpcVisualState.Stand:
-                    princess.Draw();
-                    Game.Player.Draw();
+                    princess.Draw(graphics);
+                    Game.Player.Draw(graphics);
                     break;
 
                 case WinGameState.NpcVisualState.Lift:
-                    DrawPrincessLiftingTriforce(princess.X, princess.Y);
-                    DrawPlayerLiftingItem(ItemId.TriforcePiece);
+                    DrawPrincessLiftingTriforce(graphics, princess.X, princess.Y);
+                    DrawPlayerLiftingItem(graphics, ItemId.TriforcePiece);
                     break;
             }
 
-            _credits?.Draw();
-            _textBox1?.Draw();
-            _textBox2?.Draw();
+            _credits?.Draw(graphics);
+            _textBox1?.Draw(graphics);
+            _textBox2?.Draw(graphics);
         }
     }
 }

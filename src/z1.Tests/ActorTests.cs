@@ -4,12 +4,13 @@ using System.Text.RegularExpressions;
 using z1.Common;
 using z1.Common.Data;
 using z1.Common.IO;
+using z1.Render;
 
 namespace z1.Tests;
 
 internal static class TestObjects
 {
-    public static Game Game => new(new GameIO());
+    public static Game Game => new(new GameIO(new NullGraphics()));
 }
 
 [TestFixture]

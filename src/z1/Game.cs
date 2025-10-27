@@ -8,38 +8,20 @@ namespace z1;
 
 internal sealed class GameIO
 {
+    public Graphics Graphics { get; }
     public GameConfiguration Configuration { get; } = SaveFolder.Configuration;
     public ISound Sound { get; set; }
     public Input Input { get; }
     public Random Random { get; private set; } // Do not use for things like particle effects, this is the seedable random.
     public int Seed { get; }
 
-    public GameIO()
+    public GameIO(Graphics graphics)
     {
+        Graphics = graphics;
         Input = new Input(Configuration.Input);
         Sound = new Sound(Configuration.Audio);
         Seed = Random.Shared.Next();
         Random = new Random(Seed);
-    }
-}
-
-internal enum GameControllerState
-{
-    ProfileSelection,
-    Game
-}
-
-internal sealed class GameController
-{
-    public GameIO IO { get; }
-
-    private GameControllerState _state;
-
-    public GameController()
-    {
-        IO = new GameIO();
-
-        _state = GameControllerState.ProfileSelection;
     }
 }
 
@@ -67,6 +49,7 @@ internal sealed class Game
     public ISound Sound => _io.Sound;
     public Input Input => _io.Input;
     public Random Random => _io.Random;
+    public Graphics Graphics => _io.Graphics;
     public GameCheats GameCheats { get; private set; }
     public OnScreenDisplay OnScreenDisplay { get; } = new();
     public DebugInfo DebugInfo { get; private set; }
@@ -88,7 +71,7 @@ internal sealed class Game
         // The issue is most things _should not be_ constructed until a profile is selected.
 
         Data = new Asset(Filenames.GameData).ReadJson<GameData>();
-        Menu = new PregameMenu(Input, Sound, Enhancements, SaveFolder.Profiles.Profiles);
+        Menu = new PregameMenu(io, Enhancements, SaveFolder.Profiles.Profiles);
         DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
 
         Menu.OnProfileSelected += SetProfile;
@@ -99,7 +82,7 @@ internal sealed class Game
         _io = io;
 
         Data = new Asset(Filenames.GameData).ReadJson<GameData>();
-        Menu = new PregameMenu(Input, Sound, Enhancements, SaveFolder.Profiles.Profiles);
+        Menu = new PregameMenu(io, Enhancements, SaveFolder.Profiles.Profiles);
         DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
 
         SetProfile(playerProfile);
@@ -206,13 +189,13 @@ internal sealed class Game
         if (Input.IsButtonPressing(GameButton.DecreaseMhzDisaster)) Cheats.MhzDisaster--;
     }
 
-    public void Draw()
+    public void Draw(Graphics graphics)
     {
         if (Headless) return;
 
-        if (!Menu.DrawIfActive(FrameCounter)) World.Draw();
-        OnScreenDisplay.Draw();
-        DebugInfo.Draw();
+        if (!Menu.DrawIfActive(graphics, FrameCounter)) World.Draw(graphics);
+        OnScreenDisplay.Draw(graphics);
+        DebugInfo.Draw(graphics);
         Graphics.FinishRender();
     }
 

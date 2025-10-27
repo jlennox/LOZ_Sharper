@@ -148,14 +148,14 @@ internal sealed class GleeokNeck
         TryShooting();
     }
 
-    public void Draw()
+    public void Draw(Graphics graphics)
     {
         for (var i = 0; i < HeadIndex; i++)
         {
-            _neckImage.Draw(TileSheet.Boss3468, _parts[i].X, _parts[i].Y, Palette.SeaPal, DrawOrder.Sprites);
+            _neckImage.Draw(graphics, TileSheet.Boss3468, _parts[i].X, _parts[i].Y, Palette.SeaPal, DrawOrder.Sprites);
         }
 
-        _headImage.Draw(TileSheet.Boss3468, _parts[HeadIndex].X, _parts[HeadIndex].Y, Palette.SeaPal, DrawOrder.Sprites);
+        _headImage.Draw(graphics, TileSheet.Boss3468, _parts[HeadIndex].X, _parts[HeadIndex].Y, Palette.SeaPal, DrawOrder.Sprites);
     }
 
     private void MoveHead()
@@ -440,8 +440,9 @@ internal sealed class GleeokActor : MonsterActor
             _necks.Add(new GleeokNeck(world, this, i));
         }
 
-        Graphics.SetPaletteIndexed(Palette.SeaPal, _palette);
-        Graphics.UpdatePalettes();
+        // JOE NOTE: References graphics outside of graphics.
+        GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, _palette);
+        world.Game.Graphics.UpdatePalettes();
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar1, true, Sound.AmbientInstance);
     }
@@ -477,16 +478,16 @@ internal sealed class GleeokActor : MonsterActor
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         var pal = CalcPalette(Palette.SeaPal);
-        _animator.Draw(TileSheet.Boss3468, X, Y, pal, DrawOrder);
+        _animator.Draw(graphics, TileSheet.Boss3468, X, Y, pal, DrawOrder);
 
         for (var i = 0; i < _neckCount; i++)
         {
             if (_necks[i].IsAlive())
             {
-                _necks[i].Draw();
+                _necks[i].Draw(graphics);
             }
         }
     }

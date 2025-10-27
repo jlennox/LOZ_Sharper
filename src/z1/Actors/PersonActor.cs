@@ -487,14 +487,14 @@ internal sealed class PersonActor : Actor
         throw new Exception($"CheckStairsHit: Unable to locate {Game.World.CurrentRoom.Name} in "); // {string.Join(", ", rooms.ToArray())}");
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         switch (_state)
         {
             case PersonState.Idle:
             case PersonState.WaitingForFood:
             case PersonState.WaitingForStairs:
-                DrawDialog();
+                DrawDialog(graphics);
                 break;
         }
 
@@ -503,7 +503,7 @@ internal sealed class PersonActor : Actor
         var animIndex = (ObjType)_spec.DwellerType - ObjType.OldMan;
         var palette = _personGraphics[animIndex].Palette;
         palette = CalcPalette(palette);
-        _image.Draw(TileSheet.PlayerAndItems, X, Y, palette, DrawOrder);
+        _image.Draw(graphics, TileSheet.PlayerAndItems, X, Y, palette, DrawOrder);
 
         if (_state == PersonState.WaitingForItem) return;
 
@@ -515,7 +515,7 @@ internal sealed class PersonActor : Actor
             {
                 if (_spec.ShowNumbers)
                 {
-                    GlobalFunctions.DrawString(_priceStrings[i], location.PriceX, location.PriceY, 0);
+                    graphics.DrawString(_priceStrings[i], location.PriceX, location.PriceY, 0);
                 }
             }
         }
@@ -523,13 +523,13 @@ internal sealed class PersonActor : Actor
         if (_spec.ShowNumbers)
         {
             GlobalFunctions.DrawItemWide(Game, ItemId.Rupee, 0x30, 0xAC);
-            GlobalFunctions.DrawChar(Chars.X, 0x40, 0xB0, 0);
+            graphics.DrawChar(Chars.X, 0x40, 0xB0, 0);
         }
     }
 
-    private void DrawDialog()
+    private void DrawDialog(Graphics graphics)
     {
         if (_textBox == null) throw new Exception();
-        _textBox.Draw();
+        _textBox.Draw(graphics);
     }
 }

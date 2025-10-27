@@ -1,4 +1,6 @@
-﻿namespace z1;
+﻿using z1.Render;
+
+namespace z1;
 
 internal sealed class TextBox
 {
@@ -90,7 +92,7 @@ internal sealed class TextBox
         _charTimer = _charDelay - 1;
     }
 
-    public void Draw()
+    public void Draw(Graphics graphics)
     {
         var x = _left;
         var y = _top;
@@ -108,7 +110,7 @@ internal sealed class TextBox
 
             if (chr != (int)Chars.JustSpace)
             {
-                GlobalFunctions.DrawChar(chr, x, y, 0);
+                graphics.DrawChar(chr, x, y, 0);
             }
 
             x += 8;

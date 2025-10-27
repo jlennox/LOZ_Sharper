@@ -7,7 +7,7 @@ namespace z1.UI;
 internal sealed class CreditsType
 {
     public const int StartY = Global.StdViewHeight;
-    private const int AllLines = 96;
+    private const int _allLines = 96;
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct LineStruct : ILoadVariableLengthData<Line>
@@ -66,7 +66,7 @@ internal sealed class CreditsType
                 if (_windowTop < 0)
                 {
                     _windowTop += 8;
-                    if (_windowTopLine < (AllLines - 1))
+                    if (_windowTopLine < (_allLines - 1))
                     {
                         var b = _windowTopLine / 8;
                         var bit = _windowTopLine % 8;
@@ -79,7 +79,7 @@ internal sealed class CreditsType
                     }
                 }
 
-                if (_windowBottomLine < AllLines)
+                if (_windowBottomLine < _allLines)
                 {
                     _windowBottomLine++;
                 }
@@ -95,16 +95,16 @@ internal sealed class CreditsType
         return _playerLine;
     }
 
-    private static void DrawHorizWallLine(int x, int y, int length)
+    private static void DrawHorizWallLine(Graphics graphics, int x, int y, int length)
     {
         for (var i = 0; i < length; i++)
         {
-            GlobalFunctions.DrawChar(0xFA, x, y, 0);
+            graphics.DrawChar(0xFA, x, y, 0);
             x += 8;
         }
     }
 
-    public void Draw()
+    public void Draw(Graphics graphics)
     {
         var mappedLine = _windowFirstMappedLine;
         var y = _windowTop;
@@ -125,8 +125,8 @@ internal sealed class CreditsType
 
             if (i is > 1 and < 44)
             {
-                GlobalFunctions.DrawChar(0xFA, 24, y, 0);
-                GlobalFunctions.DrawChar(0xFA, 224, y, 0);
+                graphics.DrawChar(0xFA, 24, y, 0);
+                graphics.DrawChar(0xFA, 224, y, 0);
                 pal = ((i + 6) / 7) % 3 + 1;
             }
             else if (false) // JOE: TODO: QUEST profile.Quest == 1)
@@ -149,22 +149,22 @@ internal sealed class CreditsType
                 var x = line.Col * 8;
                 if (false) // JOE: TODO: QUEST profile.Quest == 1 && mappedLine == 13)
                 {
-                    GlobalFunctions.DrawString(GetPlayerLine(line), x, y, (Palette)pal);
+                    graphics.DrawString(GetPlayerLine(line), x, y, (Palette)pal);
                 }
                 else
                 {
-                    GlobalFunctions.DrawString(text, x, y, (Palette)pal);
+                    graphics.DrawString(text, x, y, (Palette)pal);
                 }
                 mappedLine++;
             }
             if (i == 1)
             {
-                DrawHorizWallLine(24, y, 10);
-                DrawHorizWallLine(160, y, 9);
+                DrawHorizWallLine(graphics, 24, y, 10);
+                DrawHorizWallLine(graphics, 160, y, 9);
             }
             else if (i == 44)
             {
-                DrawHorizWallLine(24, y, 26);
+                DrawHorizWallLine(graphics, 24, y, 26);
             }
             y += 8;
         }
@@ -175,7 +175,7 @@ internal sealed class CreditsType
             GlobalFunctions.DrawItem(_game, ItemId.PowerTriforce, 0x78, y, 0);
 
             var pile = new SpriteImage(TileSheet.Boss9, AnimationId.B3_Pile);
-            pile.Draw(TileSheet.Boss9, 0x78, y + 0, (Palette)7, DrawOrder.Background);
+            pile.Draw(graphics, TileSheet.Boss9, 0x78, y + 0, (Palette)7, DrawOrder.Background);
         }
     }
 }

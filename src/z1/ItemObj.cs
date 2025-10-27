@@ -26,9 +26,9 @@ internal sealed class LadderActor : Actor
     {
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
-        _image.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Player, DrawOrder);
+        _image.Draw(graphics, TileSheet.PlayerAndItems, X, Y, Palette.Player, DrawOrder);
     }
 }
 
@@ -79,12 +79,12 @@ internal class BlockActor : Actor, IHasCollision
 
     public override void Update() { }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         if (!EnableDraw) return;
 
         var palette = World.CurrentRoom.Settings.InnerPalette;
-        Graphics.DrawStripSprite16X16(_tileSheet, Tile, X, Y, palette, DrawOrder);
+        graphics.DrawStripSprite16X16(_tileSheet, Tile, X, Y, palette, DrawOrder);
     }
 }
 
@@ -236,9 +236,9 @@ internal sealed class FireActor : Actor
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
-        _animator.Draw(TileSheet.PlayerAndItems, X, Y, Palette.Red, DrawOrder);
+        _animator.Draw(graphics, TileSheet.PlayerAndItems, X, Y, Palette.Red, DrawOrder);
     }
 }
 
@@ -305,20 +305,20 @@ internal sealed class BombActor : Actor
         {
             switch (ObjTimer)
             {
-                case 0x16: Graphics.EnableGrayscale(); break;
-                case 0x12: Graphics.DisableGrayscale(); break;
-                case 0x11: Graphics.EnableGrayscale(); break;
-                case 0x0D: Graphics.DisableGrayscale(); break;
+                case 0x16: GraphicPalettes.EnableGrayscale(); break;
+                case 0x12: GraphicPalettes.DisableGrayscale(); break;
+                case 0x11: GraphicPalettes.EnableGrayscale(); break;
+                case 0x0D: GraphicPalettes.DisableGrayscale(); break;
             }
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         if (BombState == BombState.Ticking)
         {
             var offset = (16 - _animator.Animation.Width) / 2;
-            _animator.Draw(TileSheet.PlayerAndItems, X + offset, Y, Palette.Blue, DrawOrder);
+            _animator.Draw(graphics, TileSheet.PlayerAndItems, X + offset, Y, Palette.Blue, DrawOrder);
             return;
         }
 
@@ -327,7 +327,7 @@ internal sealed class BombActor : Actor
         for (var i = 0; i < Clouds; i++)
         {
             _animator.Draw(
-                TileSheet.PlayerAndItems,
+                graphics, TileSheet.PlayerAndItems,
                 X + positions[i].X, Y + positions[i].Y,
                 Palette.Blue, DrawOrder);
         }
@@ -361,7 +361,7 @@ internal sealed class RockWallActor : Actor
         }
     }
 
-    public override void Draw() { }
+    public override void Draw(Graphics graphics) { }
 }
 
 internal sealed class PlayerSwordActor : Actor
@@ -517,14 +517,14 @@ internal sealed class PlayerSwordActor : Actor
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         if (State is <= 0 or >= LastSwordState) return;
 
         var weaponValue = World.GetItem(ItemSlot.Sword);
         var palette = ObjType == ObjType.Rod ? Palette.Blue : (Palette.Player + weaponValue - 1);
         var xOffset = (16 - _image.Animation.Width) / 2;
-        _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y, palette, DrawOrder);
+        _image.Draw(graphics, TileSheet.PlayerAndItems, X + xOffset, Y, palette, DrawOrder);
     }
 }
 
@@ -685,7 +685,7 @@ internal sealed class ItemObjActor : Actor
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         if (_options.HasFlag(ItemObjectOptions.IsRoomItem) || _timer < SpawnInTimeLastTimer || (_timer & 2) != 0)
         {
@@ -765,9 +765,9 @@ internal sealed class WhirlwindActor : Actor
         _animator.Advance();
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         var pal = Palette.Player + (Game.FrameCounter & 3);
-        _animator.Draw(TileSheet.NpcsOverworld, X, Y, pal, DrawOrder);
+        _animator.Draw(graphics, TileSheet.NpcsOverworld, X, Y, pal, DrawOrder);
     }
 }

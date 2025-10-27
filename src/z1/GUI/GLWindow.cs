@@ -22,7 +22,7 @@ internal sealed class GLWindow : IDisposable
     private static readonly DebugLog _log = new(nameof(GLWindow));
 
     public Game Game = null!;
-    private readonly GameIO _io;
+    private GameIO? _io;
 
     public WaitHandle OnloadEvent => _onloadEvent.WaitHandle;
     private readonly ManualResetEventSlim _onloadEvent = new();
@@ -43,6 +43,8 @@ internal sealed class GLWindow : IDisposable
     private bool _lastShowMenu = false;
     private bool _lastKeyWasAlt = false;
 
+    public GameIO IO => _io ?? throw new Exception();
+
     public GLWindow(bool headless = false)
     {
         _headless = headless;
@@ -57,9 +59,6 @@ internal sealed class GLWindow : IDisposable
             throw;
             Environment.Exit(1);
         }
-
-        // Must initialize after Asset.
-        _io = new();
 
         var options = WindowOptions.Default with
         {
@@ -101,7 +100,8 @@ internal sealed class GLWindow : IDisposable
             BindGamepad(gamepad);
         }
 
-        Graphics.Initialize(_gl);
+        _io = new GameIO(new GLGraphics(_gl));
+
         Game = new Game(_io);
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
@@ -305,6 +305,7 @@ internal sealed class GLWindow : IDisposable
     private void UpdateViewport()
     {
         var window = _window ?? throw new Exception();
+        var graphics = _io?.Graphics ?? throw new Exception();
 
         const float nesWidth = 256f;
         const float nesHeight = 240f;
@@ -337,7 +338,7 @@ internal sealed class GLWindow : IDisposable
             Clamp(offsetY) + (offsetY % multiple) / 2,
             Clamp(newWidth), Clamp(newHeight));
 
-        Graphics.SetWindowSize(windowSize.X, windowSize.Y);
+        graphics.SetWindowSize(windowSize.X, windowSize.Y);
     }
 
     private void Render(double deltaSeconds)
@@ -347,8 +348,9 @@ internal sealed class GLWindow : IDisposable
         var gl = _gl ?? throw new Exception();
         var window = _window ?? throw new Exception();
         var game = Game ?? throw new Exception();
+        var graphics = _io?.Graphics ?? throw new Exception();
 
-        Graphics.StartRender();
+        graphics.StartRender();
         gl.Viewport(_viewport.X, _viewport.Y, (uint)_viewport.Width, (uint)_viewport.Height);
 
         _controller.Update((float)deltaSeconds);
@@ -387,7 +389,7 @@ internal sealed class GLWindow : IDisposable
         if (updated)
         {
             _updateTimer.Restart();
-            Game.Draw();
+            Game.Draw(graphics);
             _updateTimer.Stop();
             rps = _rendersPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
         }

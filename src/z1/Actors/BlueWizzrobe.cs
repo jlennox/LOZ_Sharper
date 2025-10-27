@@ -295,12 +295,12 @@ internal sealed class BlueWizzrobeActor : BlueWizzrobeBase
         SetFacingAnimation();
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         if ((FlashTimer & 1) == 0 && Facing != Direction.None)
         {
             var pal = CalcPalette(Palette.Blue);
-            _animator.Draw(TileSheet.NpcsUnderworld, X, Y, pal, DrawOrder);
+            _animator.Draw(graphics, TileSheet.NpcsUnderworld, X, Y, pal, DrawOrder);
         }
     }
 

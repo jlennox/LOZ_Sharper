@@ -19,7 +19,7 @@ internal sealed class OnScreenDisplay
         _osds.Add(new Entry(text, TimeSpan.FromSeconds(3), Stopwatch.StartNew()));
     }
 
-    public void Draw()
+    public void Draw(Graphics graphics)
     {
         var y = 10;
         for (var i = _osds.Count - 1; i >= 0; i--)
@@ -31,8 +31,8 @@ internal sealed class OnScreenDisplay
                 continue;
             }
 
-            GlobalFunctions.DrawString(osd.Text, 0, y - 1, Palette.Red, DrawingFlags.None, DrawOrder.OverlayForeground);
-            GlobalFunctions.DrawString(osd.Text, 1, y, 0, DrawingFlags.None, DrawOrder.Overlay);
+            graphics.DrawString(osd.Text, 0, y - 1, Palette.Red, DrawingFlags.None, DrawOrder.OverlayForeground);
+            graphics.DrawString(osd.Text, 1, y, 0, DrawingFlags.None, DrawOrder.Overlay);
             y += 10;
         }
     }

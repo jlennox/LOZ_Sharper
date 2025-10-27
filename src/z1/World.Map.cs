@@ -145,9 +145,9 @@ internal partial class World
         }
     }
 
-    private void DrawMap(GameRoom room, int offsetX, int offsetY)
+    private void DrawMap(Graphics graphics, GameRoom room, int offsetX, int offsetY)
     {
-        Graphics.Begin();
+        graphics.Begin();
 
         var outerPalette = room.Settings.OuterPalette;
         var innerPalette = room.Settings.InnerPalette;
@@ -197,10 +197,10 @@ internal partial class World
                     ? TiledTile.Create((int)room.RoomMap.Behavior(xtile, ytile) + 1)
                     : room.RoomMap.Tile(xtile, ytile);
                 var palette = (ytile is < 4 or >= 18 || xtile is < 4 or >= 28) ? outerPalette : innerPalette;
-                room.DrawTile(tileRef, x, y, palette);
+                room.DrawTile(graphics, tileRef, x, y, palette);
             }
         }
 
-        Graphics.End();
+        graphics.End();
     }
 }

@@ -33,14 +33,14 @@ internal partial class World
         return entry.Value.Room;
     }
 
-    private static void ClearScreen()
+    private static void ClearScreen(Graphics graphics)
     {
-        Graphics.Clear(SKColors.Black);
+        graphics.Clear(SKColors.Black);
     }
 
-    private static void ClearScreen(int sysColor)
+    private static void ClearScreen(Graphics graphics, int sysColor)
     {
-        Graphics.Clear(Graphics.GetSystemColor(sysColor));
+        graphics.Clear(GraphicPalettes.GetSystemColor(sysColor));
     }
 
     private void AddOnlyObjectOfType<T>(T obj)
@@ -159,28 +159,28 @@ internal partial class World
 
         for (var i = 2; i < Global.BackgroundPalCount; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)i, palette);
+            GraphicPalettes.SetPaletteIndexed((Palette)i, palette);
         }
 
         Graphics.UpdatePalettes();
     }
 
-    private static void SetLevelPalettes(ImmutableArray<ImmutableArray<byte>> palettes) // const byte palettes[2][PaletteLength] )
+    private void SetLevelPalettes(ImmutableArray<ImmutableArray<byte>> palettes) // const byte palettes[2][PaletteLength] )
     {
         for (var i = 0; i < 2; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)2 + i, palettes[i]);
+            GraphicPalettes.SetPaletteIndexed((Palette)2 + i, palettes[i]);
         }
 
         Graphics.UpdatePalettes();
     }
 
     // JOE: TODO: Cleanup.
-    private static void SetLevelPalettes(byte[][] palettes) // const byte palettes[2][PaletteLength] )
+    private void SetLevelPalettes(byte[][] palettes) // const byte palettes[2][PaletteLength] )
     {
         for (var i = 0; i < 2; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)2 + i, palettes[i]);
+            GraphicPalettes.SetPaletteIndexed((Palette)2 + i, palettes[i]);
         }
 
         Graphics.UpdatePalettes();
@@ -192,7 +192,7 @@ internal partial class World
 
         for (var i = 2; i < Global.BackgroundPalCount; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)i, infoBlock.Palettes[i]);
+            GraphicPalettes.SetPaletteIndexed((Palette)i, infoBlock.Palettes[i]);
         }
 
         Graphics.UpdatePalettes();
@@ -201,6 +201,6 @@ internal partial class World
     private void SetLevelFgPalette()
     {
         var infoBlock = CurrentWorld.Settings;
-        Graphics.SetPaletteIndexed(Palette.SeaPal, infoBlock.Palettes[(int)Palette.SeaPal]);
+        GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, infoBlock.Palettes[(int)Palette.SeaPal]);
     }
 }

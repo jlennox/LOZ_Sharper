@@ -16,10 +16,41 @@ internal enum DrawOrder
     OverlayForeground,
 }
 
-internal sealed unsafe class GLImage : IDisposable
+internal abstract class GraphicsImage : IDisposable
 {
-    public int Width => _size.Width;
-    public int Height => _size.Height;
+    public abstract int Width { get; }
+    public abstract int Height { get; }
+
+    public abstract void Draw(
+        int srcX, int srcY, int width, int height,
+        int destX, int destY,
+        ReadOnlySpan<SKColor> palette, DrawingFlags flags,
+        DrawOrder layer);
+
+    public abstract void Draw(ref DrawRequest request);
+    public abstract void Dispose();
+}
+
+internal sealed class NullImage : GraphicsImage
+{
+    public override int Width { get; } = 1;
+    public override int Height { get; } = 1;
+
+    public override void Draw(
+        int srcX, int srcY, int width, int height,
+        int destX, int destY,
+        ReadOnlySpan<SKColor> palette, DrawingFlags flags,
+        DrawOrder layer) { }
+
+    public override void Draw(ref DrawRequest request) { }
+
+    public override void Dispose() { }
+}
+
+internal sealed unsafe class GLImage : GraphicsImage
+{
+    public override int Width => _size.Width;
+    public override int Height => _size.Height;
 
     private readonly GL _gl;
     private readonly uint _texture;
@@ -55,7 +86,7 @@ internal sealed unsafe class GLImage : IDisposable
         _gl.TexParameterI(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
     }
 
-    public void Draw(
+    public override void Draw(
         int srcX, int srcY, int width, int height,
         int destX, int destY,
         ReadOnlySpan<SKColor> palette, DrawingFlags flags,
@@ -123,7 +154,7 @@ internal sealed unsafe class GLImage : IDisposable
     }
 
     // Ref to avoid big struct copy. TODO: Actually profile this.
-    public void Draw(ref DrawRequest request)
+    public override void Draw(ref DrawRequest request)
     {
         _gl.ActiveTexture(TextureUnit.Texture0);
         _gl.BindTexture(TextureTarget.Texture2D, _texture);
@@ -158,7 +189,7 @@ internal sealed unsafe class GLImage : IDisposable
         _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, (uint)verticies.Length / 2);
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _gl.DeleteTexture(_texture);
     }

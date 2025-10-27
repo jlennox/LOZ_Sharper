@@ -106,6 +106,11 @@ internal sealed partial class World
     public Player Player => Game.Player;
     public PlayerProfile Profile => Game.Player.Profile;
 
+    // TODO: I'd like to factor this out and keep Graphics as something that only gets passed around during drawing.
+    // This keeps us honest about when and what draws. Though palette setting outside of drawing context tends to be
+    // much more ok as it's more initialization than drawing.
+    public Graphics Graphics => Game.Graphics;
+
     public SubmenuType Menu;
     public int RoomObjCount;           // 34E
     public Actor? RoomObj;              // 35F
@@ -246,7 +251,7 @@ internal sealed partial class World
             if (IsPlaying(_lastMode) && mode != GameMode.WinGame)
             {
                 CleanUpRoomItems();
-                Graphics.DisableGrayscale();
+                GraphicPalettes.DisableGrayscale();
                 if (mode != GameMode.Unfurl)
                 {
                     OnLeavePlay();
@@ -287,40 +292,40 @@ internal sealed partial class World
         }
     }
 
-    public void Draw()
+    public void Draw(Graphics graphics)
     {
         if (_statusBarVisible)
         {
-            _statusBar.Draw(_submenuOffsetY);
+            _statusBar.Draw(graphics, _submenuOffsetY);
         }
 
         switch (_curMode)
         {
             case GameMode.Demo: /* no-op */ break;
-            case GameMode.LoadLevel: DrawLoadLevel(); break;
-            case GameMode.Unfurl: DrawUnfurl(); break;
-            case GameMode.Enter: DrawEnter(); break;
-            case GameMode.Play: DrawPlay(); break;
-            case GameMode.Leave: DrawLeave(); break;
-            case GameMode.Scroll: DrawScroll(); break;
-            case GameMode.ContinueQuestion: DrawContinueQuestion(); break;
-            case GameMode.PlayCellar: DrawPlay(); break;
-            case GameMode.LeaveCellar: DrawLeaveCellar(); break;
-            case GameMode.PlayCave: DrawPlay(); break;
+            case GameMode.LoadLevel: DrawLoadLevel(graphics); break;
+            case GameMode.Unfurl: DrawUnfurl(graphics); break;
+            case GameMode.Enter: DrawEnter(graphics); break;
+            case GameMode.Play: DrawPlay(graphics); break;
+            case GameMode.Leave: DrawLeave(graphics); break;
+            case GameMode.Scroll: DrawScroll(graphics); break;
+            case GameMode.ContinueQuestion: DrawContinueQuestion(graphics); break;
+            case GameMode.PlayCellar: DrawPlay(graphics); break;
+            case GameMode.LeaveCellar: DrawLeaveCellar(graphics); break;
+            case GameMode.PlayCave: DrawPlay(graphics); break;
             case GameMode.PlayShortcuts: /* no-op */ break;
-            case GameMode.Stairs: DrawStairsState(); break;
-            case GameMode.Death: DrawDie(); break;
-            case GameMode.EndLevel: DrawEndLevel(); break;
-            case GameMode.WinGame: DrawWinGame(); break;
-            case GameMode.InitPlayCellar: DrawPlayCellar(); break;
-            case GameMode.InitPlayCave: DrawPlayCave(); break;
+            case GameMode.Stairs: DrawStairsState(graphics); break;
+            case GameMode.Death: DrawDie(graphics); break;
+            case GameMode.EndLevel: DrawEndLevel(graphics); break;
+            case GameMode.WinGame: DrawWinGame(graphics); break;
+            case GameMode.InitPlayCellar: DrawPlayCellar(graphics); break;
+            case GameMode.InitPlayCave: DrawPlayCave(graphics); break;
             default: throw new ArgumentOutOfRangeException(nameof(_curMode), _curMode, "Invalid game mode.");
         }
     }
 
     private bool IsButtonPressing(GameButton button) => Game.Input.IsButtonPressing(button);
     private bool IsAnyButtonPressing(GameButton a, GameButton b) => Game.Input.IsAnyButtonPressing(a, b);
-    private void DrawRoom() => DrawMap(CurrentRoom, 0, 0);
+    private void DrawRoom(Graphics graphics) => DrawMap(graphics, CurrentRoom, 0, 0);
     public void PauseFillHearts() => _pause = PauseState.FillingHearts;
     public void LeaveRoom(Direction dir, GameRoom currentRoom)
     {
@@ -653,8 +658,8 @@ internal sealed partial class World
         Game.Player.ObjTimer = 0xC0;
 
         ReadOnlySpan<byte> palette = [0, 0x0F, 0x10, 0x30];
-        Graphics.SetPaletteIndexed(Palette.SeaPal, palette);
-        Graphics.UpdatePalettes();
+        GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, palette);
+        Game.Graphics.UpdatePalettes();
     }
 
     private void CheckPowerTriforceFanfare()
@@ -667,7 +672,7 @@ internal sealed partial class World
             Game.Player.SetState(PlayerState.Idle);
             AddItem(ItemId.PowerTriforce);
             GlobalFunctions.SetPilePalette();
-            Graphics.UpdatePalettes();
+            Game.Graphics.UpdatePalettes();
             Game.Sound.PlaySong(SongId.Level9, SongStream.MainSong, true);
         }
         else
@@ -861,7 +866,7 @@ internal sealed partial class World
         if (slot == ItemSlot.Ring)
         {
             Profile.SetPlayerColor();
-            Graphics.UpdatePalettes();
+            Game.Graphics.UpdatePalettes();
         }
 
         if (slot == ItemSlot.HeartContainers)
@@ -1041,9 +1046,9 @@ internal sealed partial class World
 
             for (var i = 0; i < 2; i++)
             {
-                Graphics.SetPaletteIndexed((Palette)(i + 2), CurrentWorld.Settings.DarkPalette[_darkRoomFadeStep][i]);
+                GraphicPalettes.SetPaletteIndexed((Palette)(i + 2), CurrentWorld.Settings.DarkPalette[_darkRoomFadeStep][i]);
             }
-            Graphics.UpdatePalettes();
+            Game.Graphics.UpdatePalettes();
         }
     }
 
@@ -1143,7 +1148,7 @@ internal sealed partial class World
         // Set the level's level foreground palette before making objects,
         // so that if we make a boss, we won't override a palette that it might set.
         SetLevelFgPalette();
-        Graphics.UpdatePalettes();
+        Game.Graphics.UpdatePalettes();
         PlayAmbientSounds();
 
         ClearRoomItemData();
@@ -1478,8 +1483,8 @@ internal sealed partial class World
                 int colorIndex = colorSeq[_curColorSeqNum];
                 _curColorSeqNum++;
                 // JOE: The ordering on these appears wrong. colorIndex should be the second argument?
-                Graphics.SetColorIndexed((Palette)3, 3, colorIndex);
-                Graphics.UpdatePalettes();
+                GraphicPalettes.SetColorIndexed((Palette)3, 3, colorIndex);
+                Game.Graphics.UpdatePalettes();
             }
         }
 
@@ -1792,66 +1797,66 @@ internal sealed partial class World
         }
     }
 
-    private void DrawPlay()
+    private void DrawPlay(Graphics graphics)
     {
         if (_submenu != 0)
         {
-            DrawSubmenu();
+            DrawSubmenu(graphics);
             return;
         }
 
-        using (var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
+        using (var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
         {
-            ClearScreen();
-            DrawRoom();
+            ClearScreen(graphics);
+            DrawRoom(graphics);
         }
 
-        DrawObjects();
+        DrawObjects(graphics);
 
         if (IsLiftingItem())
         {
-            DrawPlayerLiftingItem(_state.Play.LiftItemId);
+            DrawPlayerLiftingItem(graphics, _state.Play.LiftItemId);
         }
         else
         {
-            Game.Player.Draw();
+            Game.Player.Draw(graphics);
         }
     }
 
-    private void DrawSubmenu()
+    private void DrawSubmenu(Graphics graphics)
     {
-        using (var _ = Graphics.SetClip(0, TileMapBaseY + _submenuOffsetY, TileMapWidth, TileMapHeight - _submenuOffsetY))
+        using (var _ = graphics.SetClip(0, TileMapBaseY + _submenuOffsetY, TileMapWidth, TileMapHeight - _submenuOffsetY))
         {
-            ClearScreen();
-            DrawMap(CurrentRoom, 0, _submenuOffsetY);
+            ClearScreen(graphics);
+            DrawMap(graphics, CurrentRoom, 0, _submenuOffsetY);
         }
 
-        Menu.Draw(_submenuOffsetY);
+        Menu.Draw(graphics, _submenuOffsetY);
     }
 
-    private void DrawObjects()
+    private void DrawObjects(Graphics graphics)
     {
         foreach (var obj in _objects)
         {
             if (obj.IsDeleted) continue;
 
-            obj.DecoratedDraw();
+            obj.DecoratedDraw(graphics);
         }
     }
 
-    private void DrawPrincessLiftingTriforce(int x, int y)
+    private void DrawPrincessLiftingTriforce(Graphics graphics, int x, int y)
     {
         var image = Graphics.GetSpriteImage(TileSheet.Boss9, AnimationId.B3_Princess_Lift);
-        image.Draw(TileSheet.Boss9, x, y, Palette.Player, DrawOrder.Sprites);
+        image.Draw(graphics, TileSheet.Boss9, x, y, Palette.Player, DrawOrder.Sprites);
 
         GlobalFunctions.DrawItem(Game, ItemId.TriforcePiece, x, y - 0x10, 0, DrawOrder.Foreground);
     }
 
-    private void DrawPlayerLiftingItem(ItemId itemId)
+    private void DrawPlayerLiftingItem(Graphics graphics, ItemId itemId)
     {
         var animIndex = itemId == ItemId.TriforcePiece ? AnimationId.PlayerLiftHeavy : AnimationId.PlayerLiftLight;
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, animIndex);
-        image.Draw(TileSheet.PlayerAndItems, Game.Player.X, Game.Player.Y, Palette.Player, DrawOrder.Sprites);
+        image.Draw(graphics, TileSheet.PlayerAndItems, Game.Player.X, Game.Player.Y, Palette.Player, DrawOrder.Sprites);
 
         GlobalFunctions.DrawItem(Game, itemId, Game.Player.X, Game.Player.Y - 0x10, 0, DrawOrder.Foreground);
     }
@@ -2216,8 +2221,8 @@ internal sealed partial class World
 
                 var colorSeq = game.Data.OWPondColors;
                 int color = colorSeq[game.World._curColorSeqNum];
-                Graphics.SetColorIndexed((Palette)3, 3, color);
-                Graphics.UpdatePalettes();
+                GraphicPalettes.SetColorIndexed((Palette)3, 3, color);
+                game.Graphics.UpdatePalettes();
 
                 if (game.World._curColorSeqNum == 0)
                 {
@@ -2239,9 +2244,9 @@ internal sealed partial class World
             var darkPalette = game.World.CurrentWorld.Settings.DarkPalette;
             for (var i = 0; i < 2; i++)
             {
-                Graphics.SetPaletteIndexed((Palette)i + 2, darkPalette[game.World._darkRoomFadeStep][i]);
+                GraphicPalettes.SetPaletteIndexed((Palette)i + 2, darkPalette[game.World._darkRoomFadeStep][i]);
             }
-            Graphics.UpdatePalettes();
+            game.Graphics.UpdatePalettes();
 
             game.World._darkRoomFadeStep++;
 
@@ -2362,29 +2367,29 @@ internal sealed partial class World
         }
     }
 
-    private void DrawScroll()
+    private void DrawScroll(Graphics graphics)
     {
-        using (var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
+        using (var _ = Game.Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
         {
-            ClearScreen();
+            ClearScreen(graphics);
 
             if (_state.Scroll.Substate is ScrollState.Substates.Scroll or ScrollState.Substates.FadeOut)
             {
                 var oldMapOffsetX = _state.Scroll.OffsetX + _state.Scroll.OldMapToNewMapDistX;
                 var oldMapOffsetY = _state.Scroll.OffsetY + _state.Scroll.OldMapToNewMapDistY;
 
-                DrawMap(CurrentRoom, _state.Scroll.OffsetX, _state.Scroll.OffsetY);
-                DrawMap(_state.Scroll.OldRoom, oldMapOffsetX, oldMapOffsetY);
+                DrawMap(graphics, CurrentRoom, _state.Scroll.OffsetX, _state.Scroll.OffsetY);
+                DrawMap(graphics, _state.Scroll.OldRoom, oldMapOffsetX, oldMapOffsetY);
             }
             else
             {
-                DrawMap(CurrentRoom, 0, 0);
+                DrawMap(graphics, CurrentRoom, 0, 0);
             }
         }
 
         if (IsOverworld())
         {
-            Game.Player.Draw();
+            Game.Player.Draw(graphics);
         }
     }
 
@@ -2461,10 +2466,10 @@ internal sealed partial class World
         }
     }
 
-    private void DrawLeave()
+    private void DrawLeave(Graphics graphics)
     {
-        using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-        DrawRoomNoObjects(false);
+        using var _ = Game.Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+        DrawRoomNoObjects(graphics, false);
     }
 
     private void MovePlayer(Direction dir, int speed, ref int fraction)
@@ -2632,9 +2637,9 @@ internal sealed partial class World
             var darkPalette = game.World.CurrentWorld.Settings.DarkPalette;
             for (var i = 0; i < 2; i++)
             {
-                Graphics.SetPaletteIndexed((Palette)i + 2, darkPalette[game.World._darkRoomFadeStep][i]);
+                GraphicPalettes.SetPaletteIndexed((Palette)i + 2, darkPalette[game.World._darkRoomFadeStep][i]);
             }
-            Graphics.UpdatePalettes();
+            game.Graphics.UpdatePalettes();
         }
 
         static void EnterWalk(Game game, ref EnterState state)
@@ -2660,13 +2665,13 @@ internal sealed partial class World
         }
     }
 
-    private void DrawEnter()
+    private void DrawEnter(Graphics graphics)
     {
-        using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+        using var _ = Game.Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
         // JOE: The C++ code base had this check but it causes a black frame to be drawn.
         // if (_state.Enter.Substate != EnterState.Substates.Start)
-        DrawRoomNoObjects(false);
+        DrawRoomNoObjects(graphics, false);
     }
 
     private void SetPlayerExitPosOW(GameRoom room)
@@ -2724,10 +2729,10 @@ internal sealed partial class World
         }
     }
 
-    private void DrawLoadLevel()
+    private void DrawLoadLevel(Graphics graphics)
     {
-        using var _ = Graphics.SetClip(0, 0, Global.StdViewWidth, Global.StdViewHeight);
-        ClearScreen();
+        using var _ = graphics.SetClip(0, 0, Global.StdViewWidth, Global.StdViewHeight);
+        ClearScreen(graphics);
     }
 
     public void GotoUnfurl(EntranceHistoryEntry? entranceEntry = null)
@@ -2762,11 +2767,11 @@ internal sealed partial class World
 
             for (var i = 0; i < CurrentWorld.Settings.Palettes.Length; i++)
             {
-                Graphics.SetPaletteIndexed((Palette)i, CurrentWorld.Settings.Palettes[i]);
+                GraphicPalettes.SetPaletteIndexed((Palette)i, CurrentWorld.Settings.Palettes[i]);
             }
 
             Profile.SetPlayerColor();
-            Graphics.UpdatePalettes();
+            Game.Graphics.UpdatePalettes();
             return;
         }
 
@@ -2799,20 +2804,20 @@ internal sealed partial class World
         }
     }
 
-    private void DrawUnfurl()
+    private void DrawUnfurl(Graphics graphics)
     {
         if (_state.Unfurl.Substate == UnfurlState.Substates.Start) return;
 
         var width = _state.Unfurl.Right - _state.Unfurl.Left;
 
-        using (var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
+        using (var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
         {
-            ClearScreen();
+            ClearScreen(graphics);
         }
 
-        using (var _ = Graphics.SetClip(_state.Unfurl.Left, TileMapBaseY, width, TileMapHeight))
+        using (var _ = graphics.SetClip(_state.Unfurl.Left, TileMapBaseY, width, TileMapHeight))
         {
-            DrawRoomNoObjects(true);
+            DrawRoomNoObjects(graphics, true);
         }
     }
 
@@ -2933,7 +2938,7 @@ internal sealed partial class World
         }
     }
 
-    private void DrawEndLevel()
+    private void DrawEndLevel(Graphics graphics)
     {
         var left = 0;
         var width = TileMapWidth;
@@ -2943,16 +2948,16 @@ internal sealed partial class World
             left = _state.EndLevel.Left;
             width = _state.EndLevel.Right - _state.EndLevel.Left;
 
-            using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-            ClearScreen();
+            using var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+            ClearScreen(graphics);
         }
 
-        using (var _ = Graphics.SetClip(left, TileMapBaseY, width, TileMapHeight))
+        using (var _ = graphics.SetClip(left, TileMapBaseY, width, TileMapHeight))
         {
-            DrawRoomNoObjects(true);
+            DrawRoomNoObjects(graphics, true);
         }
 
-        DrawPlayerLiftingItem(ItemId.TriforcePiece);
+        DrawPlayerLiftingItem(graphics, ItemId.TriforcePiece);
     }
 
     public void GotoStairs(Entrance entrance, ObjectState state)
@@ -3093,10 +3098,10 @@ internal sealed partial class World
         }
     }
 
-    private void DrawStairsState()
+    private void DrawStairsState(Graphics graphics)
     {
-        using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-        DrawRoomNoObjects(false);
+        using var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+        DrawRoomNoObjects(graphics, false);
     }
 
     private void GotoPlayCellar(Entrance entrance, ObjectState? state)
@@ -3144,9 +3149,9 @@ internal sealed partial class World
             for (var i = 0; i < LevelInfoBlock.FadePals; i++)
             {
                 var step = state.FadeStep;
-                Graphics.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.OutOfCellarPalette[step][i]);
+                GraphicPalettes.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.OutOfCellarPalette[step][i]);
             }
-            Graphics.UpdatePalettes();
+            game.Graphics.UpdatePalettes();
             state.FadeTimer = 9;
             state.FadeStep++;
 
@@ -3180,9 +3185,9 @@ internal sealed partial class World
             for (var i = 0; i < LevelInfoBlock.FadePals; i++)
             {
                 var step = state.FadeStep;
-                Graphics.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.InCellarPalette[step][i]);
+                GraphicPalettes.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.InCellarPalette[step][i]);
             }
-            Graphics.UpdatePalettes();
+            game.Graphics.UpdatePalettes();
             state.FadeTimer = 9;
             state.FadeStep--;
 
@@ -3211,10 +3216,10 @@ internal sealed partial class World
         }
     }
 
-    private void DrawPlayCellar()
+    private void DrawPlayCellar(Graphics graphics)
     {
-        using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
-        DrawRoomNoObjects(false);
+        using var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+        DrawRoomNoObjects(graphics, false);
     }
 
     public void GotoLeaveCellar()
@@ -3269,9 +3274,9 @@ internal sealed partial class World
             for (var i = 0; i < LevelInfoBlock.FadePals; i++)
             {
                 var step = state.FadeStep;
-                Graphics.SetPaletteIndexed((Palette)i + 2, palette[step][i]);
+                GraphicPalettes.SetPaletteIndexed((Palette)i + 2, palette[step][i]);
             }
-            Graphics.UpdatePalettes();
+            game.Graphics.UpdatePalettes();
             state.FadeTimer = 9;
             state.FadeStep++;
 
@@ -3320,9 +3325,9 @@ internal sealed partial class World
             for (var i = 0; i < LevelInfoBlock.FadePals; i++)
             {
                 var step = state.FadeStep;
-                Graphics.SetPaletteIndexed((Palette)i + 2, palette[step][i]);
+                GraphicPalettes.SetPaletteIndexed((Palette)i + 2, palette[step][i]);
             }
-            Graphics.UpdatePalettes();
+            game.Graphics.UpdatePalettes();
             state.FadeTimer = 9;
             state.FadeStep--;
 
@@ -3354,9 +3359,9 @@ internal sealed partial class World
         {
             for (var i = 0; i < 2; i++)
             {
-                Graphics.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.Palettes[i + 2]);
+                GraphicPalettes.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.Palettes[i + 2]);
             }
-            Graphics.UpdatePalettes();
+            game.Graphics.UpdatePalettes();
 
             // JOE: TODO: Write a generic "goto previous entrance" or w/e method.
             game.World.LoadRoom(state.TargetEntrance.Room);
@@ -3371,9 +3376,9 @@ internal sealed partial class World
         }
     }
 
-    private void DrawLeaveCellar()
+    private void DrawLeaveCellar(Graphics graphics)
     {
-        using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+        using var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
         switch (_state.LeaveCellar.Substate)
         {
@@ -3382,11 +3387,11 @@ internal sealed partial class World
 
             case LeaveCellarState.Substates.Wait:
             case LeaveCellarState.Substates.LoadOverworldRoom:
-                ClearScreen();
+                ClearScreen(graphics);
                 break;
 
             default:
-                DrawRoomNoObjects(true);
+                DrawRoomNoObjects(graphics, true);
                 break;
         }
     }
@@ -3449,9 +3454,9 @@ internal sealed partial class World
 
             for (var i = 0; i < 2; i++)
             {
-                Graphics.SetPaletteIndexed((Palette)i + 2, paletteSet.GetByIndex(i));
+                GraphicPalettes.SetPaletteIndexed((Palette)i + 2, paletteSet.GetByIndex(i));
             }
-            Graphics.UpdatePalettes();
+            game.Graphics.UpdatePalettes();
         }
 
         static void PlayCaveWalk(Game game, ref PlayCaveState state)
@@ -3469,19 +3474,19 @@ internal sealed partial class World
         }
     }
 
-    private void DrawPlayCave()
+    private void DrawPlayCave(Graphics graphics)
     {
-        using var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+        using var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
         switch (_state.PlayCave.Substate)
         {
             case PlayCaveState.Substates.Wait:
             case PlayCaveState.Substates.LoadRoom:
-                ClearScreen();
+                ClearScreen(graphics);
                 break;
 
             case PlayCaveState.Substates.Walk:
-                DrawRoomNoObjects(false);
+                DrawRoomNoObjects(graphics, false);
                 break;
         }
     }
@@ -3548,7 +3553,7 @@ internal sealed partial class World
 
             if (state.Timer == 0)
             {
-                SetLevelPalettes(_deathRedPals);
+                game.World.SetLevelPalettes(_deathRedPals);
 
                 state.Step = 16;
                 state.Timer = 0;
@@ -3592,7 +3597,7 @@ internal sealed partial class World
 
                     var seq = 3 - state.Step;
 
-                    SetLevelPalettes(game.World.CurrentWorld.Settings.DeathPalette[seq]);
+                    game.World.SetLevelPalettes(game.World.CurrentWorld.Settings.DeathPalette[seq]);
                 }
                 return;
             }
@@ -3604,8 +3609,8 @@ internal sealed partial class World
         {
             ReadOnlySpan<byte> grayPal = [0, 0x10, 0x30, 0];
 
-            Graphics.SetPaletteIndexed(Palette.Player, grayPal);
-            Graphics.UpdatePalettes();
+            GraphicPalettes.SetPaletteIndexed(Palette.Player, grayPal);
+            game.Graphics.UpdatePalettes();
 
             state.Substate = DeathState.Substates.Spark;
             state.Timer = 0x18;
@@ -3655,28 +3660,28 @@ internal sealed partial class World
         }
     }
 
-    private void DrawDie()
+    private void DrawDie(Graphics graphics)
     {
         if (_state.Death.Substate < DeathState.Substates.GameOver)
         {
-            using (var _ = Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
+            using (var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
             {
-                DrawRoomNoObjects(true);
+                DrawRoomNoObjects(graphics, true);
             }
             var player = Game.Player;
 
             if (_state.Death.Substate == DeathState.Substates.Spark && _state.Death.Step > 0)
             {
-                GlobalFunctions.DrawSparkle(player.X, player.Y, Palette.Blue, _state.Death.Step - 1);
+                graphics.DrawSparkle(player.X, player.Y, Palette.Blue, _state.Death.Step - 1);
             }
             else if (_state.Death.Substate <= DeathState.Substates.Spark)
             {
-                Game.Player.Draw();
+                Game.Player.Draw(graphics);
             }
             return;
         }
 
-        GlobalFunctions.DrawString("game over", 0x60, 0x90, 0);
+        graphics.DrawString("game over", 0x60, 0x90, 0);
     }
 
     public void GotoContinueQuestion()
@@ -3759,11 +3764,11 @@ internal sealed partial class World
         }
     }
 
-    private void DrawContinueQuestion()
+    private void DrawContinueQuestion(Graphics graphics)
     {
         ReadOnlySpan<string> options = ["Continue", "Save", "Retry"];
 
-        ClearScreen();
+        ClearScreen(graphics);
 
         var y = 0x50;
 
@@ -3776,19 +3781,19 @@ internal sealed partial class World
                 pal = (Game.FrameCounter / 4) & 1;
             }
 
-            GlobalFunctions.DrawString(options[i], 0x50, y, (Palette)pal);
+            graphics.DrawString(options[i], 0x50, y, (Palette)pal);
         }
 
         y = 0x50 + ((int)_state.Continue.SelectedIndex * 24);
-        GlobalFunctions.DrawChar(Chars.FullHeart, 0x40, y, Palette.Red);
+        graphics.DrawChar(Chars.FullHeart, 0x40, y, Palette.Red);
     }
 
-    private void DrawRoomNoObjects(bool skipPlayer)
+    private void DrawRoomNoObjects(Graphics graphics, bool skipPlayer)
     {
-        ClearScreen();
+        ClearScreen(graphics);
 
-        DrawRoom();
-        if (!skipPlayer) Game.Player.Draw();
+        DrawRoom(graphics);
+        if (!skipPlayer) Game.Player.Draw(graphics);
     }
 
     public Actor? MakeActivatedObject(ObjType type, int tileX, int tileY)

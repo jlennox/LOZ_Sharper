@@ -15,7 +15,6 @@ internal abstract class RandomizerTestBase
     public void SetUp()
     {
         Asset.Initialize();
-        Graphics.HeadlessInitialize();
     }
 
     [OneTimeTearDown]
@@ -26,12 +25,12 @@ internal abstract class RandomizerTestBase
 
     protected static Game GetRandomizedGame()
     {
-        return new Game(new GameIO(), PlayerProfile.CreateForRecording(12345)) { Headless = true };
+        return new Game(new GameIO(new NullGraphics()), PlayerProfile.CreateForRecording(12345)) { Headless = true };
     }
 
     protected static Game GetNormalGame()
     {
-        return new Game(new GameIO(), PlayerProfile.CreateForRecording()) { Headless = true };
+        return new Game(new GameIO(new NullGraphics()), PlayerProfile.CreateForRecording()) { Headless = true };
     }
 
     protected GameWorld GetDungeon(int quest, int dungeon)
@@ -92,7 +91,7 @@ internal class RandomizerTests : RandomizerTestBase
     [Test]
     public void Create()
     {
-        var game = new Game(new GameIO(), PlayerProfile.CreateForRecording(12345)) { Headless = true };
+        var game = new Game(new GameIO(new NullGraphics()), PlayerProfile.CreateForRecording(12345)) { Headless = true };
     }
 }
 

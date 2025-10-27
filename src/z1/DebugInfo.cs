@@ -15,7 +15,7 @@ internal sealed class DebugInfo
         _configuration = configuration;
     }
 
-    public void Draw()
+    public void Draw(Graphics graphics)
     {
         if (!_configuration.Enabled) return;
 
@@ -33,8 +33,8 @@ internal sealed class DebugInfo
         const int x = 80;
         foreach (var line in _sb)
         {
-            GlobalFunctions.DrawString(line, x, y - 1, Palette.Red, DrawingFlags.None);
-            GlobalFunctions.DrawString(line, x + 1, y, 0, DrawingFlags.None);
+            graphics.DrawString(line, x, y - 1, Palette.Red, DrawingFlags.None);
+            graphics.DrawString(line, x + 1, y, 0, DrawingFlags.None);
             y += 8;
         }
     }

@@ -1,7 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Silk.NET.GLFW;
+﻿using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
@@ -51,8 +48,10 @@ internal readonly struct DrawRequest
 internal sealed class ImageSheet
 {
     public TileSheet Sheet { get; }
-    public GLImage Image { get; }
     public TableResource<SpriteAnimationStruct>? Animation { get; }
+
+    private readonly Asset _imageFile;
+    private GraphicsImage? _image;
 
     public ImageSheet(TileSheet sheet, Asset imageFile, Asset animationFile)
         : this(sheet, imageFile)
@@ -62,8 +61,14 @@ internal sealed class ImageSheet
 
     public ImageSheet(TileSheet sheet, Asset imageFile)
     {
+        _imageFile = imageFile;
         Sheet = sheet;
-        Image = Graphics.CreateImage(imageFile);
+    }
+
+    public GraphicsImage GetImage(Graphics graphics)
+    {
+        _image ??= graphics.CreateImage(_imageFile);
+        return _image;
     }
 }
 
@@ -77,10 +82,10 @@ internal sealed class GraphicSheets
         Sheets.AddRange(sheets);
     }
 
-    public GLImage GetImage(TileSheet sheet)
+    public GraphicsImage GetImage(Graphics graphics, TileSheet sheet)
     {
         var imagesheet = Sheets.First(t => t.Sheet == sheet);
-        return imagesheet.Image;
+        return imagesheet.GetImage(graphics);
     }
 
     public TableResource<SpriteAnimationStruct> GetAnimation(TileSheet sheet)
@@ -90,50 +95,46 @@ internal sealed class GraphicSheets
     }
 }
 
-internal static class Graphics
+internal readonly struct UnclipScope(Graphics graphics) : IDisposable
 {
+    public void Dispose() => graphics.ResetClip();
+}
+
+internal abstract class Graphics
+{
+    public static GraphicSheets GraphicSheets { get; } = new();
     public static readonly PriorityQueue<DrawRequest, DrawOrder> DrawRequests = new();
     public static bool ImmediateRenderer { get; set; } // To make using RenderDoc easier.
 
-    private static GL? _gl;
-    private static Size? _windowSize;
-    private static readonly Size _viewportSize = new(256, 240);
+    public abstract void StartRender();
+    public abstract void SetWindowSize(int width, int height);
+    public abstract GraphicsImage CreateImage(Asset asset);
+    public abstract void Begin();
+    public abstract void End();
+    public abstract void FinishRender();
+    public abstract void UpdatePalettes();
+    public abstract void DrawImage(GraphicsImage? bitmap, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order);
+    public abstract void DrawSpriteTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order);
+    public abstract void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order);
+    public abstract void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, ReadOnlySpan<SKColor> palette, DrawingFlags flags, DrawOrder order);
+    public abstract void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette, DrawOrder order);
+    public abstract void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette, DrawOrder order);
+    public abstract void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette, DrawOrder order);
+    public abstract void Clear(SKColor color);
+    public abstract UnclipScope SetClip(int x, int y, int width, int height);
+    public abstract void ResetClip();
 
-    private static readonly int _paletteBmpWidth = Math.Max(Global.PaletteLength, 16);
-    private static readonly int _paletteBmpHeight = Math.Max(Global.PaletteCount, 16);
-
-    private static readonly byte[] _paletteBuf;
-    private static readonly int _paletteStride = _paletteBmpWidth * Unsafe.SizeOf<SKColor>();
-    private static readonly uint[] _systemPalette = new uint[Global.SysPaletteLength];
-    private static readonly uint[] _grayscalePalette = new uint[Global.SysPaletteLength];
-    private static uint[] _activeSystemPalette = _systemPalette;
-    private static readonly byte[] _palettes = new byte[Global.PaletteCount * Global.PaletteLength];
-
-    public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];
-    public static Span<byte> GetPalette(Palette paletteIndex) => MemoryMarshal.CreateSpan(ref _palettes[(int)paletteIndex * Global.PaletteLength], Global.PaletteLength);
-    private static ReadOnlySpan<SKColor> GetPaletteColors(Palette palette)
+    public static SpriteAnimation GetAnimation(TileSheet sheet, AnimationId id)
     {
-        var paletteY = (int)palette * _paletteBmpWidth;
-        return MemoryMarshal.Cast<byte, SKColor>(_paletteBuf.AsSpan())[paletteY..(paletteY + 4)];
+        var animation = GraphicSheets.GetAnimation(sheet);
+        return animation.LoadVariableLengthData<SpriteAnimation>((int)id);
     }
 
-    public static GraphicSheets GraphicSheets { get; } = new();
+    public static SpriteAnimator GetSpriteAnimator(TileSheet sheet, AnimationId id) => new(sheet, id);
+    public static SpriteImage GetSpriteImage(TileSheet sheet, AnimationId id) => new(GetAnimation(sheet, id));
 
     static Graphics()
     {
-        var size = _paletteBmpWidth * _paletteStride * _paletteBmpHeight;
-        _paletteBuf = new byte[size];
-    }
-
-    public static void Initialize(GL gl)
-    {
-        _gl = gl;
-        GLSpriteShader.Initialize(gl);
-        GLVertexArray.Initialize(gl);
-
-        var sysPal = new Asset("Palette.json").ReadJson<uint[]>();
-        LoadSystemPalette(sysPal);
-
         GraphicSheets.AddSheets([
             new ImageSheet(TileSheet.Font, new Asset("font.png")),
             new ImageSheet(TileSheet.BackgroundUnderworld, new Asset("underworldTiles.png")),
@@ -146,26 +147,46 @@ internal static class Graphics
             new ImageSheet(TileSheet.NpcsUnderworld, new Asset("uwNpcs.png"), new Asset("uwNpcsSheet.tab")),
         ]);
     }
+}
 
-    public static unsafe void HeadlessInitialize()
+internal sealed class NullGraphics : Graphics
+{
+    public override void StartRender() { }
+    public override void SetWindowSize(int width, int height) { }
+    public override GraphicsImage CreateImage(Asset asset) => new NullImage();
+    public override void Begin() { }
+    public override void End() { }
+    public override void FinishRender() { }
+    public override void UpdatePalettes() { }
+    public override void DrawImage(GraphicsImage? bitmap, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
+    public override void DrawSpriteTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
+    public override void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
+    public override void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, ReadOnlySpan<SKColor> palette, DrawingFlags flags, DrawOrder order) { }
+    public override void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
+    public override void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
+    public override void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
+    public override void Clear(SKColor color) { }
+    public override UnclipScope SetClip(int x, int y, int width, int height) => new(this);
+    public override void ResetClip() { }
+}
+
+internal sealed class GLGraphics : Graphics
+{
+    private readonly GL _gl;
+    private Size? _windowSize;
+    private readonly Size _viewportSize = new(256, 240);
+
+    public GLGraphics(GL gl)
     {
-        using var glfw = Glfw.GetApi();
-        glfw.Init();
-
-        glfw.WindowHint(WindowHintBool.Visible, false);
-        glfw.WindowHint(WindowHintClientApi.ClientApi, ClientApi.OpenGL);
-
-        var window = glfw.CreateWindow(1, 1, string.Empty, null, null);
-        glfw.MakeContextCurrent(window);
-
-        var gl = GL.GetApi(glfw.GetProcAddress);
-
-        Initialize(gl);
+        _gl = gl;
         GLSpriteShader.Initialize(gl);
         GLVertexArray.Initialize(gl);
+
+        var sysPal = new Asset("Palette.json").ReadJson<uint[]>();
+        GraphicPalettes.LoadSystemPalette(sysPal);
     }
 
-    public static void StartRender()
+    public override void StartRender()
     {
         ArgumentNullException.ThrowIfNull(_gl);
 
@@ -175,21 +196,21 @@ internal static class Graphics
         GLSpriteShader.Instance.SetViewport(_viewportSize.Width, _viewportSize.Height);
     }
 
-    public static void SetWindowSize(int width, int height)
+    public override void SetWindowSize(int width, int height)
     {
         _windowSize = new Size(width, height);
     }
 
-    public static GLImage CreateImage(Asset asset)
+    public override GraphicsImage CreateImage(Asset asset)
     {
         ArgumentNullException.ThrowIfNull(_gl);
         return new GLImage(_gl, asset.DecodeSKBitmapTileData());
     }
 
-    public static void Begin() { }
-    public static void End() { }
+    public override void Begin() { }
+    public override void End() { }
 
-    public static void FinishRender()
+    public override void FinishRender()
     {
         // These should ultimately batch all the vertex and drawing together.
         while (DrawRequests.Count > 0)
@@ -199,127 +220,12 @@ internal static class Graphics
         }
     }
 
-    public static SpriteAnimation GetAnimation(TileSheet sheet, AnimationId id)
-    {
-        var animation = GraphicSheets.GetAnimation(sheet);
-        return animation.LoadVariableLengthData<SpriteAnimation>((int)id);
-    }
-
-    public static void LoadSystemPalette(uint[] colorsArgb8)
-    {
-        colorsArgb8.CopyTo(_systemPalette.AsSpan());
-
-        for (var i = 0; i < Global.SysPaletteLength; i++)
-        {
-            _grayscalePalette[i] = _systemPalette[i & 0x30];
-        }
-    }
-
-    public static SKColor GetSystemColor(int sysColor)
-    {
-        var argb8 = _activeSystemPalette[sysColor];
-        return new SKColor(
-            (byte)(argb8 >> 16 & 0xFF),
-            (byte)(argb8 >> 8 & 0xFF),
-            (byte)(argb8 >> 0 & 0xFF),
-            (byte)(argb8 >> 24 & 0xFF)
-        );
-    }
-
-    // TODO: this method has to consider the picture format
-    public static void SetColor(Palette paletteIndex, int colorIndex, uint colorArgb8)
-    {
-        var y = (int)paletteIndex;
-        var x = colorIndex;
-
-        var line = MemoryMarshal.Cast<byte, uint>(_paletteBuf.AsSpan()[(y * _paletteStride)..]);
-        line[x] = colorArgb8;
-    }
-
-    public static void SetColor(Palette paletteIndex, int colorIndex, int colorArgb8) => SetColor(paletteIndex, colorIndex, (uint)colorArgb8);
-
-    public static void SetPalette(Palette paletteIndex, ReadOnlySpan<uint> colorsArgb8)
-    {
-        var y = (int)paletteIndex;
-        var line = MemoryMarshal.Cast<byte, uint>(_paletteBuf.AsSpan()[(y * _paletteStride)..]);
-
-        for (var x = 0; x < Global.PaletteLength; x++)
-        {
-            line[x] = colorsArgb8[x];
-        }
-    }
-
-    public static void SetColorIndexed(Palette paletteIndex, int colorIndex, int sysColor)
-    {
-        uint colorArgb8 = 0;
-        if (colorIndex != 0)
-        {
-            colorArgb8 = _activeSystemPalette[sysColor];
-        }
-        SetColor(paletteIndex, colorIndex, colorArgb8);
-        GetPalette(paletteIndex, colorIndex) = (byte)sysColor;
-    }
-
-    public static void SetPaletteIndexed(Palette paletteIndex, ImmutableArray<byte> sysColors)
-    {
-        SetPaletteIndexed(paletteIndex, sysColors.AsSpan());
-    }
-
-    public static void SetPaletteIndexed(Palette paletteIndex, ReadOnlySpan<byte> sysColors)
-    {
-        ReadOnlySpan<uint> colorsArgb8 =
-        [
-            0,
-            _activeSystemPalette[sysColors[1]],
-            _activeSystemPalette[sysColors[2]],
-            _activeSystemPalette[sysColors[3]],
-        ];
-
-        SetPalette(paletteIndex, colorsArgb8);
-        var dest = GetPalette(paletteIndex);
-        sysColors[..Global.PaletteLength].CopyTo(dest);
-    }
-
-    public static void UpdatePalettes()
+    public override void UpdatePalettes()
     {
     }
 
-    public static void SwitchSystemPalette(uint[] newSystemPalette)
-    {
-        if (newSystemPalette == _activeSystemPalette) return;
-
-        _activeSystemPalette = newSystemPalette;
-
-        for (var i = 0; i < Global.PaletteCount; i++)
-        {
-            var sysColors = GetPalette((Palette)i);
-            ReadOnlySpan<uint> colorsArgb8 =
-            [
-                0,
-                _activeSystemPalette[sysColors[1]],
-                _activeSystemPalette[sysColors[2]],
-                _activeSystemPalette[sysColors[3]],
-            ];
-            SetPalette((Palette)i, colorsArgb8);
-        }
-        UpdatePalettes();
-    }
-
-    public static void EnableGrayscale()
-    {
-        SwitchSystemPalette(_grayscalePalette);
-    }
-
-    public static void DisableGrayscale()
-    {
-        SwitchSystemPalette(_systemPalette);
-    }
-
-    public static SpriteAnimator GetSpriteAnimator(TileSheet sheet, AnimationId id) => new(sheet, id);
-    public static SpriteImage GetSpriteImage(TileSheet sheet, AnimationId id) => new(GetAnimation(sheet, id));
-
-    public static void DrawImage(
-        GLImage? bitmap,
+    public override void DrawImage(
+        GraphicsImage? bitmap,
         int srcX,
         int srcY,
         int width,
@@ -334,10 +240,10 @@ internal static class Graphics
         ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(bitmap);
 
-        bitmap.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags, order);
+        bitmap.Draw(srcX, srcY, width, height, destX, destY, GraphicPalettes.GetPaletteColors(palette), flags, order);
     }
 
-    public static void DrawSpriteTile(
+    public override void DrawSpriteTile(
         TileSheet sheet,
         int srcX,
         int srcY,
@@ -353,7 +259,7 @@ internal static class Graphics
         DrawTile(sheet, srcX, srcY, width, height, destX, destY + 1, palette, flags, order);
     }
 
-    public static void DrawTile(
+    public override void DrawTile(
         TileSheet sheet,
         int srcX,
         int srcY,
@@ -366,11 +272,11 @@ internal static class Graphics
         DrawOrder order
     )
     {
-        var tiles = GraphicSheets.GetImage(sheet);
-        tiles.Draw(srcX, srcY, width, height, destX, destY, GetPaletteColors(palette), flags, order);
+        var tiles = GraphicSheets.GetImage(this, sheet);
+        tiles.Draw(srcX, srcY, width, height, destX, destY, GraphicPalettes.GetPaletteColors(palette), flags, order);
     }
 
-    public static void DrawTile(
+    public override void DrawTile(
         TileSheet sheet,
         int srcX,
         int srcY,
@@ -383,21 +289,21 @@ internal static class Graphics
         DrawOrder order
     )
     {
-        var tiles = GraphicSheets.GetImage(sheet);
+        var tiles = GraphicSheets.GetImage(this, sheet);
         tiles.Draw(srcX, srcY, width, height, destX, destY, palette, flags, order);
     }
 
-    public static void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette, DrawOrder order)
+    public override void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette, DrawOrder order)
     {
         DrawStripSprite16X16(sheet, (int)firstTile, destX, destY, palette, order);
     }
 
-    public static void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette, DrawOrder order)
+    public override void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette, DrawOrder order)
     {
         DrawStripSprite16X16(sheet, (int)firstTile, destX, destY, palette, order);
     }
 
-    public static void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette, DrawOrder order)
+    public override void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette, DrawOrder order)
     {
         ReadOnlySpan<byte> offsetsX = [0, 0, 8, 8];
         ReadOnlySpan<byte> offsetsY = [0, 8, 0, 8];
@@ -418,21 +324,16 @@ internal static class Graphics
         }
     }
 
-    public static void Clear(SKColor color)
+    public override void Clear(SKColor color)
     {
         ArgumentNullException.ThrowIfNull(_gl);
         _gl.ClearColor(color.ToDrawingColor());
         _gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
     }
 
-    public readonly struct UnclipScope : IDisposable
-    {
-        public void Dispose() => ResetClip();
-    }
+    private bool _clipped = false;
 
-    private static bool _clipped = false;
-
-    public static UnclipScope SetClip(int x, int y, int width, int height)
+    public override UnclipScope SetClip(int x, int y, int width, int height)
     {
         ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(_windowSize);
@@ -474,10 +375,10 @@ internal static class Graphics
         var finalY = _windowSize.Value.Height - finalHeight - y * yratio;
         _gl.Enable(EnableCap.ScissorTest);
         _gl.Scissor((int)finalX, (int)finalY, (uint)finalWidth, (uint)finalHeight);
-        return new UnclipScope();
+        return new UnclipScope(this);
     }
 
-    public static void ResetClip()
+    public override void ResetClip()
     {
         ArgumentNullException.ThrowIfNull(_gl);
         ArgumentNullException.ThrowIfNull(_windowSize);

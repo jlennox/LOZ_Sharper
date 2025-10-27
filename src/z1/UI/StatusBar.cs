@@ -104,15 +104,15 @@ internal sealed class StatusBar
         _features = enable ? (_features | features) : (_features ^ features);
     }
 
-    public void Draw(int baseY)
+    public void Draw(Graphics graphics, int baseY)
     {
-        Draw(baseY, SKColors.Black);
+        Draw(graphics, baseY, SKColors.Black);
     }
 
-    public void Draw(int baseY, SKColor backColor)
+    public void Draw(Graphics graphics, int baseY, SKColor backColor)
     {
-        using var _ = Graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
-        Graphics.Clear(backColor);
+        using var _ = _world.Game.Graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
+        _world.Game.Graphics.Clear(backColor);
 
         foreach (var tileInst in _uiTiles)
         {
@@ -127,42 +127,42 @@ internal sealed class StatusBar
                 }
             }
 
-            DrawTile(tileId, tileInst.X, tileInst.Y + baseY, tileInst.Palette, DrawOrder.Background);
+            DrawTile(graphics, tileId, tileInst.X, tileInst.Y + baseY, tileInst.Palette, DrawOrder.Background);
         }
 
-        DrawMiniMap(baseY);
+        DrawMiniMap(graphics, baseY);
         DrawItems(baseY);
     }
 
-    private void DrawMiniMap(int baseY)
+    private void DrawMiniMap(Graphics graphics, int baseY)
     {
         if (!_world.CurrentRoom.Settings.HideMap)
         {
-            DrawMiniMapInner(baseY);
+            DrawMiniMapInner(graphics, baseY);
         }
 
         if (_world.CurrentWorld.LevelString != null)
         {
-            GlobalFunctions.DrawString(_world.CurrentWorld.LevelString, LevelNameX, baseY + LevelNameY, 0);
+            _world.Game.Graphics.DrawString(_world.CurrentWorld.LevelString, LevelNameX, baseY + LevelNameY, 0);
         }
     }
 
-    private static void DrawTile(int tile, int x, int y, Palette palette, DrawOrder order)
+    private static void DrawTile(Graphics graphics, int tile, int x, int y, Palette palette, DrawOrder order)
     {
-        GlobalFunctions.DrawChar((byte)tile, x, y, palette, 0, order);
+        graphics.DrawChar((byte)tile, x, y, palette, 0, order);
     }
 
-    private static void DrawTile(int tile, int x, int y, MiniMapSettings settings)
+    private static void DrawTile(Graphics graphics, int tile, int x, int y, MiniMapSettings settings)
     {
-        GlobalFunctions.DrawChar((byte)tile, x, y, settings.TileWidth, settings.TileHeight, settings.Palette);
+        graphics.DrawChar((byte)tile, x, y, settings.TileWidth, settings.TileHeight, settings.Palette);
     }
 
-    private static void DrawUWTile(int tile, int x, int y, MiniMapSettings settings)
+    private static void DrawUWTile(Graphics graphics, int tile, int x, int y, MiniMapSettings settings)
     {
-        Graphics.DrawTile(TileSheet.Font, 0x7 * 8, 0x6 * 8, 8, 4, x, y, settings.Palette, 0, DrawOrder.Background);
+        graphics.DrawTile(TileSheet.Font, 0x7 * 8, 0x6 * 8, 8, 4, x, y, settings.Palette, 0, DrawOrder.Background);
     }
 
-    private delegate void DrawMiniMapTileDelegate(int tile, int x, int y, MiniMapSettings settings);
+    private delegate void DrawMiniMapTileDelegate(Graphics graphics, int tile, int x, int y, MiniMapSettings settings);
 
     private readonly record struct MiniMapSettings(int Tile, DrawMiniMapTileDelegate DrawTileFn, int CursorXOffset, int TileWidth, int TileHeight, Palette Palette, bool RequiresMap)
     {
@@ -170,7 +170,7 @@ internal sealed class StatusBar
         public static readonly MiniMapSettings Underworld = new(0xF5, DrawUWTile, 2, UWMapTileWidth, UWMapTileHeight, 0, true);
     }
 
-    private void DrawMiniMapInner(int baseY)
+    private void DrawMiniMapInner(Graphics graphics, int baseY)
     {
         var settings = _world.IsOverworld() ? MiniMapSettings.Overworld : MiniMapSettings.Underworld;
         var showMap = !settings.RequiresMap || _world.Profile.GetDungeonItem(_world.CurrentWorld, ItemId.Map);
@@ -209,7 +209,7 @@ internal sealed class StatusBar
                     if (showMap)
                     {
                         var tile = settings.Tile;
-                        settings.DrawTileFn(tile, x, y, settings);
+                        settings.DrawTileFn(graphics, tile, x, y, settings);
                     }
 
                     // If this looks wrong, it's likely related to MiniMapColumnOffset.
@@ -219,13 +219,13 @@ internal sealed class StatusBar
                             ? Palette.Red
                             : Palette.SeaPal;
 
-                        DrawTile(0xE0, x + 2, y, palette, DrawOrder.Sprites);
+                        DrawTile(graphics, 0xE0, x + 2, y, palette, DrawOrder.Sprites);
                     }
                 }
 
                 if (showMapCursors && room == _world.CurrentRoom && !room.HidePlayerMapCursor)
                 {
-                    DrawTile(0xE0, x + settings.CursorXOffset, y, Palette.Player, DrawOrder.Foreground);
+                    DrawTile(graphics, 0xE0, x + settings.CursorXOffset, y, Palette.Player, DrawOrder.Foreground);
                 }
             }
         }
@@ -236,13 +236,13 @@ internal sealed class StatusBar
         var count = _world.GetItem(itemSlot);
         if (count < 100)
         {
-            GlobalFunctions.DrawChar((byte)Chars.X, x, y, 0);
+            _world.Game.Graphics.DrawChar((byte)Chars.X, x, y, 0);
             x += 8;
         }
 
         Span<char> charBuf = stackalloc char[16];
         var str = GameString.NumberToString((byte)count, NumberSign.None, charBuf, 0);
-        GlobalFunctions.DrawString(str, x, y, 0);
+        _world.Game.Graphics.DrawString(str, x, y, 0);
     }
 
     private void DrawItems(int baseY)
@@ -252,7 +252,7 @@ internal sealed class StatusBar
             if (_world.GetItem(ItemSlot.MagicKey) != 0)
             {
                 ReadOnlySpan<byte> xa = [(byte)Chars.X, 0x0A];
-                GlobalFunctions.DrawString(xa, CountersX, 0x28 + baseY, 0);
+                _world.Game.Graphics.DrawString(xa, CountersX, 0x28 + baseY, 0);
             }
             else
             {
@@ -299,6 +299,6 @@ internal sealed class StatusBar
         var totalHearts = _world.GetItem(ItemSlot.HeartContainers);
         var heartsValue = _world.Profile.Hearts;
         var y = HeartsY + baseY;
-        GlobalFunctions.DrawHearts(heartsValue, totalHearts, HeartsX, y);
+        _world.Game.Graphics.DrawHearts(heartsValue, totalHearts, HeartsX, y);
     }
 }

@@ -109,7 +109,7 @@ internal abstract partial class Actor
     }
 
     public abstract void Update();
-    public abstract void Draw();
+    public abstract void Draw(Graphics graphics);
 
     public virtual bool IsPlayer => false;
     public virtual bool ShouldStopAtPersonWall => false;
@@ -474,19 +474,19 @@ internal abstract partial class Actor
         return false;
     }
 
-    public void DecoratedDraw()
+    public void DecoratedDraw(Graphics graphics)
     {
         if (!Visible) return;
 
         if (Decoration == 0)
         {
-            Draw();
+            Draw(graphics);
         }
         else if (Decoration < 0x10)
         {
             var frame = Decoration - 1;
             var animator = Graphics.GetSpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Cloud);
-            animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, Palette.Blue, frame, DrawOrder);
+            animator.DrawFrame(graphics, TileSheet.PlayerAndItems, X, Y, Palette.Blue, frame, DrawOrder);
         }
         else
         {
@@ -494,7 +494,7 @@ internal abstract partial class Actor
             var frame = (Decoration + 1) % 2;
             var pal = Palette.Player + (Global.ForegroundPalCount - counter - 1);
             var animator = Graphics.GetSpriteAnimator(TileSheet.PlayerAndItems, AnimationId.Sparkle);
-            animator.DrawFrame(TileSheet.PlayerAndItems, X, Y, pal, frame, DrawOrder);
+            animator.DrawFrame(graphics, TileSheet.PlayerAndItems, X, Y, pal, frame, DrawOrder);
         }
     }
 

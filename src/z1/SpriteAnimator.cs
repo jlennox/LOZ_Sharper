@@ -86,42 +86,42 @@ internal sealed class SpriteAnimator
         }
     }
 
-    public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, DrawOrder order)
+    public void Draw(Graphics graphics, TileSheet sheetSlot, int x, int y, Palette palette, DrawOrder order)
     {
-        Draw(sheetSlot, x, y, palette, DrawingFlags.None, order);
+        Draw(graphics, sheetSlot, x, y, palette, DrawingFlags.None, order);
     }
 
-    public void Draw(TileSheet sheetSlot, float x, float y, Palette palette, DrawingFlags flags, DrawOrder order)
+    public void Draw(Graphics graphics, TileSheet sheetSlot, float x, float y, Palette palette, DrawingFlags flags, DrawOrder order)
     {
-        Draw(sheetSlot, (int)x, (int)y, palette, flags, order);
+        Draw(graphics, sheetSlot, (int)x, (int)y, palette, flags, order);
     }
 
-    public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, DrawingFlags flags, DrawOrder order)
+    public void Draw(Graphics graphics, TileSheet sheetSlot, int x, int y, Palette palette, DrawingFlags flags, DrawOrder order)
     {
         if (Animation != null && Animation.Length > 0 && DurationFrames > 0)
         {
             var index = (Animation.Length * Time) / DurationFrames;
-            DrawFrameInternal(sheetSlot, x, y, palette, index, flags, order);
+            DrawFrameInternal(graphics, sheetSlot, x, y, palette, index, flags, order);
         }
     }
 
-    public void DrawFrame(TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawOrder order)
+    public void DrawFrame(Graphics graphics, TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawOrder order)
     {
-        DrawFrame(sheetSlot, x, y, palette, frame, DrawingFlags.None, order);
+        DrawFrame(graphics, sheetSlot, x, y, palette, frame, DrawingFlags.None, order);
     }
 
-    public void DrawFrame(TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawingFlags flags, DrawOrder order)
+    public void DrawFrame(Graphics graphics, TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawingFlags flags, DrawOrder order)
     {
         if (Animation != null && Animation.Length > frame)
         {
-            DrawFrameInternal(sheetSlot, x, y, palette, frame, flags, order);
+            DrawFrameInternal(graphics, sheetSlot, x, y, palette, frame, flags, order);
         }
     }
 
-    public void DrawFrameInternal(TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawingFlags flags, DrawOrder order)
+    public void DrawFrameInternal(Graphics graphics, TileSheet sheetSlot, int x, int y, Palette palette, int frame, DrawingFlags flags, DrawOrder order)
     {
         var anim = Animation ?? throw new Exception();
-        Graphics.DrawSpriteTile(
+        graphics.DrawSpriteTile(
             sheetSlot,
             anim.Frames[frame].X,
             anim.Frames[frame].Y,
@@ -151,14 +151,14 @@ internal sealed class SpriteImage
         Animation = Graphics.GetAnimation(sheet, id);
     }
 
-    public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, DrawOrder layer)
+    public void Draw(Graphics graphics, TileSheet sheetSlot, int x, int y, Palette palette, DrawOrder layer)
     {
-        Draw(sheetSlot, x, y, palette, DrawingFlags.None, layer);
+        Draw(graphics, sheetSlot, x, y, palette, DrawingFlags.None, layer);
     }
 
-    public void Draw(TileSheet sheetSlot, int x, int y, Palette palette, DrawingFlags flags, DrawOrder layer)
+    public void Draw(Graphics graphics, TileSheet sheetSlot, int x, int y, Palette palette, DrawingFlags flags, DrawOrder layer)
     {
-        Graphics.DrawSpriteTile(
+        graphics.DrawSpriteTile(
             sheetSlot,
             Animation.FrameA.X,
             Animation.FrameA.Y,

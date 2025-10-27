@@ -633,7 +633,7 @@ internal sealed class Player : Actor, IThrower
         Animator.Animation = Graphics.GetAnimation(TileSheet.PlayerAndItems, map[dirOrd]);
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         if (!Visible) return;
 
@@ -646,7 +646,7 @@ internal sealed class Player : Actor, IThrower
         }
 
         SetFacingAnim();
-        Animator.Draw(TileSheet.PlayerAndItems, X, y, palette, DrawOrder);
+        Animator.Draw(graphics, TileSheet.PlayerAndItems, X, y, palette, DrawOrder);
     }
 
     public Actors.PlayerState GetState()

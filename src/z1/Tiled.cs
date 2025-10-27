@@ -24,15 +24,17 @@ internal readonly record struct GameBlockObject(BlockType Type, TiledTile TopLef
 internal sealed class GameTileSet
 {
     public string Name { get; set; }
-    public GLImage Image { get; set; }
     public TileBehavior[] Behaviors { get; }
     public GameBlockObject[] BlockObjects { get; } = [];
 
+    private readonly TiledTileSet _tileset;
+    private GraphicsImage? _image;
+
     public GameTileSet(string name, int tileSetId, TiledTileSet tileset)
     {
+        _tileset = tileset;
         Name = name;
         // JOE: TODO: This `Path.GetFileName` makes me want to cry, infact, most things about how assets work do.
-        Image = Graphics.CreateImage(new Asset(Path.GetFileName(tileset.Image)));
         Behaviors = new TileBehavior[tileset.TileCount + 1];
 
         if (tileset.Tiles != null)
@@ -110,6 +112,12 @@ internal sealed class GameTileSet
 
             BlockObjects = foundBlockObjects.ToArray();
         }
+    }
+
+    public GraphicsImage GetImage(Graphics graphics)
+    {
+        _image ??= graphics.CreateImage(new Asset(Path.GetFileName(_tileset.Image)));
+        return _image;
     }
 
     internal static ImmutableArray<Point> ParsePointsString(ReadOnlySpan<char> offsetsString)
@@ -682,16 +690,16 @@ internal sealed class GameRoom
         return false;
     }
 
-    public void DrawTile(TiledTile tile, int x, int y, Palette palette)
+    public void DrawTile(Graphics graphics, TiledTile tile, int x, int y, Palette palette)
     {
         // JOE: TODO: Hey yo. Lots of repeated work here. Make a table for it.
         var tileset = TileSets[tile.TileSheet];
-        var image = tileset.Image;
+        var image = tileset.GetImage(graphics);
         var tileId = tile.TileId - 1; // 0 means no tile.
         if (tileId < 0) return;
         var srcx = tileId % (image.Width / TileWidth) * TileWidth;
         var srcy = tileId / (image.Width / TileWidth) * TileHeight;
-        Graphics.DrawImage(image, srcx, srcy, TileWidth, TileHeight, x, y, palette, tile.GetDrawingFlags(), DrawOrder.Background);
+        graphics.DrawImage(image, srcx, srcy, TileWidth, TileHeight, x, y, palette, tile.GetDrawingFlags(), DrawOrder.Background);
     }
 
     internal static bool TryParseUnderworldDoors(string? s, [MaybeNullWhen(false)] out Dictionary<Direction, DoorType> doors)

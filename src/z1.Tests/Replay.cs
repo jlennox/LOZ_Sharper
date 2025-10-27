@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Text.Json;
 using z1.GUI;
+using z1.Render;
 
 namespace z1.Tests;
 
@@ -43,7 +44,7 @@ internal class ReplayTests
         // This could be fixed by refactoring Graphics into an instance class.
         var window = new GLWindow(true);
         var recording = EmbeddedResource.ReadJson<GameRecordingState>(filename);
-        window.Game = new Game(new GameIO(), recording, true);
+        window.Game = new Game(new GameIO(new NullGraphics()), recording, true);
         window.Game.Sound.SetMute(true);
         var timer = Stopwatch.StartNew();
         var framecount = 0;

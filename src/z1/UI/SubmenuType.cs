@@ -348,39 +348,39 @@ internal sealed class SubmenuType
         profile.SelectedItem = _activeSlots[_activeUISlot];
     }
 
-    public void Draw(int bottom)
+    public void Draw(Graphics graphics, int bottom)
     {
         if (!_enabled) return;
 
-        using var _ = Graphics.SetClip(0, 0, Width, bottom);
+        using var _ = graphics.SetClip(0, 0, Width, bottom);
 
         var top = bottom - Height;
-        DrawBackground(top);
-        DrawPassiveInventory(top);
-        DrawActiveInventory(top);
-        DrawCurrentSelection(top);
+        DrawBackground(graphics, top);
+        DrawPassiveInventory(graphics, top);
+        DrawActiveInventory(graphics, top);
+        DrawCurrentSelection(graphics, top);
 
         if (_game.World.IsOverworld())
         {
-            DrawTriforce(top);
+            DrawTriforce(graphics, top);
         }
         else
         {
-            DrawMap(top);
+            DrawMap(graphics, top);
         }
     }
 
-    private static void DrawBackground(int top)
+    private static void DrawBackground(Graphics graphics, int top)
     {
-        Graphics.Clear(SKColors.Black);
+        graphics.Clear(SKColors.Black);
 
         foreach (var tileInst in _uiTiles)
         {
-            GlobalFunctions.DrawChar(tileInst.Id, tileInst.X, tileInst.Y + top, tileInst.Palette);
+            graphics.DrawChar(tileInst.Id, tileInst.X, tileInst.Y + top, tileInst.Palette);
         }
     }
 
-    private void DrawActiveInventory(int top)
+    private void DrawActiveInventory(Graphics graphics, int top)
     {
         var profile = _game.World.Profile;
         var x = ActiveItemX;
@@ -420,10 +420,10 @@ internal sealed class SubmenuType
 
         var cursorPals = new[] { Palette.Blue, Palette.Red };
         var cursorPal = cursorPals[(_game.World.Game.FrameCounter >> 3) & 1];
-        _cursor.Draw(TileSheet.PlayerAndItems, x, y, cursorPal, DrawOrder.Sprites);
+        _cursor.Draw(graphics, TileSheet.PlayerAndItems, x, y, cursorPal, DrawOrder.Sprites);
     }
 
-    private void DrawPassiveInventory(int top)
+    private void DrawPassiveInventory(Graphics graphics, int top)
     {
         var profile = _game.World.Profile;
 
@@ -440,7 +440,7 @@ internal sealed class SubmenuType
         }
     }
 
-    private void DrawCurrentSelection(int top)
+    private void DrawCurrentSelection(Graphics graphics, int top)
     {
         var curSlot = _game.World.Profile.SelectedItem;
         if (curSlot == 0) return;
@@ -464,28 +464,28 @@ internal sealed class SubmenuType
 
     private static readonly ImmutableArray<byte> _triforce = [0x1D, 0x1B, 0x12, 0x0F, 0x18, 0x1B, 0x0C, 0x0E];
 
-    private void DrawTriforce(int top)
+    private void DrawTriforce(Graphics graphics, int top)
     {
-        GlobalFunctions.DrawChar(0xED, 0x78, 0x68 + top, Palette.RedBackground);
-        GlobalFunctions.DrawChar(0xEE, 0x80, 0x68 + top, Palette.RedBackground);
+        graphics.DrawChar(0xED, 0x78, 0x68 + top, Palette.RedBackground);
+        graphics.DrawChar(0xEE, 0x80, 0x68 + top, Palette.RedBackground);
 
-        GlobalFunctions.DrawChar(0xED, 0x68, 0x78 + top, Palette.RedBackground);
-        GlobalFunctions.DrawChar(0xEE, 0x90, 0x78 + top, Palette.RedBackground);
+        graphics.DrawChar(0xED, 0x68, 0x78 + top, Palette.RedBackground);
+        graphics.DrawChar(0xEE, 0x90, 0x78 + top, Palette.RedBackground);
 
-        GlobalFunctions.DrawChar(0xED, 0x58, 0x88 + top, Palette.RedBackground);
-        GlobalFunctions.DrawChar(0xEE, 0xA0, 0x88 + top, Palette.RedBackground);
+        graphics.DrawChar(0xED, 0x58, 0x88 + top, Palette.RedBackground);
+        graphics.DrawChar(0xEE, 0xA0, 0x88 + top, Palette.RedBackground);
 
-        GlobalFunctions.DrawChar(0xEB, 0x50, 0x90 + top, Palette.RedBackground);
-        GlobalFunctions.DrawChar(0xEF, 0x58, 0x90 + top, Palette.RedBackground);
-        GlobalFunctions.DrawChar(0xF0, 0xA0, 0x90 + top, Palette.RedBackground);
-        GlobalFunctions.DrawChar(0xEC, 0xA8, 0x90 + top, Palette.RedBackground);
+        graphics.DrawChar(0xEB, 0x50, 0x90 + top, Palette.RedBackground);
+        graphics.DrawChar(0xEF, 0x58, 0x90 + top, Palette.RedBackground);
+        graphics.DrawChar(0xF0, 0xA0, 0x90 + top, Palette.RedBackground);
+        graphics.DrawChar(0xEC, 0xA8, 0x90 + top, Palette.RedBackground);
 
-        GlobalFunctions.DrawString(_triforce.AsSpan(), 0x60, 0xA0 + top, Palette.RedBackground);
+        graphics.DrawString(_triforce.AsSpan(), 0x60, 0xA0 + top, Palette.RedBackground);
 
         var x = 0x60;
         for (var i = 0; i < 8; i++, x += 8)
         {
-            GlobalFunctions.DrawChar(0xF1, x, 0x90 + top, Palette.RedBackground);
+            graphics.DrawChar(0xF1, x, 0x90 + top, Palette.RedBackground);
         }
 
         var pieces = _game.World.GetItem(ItemSlot.TriforcePieces);
@@ -504,21 +504,21 @@ internal sealed class SubmenuType
                     var xx = _pieceSpecs[i].X + (c * 8);
                     var yy = _pieceSpecs[i].Y + (r * 8) + top;
                     // JOE: TODO: Uh, is this right? Maybe just flatten the array?
-                    GlobalFunctions.DrawChar(tiles[ii / tiles.Length][ii % tiles.Length], xx, yy, Palette.RedBackground);
+                    graphics.DrawChar(tiles[ii / tiles.Length][ii % tiles.Length], xx, yy, Palette.RedBackground);
                 }
             }
         }
 
         if ((pieces & 0x30) == 0x30)
         {
-            GlobalFunctions.DrawChar(0xF5, 0x70, 0x80 + top, Palette.RedBackground);
-            GlobalFunctions.DrawChar(0xF5, 0x78, 0x88 + top, Palette.RedBackground);
+            graphics.DrawChar(0xF5, 0x70, 0x80 + top, Palette.RedBackground);
+            graphics.DrawChar(0xF5, 0x78, 0x88 + top, Palette.RedBackground);
         }
 
         if ((pieces & 0xC0) == 0xC0)
         {
-            GlobalFunctions.DrawChar(0xF5, 0x88, 0x80 + top, Palette.RedBackground);
-            GlobalFunctions.DrawChar(0xF5, 0x80, 0x88 + top, Palette.RedBackground);
+            graphics.DrawChar(0xF5, 0x88, 0x80 + top, Palette.RedBackground);
+            graphics.DrawChar(0xF5, 0x80, 0x88 + top, Palette.RedBackground);
         }
     }
 
@@ -549,7 +549,7 @@ internal sealed class SubmenuType
     private static ReadOnlySpan<byte> TopMapLine => [0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5, 0xFD, 0xF5, 0xF5, 0xF5];
     private static ReadOnlySpan<byte> BottomMapLine => [0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5, 0xF5, 0xF5, 0xFE, 0xF5];
 
-    private void DrawMap(int top)
+    private void DrawMap(Graphics graphics, int top)
     {
         const int mapBackGroundBaseX = 0x60;
         const int mapBaseX = mapBackGroundBaseX;
@@ -559,10 +559,10 @@ internal sealed class SubmenuType
         const int mapCellWidth = 8;
         const int mapCellHeight = 8;
 
-        GlobalFunctions.DrawString("map", 0x28, 0x58 + top, (Palette)1);
-        GlobalFunctions.DrawString("compass", 0x18, 0x80 + top, (Palette)1);
-        GlobalFunctions.DrawString(TopMapLine, mapBackGroundBaseX, 0x50 + top, (Palette)1);
-        GlobalFunctions.DrawString(BottomMapLine, mapBackGroundBaseX, 0x98 + top, (Palette)1);
+        graphics.DrawString("map", 0x28, 0x58 + top, (Palette)1);
+        graphics.DrawString("compass", 0x18, 0x80 + top, (Palette)1);
+        graphics.DrawString(TopMapLine, mapBackGroundBaseX, 0x50 + top, (Palette)1);
+        graphics.DrawString(BottomMapLine, mapBackGroundBaseX, 0x98 + top, (Palette)1);
 
         var y = mapBaseY + top;
         // Blank out the background.
@@ -571,7 +571,7 @@ internal sealed class SubmenuType
             var xx = mapBackGroundBaseX;
             for (var c = 0; c < mapMaxWidth; c++, xx += mapCellWidth)
             {
-                GlobalFunctions.DrawChar(0xF5, xx, y, (Palette)1);
+                graphics.DrawChar(0xF5, xx, y, (Palette)1);
             }
         }
 
@@ -603,17 +603,17 @@ internal sealed class SubmenuType
                     if (GetRoomState(room).VisitState)
                     {
                         var tile = 0xD0 + GetDoorTileOffset(room);
-                        GlobalFunctions.DrawChar(tile, x, y, (Palette)1, DrawingFlags.NoTransparency, DrawOrder.Sprites);
+                        graphics.DrawChar(tile, x, y, (Palette)1, DrawingFlags.NoTransparency, DrawOrder.Sprites);
                     }
                     else if (hasMap)
                     {
-                        GlobalFunctions.DrawChar(0xD0, x, y, hasNotSeenPalette, DrawingFlags.NoTransparency, DrawOrder.Sprites);
+                        graphics.DrawChar(0xD0, x, y, hasNotSeenPalette, DrawingFlags.NoTransparency, DrawOrder.Sprites);
                     }
                 }
 
                 if (room == _game.World.CurrentRoom)
                 {
-                    GlobalFunctions.DrawChar(0xE0, x + 2, y + 3, Palette.Player, DrawingFlags.None, DrawOrder.Foreground);
+                    graphics.DrawChar(0xE0, x + 2, y + 3, Palette.Player, DrawingFlags.None, DrawOrder.Foreground);
                 }
             }
         }

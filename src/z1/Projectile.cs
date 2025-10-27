@@ -188,7 +188,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
         _distance++;
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         var palOffset = Game.FrameCounter % Global.ForegroundPalCount;
         var palette = Palette.Player + palOffset;
@@ -197,7 +197,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
         if (State == ProjectileState.Flying)
         {
             var xOffset = (16 - _image.Animation.Width) / 2;
-            _image.Draw(TileSheet.PlayerAndItems, X + xOffset, Y + yOffset, palette, DrawOrder);
+            _image.Draw(graphics, TileSheet.PlayerAndItems, X + xOffset, Y + yOffset, palette, DrawOrder);
         }
         else
         {
@@ -210,10 +210,10 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
                 var top = Y - 2 - d + yOffset;
                 var bottom = Y + 2 + d + yOffset;
 
-                _image.Draw(TileSheet.PlayerAndItems, left, top, palette, DrawOrder);
-                _image.Draw(TileSheet.PlayerAndItems, right, top, palette, DrawingFlags.FlipX, DrawOrder);
-                _image.Draw(TileSheet.PlayerAndItems, left, bottom, palette, DrawingFlags.FlipY, DrawOrder);
-                _image.Draw(TileSheet.PlayerAndItems, right, bottom, palette,
+                _image.Draw(graphics, TileSheet.PlayerAndItems, left, top, palette, DrawOrder);
+                _image.Draw(graphics, TileSheet.PlayerAndItems, right, top, palette, DrawingFlags.FlipX, DrawOrder);
+                _image.Draw(graphics, TileSheet.PlayerAndItems, left, bottom, palette, DrawingFlags.FlipY, DrawOrder);
+                _image.Draw(graphics, TileSheet.PlayerAndItems, right, bottom, palette,
                     DrawingFlags.FlipX | DrawingFlags.FlipY, DrawOrder);
             }
         }
@@ -272,10 +272,10 @@ internal sealed class FlyingRockProjectile : Projectile
         CheckPlayer();
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         var xOffset = (16 - _image.Animation.Width) / 2;
-        _image.Draw(TileSheet.NpcsOverworld, X + xOffset, Y, Palette.Player, DrawOrder);
+        _image.Draw(graphics, TileSheet.NpcsOverworld, X + xOffset, Y, Palette.Player, DrawOrder);
     }
 }
 
@@ -407,12 +407,12 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         var palOffset = Game.FrameCounter % Global.ForegroundPalCount;
         var palette = Palette.Player + palOffset;
 
-        _image.Draw(TileSheet.PlayerAndItems, X, Y, palette, DrawOrder);
+        _image.Draw(graphics, TileSheet.PlayerAndItems, X, Y, palette, DrawOrder);
     }
 }
 
@@ -648,7 +648,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         var itemValue = World.GetItem(ItemSlot.Boomerang);
         if (itemValue == 0)
@@ -658,7 +658,7 @@ internal sealed class BoomerangProjectile : Actor, IProjectile
 
         var pal = _state == BoomerangState.Unknown2 ? Palette.Red : (Palette.Player + itemValue - 1);
         var xOffset = (16 - _animator.Animation?.Width ?? 0) / 2;
-        _animator.Draw(TileSheet.PlayerAndItems, _x + xOffset, _y, pal, DrawingFlags.None, DrawOrder);
+        _animator.Draw(graphics, TileSheet.PlayerAndItems, _x + xOffset, _y, pal, DrawingFlags.None, DrawOrder);
     }
 }
 
@@ -723,10 +723,10 @@ internal sealed class MagicWaveProjectile : Projectile, IBlockableProjectile
         CheckPlayer();
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         var pal = 4 + Game.FrameCounter % 4;
-        _image.Draw(TileSheet.PlayerAndItems, X, Y, (Palette)pal, DrawOrder);
+        _image.Draw(graphics, TileSheet.PlayerAndItems, X, Y, (Palette)pal, DrawOrder);
     }
 
     public void AddFire()
@@ -825,7 +825,7 @@ internal sealed class ArrowProjectile : Projectile
         }
     }
 
-    public override void Draw()
+    public override void Draw(Graphics graphics)
     {
         ReadOnlySpan<int> yOffsets = [3, 3, 0, 0];
 
@@ -855,6 +855,6 @@ internal sealed class ArrowProjectile : Projectile
             x += 4;
         }
 
-        _image.Draw(TileSheet.PlayerAndItems, x, y, pal, DrawOrder);
+        _image.Draw(graphics, TileSheet.PlayerAndItems, x, y, pal, DrawOrder);
     }
 }

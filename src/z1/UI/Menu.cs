@@ -8,19 +8,19 @@ namespace z1.UI;
 internal abstract class Menu
 {
     public abstract void Update();
-    public abstract void Draw(int frameCounter);
+    public abstract void Draw(Graphics graphics, int frameCounter);
 
-    protected static void DrawFileIcon(PlayerProfile profile, int x, int y, int quest)
+    protected static void DrawFileIcon(Graphics graphics, PlayerProfile profile, int x, int y, int quest)
     {
         if (quest == 1)
         {
             var sword = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.SwordItem);
-            sword.Draw(TileSheet.PlayerAndItems, x + 12, y - 3, (Palette)7, DrawOrder.Background);
+            sword.Draw(graphics, TileSheet.PlayerAndItems, x + 12, y - 3, (Palette)7, DrawOrder.Background);
         }
 
         profile.SetPlayerColor();
         var player = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, AnimationId.PlayerWalk_NoShield_Down);
-        player.Draw(TileSheet.PlayerAndItems, x, y, Palette.Player, DrawOrder.Background);
+        player.Draw(graphics, TileSheet.PlayerAndItems, x, y, Palette.Player, DrawOrder.Background);
     }
 }
 
@@ -30,25 +30,23 @@ internal sealed class PregameMenu : Menu
 
     public Action<PlayerProfile>? OnProfileSelected;
 
-    private readonly Input _input;
-    private readonly ISound _sound;
+    private readonly GameIO _io;
     private readonly GameEnhancements _enhancements;
     private readonly List<PlayerProfile> _profiles;
     private Menu _currentMenu;
 
-    public PregameMenu(Input input, ISound sound, GameEnhancements enhancements, List<PlayerProfile> profiles)
+    public PregameMenu(GameIO io, GameEnhancements enhancements, List<PlayerProfile> profiles)
     {
         IsActive = true;
-        _input = input;
-        _sound = sound;
+        _io = io;
         _enhancements = enhancements;
         _profiles = profiles;
 
-        _currentMenu = new ProfileSelectMenu(input, sound, this, _profiles);
+        _currentMenu = new ProfileSelectMenu(io, this, _profiles);
     }
 
     public override void Update() => _currentMenu.Update();
-    public override void Draw(int frameCounter) => _currentMenu.Draw(frameCounter);
+    public override void Draw(Graphics graphics, int frameCounter) => _currentMenu.Draw(graphics, frameCounter);
 
     public bool UpdateIfActive()
     {
@@ -61,11 +59,11 @@ internal sealed class PregameMenu : Menu
         return false;
     }
 
-    public bool DrawIfActive(int frameCounter)
+    public bool DrawIfActive(Graphics graphics, int frameCounter)
     {
         if (IsActive)
         {
-            Draw(frameCounter);
+            Draw(graphics, frameCounter);
             return true;
         }
 
@@ -81,19 +79,19 @@ internal sealed class PregameMenu : Menu
     public void GotoFileMenu(int page = 0)
     {
         IsActive = true;
-        _currentMenu = new ProfileSelectMenu(_input, _sound, this, _profiles, page);
+        _currentMenu = new ProfileSelectMenu(_io, this, _profiles, page);
     }
 
     public void GotoRegisterMenu()
     {
         IsActive = true;
-        _currentMenu = new RegisterMenu(_input, _sound, _enhancements, this, _profiles);
+        _currentMenu = new RegisterMenu(_io.Input, _io.Sound, _enhancements, this, _profiles);
     }
 
     public void GotoEliminateMenu(int page)
     {
         IsActive = true;
-        _currentMenu = new EliminateMenu(_input, _sound, this, _profiles, page);
+        _currentMenu = new EliminateMenu(_io.Input, _io.Sound, this, _profiles, page);
     }
 }
 
@@ -127,10 +125,10 @@ internal sealed class ProfileSelectMenu : Menu
     private string _pageString = "";
     private readonly string _menuStr = "press alt for menu";
 
-    public ProfileSelectMenu(Input input, ISound sound, PregameMenu menu, List<PlayerProfile> profiles, int page = 0)
+    public ProfileSelectMenu(GameIO io, PregameMenu menu, List<PlayerProfile> profiles, int page = 0)
     {
-        _input = input;
-        _sound = sound;
+        _input = io.Input;
+        _sound = io.Sound;
         _menu = menu;
         _profiles = profiles;
 
@@ -138,12 +136,12 @@ internal sealed class ProfileSelectMenu : Menu
 
         for (var i = 0; i < _palettes.Length; i++)
         {
-            Graphics.SetPaletteIndexed((Palette)i, _palettes[i]);
+            GraphicPalettes.SetPaletteIndexed((Palette)i, _palettes[i]);
         }
 
         // So that characters are fully opaque.
-        Graphics.SetColor(0, 0, 0xFF000000);
-        Graphics.UpdatePalettes();
+        GraphicPalettes.SetColor(0, 0, 0xFF000000);
+        io.Graphics.UpdatePalettes();
 
         SetPage(page);
     }
@@ -201,20 +199,20 @@ internal sealed class ProfileSelectMenu : Menu
         }
     }
 
-    public override void Draw(int frameCounter)
+    public override void Draw(Graphics graphics, int frameCounter)
     {
-        Graphics.Begin();
+        graphics.Begin();
 
-        Graphics.Clear(SKColors.Black);
-        GlobalFunctions.DrawBox(_mainBox);
+        graphics.Clear(SKColors.Black);
+        graphics.DrawBox(_mainBox);
 
-        GlobalFunctions.DrawString("- s e l e c t -", 0x40, 0x28, 0);
-        GlobalFunctions.DrawString(_pageString, _mainBox.X, _mainBox.Bottom + 4, 0);
-        GlobalFunctions.DrawString(_menuStr, _mainBox.X, _mainBox.Bottom + 16, 0);
-        GlobalFunctions.DrawString(" name ", 0x50, 0x40, 0);
-        GlobalFunctions.DrawString(" life ", 0x98, 0x40, 0);
-        GlobalFunctions.DrawString("register your name", 0x30, 0xA8, 0);
-        GlobalFunctions.DrawString("elimination mode", 0x30, 0xB8, 0);
+        graphics.DrawString("- s e l e c t -", 0x40, 0x28, 0);
+        graphics.DrawString(_pageString, _mainBox.X, _mainBox.Bottom + 4, 0);
+        graphics.DrawString(_menuStr, _mainBox.X, _mainBox.Bottom + 16, 0);
+        graphics.DrawString(" name ", 0x50, 0x40, 0);
+        graphics.DrawString(" life ", 0x98, 0x40, 0);
+        graphics.DrawString("register your name", 0x30, 0xA8, 0);
+        graphics.DrawString("elimination mode", 0x30, 0xB8, 0);
 
         var y = 0x58;
         for (var i = 0; i < 3; i++)
@@ -222,14 +220,14 @@ internal sealed class ProfileSelectMenu : Menu
             var profile = _profiles.GetProfile(_page, i);
             if (profile != null && profile.IsActive())
             {
-                GlobalFunctions.DrawString($"{profile.Deaths,3}", 0x48, y + 8, 0);
-                GlobalFunctions.DrawString(profile.Name, 0x48, y, 0);
+                graphics.DrawString($"{profile.Deaths,3}", 0x48, y + 8, 0);
+                graphics.DrawString(profile.Name, 0x48, y, 0);
                 var totalHearts = profile.Items.Get(ItemSlot.HeartContainers);
                 var heartsValue = PlayerProfile.GetMaxHeartsValue(totalHearts);
-                GlobalFunctions.DrawHearts(heartsValue, totalHearts, 0x90, y + 8);
-                DrawFileIcon(profile, 0x30, y, 0); // JOE: TODO: QUEST  profile.Quest);
+                graphics.DrawHearts(heartsValue, totalHearts, 0x90, y + 8);
+                DrawFileIcon(graphics, profile, 0x30, y, 0); // JOE: TODO: QUEST  profile.Quest);
             }
-            GlobalFunctions.DrawChar(Chars.Minus, 0x88, y, 0);
+            graphics.DrawChar(Chars.Minus, 0x88, y, 0);
             y += 24;
         }
 
@@ -241,9 +239,9 @@ internal sealed class ProfileSelectMenu : Menu
         {
             y = 0xA8 + (_selectedIndex - _maxProfiles) * 16;
         }
-        GlobalFunctions.DrawChar(Chars.FullHeart, 0x28, y, (Palette)7);
+        graphics.DrawChar(Chars.FullHeart, 0x28, y, (Palette)7);
 
-        Graphics.End();
+        graphics.End();
     }
 
     private void SelectNext(int direction)
@@ -331,15 +329,15 @@ internal sealed class EliminateMenu : Menu
         }
     }
 
-    public override void Draw(int frameCounter)
+    public override void Draw(Graphics graphics, int frameCounter)
     {
-        Graphics.Begin();
+        graphics.Begin();
 
-        Graphics.Clear(SKColors.Black);
+        graphics.Clear(SKColors.Black);
 
         const char hor = (char)StringChar.BoxHorizontal;
-        GlobalFunctions.DrawString($"{hor}{hor}{hor}Elimination  Mode{hor}{hor}{hor}", 0x20, 0x18, 0);
-        GlobalFunctions.DrawString("Elimination End", 0x50, 0x78, 0);
+        graphics.DrawString($"{hor}{hor}{hor}Elimination  Mode{hor}{hor}{hor}", 0x20, 0x18, 0);
+        graphics.DrawString("Elimination End", 0x50, 0x78, 0);
 
         var y = 0x30;
         for (var i = 0; i < 3; i++)
@@ -347,8 +345,8 @@ internal sealed class EliminateMenu : Menu
             var profile = _profiles.GetProfile(_page, i);
             if (profile != null && profile.IsActive())
             {
-                GlobalFunctions.DrawString(profile.Name, 0x70, y, 0);
-                DrawFileIcon(profile, 0x50, y, 0); // JOE: TODO: QUEST  profile.Quest);
+                graphics.DrawString(profile.Name, 0x70, y, 0);
+                DrawFileIcon(graphics,profile, 0x50, y, 0); // JOE: TODO: QUEST  profile.Quest);
             }
             y += 24;
         }
@@ -361,9 +359,9 @@ internal sealed class EliminateMenu : Menu
         {
             y = 0x78 + (_selectedIndex - 3) * 16;
         }
-        GlobalFunctions.DrawChar(Chars.FullHeart, 0x44, y, Palette.SeaPal);
+        graphics.DrawChar(Chars.FullHeart, 0x44, y, Palette.SeaPal);
 
-        Graphics.End();
+        graphics.End();
     }
 }
 
@@ -543,10 +541,10 @@ internal sealed class RegisterMenu : Menu
         }
     }
 
-    public override void Draw(int frameCounter)
+    public override void Draw(Graphics graphics, int frameCounter)
     {
-        Graphics.Begin();
-        Graphics.Clear(SKColors.Black);
+        graphics.Begin();
+        graphics.Clear(SKColors.Black);
 
         int y;
         const int nameX = 0x28 + 8 + 16;
@@ -556,30 +554,30 @@ internal sealed class RegisterMenu : Menu
         {
             var x = nameX + (_namePos * 8);
             y = 0x30 + (0 * 24);
-            GlobalFunctions.DrawChar(Chars.JustSpace, x, y, (Palette)7);
+            graphics.DrawChar(Chars.JustSpace, x, y, (Palette)7);
 
             x = 0x30 + (_charPosCol * 8);
             y = 0x88 + (_charPosRow * 8);
-            GlobalFunctions.DrawChar(Chars.JustSpace, x, y, (Palette)7);
+            graphics.DrawChar(Chars.JustSpace, x, y, (Palette)7);
         }
 
-        GlobalFunctions.DrawBox(0x28, 0x80, 0xB8, 0x48);
+        graphics.DrawBox(0x28, 0x80, 0xB8, 0x48);
         if (_enhancements.ImprovedMenus)
         {
-            GlobalFunctions.DrawString("Type or input name", 0x28, 0x68, 0);
+            graphics.DrawString("Type or input name", 0x28, 0x68, 0);
         }
-        GlobalFunctions.DrawString(_registerEndStr, 0x28, 0x78, 0);
+        graphics.DrawString(_registerEndStr, 0x28, 0x78, 0);
 
         y = 0x88;
         for (var i = 0; i < _charSetStrs.Length; i++, y += 8)
         {
-            GlobalFunctions.DrawString(_charSetStrs[i], 0x30, y, 0, DrawingFlags.None);
+            graphics.DrawString(_charSetStrs[i], 0x30, y, 0, DrawingFlags.None);
         }
 
         y = 0x30;
-        GlobalFunctions.DrawString(_profile.Name, nameX, y, 0);
-        GlobalFunctions.DrawChar(Chars.FullHeart, nameX - 16, y, (Palette)7);
+        graphics.DrawString(_profile.Name, nameX, y, 0);
+        graphics.DrawChar(Chars.FullHeart, nameX - 16, y, (Palette)7);
 
-        Graphics.End();
+        graphics.End();
     }
 }
