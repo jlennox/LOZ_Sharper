@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Immutable;
+using System.IO.Hashing;
+using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace z1.Randomizer;
 
@@ -52,6 +55,8 @@ internal sealed class RandomizerState
 
     public List<ItemId> DungeonItems { get; } = [];
 
+    private readonly Dictionary<string, int> _namedSeedCounter = new();
+
     public RandomizerState(int seed, RandomizerFlags flags)
     {
         Seed = seed;
@@ -69,6 +74,22 @@ internal sealed class RandomizerState
         OverworldCaveRandom = new Random(seedRandom.Next());
 
         RerandomizeItemList();
+    }
+
+    // Create an rng that is not based on previous rng calls, but is unique to the calling method (by name) and
+    // the instance of the call to this method. The latter is important because, for example, FitRooms is on both
+    // the overworld and underworld randomizers... except who cares of they have the same seed? So I'm leaving that at
+    // out for the time being.
+    public Random CreateRng([CallerMemberName] string name = "")
+    {
+        if (!_namedSeedCounter.TryGetValue(name, out var count)) count = 0;
+        _namedSeedCounter[name] = count + 1;
+
+        // "".GetHashCode() is not stable across runtimes, so use a stable hash instead.
+        var nameSeed = unchecked((int)XxHash32.HashToUInt32(Encoding.UTF8.GetBytes(name)));
+
+        var seed = HashCode.Combine(Seed, nameSeed); //, count);
+        return new Random(seed);
     }
 
     public void RerandomizeItemList()

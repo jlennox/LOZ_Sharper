@@ -18,6 +18,7 @@
     <PackageReference Include="Silk.NET.Windowing.Sdl" Version="2.21.0" />
     <PackageReference Include="SkiaSharp" Version="2.88.8" />
     <PackageReference Include="SkiaSharp.Views.WindowsForms" Version="2.88.8" />
+    <PackageReference Include="System.IO.Hashing" Version="9.0.10" />
   </ItemGroup>
   
   <ItemGroup>

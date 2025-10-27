@@ -118,7 +118,7 @@ internal sealed class Game
     {
         var worldProvider = profile.RandomizerSeed != null
             ? Randomizer.Randomizer.Create(new RandomizerState(profile.RandomizerSeed.Value, new()))
-            : new AssetWorldProvider();
+            : new AssetWorldStore();
 
         World = new World(this, worldProvider);
         Player = new Player(World)

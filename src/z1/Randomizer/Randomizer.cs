@@ -15,13 +15,12 @@ namespace z1.Randomizer;
 
 // Bugs:
 // * Stairway right side room had a door on it. I think it came in from an adjacent?
-// * I got a floor drop want and a floor drop boomerang in level 1. I think the boomerang needs to be "normalized" out.
 
 internal sealed class Randomizer
 {
     private static readonly DebugLog _log = new(nameof(Randomizer), DebugLogDestination.File);
 
-    public static WorldProvider Create(RandomizerState state)
+    public static WorldStore Create(RandomizerState state)
     {
         var timer = Stopwatch.StartNew();
 
@@ -41,7 +40,7 @@ internal sealed class Randomizer
         }
     }
 
-    public static WorldProvider CreateCore(RandomizerState state)
+    public static WorldStore CreateCore(RandomizerState state)
     {
         // Randomizing a dungeon is done in multiple passes. Some passes themselves having multiple passes.
         //
@@ -70,11 +69,11 @@ internal sealed class Randomizer
         // - The retry attempt counts are largely arbitrary. I'm not sure it matters. My main concerns are preventing
         //   infinite loops, but more so, detecting failed states.
 
-        var baseWorldProvider = new AssetWorldProvider();
-        var randomizedWorldProvider = new MemoryWorldProvider();
-        var overworld = baseWorldProvider.GetWorld(GameWorldType.Overworld, "Overworld");
+        var worldStorage = new AssetWorldStore();
+        var randomizedWorld = new MemoryWorldStore();
+        var overworldWorld = worldStorage.GetWorld(GameWorldType.Overworld, "Overworld");
 
-        var dungeons = GetAllDungeons(baseWorldProvider, overworld).ToArray();
+        var dungeons = overworldWorld.GetAllDungeons(worldStorage).ToArray();
         state.Initialize(dungeons);
 
         // 1. First a shape for each dungeon is determined. Nothing else is set inside the dungeons at this point.
@@ -131,16 +130,16 @@ internal sealed class Randomizer
             // Place them into the world over the original dungeons.
             var randomizedDungeon = new GameWorld(shape.GetGameRooms().ToArray(), dungeon.Settings, dungeon.Name);
             foreach (var room in shape.GetGameRooms()) room.GameWorld = randomizedDungeon;
-            randomizedWorldProvider.SetWorld(randomizedDungeon, dungeon.Name);
+            randomizedWorld.SetWorld(randomizedDungeon, dungeon.Name);
         }
 
-        var overworldx = OverworldState.Create(overworld, shapes.ToImmutableArray(), state);
-        overworldx.FitItems(state);
-        overworldx.FitDungeonEntrances(state);
-        overworldx.FitCaveEntrances(state);
+        var overworld = OverworldState.Create(overworldWorld, shapes.ToImmutableArray(), state);
+        overworld.FitItems(state);
+        overworld.FitDungeonEntrances(state);
+        overworld.FitCaveEntrances(state);
 
-        var randomizedOverworld = new GameWorld(overworldx.GetGameRooms().ToArray(), overworld.Settings, overworld.Name);
-        randomizedWorldProvider.SetWorld(randomizedOverworld, overworld.Name);
+        var overworldGameWorld = new GameWorld(overworld.GetGameRooms().ToArray(), overworldWorld.Settings, overworldWorld.Name);
+        randomizedWorld.SetWorld(overworldGameWorld, overworldWorld.Name);
 
         // As a final pass, remove all now unused staircases and related handlers.
         foreach (var shape in shapes) shape.NormalizeRooms();
@@ -149,7 +148,7 @@ internal sealed class Randomizer
         PrintSpoiler(shapes);
         Lint(shapes, state);
 
-        return randomizedWorldProvider;
+        return randomizedWorld;
     }
 
     private static void Lint(IEnumerable<DungeonState> shapes, RandomizerState state)
@@ -239,26 +238,6 @@ internal sealed class Randomizer
             }
         }
     }
-
-    // TODO: Move this off to something that modifies Game objects.
-    private static IEnumerable<GameWorld> GetAllDungeons(WorldProvider provider, GameWorld overworld)
-    {
-        var seen = new HashSet<string>();
-        foreach (var room in overworld.Rooms)
-        {
-            foreach (var interactable in room.InteractableBlockObjects)
-            {
-                var entrance = interactable.Interaction.Entrance;
-                if (entrance == null) continue;
-                if (entrance.DestinationType != GameWorldType.Underworld) continue;
-
-                var dungeon = provider.GetWorld(GameWorldType.Underworld, entrance.Destination);
-                if (!seen.Add(dungeon.Name)) continue;
-
-                yield return dungeon;
-            }
-        }
-    }
 }
 
 // A*'ish searching for walking between rooms to a destination.
@@ -266,11 +245,6 @@ internal readonly record struct WalkSearchPathQueue(Point End)
 {
     private readonly PriorityQueue<TryWalkSearchPath, long> _queue = new();
     private readonly HashSet<TryWalkSearchPath> _visited = new();
-
-    public WalkSearchPathQueue(TryWalkSearchPath initialPath, Point end) : this(end)
-    {
-        Enqueue(initialPath);
-    }
 
     private static long Distance(Point a, Point b, PathRequirements requirements)
     {
@@ -289,53 +263,14 @@ internal readonly record struct WalkSearchPathQueue(Point End)
     public bool TryDequeue(out TryWalkSearchPath path) => _queue.TryDequeue(out path, out _);
 }
 
-internal readonly record struct TryWalkSearchPath(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection)
-{
-    public long Distance(Point b, PathRequirements requirements)
-    {
-        // Drastically deprioritize paths with more requirements.
-        var shift = (int)Popcnt.PopCount((uint)requirements);
-        var distance = (long)(Math.Abs(Point.X - b.X) + Math.Abs(Point.Y - b.Y));
-        return distance << shift;
-    }
-}
-
-// TODO: Delete me. Always use WalkSearchPathQueue.
-internal readonly record struct TryWalkVisited(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
+internal readonly record struct TryWalkSearchPath(Point Point, PathRequirements Requirements, RoomEntrances EntryDirection);
 
 internal record OverworldState
 {
-    internal readonly record struct Cell
+    internal readonly record struct Cell(Point Point, GameRoom GameRoom)
     {
-        public Point Point { get; init; }
-        public GameRoom GameRoom { get; init; }
-        public RoomType RoomType { get; init; }
-        public string? LevelName { get; init; }
-
-        public bool HasRoomItem => _roomItem != null;
-
-        private readonly RoomItem? _roomItem;
-
-        public Cell(Point point, GameRoom room)
-        {
-            Point = point;
-            GameRoom = room;
-
-            _roomItem = GameRoom.InteractableBlockObjects
-                .Select(static t => t.Interaction.Item)
-                .SingleOrDefault(static t => t != null);
-        }
-
-        public void SetItem(ItemId itemId)
-        {
-            var roomItem = _roomItem ?? throw new Exception("No item object to set item on.");
-            roomItem.Item = itemId;
-        }
-
         public override string ToString() => $"{GameRoom.UniqueId} (point: {Point.X},{Point.Y})";
     }
-
-    internal enum RoomType { Normal, Cave, DungeonCave }
 
     private const int _maxWidth = 16;
     private const int _maxHeight = 8;
@@ -418,8 +353,23 @@ internal record OverworldState
 
         Point RandomlySetEntryRoom()
         {
+            static Point GetStartingRoom(Random rng)
+            {
+                // Ideally, we'd have a system of seeing if the randomly selected room allows the player to walk to
+                // the existing entrance, but that would require OverworldState to already be made.
+                // In the normal game data there's only 2 islands, and they're the only problems.
+                // _Technically,_ an island isn't a problem if it contains a dungeon with a reachable raft.
+                var takeAnyIsland = new Point(15, 2);
+                var dungeon4Island = new Point(5, 4);
+                while (true)
+                {
+                    var point = new Point(rng.Next(_maxWidth), rng.Next(_maxHeight));
+                    if (point != takeAnyIsland && point != dungeon4Island) return point;
+                }
+            }
+
             // TODO: This needs to avoid placing the entrance on an island, ie, dungeon 4 entrance.
-            var entranceLocation = new Point(rng.Next(_maxWidth), rng.Next(_maxHeight));
+            var entranceLocation = GetStartingRoom(rng);
             var entranceCell = layout[entranceLocation.X, entranceLocation.Y];
             var originalEntrance = overworld.EntranceRoom;
 
@@ -436,12 +386,7 @@ internal record OverworldState
 
         var entranceLocation = RandomlySetEntryRoom();
 
-        return new OverworldState(
-            overworld,
-            layout,
-            dungeons,
-            entranceLocation,
-            state);
+        return new OverworldState(overworld, layout, dungeons, entranceLocation, state);
     }
 
     private bool CanWalkTo(Point start, Point end, PathRequirements disallowed, RoomEntrances destination)
@@ -484,7 +429,8 @@ internal record OverworldState
 
         if (!CheckIfDestinationIsValid()) yield break;
 
-        var paths = new WalkSearchPathQueue(new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.Entry), end);
+        var paths = new WalkSearchPathQueue(end);
+        paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.Entry));
         var seenRequirements = new HashSet<PathRequirements>();
 
         while (paths.TryDequeue(out var current))
@@ -593,7 +539,7 @@ internal record OverworldState
                 var itemRequirements = RoomRequirements.ItemCausesRequirement(item);
                 if (CanWalkTo(EntranceLocation, cell.Point, itemRequirements, RoomEntrances.Item))
                 {
-                    cell.SetItem(item);
+                    cell.GameRoom.SetFloorItem(item);
                     logger.Write($"Placed {item} at {cell}.");
                     state.DungeonItems.RemoveAt(i);
                     fitItem = true;
@@ -1093,22 +1039,18 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         return TryWalkToRoom(start, destination, ignoreDoors).Any();
     }
 
-    private IEnumerable<PathRequirements> TryWalkToRoom(Point start, Point destination, bool ignoreDoors = false)
+    private IEnumerable<PathRequirements> TryWalkToRoom(Point start, Point end, bool ignoreDoors = false)
     {
         if (!_hasTransportsAttached) throw new Exception($"{nameof(TryWalkToRoom)} was called prior to attaching transports.");
         if (!ignoreDoors && !_hasDoorsFit) throw new Exception($"{nameof(TryWalkToRoom)} was called prior to fitting doors.");
 
-        // If we've visited a map before with identical set of requirements and entry point, then there's no reason to repeat it.
-        var visited = new HashSet<TryWalkVisited>();
-        var paths = new PriorityQueue<TryWalkSearchPath, long>();
-        paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.Bottom), 0);
+        var paths = new WalkSearchPathQueue(end);
+        paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.Bottom));
         var seenRequirements = new HashSet<PathRequirements>();
-
-        void Enqueue(TryWalkSearchPath path) => paths.Enqueue(path, path.Distance(destination, path.Requirements));
 
         using var logger = _log.CreateNamedScopedFunctionLog(Dungeon.UniqueId);
 
-        logger.Enter($"Starting walk from {start.X},{start.Y} to {destination.X},{destination.Y} ({(ignoreDoors ? "ignoring doors" : "")}).");
+        logger.Enter($"Starting walk from {start.X},{start.Y} to {end.X},{end.Y} ({(ignoreDoors ? "ignoring doors" : "")}).");
 
         static IEnumerable<InteractableBlockObject> GetTransportBlocks(GameRoom? room)
         {
@@ -1146,14 +1088,14 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             return false;
         }
 
-        while (paths.TryDequeue(out var current, out _))
+        while (paths.TryDequeue(out var current))
         {
-            if (current.Point == destination)
+            if (current.Point == end)
             {
                 // Only report back unique requirement sets.
                 if (seenRequirements.Add(current.Requirements))
                 {
-                    logger.Write($"✅ Can walk to {destination.X},{destination.Y} with requirements {current.Requirements}.");
+                    logger.Write($"✅ Can walk to {end.X},{end.Y} with requirements {current.Requirements}.");
                     yield return current.Requirements;
 
                     // There _should be_ no need to continue on.
@@ -1161,8 +1103,6 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 }
                 continue;
             }
-
-            if (!visited.Add(new TryWalkVisited(current.Point, current.Requirements, current.EntryDirection))) continue;
 
             var cell = this[current.Point];
             if (cell.Type == RoomType.None) continue;
@@ -1172,7 +1112,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             if (TryGetTransportExit(cell.GameRoom, out var transportExit))
             {
                 var transportRequirements = current.Requirements | RoomRequirements.GetStairRequirements(room);
-                Enqueue(new TryWalkSearchPath(transportExit, transportRequirements, RoomEntrances.Stairs));
+                paths.Enqueue(new TryWalkSearchPath(transportExit, transportRequirements, RoomEntrances.Stairs));
             }
 
             var roomRequirements = RoomRequirements.Get(room);
@@ -1182,17 +1122,25 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 var next = current.Point + direction.GetOffset();
                 if (!IsValidPoint(next)) continue;
                 if (current.EntryDirection == direction) continue;
-                if (this[next].Type == RoomType.None) continue;
+                var nextCell = this[next];
+                if (nextCell.Type == RoomType.None) continue;
 
                 if (!ignoreDoors && !cell.RequiredDoors.HasFlag(direction))
                 {
-                    logger.Write($"❌ {room.Id} cannot go {direction} due to missing cell.RequiredDoors.");
+                    logger.Write($"❌ {room.Id} cannot go {direction} from missing cell.RequiredDoors.");
                     continue;
                 }
 
                 if (!roomRequirements.ConnectableEntrances.HasFlag(direction))
                 {
-                    logger.Write($"❌ {room.Id} cannot go {direction} due to missing roomRequirements.ConnectableEntrances.");
+                    logger.Write($"❌ {room.Id} cannot go {direction} from missing roomRequirements.ConnectableEntrances.");
+                    continue;
+                }
+
+                var nextRoomRequirements = RoomRequirements.Get(nextCell.DemandGameRoom);
+                if (!nextRoomRequirements.ConnectableEntrances.HasFlag(direction.GetOpposite()))
+                {
+                    logger.Write($"❌ {room.Id} cannot go {direction} from missing nextRoomRequirements.ConnectableEntrances.");
                     continue;
                 }
 
@@ -1201,7 +1149,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 {
                     // This can happen in the case of T rooms. Southern door enters to a non-crossable water-room,
                     // but the other 3 walls can reach each other.
-                    logger.Write($"❌ {room.Id} cannot move {doorPair} due to missing roomRequirements.Paths for {doorPair}. T room?");
+                    logger.Write($"❌ {room.Id} cannot move {doorPair} from missing roomRequirements.Paths for {doorPair}. T room?");
                     continue;
                 }
 
@@ -1210,7 +1158,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                     | pathRequirements;
 
                 logger.Write($"➡️ From {room.Id} going {direction}->{next.X},{next.Y} with requirements {requirements}.");
-                Enqueue(new TryWalkSearchPath(next, requirements, direction.GetOpposite()));
+                paths.Enqueue(new TryWalkSearchPath(next, requirements, direction.GetOpposite()));
             }
         }
     }
@@ -1575,9 +1523,31 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             }
         }
 
+        void RemoveDungeonFloorDrop(GameRoom room)
+        {
+            toremove.Clear();
+
+            foreach (var obj in room.GetFloorItems())
+            {
+                var item = obj.Interaction.Item;
+                if (item == null) continue;
+                if (!DungeonStats.IsDungeonItem(item.Item)) continue;
+
+                toremove.Add(obj.Interaction);
+            }
+
+            if (toremove.Count > 0)
+            {
+                room.InteractableBlockObjects = room.InteractableBlockObjects
+                    .Where(t => !toremove.Contains(t.Interaction))
+                    .ToImmutableArray();
+            }
+        }
+
         foreach (var cell in GetValidCells())
         {
             if (!cell.RequiresStaircase) RemoveStaircase(cell.DemandGameRoom);
+            if (cell.Type != RoomType.FloorDrop) RemoveDungeonFloorDrop(cell.DemandGameRoom);
         }
     }
 

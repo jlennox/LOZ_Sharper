@@ -4,7 +4,7 @@ using z1.IO;
 
 namespace z1;
 
-internal abstract class WorldProvider
+internal abstract class WorldStore
 {
     public abstract GameWorld GetWorld(GameWorldType type, string destination);
 
@@ -21,7 +21,7 @@ internal abstract class WorldProvider
     }
 }
 
-internal sealed class AssetWorldProvider : WorldProvider
+internal sealed class AssetWorldStore : WorldStore
 {
     public override GameWorld GetWorld(GameWorldType type, string destination)
     {
@@ -35,7 +35,7 @@ internal sealed class AssetWorldProvider : WorldProvider
     }
 }
 
-internal sealed class MemoryWorldProvider : WorldProvider
+internal sealed class MemoryWorldStore : WorldStore
 {
     private readonly Dictionary<string, GameWorld> _worlds = new();
 

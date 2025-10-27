@@ -114,7 +114,7 @@ internal sealed partial class World
     public byte WhirlwindTeleporting;   // 522
     public Direction DoorwayDir;         // 53
 
-    private readonly WorldProvider _worldProvider;
+    private readonly WorldStore _worldStore;
     private readonly RoomHistory _roomHistory;
     private readonly Dictionary<GameWorldType, GameWorld> _commonWorlds = [];
     public GameWorld CurrentWorld;
@@ -183,10 +183,10 @@ internal sealed partial class World
 
     public Rectangle PlayAreaRect { get; set; }
 
-    public World(Game game, WorldProvider worldProvider)
+    public World(Game game, WorldStore worldStore)
     {
         Game = game;
-        _worldProvider = worldProvider;
+        _worldStore = worldStore;
 
         _entranceHistory = new EntranceHistory(this);
         _roomHistory = new RoomHistory(game, RoomHistoryLength);
@@ -201,11 +201,6 @@ internal sealed partial class World
 
         PlayAreaRect = new Rectangle(0, TileMapBaseY, ScreenTileWidth * TileWidth, TileMapHeight);
         LoadOpenRoomContext();
-
-        LoadOverworld();
-        GotoLoadOverworld();
-        _commonWorlds[GameWorldType.OverworldCommon] = GameWorld.Load("Maps/OverworldCommon.world", 1);
-        _commonWorlds[GameWorldType.UnderworldCommon] = GameWorld.Load("Maps/UnderworldCommon.world", 1);
 
         // I'm not fond of _dummyWorld, but I want to keep Game.World and World.Profile to not be nullable
         // JOE 10/25/2025: It appears I was so not fond of _dummyWorld that I have already removed it? I still
@@ -224,6 +219,15 @@ internal sealed partial class World
             MarginBottom = OWMarginBottom;
             MarginTop = OWMarginTop;
         }
+    }
+
+    // TODO 10/25/2025 restructuring: Lets try and marge this into the constructor.
+    public void Start()
+    {
+        LoadOverworld();
+        GotoLoadOverworld();
+        _commonWorlds[GameWorldType.OverworldCommon] = GameWorld.Load("Maps/OverworldCommon.world", 1);
+        _commonWorlds[GameWorldType.UnderworldCommon] = GameWorld.Load("Maps/UnderworldCommon.world", 1);
     }
 
     // This irl should be moved over to tests.
