@@ -155,7 +155,8 @@ internal static class GraphicPalettes
     {
         // I'm leaving all calls into UpdatePalettes() in the code for now.
         // It's IRL something the Graphics handlers should be handling, ie, if there's a recomputation step that
-        // has to be done.
+        // has to be done. We'd likely implement this by setting a flag inside GraphicPalettes that is then detected
+        // by the actual graphics code when it runs. Clears the flag and does the recompute then.
         // But then, just make the Set* functions above set a flag?
     }
 }

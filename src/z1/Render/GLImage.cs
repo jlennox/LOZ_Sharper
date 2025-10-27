@@ -31,22 +31,6 @@ internal abstract class GraphicsImage : IDisposable
     public abstract void Dispose();
 }
 
-internal sealed class NullImage : GraphicsImage
-{
-    public override int Width { get; } = 1;
-    public override int Height { get; } = 1;
-
-    public override void Draw(
-        int srcX, int srcY, int width, int height,
-        int destX, int destY,
-        ReadOnlySpan<SKColor> palette, DrawingFlags flags,
-        DrawOrder layer) { }
-
-    public override void Draw(ref DrawRequest request) { }
-
-    public override void Dispose() { }
-}
-
 internal sealed unsafe class GLImage : GraphicsImage
 {
     public override int Width => _size.Width;
@@ -193,6 +177,23 @@ internal sealed unsafe class GLImage : GraphicsImage
     {
         _gl.DeleteTexture(_texture);
     }
+}
+
+internal sealed class NullImage : GraphicsImage
+{
+    public override int Width { get; } = 1;
+    public override int Height { get; } = 1;
+
+    public override void Draw(
+        int srcX, int srcY, int width, int height,
+        int destX, int destY,
+        ReadOnlySpan<SKColor> palette, DrawingFlags flags,
+        DrawOrder layer)
+    { }
+
+    public override void Draw(ref DrawRequest request) { }
+
+    public override void Dispose() { }
 }
 
 internal sealed class GLVertexArray : IDisposable

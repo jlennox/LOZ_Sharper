@@ -28,7 +28,7 @@ internal enum TileSheet
     Font,
 }
 
-// This is very large for a struct, which is very questionable. Profiling is needed.
+// This is large for a struct, which is questionable. Profiling is needed.
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal readonly struct DrawRequest
 {
@@ -112,7 +112,6 @@ internal abstract class Graphics
     public abstract void Begin();
     public abstract void End();
     public abstract void FinishRender();
-    public abstract void UpdatePalettes();
     public abstract void DrawImage(GraphicsImage? bitmap, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order);
     public abstract void DrawSpriteTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order);
     public abstract void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order);
@@ -149,31 +148,11 @@ internal abstract class Graphics
     }
 }
 
-internal sealed class NullGraphics : Graphics
-{
-    public override void StartRender() { }
-    public override void SetWindowSize(int width, int height) { }
-    public override GraphicsImage CreateImage(Asset asset) => new NullImage();
-    public override void Begin() { }
-    public override void End() { }
-    public override void FinishRender() { }
-    public override void UpdatePalettes() { }
-    public override void DrawImage(GraphicsImage? bitmap, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
-    public override void DrawSpriteTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
-    public override void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
-    public override void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, ReadOnlySpan<SKColor> palette, DrawingFlags flags, DrawOrder order) { }
-    public override void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
-    public override void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
-    public override void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
-    public override void Clear(SKColor color) { }
-    public override UnclipScope SetClip(int x, int y, int width, int height) => new(this);
-    public override void ResetClip() { }
-}
-
 internal sealed class GLGraphics : Graphics
 {
     private readonly GL _gl;
     private Size? _windowSize;
+    private bool _clipped = false;
     private readonly Size _viewportSize = new(256, 240);
 
     public GLGraphics(GL gl)
@@ -191,7 +170,7 @@ internal sealed class GLGraphics : Graphics
         ArgumentNullException.ThrowIfNull(_gl);
 
         _gl.ClearColor(0f, 0f, 0f, 1f);
-        _gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
+        _gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
         GLSpriteShader.Instance.SetViewport(_viewportSize.Width, _viewportSize.Height);
     }
@@ -218,10 +197,6 @@ internal sealed class GLGraphics : Graphics
             var request = DrawRequests.Dequeue();
             request.Image.Draw(ref request);
         }
-    }
-
-    public override void UpdatePalettes()
-    {
     }
 
     public override void DrawImage(
@@ -331,8 +306,6 @@ internal sealed class GLGraphics : Graphics
         _gl.Clear((uint)(GLEnum.ColorBufferBit | GLEnum.DepthBufferBit));
     }
 
-    private bool _clipped = false;
-
     public override UnclipScope SetClip(int x, int y, int width, int height)
     {
         ArgumentNullException.ThrowIfNull(_gl);
@@ -391,4 +364,24 @@ internal sealed class GLGraphics : Graphics
         _gl.Disable(EnableCap.ScissorTest);
         _clipped = false;
     }
+}
+
+internal sealed class NullGraphics : Graphics
+{
+    public override void StartRender() { }
+    public override void SetWindowSize(int width, int height) { }
+    public override GraphicsImage CreateImage(Asset asset) => new NullImage();
+    public override void Begin() { }
+    public override void End() { }
+    public override void FinishRender() { }
+    public override void DrawImage(GraphicsImage? bitmap, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
+    public override void DrawSpriteTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
+    public override void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, Palette palette, DrawingFlags flags, DrawOrder order) { }
+    public override void DrawTile(TileSheet sheet, int srcX, int srcY, int width, int height, int destX, int destY, ReadOnlySpan<SKColor> palette, DrawingFlags flags, DrawOrder order) { }
+    public override void DrawStripSprite16X16(TileSheet sheet, BlockType firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
+    public override void DrawStripSprite16X16(TileSheet sheet, TileType firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
+    public override void DrawStripSprite16X16(TileSheet sheet, int firstTile, int destX, int destY, Palette palette, DrawOrder order) { }
+    public override void Clear(SKColor color) { }
+    public override UnclipScope SetClip(int x, int y, int width, int height) => new(this);
+    public override void ResetClip() { }
 }

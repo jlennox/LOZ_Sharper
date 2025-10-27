@@ -90,6 +90,7 @@ internal sealed class PersonActor : Actor
         : base(world, (ObjType)type, x, y)
     {
         // We operate on a clone of it because we modify it to keep track of the state of this instance.
+        // Not my favorite pattern.
         _spec = spec.Clone();
         // If it's not a persisted, create an ephemeral state.
         _objectState = (spec.IsPersisted ? state : null) ?? new ObjectState();

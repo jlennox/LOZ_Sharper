@@ -141,7 +141,7 @@ internal sealed class ProfileSelectMenu : Menu
 
         // So that characters are fully opaque.
         GraphicPalettes.SetColor(0, 0, 0xFF000000);
-        io.Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
 
         SetPage(page);
     }
