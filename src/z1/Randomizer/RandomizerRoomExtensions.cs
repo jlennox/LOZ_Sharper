@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace z1.Randomizer;
 
@@ -20,7 +21,7 @@ internal static class RandomizerRoomExtensions
     {
         foreach (var obj in room.InteractableBlockObjects)
         {
-            if (obj.Interaction.Item != null) yield return obj;
+            if (obj.IsFloorItem()) yield return obj;
         }
     }
 
@@ -28,8 +29,21 @@ internal static class RandomizerRoomExtensions
     {
         foreach (var obj in room.InteractableBlockObjects)
         {
-            if (obj.Interaction.Entrance != null) yield return obj;
+            if (obj.IsEntrance()) yield return obj;
         }
+    }
+
+
+    public static bool TryGetFirstStairs(this GameRoom room, [MaybeNullWhen(false)] out InteractableBlockObject stairs)
+    {
+        foreach (var obj in GetStairs(room))
+        {
+            stairs = obj;
+            return true;
+        }
+
+        stairs = null;
+        return false;
     }
 
     public static void SetFloorItem(this GameRoom room, ItemId itemId)
@@ -44,6 +58,24 @@ internal static class RandomizerRoomExtensions
         }
 
         throw new Exception($"Room {room.UniqueId} has no floor item to set.");
+    }
+}
+
+internal static class RandomizerInteractableBlockObjectExtensions
+{
+    public static bool IsFloorItem(this InteractableBlockObject obj)
+    {
+        return obj.Interaction is { Item: not null };
+    }
+
+    public static bool IsEntrance(this InteractableBlockObject obj)
+    {
+        return obj.Interaction is { Entrance: not null };
+    }
+
+    public static bool IsPushBlock(this InteractableBlockObject obj)
+    {
+        return obj.Interaction is { Interaction: Interaction.Push or Interaction.PushVertical };
     }
 }
 
@@ -69,7 +101,7 @@ internal static class RandomizerWorldExtensions
         {
             foreach (var dungeonName in GetDungeonNames(room))
             {
-                var dungeon = store.GetWorld(GameWorldType.Underworld, dungeonName);
+                var dungeon = store.GetWorld(GameWorldType.Underworld, dungeonName, 1);
                 if (!seen.Add(dungeon.Name)) continue;
                 yield return dungeon;
             }

@@ -705,9 +705,11 @@ public static class TiledExtensions
 
     public static bool IsInQuest(this IHasTiledProperties tiled, int questId)
     {
+        // "Quest 0" or no quest marker indicates that it's universally in all quests.
         var questIdString = GetProperty(tiled, TiledLayerProperties.QuestId);
         if (questIdString == null) return true;
-        return int.TryParse(questIdString, out var id) && id == questId;
+        if (!int.TryParse(questIdString, out var id)) return true;
+        return id == 0 || id == questId;
     }
 
     public static T? GetClass<T>(this IHasTiledProperties tiled, string name) where T : class

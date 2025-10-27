@@ -219,7 +219,8 @@ internal sealed class GameWorldMap
 [DebuggerDisplay("{Name}")]
 internal sealed class GameWorld
 {
-    public string UniqueId => Name; // not sure if these will remain the same.
+    public int QuestId { get; }
+    public string UniqueId { get; }
     public string Name { get; }
     public GameRoom[] Rooms { get; }
     public GameRoom EntranceRoom { get; }
@@ -230,10 +231,13 @@ internal sealed class GameWorld
     public string? LevelString { get; }
     public bool IsOverworld => Settings.WorldType == GameWorldType.Overworld;
 
-    public GameWorld(GameRoom[] rooms, WorldSettings settings, string name)
+    public GameWorld(GameRoom[] rooms, WorldSettings settings, string name, int questId)
     {
-        Name = name;
         Rooms = rooms;
+        Settings = settings;
+        Name = name;
+        QuestId = questId;
+        UniqueId = $"{name}/{questId}";
 
         foreach (var room in rooms)
         {
@@ -245,7 +249,6 @@ internal sealed class GameWorld
             if (room.Settings.IsBossRoom) BossRoom = room;
         }
 
-        Settings = settings;
         if (Settings.LevelNumber > 0) LevelString = $"Level-{Settings.LevelNumber}";
 
         if (EntranceRoom == null) throw new Exception($"Missing entrance room for dungeon \"{name}\".");
@@ -332,6 +335,8 @@ internal sealed class GameWorld
     public GameWorld(TiledWorld tiledWorld, string filename, int questId)
     {
         Name = Path.GetFileNameWithoutExtension(filename);
+        QuestId = questId;
+        UniqueId = $"{Name}/{questId}";
         if (tiledWorld.Maps == null) throw new Exception($"World {Name} has no maps.");
 
         var directory = Path.GetDirectoryName(filename);
@@ -458,7 +463,7 @@ internal sealed class GameRoom
     public RoomTileMap RoomMap { get; }
     private readonly RoomTileMap _unmodifiedRoomMap;
     public bool HidePlayerMapCursor { get; set; }
-    public bool IsTriforceRoom { get; set; }
+    public bool IsTriforceRoom { get; private set; }
 
     public Dictionary<Direction, GameRoom> Connections { get; } = [];
 
@@ -616,6 +621,13 @@ internal sealed class GameRoom
         _waterTileCount = CountWaterTiles();
         _unmodifiedRoomMap = RoomMap.Clone();
 
+        RecomputeRoomMapBehaviors();
+    }
+
+    // Some behaviors of the map are used during drawing so it's important that they not be recomputed on each tick.
+    // If any of these values are every updated, it's import to `RecomputeRoomMapBehaviors` afterwards.
+    public void RecomputeRoomMapBehaviors()
+    {
         IsTriforceRoom = InteractableBlockObjects.Any(static t => t.Interaction.Item?.Item == ItemId.TriforcePiece);
     }
 

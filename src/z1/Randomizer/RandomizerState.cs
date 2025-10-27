@@ -55,8 +55,6 @@ internal sealed class RandomizerState
 
     public List<ItemId> DungeonItems { get; } = [];
 
-    private readonly Dictionary<string, int> _namedSeedCounter = new();
-
     public RandomizerState(int seed, RandomizerFlags flags)
     {
         Seed = seed;
@@ -80,15 +78,25 @@ internal sealed class RandomizerState
     // the instance of the call to this method. The latter is important because, for example, FitRooms is on both
     // the overworld and underworld randomizers... except who cares of they have the same seed? So I'm leaving that at
     // out for the time being.
-    public Random CreateRng([CallerMemberName] string name = "")
-    {
-        if (!_namedSeedCounter.TryGetValue(name, out var count)) count = 0;
-        _namedSeedCounter[name] = count + 1;
+    public Random CreateRng<T1>(
+        T1? context1 = default,
+        [CallerMemberName] string name = "") => CreateRng(context1, default(object), default(object), name);
 
+    public Random CreateRng<T1, T2>(
+        T1? context1 = default,
+        T2? context2 = default,
+        [CallerMemberName] string name = "") => CreateRng(context1, default(object), default(object), name);
+
+    public Random CreateRng<T1, T2, T3>(
+        T1? context1 = default,
+        T2? context2 = default,
+        T3? context3 = default,
+        [CallerMemberName] string name = "")
+    {
         // "".GetHashCode() is not stable across runtimes, so use a stable hash instead.
         var nameSeed = unchecked((int)XxHash32.HashToUInt32(Encoding.UTF8.GetBytes(name)));
 
-        var seed = HashCode.Combine(Seed, nameSeed); //, count);
+        var seed = HashCode.Combine(Seed, nameSeed, context1, context2, context3);
         return new Random(seed);
     }
 

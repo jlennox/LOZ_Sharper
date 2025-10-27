@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using z1.Common;
 using z1.IO;
 using z1.Render;
 using z1.UI;
@@ -830,7 +831,7 @@ internal sealed partial class World
 
         var equip = ItemToEquipment[itemId];
         var slot = equip.Slot;
-        var value = amount ?? equip.Value;
+        var value = amount ?? equip.Level;
 
         var max = -1;
         if (equip.MaxValue.HasValue) max = equip.MaxValue.Value;

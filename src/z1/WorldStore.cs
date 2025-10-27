@@ -6,7 +6,7 @@ namespace z1;
 
 internal abstract class WorldStore
 {
-    public abstract GameWorld GetWorld(GameWorldType type, string destination);
+    public abstract GameWorld GetWorld(GameWorldType type, string destination, int questId);
 
     protected static string GetWorldAssetName(GameWorldType type, string destination)
     {
@@ -23,7 +23,7 @@ internal abstract class WorldStore
 
 internal sealed class AssetWorldStore : WorldStore
 {
-    public override GameWorld GetWorld(GameWorldType type, string destination)
+    public override GameWorld GetWorld(GameWorldType type, string destination, int questId)
     {
         Filenames.ExpectSafe(destination);
 
@@ -31,7 +31,7 @@ internal sealed class AssetWorldStore : WorldStore
 
         var asset = new Asset("Maps", $"{assetName}.world");
         var tiledWorld = asset.ReadJson<TiledWorld>();
-        return new GameWorld(tiledWorld, asset.Filename, 0); // JOE: TODO: QUEST  Profile.Quest);
+        return new GameWorld(tiledWorld, asset.Filename, questId); // JOE: TODO: QUEST  Profile.Quest);
     }
 }
 
@@ -39,9 +39,11 @@ internal sealed class MemoryWorldStore : WorldStore
 {
     private readonly Dictionary<string, GameWorld> _worlds = new();
 
-    public override GameWorld GetWorld(GameWorldType type, string destination)
+    public override GameWorld GetWorld(GameWorldType type, string destination, int questId)
     {
-        if (!_worlds.TryGetValue(destination, out var overriddenWorld))
+        var assetName = GetWorldAssetName(type, destination);
+
+        if (!_worlds.TryGetValue(assetName, out var overriddenWorld))
         {
             throw new Exception($"No runtime override found for world \"{destination}\".");
         }

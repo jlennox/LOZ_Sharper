@@ -39,6 +39,7 @@ internal readonly record struct RoomRequirements(
     private delegate bool TryGetLocationInfrontOfEntrance(
         GameRoom room,
         RoomEntrances entrance,
+        bool isFrom,
         out Point[] point,
         out PathRequirements requirements);
 
@@ -86,6 +87,14 @@ internal readonly record struct RoomRequirements(
             : GetOverworldRoomPaths(room);
     }
 
+    private static Point PointFromObjectSpace(int x, int y)
+    {
+        var tileX = x / ZPoint.TileSize;
+        var tileY = y / ZPoint.TileSize;
+        // Sometimes we'll be starting on a half tile, so be sure to round them out.
+        return new Point(tileX - (tileX % 2), tileY - (tileY % 2));
+    }
+
     private static RoomPaths GetOverworldRoomPaths(GameRoom room)
     {
         if (room.HasUnderworldDoors) throw new Exception();
@@ -108,6 +117,7 @@ internal readonly record struct RoomRequirements(
         static bool TryGetLocationInfrontOfEntrance(
             GameRoom room,
             RoomEntrances entrance,
+            bool isFrom,
             out Point[] points,
             out PathRequirements requirements)
         {
@@ -115,14 +125,6 @@ internal readonly record struct RoomRequirements(
             {
                 var behavior = room.RoomMap.Behavior(point.X, point.Y);
                 return behavior.CanWalk();
-            }
-
-            Point PointFromObjectSpace(int x, int y)
-            {
-                var tileX = x / room.TileWidth;
-                var tileY = y / room.TileHeight;
-                // Sometimes we'll be starting on a half tile, so be sure to round them out.
-                return new Point(tileX - (tileX % 2), tileY - (tileY % 2));
             }
 
             var raftEntrance = GetRaftEntrance(room, out var raftPoint);
@@ -139,10 +141,9 @@ internal readonly record struct RoomRequirements(
             {
                 case RoomEntrances.Stairs:
                 {
-                    var caveEntrance = room.InteractableBlockObjects.FirstOrDefault(static t => t.Interaction.Entrance != null);
-                    if (caveEntrance != null)
+                    if (room.TryGetFirstStairs(out var stairs))
                     {
-                        points = [PointFromObjectSpace(caveEntrance.X, caveEntrance.Y)];
+                        points = [PointFromObjectSpace(stairs.X, stairs.Y)];
                         return true;
                     }
 
@@ -229,6 +230,7 @@ internal readonly record struct RoomRequirements(
         static bool TryGetLocationInfrontOfEntrance(
             GameRoom room,
             RoomEntrances entrance,
+            bool isFrom,
             out Point[] points,
             out PathRequirements requirements)
         {
@@ -245,9 +247,23 @@ internal readonly record struct RoomRequirements(
             {
                 case RoomEntrances.Stairs:
                 {
-                    var found = TryGetTransportExitPosition(room, out var stairsPoint);
-                    points = found ? [stairsPoint] : [];
-                    return found;
+                    // When coming "from" stairs, locate where we emerge into this room.
+                    if (isFrom)
+                    {
+                        var found = TryGetTransportExitPosition(room, out var stairsPoint);
+                        points = found ? [stairsPoint] : [];
+                        return found;
+                    }
+
+                    // But when moving "to" stairs, instead use the location of the stairs themselves.
+                    if (room.TryGetFirstStairs(out var stairs))
+                    {
+                        points = [PointFromObjectSpace(stairs.X, stairs.Y)];
+                        return true;
+                    }
+
+                    points = [];
+                    return false;
                 }
                 case RoomEntrances.Item:
                 {
@@ -296,7 +312,7 @@ internal readonly record struct RoomRequirements(
                     if (arguments.ExitLeft == room.Id || arguments.ExitRight == room.Id)
                     {
                         var exitPosition = entrance.ExitPosition ?? throw new Exception();
-                        point = new Point(exitPosition.X / room.TileWidth, exitPosition.Y / room.TileHeight);
+                        point = PointFromObjectSpace(exitPosition.X, exitPosition.Y);
                         return true;
                     }
                 }
@@ -366,28 +382,34 @@ internal readonly record struct RoomRequirements(
                     var worldY = y * ZPoint.TileSize;
                     var bounds = new Rectangle(worldX, worldY, ZPoint.TileSize, ZPoint.TileSize);
                     var objs = room.InteractableBlockObjects.Where(t => t.GetBounds().IntersectsWith(bounds)).ToArray();
+                    var firstPushBlock = objs.FirstOrDefault(static t => t.IsPushBlock());
 
-                    if (objs.Any(t =>
-                        t.Interaction is
-                        {
-                            Interaction: Interaction.Push or Interaction.PushVertical,
-                            ItemRequirement.Slot: ItemSlot.Bracelet
-                        }))
+                    if (firstPushBlock != null)
                     {
-                        behaviorMap[x, y] = PathRequirements.Bracelet;
+                        var requirement = firstPushBlock.Interaction.ItemRequirement;
+
+                        if (requirement == null || requirement.Slot == ItemSlot.None)
+                        {
+                            behaviorMap[x, y] = PathRequirements.None;
+                            continue;
+                        }
+
+                        var itemId = World.GetItemFromEquipment(requirement.Slot, requirement.Level);
+                        var pushRequirement = ItemCausesRequirement(itemId);
+                        behaviorMap[x, y] = pushRequirement;
                         continue;
                     }
 
                     // Mark these as walkable because some will be hidden under bombable walls, etc, and wont be
                     // in the normal behavior map.
-                    if (objs.Any(t => t.Interaction is { Entrance: not null }))
+                    if (objs.Any(static t => t.IsEntrance()))
                     {
                         behaviorMap[x, y] = PathRequirements.None;
                         continue;
                     }
 
                     // When an object is touched and marked with TouchOnce it is removed from the map, so for path
-                    // finding purposes, treat these as removed.
+                    // finding purposes, treat these as removed. This is significant for the armos item.
                     if (objs.Any(t => t.Interaction is { Interaction: Interaction.TouchOnce }))
                     {
                         behaviorMap[x, y] = PathRequirements.None;
@@ -432,7 +454,7 @@ internal readonly record struct RoomRequirements(
         // The original unique room ID was a reference to the specific room layout. Monsters/doors/etc was contained
         // else where and referenced by "the original room ID" into other tables, thusly, we can save a lot of
         // recomputation by this caching.
-        var cacheId = $"{room.GameWorld.Name}/{room.OriginalUniqueId}";
+        var cacheId = $"{room.GameWorld.UniqueId}/{room.OriginalUniqueId}";
         if (_doorCache.TryGetValue(cacheId, out var cached)) return cached;
 
         // This function operates on tile coordinate space but moves in block space (thusly, movementSize = 2).
@@ -456,8 +478,8 @@ internal readonly record struct RoomRequirements(
         // Direction.None is used for transport entrances.
         foreach (var doorPair in DoorPair.GetAllPairs(room))
         {
-            var fromIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.From, out var fromLocations, out var fromRequirements);
-            var toIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.To, out var toLocations, out var toRequirements);
+            var fromIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.From, true, out var fromLocations, out var fromRequirements);
+            var toIsValid = tryGetLocationInfrontOfEntrance(room, doorPair.To, false, out var toLocations, out var toRequirements);
 
             if (fromIsValid) validEntrances |= doorPair.From;
             if (toIsValid) validEntrances |= doorPair.To;
@@ -556,7 +578,6 @@ internal readonly record struct RoomRequirements(
                         }
 
                         Enqueue(next.WithRequirement(nextBehavior));
-                        continue;
                     }
                 }
 
@@ -584,6 +605,8 @@ internal readonly record struct RoomRequirements(
     {
         ArgumentNullException.ThrowIfNull(room);
 
+        // The gameworld unique id is important here to include the quest, because they will have different object
+        // layers which will give different requirements.
         var cacheId = room.UniqueId;
         if (_requirementsCache.TryGetValue(cacheId, out var cached)) return cached;
 
@@ -681,7 +704,6 @@ internal readonly record struct RoomRequirements(
             ObjType.BlueGohma => PathRequirements.Arrow,
             ObjType.RedGohma => PathRequirements.Arrow,
             ObjType.Grumble => PathRequirements.Food,
-            // ObjType.PondFairy -> ItemId.Recorder?
             ObjType.Digdogger1 => PathRequirements.Recorder,
             ObjType.Digdogger2 => PathRequirements.Recorder,
             _ => PathRequirements.None,

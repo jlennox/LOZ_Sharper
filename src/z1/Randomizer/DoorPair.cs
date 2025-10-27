@@ -17,8 +17,13 @@ internal readonly record struct DoorPair
     {
         if (from == to) throw new Exception($"Cannot construct a DoorPair from two identical entrances {from}->{to}.");
 
+        if (from == RoomEntrances.Stairs || to == RoomEntrances.Stairs)
+        {
+            // Stairs are directional, so we have to respect the order.
+            return new DoorPair(from, to);
+        }
+
         // This does make the assumption that if you can go from A to B, that you can go from B to A.
-        // I believe this to always be true.
         return from < to ? new DoorPair(from, to) : new DoorPair(to, from);
     }
 
@@ -29,7 +34,7 @@ internal readonly record struct DoorPair
 
         foreach (var start in RoomEntrances.EntranceOrderWithStairs)
         {
-            foreach (var end in RoomEntrances.EntranceOrder)
+            foreach (var end in RoomEntrances.EntranceOrderWithStairs)
             {
                 if (start == end) continue;
                 var pair = Create(start, end);

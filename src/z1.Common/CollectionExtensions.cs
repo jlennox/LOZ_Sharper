@@ -105,4 +105,10 @@ public static class CollectionExtensions
         return Unsafe.As<int, T>(ref product);
     }
 
+    public static T GetRandomly<T>(this ReadOnlySpan<T> span, Random rng)
+    {
+        if (span.Length == 0) throw new InvalidOperationException("The span is empty.");
+        var index = rng.Next(span.Length);
+        return span[index];
+    }
 }

@@ -40,10 +40,10 @@ internal abstract class RandomizerTestBase
         return world;
     }
 
-    protected GameRoom GetUnderworldRoom(int quest, int dungeon, int x, int y)
+    protected GameRoom GetUnderworldRoom(int quest, int dungeon, int x, int y, int questId = 1)
     {
         var worldId = $"{quest:00}_{dungeon:00}";
-        var roomId = $"Level{worldId}/{x},{y}";
+        var roomId = $"Level{worldId}/{questId}/{x},{y}";
 
         var world = Game.World.GetWorld(GameWorldType.Underworld, worldId);
         var room = world.GetRoomById(roomId);
@@ -52,11 +52,11 @@ internal abstract class RandomizerTestBase
         return room;
     }
 
-    protected GameRoom GetOverworldRoom(int x, int y)
+    protected GameRoom GetOverworldRoom(int x, int y, int questId = 1)
     {
         var worldId = "Overworld";
-        var roomId = $"{worldId}/{x},{y}";
-        var world = Game.World.GetWorld(GameWorldType.Overworld, worldId);
+        var roomId = $"{worldId}/{questId}/{x},{y}";
+        var world = Game.World.GetWorld(GameWorldType.Overworld, worldId, questId);
         var room = world.GetRoomById(roomId);
         Game.World.LoadRoom(room);
 
@@ -120,7 +120,7 @@ internal class UnderworldRoomRequirementsTests : RandomizerTestBase
     // Has staircase against right wall, can only top the others.
     [TestCase(0, 9, 3, 6, RoomEntrances.Top | RoomEntrances.Left | RoomEntrances.Bottom | RoomEntrances.Stairs, TestName = "Stairs Right")]
     // The Princess's room.
-    [TestCase(0, 9, 2, 3, RoomEntrances.Bottom, TestName = "Princess")]
+    [TestCase(0, 9, 2, 3, RoomEntrances.Bottom | RoomEntrances.Item, TestName = "Princess")]
     // Old man room in level 1 -- old man blocks passage up.
     [TestCase(0, 1, 1, 4, RoomEntrances.Right | RoomEntrances.Left | RoomEntrances.Bottom, TestName = "Oldman")]
     public void ValidWallsUnderworld(int quest, int level, int x, int y, RoomEntrances expected)
@@ -160,7 +160,17 @@ internal class OverworldRoomRequirementsTests : RandomizerTestBase
 {
     private void Ensure(int x, int y, params PathRequirmentCase[] expectedCases)
     {
-        var room = GetOverworldRoom(x, y);
+        Ensure(x, y, 1, expectedCases);
+    }
+
+    private void EnsureSecondQuest(int x, int y, params PathRequirmentCase[] expectedCases)
+    {
+        Ensure(x, y, 2, expectedCases);
+    }
+
+    private void Ensure(int x, int y, int questId, params PathRequirmentCase[] expectedCases)
+    {
+        var room = GetOverworldRoom(x, y, questId);
         var asd = room.RoomMap.DebugDisplay();
         var actual = RoomRequirements.Get(room).Paths.ToArray();
         var expected = expectedCases
@@ -216,25 +226,35 @@ internal class OverworldRoomRequirementsTests : RandomizerTestBase
     }
 
     [Test]
-    public void Bracelet()
+    public void BraceletPushBlocks()
     {
         // Map to the right of vanilla start.
         Ensure(9, 7,
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
 
             new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Left, PathRequirements.Bracelet),
-            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Right, PathRequirements.Bracelet)
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Right, PathRequirements.Bracelet),
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Stairs, PathRequirements.Bracelet),
+            new PathRequirmentCase(RoomEntrances.Right, RoomEntrances.Stairs, PathRequirements.Bracelet)
         );
     }
 
     [Test]
     public void BombableRiver()
     {
-        Ensure(9, 1,
+        EnsureSecondQuest(9, 1,
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
 
             new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Left, PathRequirements.Ladder),
-            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Right, PathRequirements.Ladder)
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Right, PathRequirements.Ladder),
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Stairs, PathRequirements.Ladder),
+            new PathRequirmentCase(RoomEntrances.Right, RoomEntrances.Stairs, PathRequirements.Ladder)
+        );
+
+        // While we're at it, also make sure that quests are mapping properly here.
+        // Also helps discover any quest related bad cache key issues.
+        Ensure(9, 1,
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None)
         );
     }
 
@@ -245,9 +265,15 @@ internal class OverworldRoomRequirementsTests : RandomizerTestBase
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Top, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Right, PathRequirements.None),
+
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Stairs, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Stairs, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Right, RoomEntrances.Stairs, PathRequirements.None),
+
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Left, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Top, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Right, PathRequirements.None),
+
             new PathRequirmentCase(RoomEntrances.Entry, RoomEntrances.Left, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Entry, RoomEntrances.Top, PathRequirements.None),
             new PathRequirmentCase(RoomEntrances.Entry, RoomEntrances.Right, PathRequirements.None),
@@ -269,7 +295,8 @@ internal class OverworldRoomRequirementsTests : RandomizerTestBase
     public void Level6Entrance()
     {
         Ensure(2, 2,
-            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Stairs, PathRequirements.None)
+            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Stairs, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Bottom, PathRequirements.None)
         );
     }
 
@@ -277,12 +304,13 @@ internal class OverworldRoomRequirementsTests : RandomizerTestBase
     public void Level7Entrance()
     {
         Ensure(2, 4,
-            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Stairs, PathRequirements.Recorder)
+            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Stairs, PathRequirements.Recorder),
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Bottom, PathRequirements.Recorder)
         );
     }
 
     [Test]
-    public void BracletRoom()
+    public void BracletArmosItem()
     {
         // The bracelet starts off "covered" so ensure that it's still considered reachable.
         Ensure(4, 2,

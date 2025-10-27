@@ -4,7 +4,7 @@ namespace z1;
 
 internal partial class World
 {
-    public readonly record struct EquipValue(ItemSlot Slot, byte Value, ItemSlot? Max = null, int? MaxValue = null);
+    public readonly record struct EquipValue(ItemSlot Slot, byte Level, ItemSlot? Max = null, int? MaxValue = null);
 
     // The item ID to item slot map is at $6B14, and copied to RAM at $72A4.
     // The item ID to item value map is at $6B38, and copied to RAM at $72C8.
@@ -47,6 +47,19 @@ internal partial class World
         { ItemId.Fairy,          new EquipValue(ItemSlot.None,            3) },
         { ItemId.MaxBombs,       new EquipValue(ItemSlot.MaxBombs,        4) },
     }.ToImmutableDictionary();
+
+    public static ItemId GetItemFromEquipment(ItemSlot slot, int itemLevel)
+    {
+        foreach (var item in ItemToEquipment)
+        {
+            if (item.Value.Slot == slot && item.Value.Level == itemLevel)
+            {
+                return item.Key;
+            }
+        }
+
+        throw new ArgumentException($"No item found for slot {slot} with level {itemLevel}.");
+    }
 
     private readonly record struct DoorStateBehaviors(TileBehavior Closed, TileBehavior Open)
     {

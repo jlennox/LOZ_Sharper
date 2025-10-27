@@ -5,7 +5,17 @@ namespace z1;
 
 internal partial class World
 {
-    internal GameWorld GetWorld(GameWorldType type, string destination) => _worldStore.GetWorld(type, destination);
+    internal GameWorld GetWorld(GameWorldType type, string destination)
+    {
+        // TODO: Profile.QuestId
+        return GetWorld(type, destination, 1);
+    }
+
+    internal GameWorld GetWorld(GameWorldType type, string destination, int questId)
+    {
+        // TODO: Profile.QuestId
+        return _worldStore.GetWorld(type, destination, questId);
+    }
 
     private void LoadOverworld() => LoadWorld(GameWorldType.Overworld, "Overworld");
 
