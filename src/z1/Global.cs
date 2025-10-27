@@ -346,12 +346,6 @@ internal static class GlobalFunctions
         }
     }
 
-    public static void SetPilePalette()
-    {
-        ReadOnlySpan<byte> palette = [0, 0x27, 0x06, 0x16];
-        GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, palette);
-    }
-
     public static void ClearRoomMonsterData()
     {
         Statues.Init();

@@ -106,11 +106,6 @@ internal sealed partial class World
     public Player Player => Game.Player;
     public PlayerProfile Profile => Game.Player.Profile;
 
-    // TODO: I'd like to factor this out and keep Graphics as something that only gets passed around during drawing.
-    // This keeps us honest about when and what draws. Though palette setting outside of drawing context tends to be
-    // much more ok as it's more initialization than drawing.
-    public Graphics Graphics => Game.Graphics;
-
     public SubmenuType Menu;
     public int RoomObjCount;           // 34E
     public Actor? RoomObj;              // 35F
@@ -671,7 +666,7 @@ internal sealed partial class World
             _powerTriforceFanfare = false;
             Game.Player.SetState(PlayerState.Idle);
             AddItem(ItemId.PowerTriforce);
-            GlobalFunctions.SetPilePalette();
+            GraphicPalettes.SetPilePalette();
             Game.Graphics.UpdatePalettes();
             Game.Sound.PlaySong(SongId.Level9, SongStream.MainSong, true);
         }

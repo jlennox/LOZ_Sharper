@@ -162,7 +162,7 @@ internal partial class World
             GraphicPalettes.SetPaletteIndexed((Palette)i, palette);
         }
 
-        Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     private void SetLevelPalettes(ImmutableArray<ImmutableArray<byte>> palettes) // const byte palettes[2][PaletteLength] )
@@ -172,7 +172,7 @@ internal partial class World
             GraphicPalettes.SetPaletteIndexed((Palette)2 + i, palettes[i]);
         }
 
-        Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     // JOE: TODO: Cleanup.
@@ -183,7 +183,7 @@ internal partial class World
             GraphicPalettes.SetPaletteIndexed((Palette)2 + i, palettes[i]);
         }
 
-        Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     private void SetLevelPalette()
@@ -195,7 +195,7 @@ internal partial class World
             GraphicPalettes.SetPaletteIndexed((Palette)i, infoBlock.Palettes[i]);
         }
 
-        Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     private void SetLevelFgPalette()

@@ -107,6 +107,12 @@ internal static class GraphicPalettes
         sysColors[..Global.PaletteLength].CopyTo(dest);
     }
 
+    public static void SetPilePalette()
+    {
+        ReadOnlySpan<byte> palette = [0, 0x27, 0x06, 0x16];
+        GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, palette);
+    }
+
     public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];
     public static Span<byte> GetPalette(Palette paletteIndex) => MemoryMarshal.CreateSpan(ref _palettes[(int)paletteIndex * Global.PaletteLength], Global.PaletteLength);
     public static ReadOnlySpan<SKColor> GetPaletteColors(Palette palette)
@@ -147,5 +153,9 @@ internal static class GraphicPalettes
 
     public static void UpdatePalettes()
     {
+        // I'm leaving all calls into UpdatePalettes() in the code for now.
+        // It's IRL something the Graphics handlers should be handling, ie, if there's a recomputation step that
+        // has to be done.
+        // But then, just make the Set* functions above set a flag?
     }
 }

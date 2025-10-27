@@ -641,9 +641,8 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
         if (_dyingTimer == 0x50)
         {
-            // JOE NOTE: Reference to Graphics outside of Draw.
-            GlobalFunctions.SetPilePalette();
-            World.Game.Graphics.UpdatePalettes();
+            GraphicPalettes.SetPilePalette();
+            GraphicPalettes.UpdatePalettes();
             X += 8;
             Y += 8;
             MakePieces();
@@ -796,11 +795,10 @@ internal sealed class GanonActor : BlueWizzrobeBase
 
     private void SetBossPalette(ImmutableArray<byte> palette)
     {
-        // JOE NOTE: Reference to Graphics outside of Draw.
         GraphicPalettes.SetColorIndexed(Palette.SeaPal, 1, palette[0]);
         GraphicPalettes.SetColorIndexed(Palette.SeaPal, 2, palette[1]);
         GraphicPalettes.SetColorIndexed(Palette.SeaPal, 3, palette[2]);
-        World.Game.Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     private void ResetPosition()
@@ -4332,9 +4330,8 @@ internal sealed class AquamentusActor : MonsterActor
 
         _mouthImage = new SpriteImage(TileSheet.Boss1257, AnimationId.B1_Aquamentus_Mouth_Closed);
 
-        // JOE NOTE: References graphics outside of Draw
         GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, _palette);
-        world.Game.Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     public override void Update()
@@ -4503,9 +4500,8 @@ internal sealed class DodongoActor : WandererWalkerActor
         Animator.Time = 0;
         SetWalkAnimation();
 
-        // JOE NOTE: References graphics outside of Draw
         GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, _palette);
-        world.Game.Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     public static DodongoActor Make(World world, int count, int x, int y)
@@ -5136,9 +5132,8 @@ internal sealed class DigdoggerActor : DigdoggerActorBase
             Time = 0,
         };
 
-        // JOE NOTE: References graphics outside of Draw
         GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, _palette);
-        world.Game.Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     public static DigdoggerActor Make(World world, int x, int y, int childCount)
