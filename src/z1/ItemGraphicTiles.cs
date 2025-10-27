@@ -15,8 +15,7 @@ internal enum StringChar
 
 internal readonly record struct ItemGraphics(AnimationId AnimId, Palette Palette, bool DoesFlash = false)
 {
-    // This can not be an ImmutableArray<ItemGraphics> because of this bug: https://github.com/dotnet/runtime/issues/104511
-    public static ItemGraphics[] Items => [
+    public static ImmutableArray<ItemGraphics> Items => [
         new ItemGraphics(AnimationId.BombItem, Palette.Blue),
         new ItemGraphics(AnimationId.SwordItem, Palette.Player),
         new ItemGraphics(AnimationId.SwordItem, Palette.Blue),
