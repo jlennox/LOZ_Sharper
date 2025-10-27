@@ -982,7 +982,7 @@ internal sealed class RupeeStashActor : MonsterActor
 
     public override void Draw(Graphics graphics)
     {
-        GlobalFunctions.DrawItemWide(Game, ItemId.Rupee, X, Y);
+        graphics.DrawItemWide(Game, ItemId.Rupee, X, Y);
     }
 }
 

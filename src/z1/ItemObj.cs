@@ -689,7 +689,7 @@ internal sealed class ItemObjActor : Actor
     {
         if (_options.HasFlag(ItemObjectOptions.IsRoomItem) || _timer < SpawnInTimeLastTimer || (_timer & 2) != 0)
         {
-            GlobalFunctions.DrawItemWide(Game, _itemId, X, Y);
+            graphics.DrawItemWide(Game, _itemId, X, Y);
         }
     }
 }

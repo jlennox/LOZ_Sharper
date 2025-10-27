@@ -44,6 +44,6 @@ internal sealed class FoodActor : Actor
 
     public override void Draw(Graphics graphics)
     {
-        GlobalFunctions.DrawItemWide(Game, ItemId.Food, X, Y);
+        graphics.DrawItemWide(Game, ItemId.Food, X, Y);
     }
 }

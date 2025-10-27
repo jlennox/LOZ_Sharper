@@ -111,8 +111,8 @@ internal sealed class StatusBar
 
     public void Draw(Graphics graphics, int baseY, SKColor backColor)
     {
-        using var _ = _world.Game.Graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
-        _world.Game.Graphics.Clear(backColor);
+        using var _ = graphics.SetClip(0, baseY, StatusBarWidth, StatusBarHeight);
+        graphics.Clear(backColor);
 
         foreach (var tileInst in _uiTiles)
         {
@@ -131,7 +131,7 @@ internal sealed class StatusBar
         }
 
         DrawMiniMap(graphics, baseY);
-        DrawItems(baseY);
+        DrawItems(graphics, baseY);
     }
 
     private void DrawMiniMap(Graphics graphics, int baseY)
@@ -143,7 +143,7 @@ internal sealed class StatusBar
 
         if (_world.CurrentWorld.LevelString != null)
         {
-            _world.Game.Graphics.DrawString(_world.CurrentWorld.LevelString, LevelNameX, baseY + LevelNameY, 0);
+            graphics.DrawString(_world.CurrentWorld.LevelString, LevelNameX, baseY + LevelNameY, 0);
         }
     }
 
@@ -231,57 +231,57 @@ internal sealed class StatusBar
         }
     }
 
-    private void DrawCount(ItemSlot itemSlot, int x, int y)
+    private void DrawCount(Graphics graphics, ItemSlot itemSlot, int x, int y)
     {
         var count = _world.GetItem(itemSlot);
         if (count < 100)
         {
-            _world.Game.Graphics.DrawChar((byte)Chars.X, x, y, 0);
+            graphics.DrawChar((byte)Chars.X, x, y, 0);
             x += 8;
         }
 
         Span<char> charBuf = stackalloc char[16];
         var str = GameString.NumberToString((byte)count, NumberSign.None, charBuf, 0);
-        _world.Game.Graphics.DrawString(str, x, y, 0);
+        graphics.DrawString(str, x, y, 0);
     }
 
-    private void DrawItems(int baseY)
+    private void DrawItems(Graphics graphics, int baseY)
     {
         if (_features.HasFlag(StatusBarFeatures.Counters))
         {
             if (_world.GetItem(ItemSlot.MagicKey) != 0)
             {
                 ReadOnlySpan<byte> xa = [(byte)Chars.X, 0x0A];
-                _world.Game.Graphics.DrawString(xa, CountersX, 0x28 + baseY, 0);
+                graphics.DrawString(xa, CountersX, 0x28 + baseY, 0);
             }
             else
             {
-                DrawCount(ItemSlot.Keys, CountersX, 0x28 + baseY);
+                DrawCount(graphics, ItemSlot.Keys, CountersX, 0x28 + baseY);
             }
 
-            DrawCount(ItemSlot.Bombs, CountersX, 0x30 + baseY);
-            DrawCount(ItemSlot.Rupees, CountersX, 0x18 + baseY);
+            DrawCount(graphics, ItemSlot.Bombs, CountersX, 0x30 + baseY);
+            DrawCount(graphics, ItemSlot.Rupees, CountersX, 0x18 + baseY);
 
-            DrawHearts(baseY);
+            DrawHearts(graphics, baseY);
         }
 
         if (_features.HasFlag(StatusBarFeatures.Equipment))
         {
-            DrawSword(baseY);
-            DrawItemB(baseY);
+            DrawSword(graphics, baseY);
+            DrawItemB(graphics, baseY);
         }
     }
 
-    private void DrawSword(int baseY)
+    private void DrawSword(Graphics graphics, int baseY)
     {
         var swordValue = _world.GetItem(ItemSlot.Sword);
         if (swordValue == 0) return;
 
-        var itemId = GlobalFunctions.ItemValueToItemId(ItemSlot.Sword, swordValue);
-        GlobalFunctions.DrawItemNarrow(_world.Game, itemId, 0x98, EquipmentY + baseY);
+        var itemId = ItemGraphicTiles.ItemValueToItemId(ItemSlot.Sword, swordValue);
+        graphics.DrawItemNarrow(_world.Game, itemId, 0x98, EquipmentY + baseY);
     }
 
-    private void DrawItemB(int baseY)
+    private void DrawItemB(Graphics graphics,int baseY)
     {
         var profile = _world.Profile;
         if (profile.SelectedItem == 0) return;
@@ -289,16 +289,16 @@ internal sealed class StatusBar
         var itemValue = profile.Items.Get(profile.SelectedItem);
         if (itemValue == 0) return;
 
-        var itemId = GlobalFunctions.ItemValueToItemId(profile.SelectedItem, itemValue);
+        var itemId = ItemGraphicTiles.ItemValueToItemId(profile.SelectedItem, itemValue);
 
-        GlobalFunctions.DrawItemNarrow(_world.Game, itemId, 0x80, EquipmentY + baseY);
+        graphics.DrawItemNarrow(_world.Game, itemId, 0x80, EquipmentY + baseY);
     }
 
-    private void DrawHearts(int baseY)
+    private void DrawHearts(Graphics graphics, int baseY)
     {
         var totalHearts = _world.GetItem(ItemSlot.HeartContainers);
         var heartsValue = _world.Profile.Hearts;
         var y = HeartsY + baseY;
-        _world.Game.Graphics.DrawHearts(heartsValue, totalHearts, HeartsX, y);
+        graphics.DrawHearts(heartsValue, totalHearts, HeartsX, y);
     }
 }

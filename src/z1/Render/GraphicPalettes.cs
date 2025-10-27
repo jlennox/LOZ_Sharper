@@ -110,7 +110,7 @@ internal static class GraphicPalettes
     public static void SetPilePalette()
     {
         ReadOnlySpan<byte> palette = [0, 0x27, 0x06, 0x16];
-        GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, palette);
+        SetPaletteIndexed(Palette.SeaPal, palette);
     }
 
     public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];

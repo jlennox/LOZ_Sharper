@@ -208,7 +208,7 @@ internal sealed class SubmenuType
             if (profile.Items.Get(ItemSlot.Arrow) != 0
                 && profile.Items.Get(ItemSlot.Bow) != 0)
             {
-                var arrowId = GlobalFunctions.ItemValueToItemId(_game, ItemSlot.Arrow);
+                var arrowId = ItemGraphicTiles.ItemValueToItemId(_game, ItemSlot.Arrow);
                 return arrowId;
             }
         }
@@ -225,7 +225,7 @@ internal sealed class SubmenuType
             var itemValue = profile.Items.Get(itemSlot);
             if (itemValue != 0)
             {
-                var itemId = GlobalFunctions.ItemValueToItemId(itemSlot, itemValue);
+                var itemId = ItemGraphicTiles.ItemValueToItemId(itemSlot, itemValue);
                 return itemId;
             }
         }
@@ -394,17 +394,17 @@ internal sealed class SubmenuType
             {
                 if (profile.Items.Get(ItemSlot.Arrow) != 0)
                 {
-                    itemId = GlobalFunctions.ItemValueToItemId(_game, ItemSlot.Arrow);
-                    GlobalFunctions.DrawItemNarrow(_game.World.Game, itemId, x, y);
+                    itemId = ItemGraphicTiles.ItemValueToItemId(_game, ItemSlot.Arrow);
+                    graphics.DrawItemNarrow(_game.World.Game, itemId, x, y);
                 }
                 if (profile.Items.Get(ItemSlot.Bow) != 0)
                 {
-                    GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Bow, x + 8, y);
+                    graphics.DrawItemNarrow(_game.World.Game, ItemId.Bow, x + 8, y);
                 }
             }
             else if (itemId != ItemId.None)
             {
-                GlobalFunctions.DrawItemWide(_game.World.Game, itemId, x, y);
+                graphics.DrawItemWide(_game.World.Game, itemId, x, y);
             }
 
             x += ActiveItemStrideX;
@@ -434,8 +434,8 @@ internal sealed class SubmenuType
 
             if (value != 0)
             {
-                var itemId = GlobalFunctions.ItemValueToItemId(slot, value);
-                GlobalFunctions.DrawItem(_game.World.Game, itemId, _passiveItems[i].X, PassiveItemY + top, 0);
+                var itemId = ItemGraphicTiles.ItemValueToItemId(slot, value);
+                graphics.DrawItem(_game.World.Game, itemId, _passiveItems[i].X, PassiveItemY + top, 0);
             }
         }
     }
@@ -445,10 +445,10 @@ internal sealed class SubmenuType
         var curSlot = _game.World.Profile.SelectedItem;
         if (curSlot == 0) return;
 
-        var itemId = GlobalFunctions.ItemValueToItemId(_game, curSlot);
+        var itemId = ItemGraphicTiles.ItemValueToItemId(_game, curSlot);
         if (itemId == ItemId.None) return;
 
-        GlobalFunctions.DrawItemWide(_game.World.Game, itemId, CurItemX, CurItemY + top);
+        graphics.DrawItemWide(_game.World.Game, itemId, CurItemX, CurItemY + top);
     }
 
     private static readonly ImmutableArray<TriforcePieceSpec> _pieceSpecs = [
@@ -578,8 +578,8 @@ internal sealed class SubmenuType
         var hasMap = _game.World.Profile.GetDungeonItem(_game.World.CurrentWorld, ItemId.Map);
         var hasCompass = _game.World.Profile.GetDungeonItem(_game.World.CurrentWorld, ItemId.Compass);
 
-        if (hasMap) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Map, 0x30, 0x68 + top);
-        if (hasCompass) GlobalFunctions.DrawItemNarrow(_game.World.Game, ItemId.Compass, 0x30, 0x90 + top);
+        if (hasMap) graphics.DrawItemNarrow(_game.World.Game, ItemId.Map, 0x30, 0x68 + top);
+        if (hasCompass) graphics.DrawItemNarrow(_game.World.Game, ItemId.Compass, 0x30, 0x90 + top);
 
         var map = _game.World.CurrentWorld.GameWorldMap;
 

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using SkiaSharp;
-using z1.Actors;
 using z1.Render;
 
 namespace z1;
@@ -202,5 +201,10 @@ internal partial class World
     {
         var infoBlock = CurrentWorld.Settings;
         GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, infoBlock.Palettes[(int)Palette.SeaPal]);
+    }
+
+    private static void ClearRoomMonsterData()
+    {
+        Statues.Init();
     }
 }

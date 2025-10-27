@@ -172,7 +172,7 @@ internal sealed class CreditsType
         if (IsDone())
         {
             y = 0x80;
-            GlobalFunctions.DrawItem(_game, ItemId.PowerTriforce, 0x78, y, 0);
+            graphics.DrawItem(_game, ItemId.PowerTriforce, 0x78, y, 0);
 
             var pile = new SpriteImage(TileSheet.Boss9, AnimationId.B3_Pile);
             pile.Draw(graphics, TileSheet.Boss9, 0x78, y + 0, (Palette)7, DrawOrder.Background);

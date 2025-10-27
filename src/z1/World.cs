@@ -654,7 +654,7 @@ internal sealed partial class World
 
         ReadOnlySpan<byte> palette = [0, 0x0F, 0x10, 0x30];
         GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, palette);
-        Game.Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
     }
 
     private void CheckPowerTriforceFanfare()
@@ -667,7 +667,7 @@ internal sealed partial class World
             Game.Player.SetState(PlayerState.Idle);
             AddItem(ItemId.PowerTriforce);
             GraphicPalettes.SetPilePalette();
-            Game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
             Game.Sound.PlaySong(SongId.Level9, SongStream.MainSong, true);
         }
         else
@@ -861,7 +861,7 @@ internal sealed partial class World
         if (slot == ItemSlot.Ring)
         {
             Profile.SetPlayerColor();
-            Game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
         }
 
         if (slot == ItemSlot.HeartContainers)
@@ -1043,7 +1043,7 @@ internal sealed partial class World
             {
                 GraphicPalettes.SetPaletteIndexed((Palette)(i + 2), CurrentWorld.Settings.DarkPalette[_darkRoomFadeStep][i]);
             }
-            Game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
         }
     }
 
@@ -1143,11 +1143,11 @@ internal sealed partial class World
         // Set the level's level foreground palette before making objects,
         // so that if we make a boss, we won't override a palette that it might set.
         SetLevelFgPalette();
-        Game.Graphics.UpdatePalettes();
+        GraphicPalettes.UpdatePalettes();
         PlayAmbientSounds();
 
         ClearRoomItemData();
-        GlobalFunctions.ClearRoomMonsterData();
+        ClearRoomMonsterData();
         InitObjectTimers();
         InitStunTimers();
         InitPlaceholderTypes();
@@ -1479,7 +1479,7 @@ internal sealed partial class World
                 _curColorSeqNum++;
                 // JOE: The ordering on these appears wrong. colorIndex should be the second argument?
                 GraphicPalettes.SetColorIndexed((Palette)3, 3, colorIndex);
-                Game.Graphics.UpdatePalettes();
+                GraphicPalettes.UpdatePalettes();
             }
         }
 
@@ -1844,7 +1844,7 @@ internal sealed partial class World
         var image = Graphics.GetSpriteImage(TileSheet.Boss9, AnimationId.B3_Princess_Lift);
         image.Draw(graphics, TileSheet.Boss9, x, y, Palette.Player, DrawOrder.Sprites);
 
-        GlobalFunctions.DrawItem(Game, ItemId.TriforcePiece, x, y - 0x10, 0, DrawOrder.Foreground);
+        graphics.DrawItem(Game, ItemId.TriforcePiece, x, y - 0x10, 0, DrawOrder.Foreground);
     }
 
     private void DrawPlayerLiftingItem(Graphics graphics, ItemId itemId)
@@ -1853,7 +1853,7 @@ internal sealed partial class World
         var image = Graphics.GetSpriteImage(TileSheet.PlayerAndItems, animIndex);
         image.Draw(graphics, TileSheet.PlayerAndItems, Game.Player.X, Game.Player.Y, Palette.Player, DrawOrder.Sprites);
 
-        GlobalFunctions.DrawItem(Game, itemId, Game.Player.X, Game.Player.Y - 0x10, 0, DrawOrder.Foreground);
+        graphics.DrawItem(Game, itemId, Game.Player.X, Game.Player.Y - 0x10, 0, DrawOrder.Foreground);
     }
 
     private void MakeObjects(Direction entryDir, ObjectState? entranceRoomsState, Entrance? fromEntrence)
@@ -2217,7 +2217,7 @@ internal sealed partial class World
                 var colorSeq = game.Data.OWPondColors;
                 int color = colorSeq[game.World._curColorSeqNum];
                 GraphicPalettes.SetColorIndexed((Palette)3, 3, color);
-                game.Graphics.UpdatePalettes();
+                GraphicPalettes.UpdatePalettes();
 
                 if (game.World._curColorSeqNum == 0)
                 {
@@ -2241,7 +2241,7 @@ internal sealed partial class World
             {
                 GraphicPalettes.SetPaletteIndexed((Palette)i + 2, darkPalette[game.World._darkRoomFadeStep][i]);
             }
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
 
             game.World._darkRoomFadeStep++;
 
@@ -2364,7 +2364,7 @@ internal sealed partial class World
 
     private void DrawScroll(Graphics graphics)
     {
-        using (var _ = Game.Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
+        using (var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight))
         {
             ClearScreen(graphics);
 
@@ -2463,7 +2463,7 @@ internal sealed partial class World
 
     private void DrawLeave(Graphics graphics)
     {
-        using var _ = Game.Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+        using var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
         DrawRoomNoObjects(graphics, false);
     }
 
@@ -2634,7 +2634,7 @@ internal sealed partial class World
             {
                 GraphicPalettes.SetPaletteIndexed((Palette)i + 2, darkPalette[game.World._darkRoomFadeStep][i]);
             }
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
         }
 
         static void EnterWalk(Game game, ref EnterState state)
@@ -2662,7 +2662,7 @@ internal sealed partial class World
 
     private void DrawEnter(Graphics graphics)
     {
-        using var _ = Game.Graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
+        using var _ = graphics.SetClip(0, TileMapBaseY, TileMapWidth, TileMapHeight);
 
         // JOE: The C++ code base had this check but it causes a black frame to be drawn.
         // if (_state.Enter.Substate != EnterState.Substates.Start)
@@ -2766,7 +2766,7 @@ internal sealed partial class World
             }
 
             Profile.SetPlayerColor();
-            Game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
             return;
         }
 
@@ -3146,7 +3146,7 @@ internal sealed partial class World
                 var step = state.FadeStep;
                 GraphicPalettes.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.OutOfCellarPalette[step][i]);
             }
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
             state.FadeTimer = 9;
             state.FadeStep++;
 
@@ -3182,7 +3182,7 @@ internal sealed partial class World
                 var step = state.FadeStep;
                 GraphicPalettes.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.InCellarPalette[step][i]);
             }
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
             state.FadeTimer = 9;
             state.FadeStep--;
 
@@ -3271,7 +3271,7 @@ internal sealed partial class World
                 var step = state.FadeStep;
                 GraphicPalettes.SetPaletteIndexed((Palette)i + 2, palette[step][i]);
             }
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
             state.FadeTimer = 9;
             state.FadeStep++;
 
@@ -3322,7 +3322,7 @@ internal sealed partial class World
                 var step = state.FadeStep;
                 GraphicPalettes.SetPaletteIndexed((Palette)i + 2, palette[step][i]);
             }
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
             state.FadeTimer = 9;
             state.FadeStep--;
 
@@ -3356,7 +3356,7 @@ internal sealed partial class World
             {
                 GraphicPalettes.SetPaletteIndexed((Palette)i + 2, game.World.CurrentWorld.Settings.Palettes[i + 2]);
             }
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
 
             // JOE: TODO: Write a generic "goto previous entrance" or w/e method.
             game.World.LoadRoom(state.TargetEntrance.Room);
@@ -3451,7 +3451,7 @@ internal sealed partial class World
             {
                 GraphicPalettes.SetPaletteIndexed((Palette)i + 2, paletteSet.GetByIndex(i));
             }
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
         }
 
         static void PlayCaveWalk(Game game, ref PlayCaveState state)
@@ -3605,7 +3605,7 @@ internal sealed partial class World
             ReadOnlySpan<byte> grayPal = [0, 0x10, 0x30, 0];
 
             GraphicPalettes.SetPaletteIndexed(Palette.Player, grayPal);
-            game.Graphics.UpdatePalettes();
+            GraphicPalettes.UpdatePalettes();
 
             state.Substate = DeathState.Substates.Spark;
             state.Timer = 0x18;

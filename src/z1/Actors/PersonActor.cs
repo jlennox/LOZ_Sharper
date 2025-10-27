@@ -522,7 +522,7 @@ internal sealed class PersonActor : Actor
 
         if (_spec.ShowNumbers)
         {
-            GlobalFunctions.DrawItemWide(Game, ItemId.Rupee, 0x30, 0xAC);
+            graphics.DrawItemWide(Game, ItemId.Rupee, 0x30, 0xAC);
             graphics.DrawChar(Chars.X, 0x40, 0xB0, 0);
         }
     }
