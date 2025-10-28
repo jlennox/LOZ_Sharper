@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using z1.Render;
 
 namespace z1.IO;
 
@@ -118,7 +119,7 @@ internal unsafe struct LevelInfoBlock
     public const int FadeLength = 4;
     public const int FadePals = 2;
     public const int MapLength = 16;
-    public const int PaletteLength = Global.PaletteLength;
+    public const int PaletteLength = GraphicPalettes.PaletteLength;
 
     public fixed byte Palettes[LevelPaletteCount * PaletteLength];
     public byte StartY;

@@ -190,7 +190,7 @@ internal sealed class PlayerSwordProjectile : Projectile, IBlockableProjectile
 
     public override void Draw(Graphics graphics)
     {
-        var palOffset = Game.FrameCounter % Global.ForegroundPalCount;
+        var palOffset = Game.FrameCounter % GraphicPalettes.ForegroundPalCount;
         var palette = Palette.Player + palOffset;
         var yOffset = Facing.IsHorizontal() ? 3 : 0;
 
@@ -409,7 +409,7 @@ internal sealed class FireballProjectile : Actor, IBlockableProjectile
 
     public override void Draw(Graphics graphics)
     {
-        var palOffset = Game.FrameCounter % Global.ForegroundPalCount;
+        var palOffset = Game.FrameCounter % GraphicPalettes.ForegroundPalCount;
         var palette = Palette.Player + palOffset;
 
         _image.Draw(graphics, TileSheet.PlayerAndItems, X, Y, palette, DrawOrder);

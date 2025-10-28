@@ -5,16 +5,9 @@ internal static class Global
     public const int StdViewWidth = 256;
     public const int StdViewHeight = 240;
 
-    public const int PaletteCount = 8;
-    public const int PaletteLength = 4;
-    public const int ForegroundPalCount = 4;
-    public const int BackgroundPalCount = 4;
-
     public const int LevelBlockWidth = 16;
     public const int LevelBlockHeight = 8;
     public const int LevelBlockRooms = 128;
-
-    public const int SysPaletteLength = 64;
 
     public const int StdSpeed = 0x20;
 }

@@ -9,7 +9,11 @@ namespace z1.Render;
 internal static class GraphicPalettes
 {
     private static readonly int _paletteBmpWidth;
-    private static readonly int _paletteBmpHeight;
+    private const int _sysPaletteLength = 64;
+    public const int PaletteCount = 8;
+    public const int PaletteLength = 4;
+    public const int ForegroundPalCount = 4;
+    public const int BackgroundPalCount = 4;
 
     private static readonly byte[] _paletteBuf;
     private static readonly int _paletteStride;
@@ -20,23 +24,23 @@ internal static class GraphicPalettes
 
     static GraphicPalettes()
     {
-        _paletteBmpWidth = Math.Max(Global.PaletteLength, 16);
-        _paletteBmpHeight = Math.Max(Global.PaletteCount, 16);
+        _paletteBmpWidth = Math.Max(PaletteLength, 16);
+        var paletteBmpHeight = Math.Max(PaletteCount, 16);
         _paletteStride = _paletteBmpWidth * Unsafe.SizeOf<SKColor>();
-        var size = _paletteBmpWidth * _paletteStride * _paletteBmpHeight;
+        var size = _paletteBmpWidth * _paletteStride * paletteBmpHeight;
         _paletteBuf = new byte[size];
 
-        _systemPalette = new uint[Global.SysPaletteLength];
-        _grayscalePalette = new uint[Global.SysPaletteLength];
+        _systemPalette = new uint[_sysPaletteLength];
+        _grayscalePalette = new uint[_sysPaletteLength];
         _activeSystemPalette = _systemPalette;
-        _palettes = new byte[Global.PaletteCount * Global.PaletteLength];
+        _palettes = new byte[PaletteCount * PaletteLength];
     }
 
     public static void LoadSystemPalette(uint[] colorsArgb8)
     {
         colorsArgb8.CopyTo(_systemPalette.AsSpan());
 
-        for (var i = 0; i < Global.SysPaletteLength; i++)
+        for (var i = 0; i < _sysPaletteLength; i++)
         {
             _grayscalePalette[i] = _systemPalette[i & 0x30];
         }
@@ -70,7 +74,7 @@ internal static class GraphicPalettes
         var y = (int)paletteIndex;
         var line = MemoryMarshal.Cast<byte, uint>(_paletteBuf.AsSpan()[(y * _paletteStride)..]);
 
-        for (var x = 0; x < Global.PaletteLength; x++)
+        for (var x = 0; x < PaletteLength; x++)
         {
             line[x] = colorsArgb8[x];
         }
@@ -104,7 +108,7 @@ internal static class GraphicPalettes
 
         SetPalette(paletteIndex, colorsArgb8);
         var dest = GetPalette(paletteIndex);
-        sysColors[..Global.PaletteLength].CopyTo(dest);
+        sysColors[..PaletteLength].CopyTo(dest);
     }
 
     public static void SetPilePalette()
@@ -113,8 +117,8 @@ internal static class GraphicPalettes
         SetPaletteIndexed(Palette.SeaPal, palette);
     }
 
-    public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * Global.PaletteLength + colorIndex];
-    public static Span<byte> GetPalette(Palette paletteIndex) => MemoryMarshal.CreateSpan(ref _palettes[(int)paletteIndex * Global.PaletteLength], Global.PaletteLength);
+    public static ref byte GetPalette(Palette paletteIndex, int colorIndex) => ref _palettes[(int)paletteIndex * PaletteLength + colorIndex];
+    public static Span<byte> GetPalette(Palette paletteIndex) => MemoryMarshal.CreateSpan(ref _palettes[(int)paletteIndex * PaletteLength], PaletteLength);
     public static ReadOnlySpan<SKColor> GetPaletteColors(Palette palette)
     {
         var paletteY = (int)palette * _paletteBmpWidth;
@@ -127,7 +131,7 @@ internal static class GraphicPalettes
 
         _activeSystemPalette = newSystemPalette;
 
-        for (var i = 0; i < Global.PaletteCount; i++)
+        for (var i = 0; i < PaletteCount; i++)
         {
             var sysColors = GetPalette((Palette)i);
             ReadOnlySpan<uint> colorsArgb8 =
@@ -141,14 +145,57 @@ internal static class GraphicPalettes
         }
     }
 
-    public static void EnableGrayscale()
+    public static void EnableGrayscale() => SwitchSystemPalette(_grayscalePalette);
+    public static void DisableGrayscale() => SwitchSystemPalette(_systemPalette);
+
+    public static void SetFlashPalette(Game game)
     {
-        SwitchSystemPalette(_grayscalePalette);
+        if (game.Enhancements.ReduceFlashing) return;
+
+        ReadOnlySpan<byte> palette = [0x0F, 0x30, 0x30, 0x30];
+
+        for (var i = 2; i < BackgroundPalCount; i++)
+        {
+            SetPaletteIndexed((Palette)i, palette);
+        }
+
+        UpdatePalettes();
     }
 
-    public static void DisableGrayscale()
+    public static void SetLevelPalettes(ImmutableArray<ImmutableArray<byte>> palettes) // const byte palettes[2][PaletteLength] )
     {
-        SwitchSystemPalette(_systemPalette);
+        for (var i = 0; i < 2; i++)
+        {
+            SetPaletteIndexed((Palette)2 + i, palettes[i]);
+        }
+
+        UpdatePalettes();
+    }
+
+    // JOE: TODO: Cleanup.
+    public static void SetLevelPalettes(byte[][] palettes) // const byte palettes[2][PaletteLength] )
+    {
+        for (var i = 0; i < 2; i++)
+        {
+            SetPaletteIndexed((Palette)2 + i, palettes[i]);
+        }
+
+        UpdatePalettes();
+    }
+
+    public static void SetLevelPalette(WorldSettings settings)
+    {
+        for (var i = 2; i < BackgroundPalCount; i++)
+        {
+            SetPaletteIndexed((Palette)i, settings.Palettes[i]);
+        }
+
+        UpdatePalettes();
+    }
+
+    public static void SetLevelFgPalette(WorldSettings settings)
+    {
+        SetPaletteIndexed(Palette.SeaPal, settings.Palettes[(int)Palette.SeaPal]);
     }
 
     public static void UpdatePalettes()

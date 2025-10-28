@@ -676,11 +676,11 @@ internal sealed partial class World
             var timer = Game.Player.ObjTimer;
             if ((timer & 4) > 0)
             {
-                SetFlashPalette();
+                GraphicPalettes.SetFlashPalette(Game);
             }
             else
             {
-                SetLevelPalette();
+                GraphicPalettes.SetLevelPalette(CurrentWorld.Settings);
             }
         }
     }
@@ -1143,7 +1143,7 @@ internal sealed partial class World
 
         // Set the level's level foreground palette before making objects,
         // so that if we make a boss, we won't override a palette that it might set.
-        SetLevelFgPalette();
+        GraphicPalettes.SetLevelFgPalette(CurrentWorld.Settings);
         GraphicPalettes.UpdatePalettes();
         PlayAmbientSounds();
 
@@ -2890,8 +2890,8 @@ internal sealed partial class World
                 var step = _state.EndLevel.Timer & 0x7;
                 switch (step)
                 {
-                    case 0: SetFlashPalette(); break;
-                    case 3: SetLevelPalette(); break;
+                    case 0: GraphicPalettes.SetFlashPalette(Game); break;
+                    case 3: GraphicPalettes.SetLevelPalette(CurrentWorld.Settings); break;
                 }
             }
             _state.EndLevel.Timer--;
@@ -3549,7 +3549,7 @@ internal sealed partial class World
 
             if (state.Timer == 0)
             {
-                game.World.SetLevelPalettes(_deathRedPals);
+                GraphicPalettes.SetLevelPalettes(_deathRedPals);
 
                 state.Step = 16;
                 state.Timer = 0;
@@ -3593,7 +3593,7 @@ internal sealed partial class World
 
                     var seq = 3 - state.Step;
 
-                    game.World.SetLevelPalettes(game.World.CurrentWorld.Settings.DeathPalette[seq]);
+                    GraphicPalettes.SetLevelPalettes(game.World.CurrentWorld.Settings.DeathPalette[seq]);
                 }
                 return;
             }

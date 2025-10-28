@@ -150,59 +150,6 @@ internal partial class World
         _brightenRoom = false;
     }
 
-    private void SetFlashPalette()
-    {
-        if (Game.Enhancements.ReduceFlashing) return;
-
-        ReadOnlySpan<byte> palette = [0x0F, 0x30, 0x30, 0x30];
-
-        for (var i = 2; i < Global.BackgroundPalCount; i++)
-        {
-            GraphicPalettes.SetPaletteIndexed((Palette)i, palette);
-        }
-
-        GraphicPalettes.UpdatePalettes();
-    }
-
-    private void SetLevelPalettes(ImmutableArray<ImmutableArray<byte>> palettes) // const byte palettes[2][PaletteLength] )
-    {
-        for (var i = 0; i < 2; i++)
-        {
-            GraphicPalettes.SetPaletteIndexed((Palette)2 + i, palettes[i]);
-        }
-
-        GraphicPalettes.UpdatePalettes();
-    }
-
-    // JOE: TODO: Cleanup.
-    private void SetLevelPalettes(byte[][] palettes) // const byte palettes[2][PaletteLength] )
-    {
-        for (var i = 0; i < 2; i++)
-        {
-            GraphicPalettes.SetPaletteIndexed((Palette)2 + i, palettes[i]);
-        }
-
-        GraphicPalettes.UpdatePalettes();
-    }
-
-    private void SetLevelPalette()
-    {
-        var infoBlock = CurrentWorld.Settings;
-
-        for (var i = 2; i < Global.BackgroundPalCount; i++)
-        {
-            GraphicPalettes.SetPaletteIndexed((Palette)i, infoBlock.Palettes[i]);
-        }
-
-        GraphicPalettes.UpdatePalettes();
-    }
-
-    private void SetLevelFgPalette()
-    {
-        var infoBlock = CurrentWorld.Settings;
-        GraphicPalettes.SetPaletteIndexed(Palette.SeaPal, infoBlock.Palettes[(int)Palette.SeaPal]);
-    }
-
     private static void ClearRoomMonsterData()
     {
         Statues.Init();
