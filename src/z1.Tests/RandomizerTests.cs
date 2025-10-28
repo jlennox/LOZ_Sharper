@@ -131,7 +131,7 @@ internal class UnderworldRoomRequirementsTests : RandomizerTestBase
     }
 
     [Test]
-    public void HorizontalRiverRoomUnderworld()
+    public void HorizontalRiverRoom()
     {
         Ensure(0, 9, 5, 6,
             new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
@@ -141,6 +141,33 @@ internal class UnderworldRoomRequirementsTests : RandomizerTestBase
             new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Right, PathRequirements.Ladder),
             new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Left, PathRequirements.Ladder),
             new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Bottom, PathRequirements.Ladder)
+        );
+    }
+
+    [Test]
+    public void SkeletonKeyRoom()
+    {
+        // This room exposed a few bugs in the game.
+        // - The map extractor wasn't properly marking the push block as a pushblock because the "room secret" was "foesdoor,"
+        //   and not something the pushblock acted on. But the pushblock and the secret both exist but are unrelated.
+        // - The exiting of the underworld was computed wrong so it did not believe it could navigate to any of the other RoomEntrances.
+        Ensure(0, 8, 15, 1,
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Right, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Bottom, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Top, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Bottom, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Right, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Right, PathRequirements.None),
+
+            new PathRequirmentCase(RoomEntrances.Top, RoomEntrances.Stairs, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Left, RoomEntrances.Stairs, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Right, RoomEntrances.Stairs, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Bottom, RoomEntrances.Stairs, PathRequirements.None),
+
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Top, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Left, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Right, PathRequirements.None),
+            new PathRequirmentCase(RoomEntrances.Stairs, RoomEntrances.Bottom, PathRequirements.None)
         );
     }
 

@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -63,6 +62,7 @@ internal readonly record struct ScopedFunctionLog : IDisposable
     }
 
     // Always write fatals (don't check ShouldWrite).
+    // Pass "s" as its own argument to avoid the automatic indentation from appearing in the exception text.
     public Exception Fatal(string s) => DebugLog.Fatal(FunctionName, $"{Indentation}{s}", s);
 
     public void Dispose()
@@ -128,6 +128,7 @@ internal sealed class DebugLogWriter : IDisposable
             {
                 var line = entry.Line;
                 var prefix = entry.Prefix;
+                var levelColumn = GetTypeColumn(entry.Level);
 
                 // 50 is a way overshot of what the datetime/etc characters will need.
                 var maxbytes = Encoding.UTF8.GetMaxByteCount(line.Length + (prefix?.Length ?? 0) + 50);
@@ -135,6 +136,8 @@ internal sealed class DebugLogWriter : IDisposable
                 var buffer = maxbytes > reusedbuffer.Length ? new byte[maxbytes] : reusedbuffer;
                 // Keep allocations low. $"{DateTime.Now}: {s}\n";
                 if (!DateTime.Now.TryFormat(buffer, out var encodedBytes)) continue;
+                encodedBytes += Encoding.UTF8.GetBytes(" ", buffer.AsSpan(encodedBytes));
+                encodedBytes += Encoding.UTF8.GetBytes(levelColumn, buffer.AsSpan(encodedBytes));
                 encodedBytes += Encoding.UTF8.GetBytes(": ", buffer.AsSpan(encodedBytes));
                 if (prefix != null)
                 {
@@ -180,6 +183,14 @@ internal sealed class DebugLogWriter : IDisposable
         _linesAvailableEvent.Set();
     }
 
+    private static string GetTypeColumn(LogLevel level) => level switch
+    {
+        LogLevel.Debug => "D ",
+        LogLevel.Error => "E🚨",
+        LogLevel.Fatal => "F☠️",
+        _ => throw new ArgumentOutOfRangeException(nameof(level), level, "Invalid LogLevel."),
+    };
+
     public void Dispose()
     {
         _cts.Cancel();
@@ -224,6 +235,7 @@ internal sealed class DebugLog
         return new ScopedFunctionLog(this, $"{functionName}->{scope}", level);
     }
 
+
     public ScopedFunctionLog CreateScopedFunctionLog([CallerMemberName] string functionName = "", LogLevel level = LogLevel.Debug)
     {
         return new ScopedFunctionLog(this, functionName, level);
@@ -245,13 +257,13 @@ internal sealed class DebugLog
     public void Write(string namespaze, string s) => Write(namespaze, s, LogLevel.Debug);
     public void Write(string s) => Write(null, s, LogLevel.Debug);
 
-    public void Error(string namespaze, string s) => Write(namespaze, $"ERROR: 🚨🚨 {s}", LogLevel.Error);
-    public void Error(string s) => Write(null, $"ERROR: 🚨🚨 {s}", LogLevel.Error);
+    public void Error(string namespaze, string s) => Write(namespaze, s, LogLevel.Error);
+    public void Error(string s) => Write(null, s, LogLevel.Error);
 
     public Exception Fatal(string namespaze, string s)
     {
         Write(namespaze, s, LogLevel.Fatal);
-        return new Exception(s.Trim());
+        return new Exception(s);
     }
 
     public Exception Fatal(string namespaze, string s, string exception)
@@ -263,6 +275,6 @@ internal sealed class DebugLog
     public Exception Fatal(string s)
     {
         Write(null, s, LogLevel.Fatal);
-        return new Exception(s.Trim());
+        return new Exception(s);
     }
 }

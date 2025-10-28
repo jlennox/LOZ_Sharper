@@ -424,11 +424,11 @@ internal sealed class MapExtractor
                 var entryX = roomId == left ? 0x30 : 0xC0;
                 caveEntryPosition = new EntryPosition(entryX, 0x60, Direction.Down, 0x60);
 
-                if (resources.LevelInfoBlock.LevelNumber == 1 && resources.QuestId == 0 && roomId == new RoomId(2, 2))
+                if (resources.LevelInfoBlock.LevelNumber == 8 && resources.QuestId == 0 && roomId == new RoomId(15, 1))
                 {
                 }
 
-                arguments ??= new RoomArguments
+                arguments = new RoomArguments
                 {
                     ExitLeft = left.GetGameRoomId()
                 };
@@ -589,18 +589,27 @@ internal sealed class MapExtractor
             }
         }
 
-        var markFirstBlock = !resources.IsOverworld && uwRoomAttrs.HasBlock()
-            && uwRoomAttrs.GetSecret() is Secret.BlockDoor or Secret.BlockStairs or Secret.None;
+        var hasBlock = uwRoomAttrs.HasBlock();
+        var markFirstBlock = !resources.IsOverworld && hasBlock;
+
+        if (resources.LevelInfoBlock.LevelNumber == 8 && resources.QuestId == 0 && roomId == new RoomId(15, 1))
+        {
+        }
 
         void CheckUWBlock(int x, int y)
         {
+            if (resources.LevelInfoBlock.LevelNumber == 8 && resources.QuestId == 0 && roomId == new RoomId(15, 1))
+            {
+            }
+
             if (!markFirstBlock) return;
             if (y != UWBlockRow) return;
             if (map.Refs(UWBlockRow, x) != (byte)TileType.Block) return;
 
             markFirstBlock = false;
 
-            var interaction = uwRoomAttrs.GetSecret() switch
+            var secret = uwRoomAttrs.GetSecret();
+            var interaction = secret switch
             {
                 Secret.BlockStairs => new InteractableBlock
                 {
@@ -620,14 +629,13 @@ internal sealed class MapExtractor
                     Requirements = InteractionRequirements.AllEnemiesDefeated,
 
                 },
-                Secret.None => new InteractableBlock
+                _ => new InteractableBlock
                 {
                     Name = nameof(TileAction.Push),
                     Interaction = Interaction.Push,
                     ApparanceBlock = BlockType.Block,
                     Repeatable = false,
                 },
-                _ => throw new Exception()
             };
 
             AddInteraction(x, y, TileAction.PushBlock, interaction);

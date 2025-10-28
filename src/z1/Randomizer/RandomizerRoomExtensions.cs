@@ -33,7 +33,6 @@ internal static class RandomizerRoomExtensions
         }
     }
 
-
     public static bool TryGetFirstStairs(this GameRoom room, [MaybeNullWhen(false)] out InteractableBlockObject stairs)
     {
         foreach (var obj in GetStairs(room))
@@ -46,18 +45,24 @@ internal static class RandomizerRoomExtensions
         return false;
     }
 
-    public static void SetFloorItem(this GameRoom room, ItemId itemId)
+    public static void SetFloorItem(this GameRoom room, ItemId itemId, ItemObjectOptions options = ItemObjectOptions.None)
     {
         foreach (var obj in GetFloorItems(room))
         {
             if (obj.Interaction.Item != null)
             {
                 obj.Interaction.Item.Item = itemId;
+                obj.Interaction.Item.Options = options;
                 return;
             }
         }
 
         throw new Exception($"Room {room.UniqueId} has no floor item to set.");
+    }
+
+    public static void SetDungeonFloorItem(this GameRoom room, ItemId itemId)
+    {
+        SetFloorItem(room, itemId, ItemObjectOptions.IsRoomItem | ItemObjectOptions.MakeItemSound);
     }
 }
 
@@ -76,6 +81,12 @@ internal static class RandomizerInteractableBlockObjectExtensions
     public static bool IsPushBlock(this InteractableBlockObject obj)
     {
         return obj.Interaction is { Interaction: Interaction.Push or Interaction.PushVertical };
+    }
+
+    public static ItemId GetItem(this InteractableBlockObject obj)
+    {
+        var item = obj.Interaction.Item ?? throw new Exception();
+        return item.Item;
     }
 }
 

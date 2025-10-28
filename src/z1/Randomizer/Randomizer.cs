@@ -202,6 +202,14 @@ internal sealed class Randomizer
                 {
                     throw logger.Fatal($"Room {cell} is missing required doors {missingDoors} (actual: {actualDoors}) for cell {cell}.");
                 }
+
+                foreach (var obj in cell.DemandGameRoom.GetFloorItems())
+                {
+                    if (obj.GetItem() == ItemId.None)
+                    {
+                        throw logger.Fatal($"Room {cell} has uninitialized item.");
+                    }
+                }
             }
         }
 
@@ -655,13 +663,19 @@ internal readonly record struct DungeonItem(ItemId Item, Point Location, PathReq
     public override string ToString() => $"{Item} at ({Location.X},{Location.Y}) requires {Requirements}.";
 }
 
-internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, DungeonStats Stats, Point EntranceLocation)
+internal record DungeonState(
+    GameWorld Dungeon,
+    DungeonState.Cell[,] Layout,
+    DungeonStats Stats,
+    Point EntranceLocation,
+    int FloorItemCount,
+    bool HasMap,
+    bool HasCompass)
 {
     internal enum RoomType { None, Normal, Entrance, FloorDrop, ItemStaircase, TransportStaircase }
     internal readonly record struct Cell(
         RoomType Type,
         Point Point,
-        ItemId Item = ItemId.None,
         GameRoom? GameRoom = null,
         RoomEntrances RequiredDoors = RoomEntrances.None)
     {
@@ -671,7 +685,6 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         // If we fail during a fitting, rooms might end up being moved. Disallow the entrance room from being moved.
         public bool IsMovableRoom => Type is not RoomType.Entrance;
         public bool AllowsMonsters => Type is not RoomType.Entrance; // TODO: Nothing allowed in old man rooms.
-        public bool IsFitItem => Item is not (ItemId.Compass or ItemId.Map or ItemId.TriforcePiece);
         public bool RequiresStaircase => Type is RoomType.ItemStaircase or RoomType.TransportStaircase;
 
         public RoomRequirements GetRequirements() => RoomRequirements.Get(DemandGameRoom);
@@ -719,7 +732,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
     public static DungeonState Create(GameWorld world, RandomizerState state)
     {
         var stats = DungeonStats.Create(world);
-        var (staircaseItemCount, floorItemCount, _) = stats;
+        var (requiredStaircaseRooms, requiredFloorDropRooms, _) = stats;
         var rng = state.RoomRandom;
         using var logger = _log.CreateNamedScopedFunctionLog(world.UniqueId);
         logger.Enter("Creating dungeon shape.");
@@ -727,9 +740,10 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         var hasCompass = state.Flags.Dungeon.AlwaysHaveCompass || rng.GetBool();
         var hasMap = state.Flags.Dungeon.AlwaysHaveMap || rng.GetBool();
 
-        if (hasCompass) ++floorItemCount;
-        if (hasMap) ++floorItemCount;
-        ++floorItemCount; // Triforce.
+        if (hasCompass) ++requiredFloorDropRooms;
+        if (hasMap) ++requiredFloorDropRooms;
+        ++requiredFloorDropRooms; // Triforce.
+        ++requiredFloorDropRooms; // Heart.
 
         var sizeVariance = state.Flags.Dungeon.ShapesSizeVariance;
         var newSize = world.Rooms.Length + rng.Next(-sizeVariance, sizeVariance);
@@ -794,35 +808,18 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             }
         }
 
-        void SetRoomItemRandomly(RoomType type, ItemId item)
-        {
-            var emptyItemCells = EachPoint()
-                .Select(t => layout[t.X, t.Y])
-                .Where(t => t.Type == type)
-                .Where(t => t.Item == ItemId.None)
-                .ToArray();
-            if (emptyItemCells.Length == 0) throw new Exception();
+        SetRoomTypeRandomly(requiredStaircaseRooms, RoomType.ItemStaircase);
+        SetRoomTypeRandomly(requiredFloorDropRooms, RoomType.FloorDrop);
 
-            var index = rng.Next(emptyItemCells.Length);
-            var point = emptyItemCells[index].Point;
-            ref var cell = ref layout[point.X, point.Y];
-            cell = cell with { Item = item };
-            logger.Write($"{nameof(SetRoomItemRandomly)}: {item} in room at {point.X},{point.Y}.");
-        }
+        return new DungeonState(world, layout, stats, entrance, stats.FloorItemCount, hasMap, hasCompass);
+    }
 
-        // TODO: There's a big :/ with this model of doing random.
-        // Some staircase rooms are _also_ floor drop rooms. This stops that from being considered properly.
-        // In the randomizer community, this allows "God rooms" to be created and they're very exiting to exist --
-        // stairs with item, and triforce drop in stair room.
-
-        SetRoomTypeRandomly(staircaseItemCount, RoomType.ItemStaircase);
-        SetRoomTypeRandomly(floorItemCount, RoomType.FloorDrop);
-
-        if (hasCompass) SetRoomItemRandomly(RoomType.FloorDrop, ItemId.Compass);
-        if (hasMap) SetRoomItemRandomly(RoomType.FloorDrop, ItemId.Map);
-        SetRoomItemRandomly(RoomType.FloorDrop, ItemId.TriforcePiece);
-
-        return new DungeonState(world, layout, stats, entrance);
+    private IEnumerable<ItemId> GetNonDungeonItemFloorDrops()
+    {
+        yield return ItemId.TriforcePiece;
+        yield return ItemId.HeartContainer;
+        if (HasMap) yield return ItemId.Map;
+        if (HasCompass) yield return ItemId.Compass;
     }
 
     private void FitRooms(
@@ -924,14 +921,14 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
     {
         DungeonItems = [];
 
-        using var logger = _log.CreateNamedScopedFunctionLog(Dungeon.UniqueId);
+        using var logger = _log.CreateScopedFunctionLog();
         for (var attempt = 0; attempt < 1000; ++attempt)
         {
             try
             {
                 logger.Enter($"Fitting items attempt {attempt}.");
 
-                FitItemsCore(state);
+                FitItemsCore(state, logger);
                 return;
             }
             catch (RecoverableRandomizerException ex)
@@ -941,13 +938,39 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             }
         }
 
+        logger.Error(GetDebugDisplay());
         throw logger.Fatal("Exceeded maximum item fitting attempts.");
     }
 
-    private void FitItemsCore(RandomizerState state)
+    private void FitItemsCore(RandomizerState state, ScopedFunctionLog logger)
     {
-        using var logger = _log.CreateNamedScopedFunctionLog(Dungeon.UniqueId);
         var rng = state.CreateRng(Dungeon.UniqueId);
+
+        bool TryFitItem(Cell cell, RoomEntrances target, out ItemId item)
+        {
+            if (state.DungeonItems.Count == 0)
+            {
+                throw logger.Fatal($"No more dungeon items to fit into {cell}.");
+            }
+
+            for (var i = 0; i < state.DungeonItems.Count; i++)
+            {
+                item = state.DungeonItems[i];
+                var itemRequirement = RoomRequirements.ItemCausesRequirement(item);
+                foreach (var requirements in TryWalkToRoom(EntranceLocation, cell.Point, itemRequirement, target))
+                {
+                    state.DungeonItems.RemoveAt(i);
+                    logger.Write($"✅ Fit item {item} in {cell} with requirements {requirements}.");
+                    DungeonItems = DungeonItems.Add(new DungeonItem(item, cell.Point, requirements));
+                    return true;
+                }
+
+                logger.Write($"❌ Unable to fit item {item} in {cell}.");
+            }
+
+            item = ItemId.None;
+            return false;
+        }
 
         ItemId FitItem(Cell cell, RoomEntrances target)
         {
@@ -979,7 +1002,6 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         foreach (var cell in GetValidCells())
         {
             if (cell.Type != RoomType.ItemStaircase) continue;
-            if (!cell.IsFitItem) continue;
 
             logger.Write($"Fitting RoomType.ItemStaircase in {cell}.");
             var room = cell.DemandGameRoom;
@@ -990,22 +1012,42 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             staircase.Interaction.Entrance = Entrance.CreateItemCellar(item, cell.Point.ToPointXY());
         }
 
-        foreach (var cell in GetValidCells())
+        // While floor dropping rooms were added specifically on a per item basis, we're now re-getting the entire list
+        // of rooms where that's possible.
+        // This is because the RoomType system has its limits -- it can't flag a room as a staircase and a floor
+        // dropper, but that's a possible scenario. It also allows for the exciting "God room" to exist. A room that
+        // contains the item stairs and the triforce drop.
+        var floorDropRooms = GetValidCells()
+            .Where(static t => t.DemandGameRoom.HasFloorItem())
+            .Shuffle(rng)
+            .ToList();
+
+        var floorDropItemsLeft = FloorItemCount;
+
+        while (floorDropItemsLeft > 0)
         {
-            if (cell.Type != RoomType.FloorDrop) continue;
-            if (!cell.IsFitItem) continue;
-
-            logger.Write($"Fitting RoomType.FloorDrop in {cell} ({cell.Item}).");
-            var room = cell.DemandGameRoom;
-            var block = room.InteractableBlockObjects.FirstOrDefault(static t => t.Interaction.Item?.Item != null)
-                ?? throw logger.Fatal($"No FloorDrop found in room for cell {cell}.");
-
-            var item = cell.Item == ItemId.None ? FitItem(cell, RoomEntrances.Item) : cell.Item;
-            block.Interaction.Item = new RoomItem
+            var placedItem = false;
+            for (var roomIndex = 0; roomIndex < floorDropRooms.Count && !placedItem; roomIndex++)
             {
-                Item = item,
-                Options = ItemObjectOptions.IsRoomItem | ItemObjectOptions.MakeItemSound
-            };
+                var cell = floorDropRooms[roomIndex];
+
+                if (TryFitItem(cell, RoomEntrances.Item, out var item))
+                {
+                    --floorDropItemsLeft;
+                    placedItem = true;
+                    floorDropRooms.RemoveAt(roomIndex);
+                    cell.DemandGameRoom.SetDungeonFloorItem(item);
+                    break;
+                }
+            }
+
+            if (!placedItem) throw new RecoverableRandomizerException($"Unable to fit {FloorItemCount} floor items. {floorDropItemsLeft} remained.");
+        }
+
+        foreach (var item in GetNonDungeonItemFloorDrops())
+        {
+            var cell = floorDropRooms.Pop();
+            cell.DemandGameRoom.SetFloorItem(item);
         }
     }
 
@@ -1038,8 +1080,8 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
         while (cells.TryPop(out var cellA) && cells.TryPop(out var cellB))
         {
-            var roomA = cellA.GameRoom ?? throw new Exception("Room not fit.");
-            var roomB = cellB.GameRoom ?? throw new Exception("Room not fit.");
+            var roomA = cellA.DemandGameRoom;
+            var roomB = cellB.DemandGameRoom;
 
             var stairsA = roomA.InteractableBlockObjects.First(t => t.Interaction.Entrance != null);
             var stairsB = roomB.InteractableBlockObjects.First(t => t.Interaction.Entrance != null);
@@ -1077,9 +1119,12 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         paths.Enqueue(new TryWalkSearchPath(start, PathRequirements.None, RoomEntrances.Bottom));
         var seenRequirements = new HashSet<PathRequirements>();
 
-        using var logger = _log.CreateNamedScopedFunctionLog(Dungeon.UniqueId);
+        using var logger = _log.CreateScopedFunctionLog();
 
-        logger.Enter($"Starting walk from {start.X},{start.Y} to {end.X},{end.Y} ({(ignoreDoors ? "ignoring doors" : "")}).");
+        var startCell = this[start];
+        var endCell = this[end];
+
+        logger.Enter($"Starting walk from {startCell} to {endCell} ({destination}), disallowing {disallowed} ({(ignoreDoors ? "ignoring doors" : "")}).");
 
         static IEnumerable<InteractableBlockObject> GetTransportBlocks(GameRoom? room)
         {
@@ -1106,7 +1151,7 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
 
                 foreach (var cell in GetValidCells())
                 {
-                    var cellRoom = cell.GameRoom ?? throw new Exception("Room not fit.");
+                    var cellRoom = cell.DemandGameRoom;
                     if (cellRoom.Id != searchFor) continue;
 
                     exit = cell.Point;
@@ -1132,6 +1177,10 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
                 {
                     if (!requirements.Paths.TryGetValue(DoorPair.Create(current.EntryDirection, destination), out destRequirements))
                     {
+                        if ($"Cannot get to {destination} in {cell} from {current.EntryDirection} (no path)." == "Cannot get to Stairs in Level00_04/1/2,3 (point: 1,5, type: ItemStaircase) from Bottom (no path).")
+                        {
+                            var asdassad = RoomRequirements.Get(room, true);
+                        }
                         logger.Error($"❌ Cannot get to {destination} in {cell} from {current.EntryDirection} (no path).");
                         goto next;
                     }
@@ -1597,14 +1646,6 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             }
         }
 
-        static bool IsKeyItem(ItemId item)
-        {
-            return DungeonStats.IsDungeonItem(item)
-                || item == ItemId.Compass
-                || item == ItemId.Map
-                || item == ItemId.TriforcePiece;
-        }
-
         // TODO: Validate this list.
         static ReadOnlySpan<ItemId> NonKeyDungeonItems() => [
             ItemId.FiveRupees,
@@ -1613,7 +1654,8 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
         ];
 
         // Some of the old rooms will still contain key items. For example, a compass, a map, a triforce, or a dungeon item.
-        void RemoveDanglingKeyFloorDrops(GameRoom room)
+        // TODO: Make this randomize based on the stats of what the actual dungeon has. IE, level 1 should produce more keys.
+        void FixRemainingFloorDrops(GameRoom room)
         {
             // CreateRng inside the nested function so it's properly locally contexted.
             var rng = state.CreateRng(room.UniqueId);
@@ -1622,23 +1664,23 @@ internal record DungeonState(GameWorld Dungeon, DungeonState.Cell[,] Layout, Dun
             {
                 var item = obj.Interaction.Item;
                 if (item == null) continue;
-                if (!IsKeyItem(item.Item)) continue;
+                if (item.Item != ItemId.None) continue;
 
                 item.Item = NonKeyDungeonItems().GetRandomly(rng);
+                item.Options = ItemObjectOptions.None;
             }
         }
 
         foreach (var cell in GetValidCells())
         {
             if (!cell.RequiresStaircase) RemoveStaircase(cell.DemandGameRoom);
-            if (cell.Type != RoomType.FloorDrop) RemoveDanglingKeyFloorDrops(cell.DemandGameRoom);
+            FixRemainingFloorDrops(cell.DemandGameRoom);
         }
     }
 
     public void RecomputeRoomMapBehaviors()
     {
-        // Some behaviors of the map are used during drawing so it's important that they not be recomputed on each
-        // tick.
+        // Some behaviors of the map are used during drawing so it's important that they not be recomputed on each tick.
         foreach (var cell in GetValidCells())
         {
             var room = cell.DemandGameRoom;

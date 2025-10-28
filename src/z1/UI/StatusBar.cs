@@ -5,7 +5,7 @@ using z1.Render;
 namespace z1.UI;
 
 [Flags]
-public enum StatusBarFeatures
+internal enum StatusBarFeatures
 {
     None = 0,
     Counters = 1,

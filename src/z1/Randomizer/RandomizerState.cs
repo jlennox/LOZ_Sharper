@@ -126,6 +126,16 @@ internal sealed class RandomizerState
                 _monstersAll.AddRandomly(room.Monsters, MonsterRandom);
             }
         }
+
+        // This is marking each floor drop room as having an unknown item. This will keep track of which
+        // rooms have received items and which have not.
+        foreach (var room in RandomDungeonRoomList)
+        {
+            foreach (var obj in room.GetFloorItems())
+            {
+                obj.Interaction.Item!.Item = ItemId.None;
+            }
+        }
     }
 
     public Random CreateDoorRandom(int levelNumber) => new(_doorRandomSeed + levelNumber);

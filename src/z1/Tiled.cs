@@ -625,7 +625,6 @@ internal sealed class GameRoom
     }
 
     // Some behaviors of the map are used during drawing so it's important that they not be recomputed on each tick.
-    // If any of these values are every updated, it's import to `RecomputeRoomMapBehaviors` afterwards.
     public void RecomputeRoomMapBehaviors()
     {
         IsTriforceRoom = InteractableBlockObjects.Any(static t => t.Interaction.Item?.Item == ItemId.TriforcePiece);

@@ -80,11 +80,24 @@ internal readonly record struct RoomRequirements(
         return true;
     }
 
-    private static RoomPaths GetRoomPaths(GameRoom room)
+    private static RoomPaths GetRoomPaths(GameRoom room, bool debugIgnoreCache = false)
     {
-         return room.HasUnderworldDoors
+        // OriginalUniqueId is a reference to the specific room layout in the game rom.
+        // Monsters/doors/etc are contained else where and are referenced by "the room ID" (not the _unique_ room id)
+        // into other tables. We can save a lot of recomputation by this caching because we know the room layout swill be
+        // identical.
+        // OK. Ignore the above. This fails because the sparse data will contain information like containing stairs
+        // or items, which we now path to. So this has to be fixed. Or not :)
+        // var cacheId = $"{room.OriginalUniqueId}";
+        var cacheId = room.UniqueId;
+        if (_doorCache.TryGetValue(cacheId, out var cached) && !debugIgnoreCache) return cached;
+
+        var entry = room.HasUnderworldDoors
             ? GetUnderworldRoomPaths(room)
             : GetOverworldRoomPaths(room);
+
+        _doorCache[cacheId] = entry;
+        return entry;
     }
 
     private static Point PointFromObjectSpace(int x, int y)
@@ -93,6 +106,16 @@ internal readonly record struct RoomRequirements(
         var tileY = y / ZPoint.TileSize;
         // Sometimes we'll be starting on a half tile, so be sure to round them out.
         return new Point(tileX - (tileX % 2), tileY - (tileY % 2));
+    }
+
+    private static Point PointFromGameSpace(int x, int y)
+    {
+        // Arg. I hate that I haven't fixed this so incredibly much. The coordinate space is fundamentally wrong.
+        // The character/game coordinates are inclusive of the info area above the screen.
+        const int infoAreaYOffset = (4 * ZPoint.BlockSize) / ZPoint.TileSize;
+
+        var objectSpace = PointFromObjectSpace(x, y);
+        return new Point(objectSpace.X, objectSpace.Y - infoAreaYOffset);
     }
 
     private static RoomPaths GetOverworldRoomPaths(GameRoom room)
@@ -152,6 +175,7 @@ internal readonly record struct RoomRequirements(
                 }
                 case RoomEntrances.Entry:
                 {
+                    // TODO: I Think this should be PointFromGameSpace?
                     var entry = room.EntryPosition;
                     if (entry != null)
                     {
@@ -312,7 +336,7 @@ internal readonly record struct RoomRequirements(
                     if (arguments.ExitLeft == room.Id || arguments.ExitRight == room.Id)
                     {
                         var exitPosition = entrance.ExitPosition ?? throw new Exception();
-                        point = PointFromObjectSpace(exitPosition.X, exitPosition.Y);
+                        point = PointFromGameSpace(exitPosition.X, exitPosition.Y);
                         return true;
                     }
                 }
@@ -451,12 +475,6 @@ internal readonly record struct RoomRequirements(
 
     private static RoomPaths GetRoomPathsCore(GameRoom room, TryGetLocationInfrontOfEntrance tryGetLocationInfrontOfEntrance)
     {
-        // The original unique room ID was a reference to the specific room layout. Monsters/doors/etc was contained
-        // else where and referenced by "the original room ID" into other tables, thusly, we can save a lot of
-        // recomputation by this caching.
-        var cacheId = $"{room.GameWorld.UniqueId}/{room.OriginalUniqueId}";
-        if (_doorCache.TryGetValue(cacheId, out var cached)) return cached;
-
         // This function operates on tile coordinate space but moves in block space (thusly, movementSize = 2).
         // Hit detection/etc are done in tile space, but
         // - We can drastically speed up checks by moving twice the distance each time.
@@ -596,19 +614,17 @@ internal readonly record struct RoomRequirements(
             throw logger.Fatal($"Room does not have any valid entrances.");
         }
 
-        var entry = new RoomPaths(paths, validEntrances);
-        _doorCache[cacheId] = entry;
-        return entry;
+        return new RoomPaths(paths, validEntrances);
     }
 
-    public static RoomRequirements Get(GameRoom room)
+    public static RoomRequirements Get(GameRoom room, bool debugIgnoreCache = false)
     {
         ArgumentNullException.ThrowIfNull(room);
 
         // The gameworld unique id is important here to include the quest, because they will have different object
         // layers which will give different requirements.
         var cacheId = room.UniqueId;
-        if (_requirementsCache.TryGetValue(cacheId, out var cached)) return cached;
+        if (_requirementsCache.TryGetValue(cacheId, out var cached) && !debugIgnoreCache) return cached;
 
         using var logger = _log.CreateNamedScopedFunctionLog(room.UniqueId, level: LogLevel.Error);
 
@@ -640,7 +656,7 @@ internal readonly record struct RoomRequirements(
             flags |= RoomRequirementFlags.IsEntrance;
         }
 
-        var paths = GetRoomPaths(room);
+        var paths = GetRoomPaths(room, debugIgnoreCache);
         var roomRequirements = new RoomRequirements(
             paths.ValidEntrances,
             paths.Paths,
