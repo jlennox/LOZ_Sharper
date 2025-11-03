@@ -1,8 +1,12 @@
 About
 ===
-This is a C# port of Aldo Nunez's excellent Legend of Zelda port based on their disassembly project.
-- [C++ port](https://github.com/aldonunez/Loz_enhanced/tree/master)
-- [Disassembly of NES code](https://github.com/aldonunez/zelda1-disassembly)
+This is a game-engine that supports loading assets from the original Legend of Zelda game.
+
+This engine removes limitations while remaining as true to the original as possible, while creating a flexible engine that allows creating new custom adventures.
+
+- [A C# reference implementation by me](https://github.com/jlennox/LOZ_Sharp) -- attempts to be as accurate as possible.
+- [C++ port by aldonunez](https://github.com/aldonunez/Loz_enhanced/tree/master)
+- [Disassembly of NES code by aldonunez](https://github.com/aldonunez/zelda1-disassembly)
 
 How to use
 ===
@@ -12,8 +16,8 @@ How to use
 Project goals
 ===
 - [x] Implement a complete vanilla port in C#.
-- Stay mostly bug compatible with the original version.
-- Fork into an enhanced game with expanded mapping, monster, etc, capabilities, and build a new "second quest" off of this.
+- [x] Stay mostly bug compatible with the original version.
+- [x] Support [Tiled](https://www.mapeditor.org/) for mapping.
 
 Default key bindings
 ===
