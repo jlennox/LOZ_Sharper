@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
@@ -107,7 +108,7 @@ public ref struct ValueStack<T>
             2 => _v2,
             1 => _v1,
             0 => _v0,
-            _ => throw new UnreachableCodeException()
+            _ => throw new UnreachableException()
         };
         return true;
     }

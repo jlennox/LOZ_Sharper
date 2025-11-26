@@ -38,7 +38,7 @@ internal sealed class GLWindow : IDisposable
     private IInputContext? _inputContext;
 
     private ImGuiController _controller;
-    private System.Drawing.Rectangle _windowedRect;
+    private Rectangle _windowedRect;
     private bool _showMenu = false;
     private bool _lastShowMenu = false;
     private bool _lastKeyWasAlt = false;
@@ -135,7 +135,7 @@ internal sealed class GLWindow : IDisposable
         {
             _windowedRect = window.GetRect();
 
-            var screen = Screen.FromRectangle(window.GetRect()).Bounds;
+            var screen = Screen.FromRectangle(window.GetRect().AsDrawingRectangle()).Bounds;
             window.WindowBorder = WindowBorder.Hidden;
             window.Size = new Vector2D<int>(screen.Width, screen.Height);
             window.Position = new Vector2D<int>(screen.X, screen.Y);

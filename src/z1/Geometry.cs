@@ -89,6 +89,11 @@ internal struct Rectangle
     {
         return rect.Left < Right && Left < rect.Right && rect.Top < Bottom && Top < rect.Bottom;
     }
+
+    public System.Drawing.Rectangle AsDrawingRectangle()
+    {
+        return new System.Drawing.Rectangle(X, Y, Width, Height);
+    }
 }
 
 [DebuggerDisplay("{Width},{Height}")]

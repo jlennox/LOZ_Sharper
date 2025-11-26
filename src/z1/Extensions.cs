@@ -6,173 +6,117 @@ using z1.Render;
 
 namespace z1;
 
-internal static class Extensions
+internal static class DirectionExtensions
 {
-    public static bool IsHorizontal(this Direction direction, Direction mask = Direction.FullMask)
+    extension(Direction direction)
     {
-        return (direction & mask) is Direction.Left or Direction.Right;
-    }
-
-    public static bool IsVertical(this Direction direction, Direction mask = Direction.FullMask)
-    {
-        return (direction & mask) is Direction.Up or Direction.Down;
-    }
-
-    /// <summary>Does X or Y increase when walking in this direction?</summary>
-    public static bool IsGrowing(this Direction direction) => direction is Direction.Right or Direction.Down;
-
-    public static int GetOrdinal(this Direction direction)
-    {
-        for (var i = 0; i < 4; i++)
+        public bool IsHorizontal(Direction mask = Direction.FullMask)
         {
-            if (((int)direction & 1) != 0)
-            {
-                return i;
-            }
-            direction = (Direction)((int)direction >> 1);
+            return (direction & mask) is Direction.Left or Direction.Right;
         }
 
-        return 0;
-    }
-
-    public static Direction GetOppositeDirection(this Direction direction)
-    {
-        return direction switch
+        public bool IsVertical(Direction mask = Direction.FullMask)
         {
-            Direction.Left => Direction.Right,
-            Direction.Right => Direction.Left,
-            Direction.Up => Direction.Down,
-            Direction.Down => Direction.Up,
-            _ => Direction.None
-        };
+            return (direction & mask) is Direction.Up or Direction.Down;
+        }
+
+        /// <summary>Does X or Y increase when walking in this direction?</summary>
+        public bool IsGrowing() => direction is Direction.Right or Direction.Down;
+
+        public int GetOrdinal()
+        {
+            for (var i = 0; i < 4; i++)
+            {
+                if (((int)direction & 1) != 0)
+                {
+                    return i;
+                }
+                direction = (Direction)((int)direction >> 1);
+            }
+
+            return 0;
+        }
+
+        public Direction GetOppositeDirection()
+        {
+            return direction switch
+            {
+                Direction.Left => Direction.Right,
+                Direction.Right => Direction.Left,
+                Direction.Up => Direction.Down,
+                Direction.Down => Direction.Up,
+                _ => Direction.None
+            };
+        }
+
+        public Direction GetNextDirection8()
+        {
+            var index = direction.GetDirection8Ord();
+            index = (index + 1) % 8;
+            return index.GetDirection8();
+        }
+
+        public Direction GetPrevDirection8()
+        {
+            var index = (uint)direction.GetDirection8Ord();
+            index = (index - 1) % 8;
+            return index.GetDirection8();
+        }
+
+        public int GetDirection8Ord()
+        {
+            // JOE: TODO: Use index of
+            for (var i = 0; i < _allDirs().Length; i++)
+            {
+                if (direction == _allDirs()[i]) return i;
+            }
+            return 0;
+        }
+
+        public Point GetOffset()
+        {
+            if (direction.HasFlag(Direction.Right)) return new Point(1, 0);
+            if (direction.HasFlag(Direction.Left)) return new Point(-1, 0);
+            if (direction.HasFlag(Direction.Down)) return new Point(0, 1);
+            if (direction.HasFlag(Direction.Up)) return new Point(0, -1);
+            return new Point(0, 0);
+        }
+
+        public Direction GetOppositeDir8()
+        {
+            var ord = GetDirection8Ord(direction);
+            ord = (ord + 4) % 8;
+            return GetDirection8(ord);
+        }
     }
 
-    public static Direction GetOrdDirection(this int ord)
-    {
-        // ORIGINAL: the original game goes in the opposite order.
-        return (Direction)(1 << ord);
-    }
-
-    public static Direction GetNextDirection8(this Direction dir)
-    {
-        var index = dir.GetDirection8Ord();
-        index = (index + 1) % 8;
-        return index.GetDirection8();
-    }
-
-    public static Direction GetPrevDirection8(this Direction dir)
-    {
-        var index = (uint)dir.GetDirection8Ord();
-        index = (index - 1) % 8;
-        return index.GetDirection8();
-    }
+    // ORIGINAL: the original game goes in the opposite order.
+    public static Direction GetOrdDirection(this int ord) => (Direction)(1 << ord);
 
     private static ReadOnlySpan<Direction> _allDirs() => [
         Direction.Up, Direction.Up | Direction.Right, Direction.Right,
         Direction.Right | Direction.Down, Direction.Down,
         Direction.Down | Direction.Left, Direction.Left, Direction.Left | Direction.Up];
 
-    public static int GetDirection8Ord(this Direction dir)
-    {
-        // JOE: TODO: Use index of
-        for (var i = 0; i < _allDirs().Length; i++)
-        {
-            if (dir == _allDirs()[i]) return i;
-        }
-        return 0;
-    }
-
-    public static Point GetOffset(this Direction direction)
-    {
-        if (direction.HasFlag(Direction.Right)) return new Point(1, 0);
-        if (direction.HasFlag(Direction.Left)) return new Point(-1, 0);
-        if (direction.HasFlag(Direction.Down)) return new Point(0, 1);
-        if (direction.HasFlag(Direction.Up)) return new Point(0, -1);
-        return new Point(0, 0);
-    }
-
     public static Direction GetDirection8(this int ord) => _allDirs()[ord];
     public static Direction GetDirection8(this uint ord) => _allDirs()[(int)ord];
+}
 
-    public static Direction GetOppositeDir8(this Direction dir)
+internal static class Extensions
+{
+    extension(Random random)
     {
-        var ord = GetDirection8Ord(dir);
-        ord = (ord + 4) % 8;
-        return GetDirection8(ord);
+        public byte GetByte() => (byte)random.Next(256);
+        public Direction GetDirection8() => random.Next(8).GetDirection8();
+        public T GetRandom<T>(T[] array) => array[random.Next(array.Length)];
+        public T GetRandom<T>(ImmutableArray<T> array) => array[random.Next(array.Length)];
+        public T GetRandom<T>(T a, T b) => random.Next(2) == 0 ? a : b;
+        public bool GetBool() => (random.Next() & 1) == 1;
     }
-
-    public static byte GetByte(this Random random) => (byte)random.Next(256);
-    public static Direction GetDirection8(this Random random) => random.Next(8).GetDirection8();
-
-    public static T GetRandom<T>(this Random random, T[] array) => array[random.Next(array.Length)];
-    public static T GetRandom<T>(this Random random, ImmutableArray<T> array) => array[random.Next(array.Length)];
-    public static T GetRandom<T>(this Random random, T a, T b) => random.Next(2) == 0 ? a : b;
-    public static bool GetBool(this Random random) => (random.Next() & 1) == 1;
 
     public static bool IsBlueWalker(this ObjType type)
     {
         return type is ObjType.BlueFastOctorock or ObjType.BlueSlowOctorock or ObjType.BlueMoblin or ObjType.BlueLynel;
-    }
-
-    public static bool HasReachedPoint(this Point player, int targetX, int targetY, Direction direction)
-    {
-        return direction switch {
-            Direction.Left => player.X <= targetX && player.Y == targetY,
-            Direction.Right => player.X >= targetX && player.Y == targetY,
-            Direction.Up => player.Y <= targetY && player.X == targetX,
-            Direction.Down => player.Y >= targetY && player.X == targetX,
-            _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "Invalid direction."),
-        };
-    }
-
-    public static PointF Rotate(this PointF point, float angle)
-    {
-        var sine = Math.Sin(angle);
-        var cosine = Math.Cos(angle);
-
-        return new PointF(
-            (float)(point.X * cosine - point.Y * sine),
-            (float)(point.X * sine + point.Y * cosine));
-    }
-
-    public static int GetSector16(this PointF point)
-    {
-        var x = point.X;
-        var y = point.Y;
-        var sector = 0;
-
-        if (y < 0)
-        {
-            sector += 8;
-            y = -y;
-            x = -x;
-        }
-
-        if (x < 0)
-        {
-            sector += 4;
-            var temp = x;
-            x = y;
-            y = -temp;
-        }
-
-        if (x < y)
-        {
-            sector += 2;
-            var temp = y - x;
-            x += y;
-            y = temp;
-            // Because we're only finding out the sector, only the angle matters, not the point along it.
-            // So, we can skip multiplying x and y by 1/(2^.5)
-        }
-
-        var rotated = Rotate(new PointF(x, y), Pi.NegPiOver8);
-        y = rotated.Y;
-
-        if (y > 0) sector++;
-
-        sector %= 16;
-        return sector;
     }
 
     public static char GetKeyCharacter(this Key key)
@@ -184,9 +128,9 @@ internal static class Extensions
         return (char)key;
     }
 
-    public static System.Drawing.Rectangle GetRect(this IWindow window)
+    public static Rectangle GetRect(this IWindow window)
     {
-        return new System.Drawing.Rectangle(window.Position.X, window.Position.Y, window.Size.X, window.Size.Y);
+        return new Rectangle(window.Position.X, window.Position.Y, window.Size.X, window.Size.Y);
     }
 
     public static void TryDispose<T>(this T? disposable) where T : IDisposable
@@ -200,9 +144,6 @@ internal static class Extensions
             Debug.WriteLine(ex);
         }
     }
-
-    public static Point ToPoint(this PointXY? point) => point == null ? default : new Point(point.X, point.Y);
-    public static PointXY ToPointXY(this Point point) => new(point.X, point.Y);
 
     public static DrawingFlags GetDrawingFlags(this TiledTile tile)
     {
@@ -240,8 +181,11 @@ internal static class Extensions
     public static bool CollidesWall(this TileBehavior behavior) => behavior is TileBehavior.Wall or TileBehavior.Doorway or TileBehavior.Door;
     public static bool CollidesTile(this TileBehavior behavior) => behavior >= TileBehavior.FirstSolid;
     public static bool CanWalk(this TileBehavior behavior) => behavior is < TileBehavior.FirstSolid or TileBehavior.Doorway or TileBehavior.Cave;
+}
 
-    extension(Point)
+internal static class PointExtensions
+{
+    extension(Point point)
     {
         public static IEnumerable<Point> FromRange(int width, int height)
         {
@@ -253,5 +197,76 @@ internal static class Extensions
                 }
             }
         }
+
+        public bool HasReachedPoint(int targetX, int targetY, Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Left => point.X <= targetX && point.Y == targetY,
+                Direction.Right => point.X >= targetX && point.Y == targetY,
+                Direction.Up => point.Y <= targetY && point.X == targetX,
+                Direction.Down => point.Y >= targetY && point.X == targetX,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "Invalid direction."),
+            };
+        }
+
+        public PointXY ToPointXY() => new(point.X, point.Y);
     }
+
+    extension(PointF point)
+    {
+        public PointF Rotate(float angle)
+        {
+            var sine = Math.Sin(angle);
+            var cosine = Math.Cos(angle);
+
+            return new PointF(
+                (float)(point.X * cosine - point.Y * sine),
+                (float)(point.X * sine + point.Y * cosine));
+        }
+
+        public int GetSector16()
+        {
+            var x = point.X;
+            var y = point.Y;
+            var sector = 0;
+
+            if (y < 0)
+            {
+                sector += 8;
+                y = -y;
+                x = -x;
+            }
+
+            if (x < 0)
+            {
+                sector += 4;
+                var temp = x;
+                x = y;
+                y = -temp;
+            }
+
+            if (x < y)
+            {
+                sector += 2;
+                var temp = y - x;
+                x += y;
+                y = temp;
+                // Because we're only finding out the sector, only the angle matters, not the point along it.
+                // So, we can skip multiplying x and y by 1/(2^.5)
+            }
+
+            var rotated = Rotate(new PointF(x, y), Pi.NegPiOver8);
+            y = rotated.Y;
+
+            if (y > 0) sector++;
+
+            sector %= 16;
+            return sector;
+        }
+    }
+
+    public static Point ToPoint(this PointXY? point) => point == null ? default : new Point(point.X, point.Y);
+    public static Point ToPoint(this EntryPosition entry) => new(entry.X, entry.Y);
+    public static ref T FromPoint<T>(this T[,] layout, Point point) => ref layout[point.X, point.Y];
 }
