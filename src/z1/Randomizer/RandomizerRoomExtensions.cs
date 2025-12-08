@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using z1.Randomizer.Lazy;
 
 namespace z1.Randomizer;
 
@@ -63,6 +65,32 @@ internal static class RandomizerRoomExtensions
     public static void SetDungeonFloorItem(this GameRoom room, ItemId itemId)
     {
         SetFloorItem(room, itemId, ItemObjectOptions.IsRoomItem | ItemObjectOptions.MakeItemSound);
+    }
+
+    // An "open cave" is one that does not require the candle or bombs to enter. There's a handful of them such as
+    // bracelet and recorder.
+    public static bool HasOpenCave(this GameRoom room)
+    {
+        foreach (var obj in room.InteractableBlockObjects)
+        {
+            if (obj.Interaction is { Interaction: Interaction.None, Entrance: not null }) return true;
+        }
+
+        return false;
+    }
+
+    public static bool IsRoomType(this GameRoom room, GameRoomType type)
+    {
+        switch (type)
+        {
+            case GameRoomType.Stairs: return room.HasStairs();
+            case GameRoomType.FloorDrop: return room.HasFloorItem();
+            case GameRoomType.Weird:
+                var requirements = RoomRequirements.Get(room);
+                return (requirements.ConnectableEntrances & RoomEntrances.AllDirectional) != RoomEntrances.AllDirectional;
+        }
+
+        throw new UnreachableException();
     }
 }
 

@@ -74,10 +74,13 @@ internal sealed class RandomizerState
         RerandomizeItemList();
     }
 
-    // Create an rng that is not based on previous rng calls, but is unique to the calling method (by name) and
+    // Get an rng that is not based on previous rng calls, but is unique to the calling method (by name) and
     // the instance of the call to this method. The latter is important because, for example, FitRooms is on both
     // the overworld and underworld randomizers... except who cares of they have the same seed? So I'm leaving that at
     // out for the time being.
+    public Random CreateRng(
+        [CallerMemberName] string name = "") => CreateRng(default(object), default(object), default(object), name);
+
     public Random CreateRng<T1>(
         T1? context1 = default,
         [CallerMemberName] string name = "") => CreateRng(context1, default(object), default(object), name);

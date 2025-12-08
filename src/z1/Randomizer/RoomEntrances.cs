@@ -18,6 +18,8 @@ internal enum RoomEntrances
     Stairs = 16,
     Entry = 32, // In the overworld when you spawn in.
     Item = 64, // Not really an entrance, but we need to test if we can track to the item from specific entrances.
+
+    AllDirectional = Right | Left | Bottom | Top
 }
 
 internal static class Extensions

@@ -8,6 +8,16 @@ internal abstract class WorldStore
 {
     public abstract GameWorld GetWorld(GameWorldType type, string destination, int questId);
 
+    public GameWorld GetDungeon(int questId, int dungeonNumber)
+    {
+        return GetWorld(GameWorldType.Underworld, $"{questId:##}_{dungeonNumber:##}", questId);
+    }
+
+    public GameWorld GetOverworld(int questId)
+    {
+        return GetWorld(GameWorldType.Overworld, "Overworld", questId);
+    }
+
     protected static string GetWorldAssetName(GameWorldType type, string destination)
     {
         Filenames.ExpectSafe(destination);

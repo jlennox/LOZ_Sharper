@@ -26,6 +26,8 @@ internal enum PathRequirements
     Raft = 1 << 4,
     Bracelet = 1 << 5,
 
+    All = Ladder | Recorder | Arrow | Food | Raft | Bracelet,
+
     Impossible = 1 << 30,
 }
 

@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using z1.Common;
 using z1.IO;
 using z1.Render;
 using z1.UI;
@@ -61,6 +60,8 @@ internal sealed partial class World
     private const int WorldLimitRight = TileMapWidth;
     public const int WorldWidth = 16;
     public const int WorldHeight = 8;
+    public const int UnderworldMapWidth = 8;
+    public const int UnderworldMapHeight = 8;
 
     public const int BaseRows = 8;
     private const int TileMapHeight = ScreenTileHeight * TileHeight;

@@ -18,6 +18,16 @@ namespace z1.Randomizer;
 // * Double check that when mapping for push blocks and floor drops, that the monsters requirements are considered.
 // * Triforces don't seem to be getting set. Maybe maps/compass too?
 
+// Immediate:
+// * Nuke dark rooms.
+// * Remove boss roars.
+
+// Bugs:
+// * SEcond item in world 8 is missing?!
+// * Top right room crashes?
+// * uh, dungeon 2 (at 6 entrance) exits you on one right from entrance and up.
+// * There was a second wooden sword?
+
 internal sealed class Randomizer
 {
     private static readonly DebugLog _log = new(nameof(Randomizer), DebugLogDestination.File);
@@ -137,6 +147,7 @@ internal sealed class Randomizer
         }
 
         var overworld = OverworldState.Create(overworldWorld, shapes.ToImmutableArray(), state);
+        overworld.FitWoodSword(state);
         overworld.FitItems(state);
         overworld.FitDungeonEntrances(state);
         overworld.FitCaveEntrances(state);
@@ -508,6 +519,46 @@ internal record OverworldState
         }
     }
 
+    public void FitWoodSword(RandomizerState state)
+    {
+        var rng = state.CreateRng();
+        using var logger = _log.CreateScopedFunctionLog();
+
+        bool IsValidOpenCave(Cell cell)
+        {
+            if (!cell.GameRoom.HasOpenCave()) return false;
+            if (!CanWalkTo(EntranceLocation, cell.Point, PathRequirements.All, RoomEntrances.Stairs)) return false;
+
+            return true;
+        }
+
+        var destinationRoom = GetAllCells()
+            .Where(IsValidOpenCave)
+            .Shuffle(rng)
+            .FirstOrDefault();
+
+        if (destinationRoom == default)
+        {
+            throw logger.Fatal("Unable to locate room for wooden sword.");
+        }
+
+        static bool IsWoodSwordCave(InteractableBlockObject obj)
+        {
+            if (obj.Interaction.CaveItems == null) return false;
+            if (obj.Interaction.CaveItems.Length != 1) return false;
+            if (obj.Interaction.CaveItems[0].ItemId != ItemId.WoodSword) return false;
+
+            return true;
+        }
+
+        var woodCaveSpec = _caveSpecs.FirstOrDefault(IsWoodSwordCave)
+            ?? throw logger.Fatal("Unable to locate cave spec for wooden sword.");
+
+        SetCaveSpec(destinationRoom.GameRoom, woodCaveSpec);
+        _caveSpecs.Remove(woodCaveSpec);
+        _cellsWithCaves.Remove(destinationRoom);
+    }
+
     public void FitItems(RandomizerState state)
     {
         _hasFitItems = true;
@@ -641,15 +692,20 @@ internal record OverworldState
                 throw logger.Fatal($"Not enough cave specs to fit all caves (remaining caves: {_cellsWithCaves.Count}).");
             }
 
-            var specEntrance = spec.Interaction.Entrance ?? throw new Exception("Cave spec missing entrance interaction.");
-            foreach (var stairs in cell.GameRoom.GetStairs())
-            {
-                var entrance = stairs.Interaction.Entrance ?? throw new Exception("Stairs object missing entrance interaction.");
-                entrance.DestinationType = GameWorldType.OverworldCommon;
-                entrance.Destination = specEntrance.Destination;
-                entrance.Shop = specEntrance.Shop;
-                entrance.Arguments = specEntrance.Arguments;
-            }
+            SetCaveSpec(cell.GameRoom, spec);
+        }
+    }
+
+    private static void SetCaveSpec(GameRoom room, InteractableBlockObject spec)
+    {
+        var specEntrance = spec.Interaction.Entrance ?? throw new Exception("Cave spec missing entrance interaction.");
+        foreach (var stairs in room.GetStairs())
+        {
+            var entrance = stairs.Interaction.Entrance ?? throw new Exception("Stairs object missing entrance interaction.");
+            entrance.DestinationType = GameWorldType.OverworldCommon;
+            entrance.Destination = specEntrance.Destination;
+            entrance.Shop = specEntrance.Shop;
+            entrance.Arguments = specEntrance.Arguments;
         }
     }
 
@@ -753,7 +809,7 @@ internal record DungeonState(
         var normalCells = new List<Point>();
         var restartsStat = 0;
         var iterationsStat = 0;
-        var checkDirections = Direction.DoorDirectionOrder;
+        var checkDirections = Direction.DoorDirectionOrder.ToArray();
 
         var layout = new Cell[_maxWidth, _maxHeight];
         foreach (var point in EachPoint())
@@ -1092,7 +1148,7 @@ internal record DungeonState(
             logger.Write($"Attaching {cellA} -> {cellB}");
         }
 
-        if (cells.Count > 0) throw new UnreachableCodeException();
+        if (cells.Count > 0) throw new UnreachableException();
     }
 
     private bool CanWalkToRoom(Point start, Point end, bool ignoreDoors = false)
@@ -1355,12 +1411,14 @@ internal record DungeonState(
         bool AddRequiredDoor(Point location, RoomEntrances direction)
         {
             ref var cell = ref this[location];
+            if (cell.Type == RoomType.None) return false;
             var requirements = cell.GetRequirements();
             if (!requirements.ConnectableEntrances.HasFlag(direction)) return false;
 
             // This can OOB, but it should always be valid, or we've made an invalid map elsewhere.
             var adjoiningPoint = location + direction.GetOffset();
             ref var adjoining = ref this[adjoiningPoint];
+            if (adjoining.Type == RoomType.None) return false;
             var adjoiningRequirements = adjoining.GetRequirements();
             if (!adjoiningRequirements.ConnectableEntrances.HasFlag(direction.GetOpposite())) return false;
 
@@ -1647,11 +1705,7 @@ internal record DungeonState(
         }
 
         // TODO: Validate this list.
-        static ReadOnlySpan<ItemId> NonKeyDungeonItems() => [
-            ItemId.FiveRupees,
-            ItemId.Bomb,
-            ItemId.Key,
-        ];
+        static ReadOnlySpan<ItemId> NonKeyDungeonItems() => [ItemId.FiveRupees, ItemId.Bomb, ItemId.Key];
 
         // Some of the old rooms will still contain key items. For example, a compass, a map, a triforce, or a dungeon item.
         // TODO: Make this randomize based on the stats of what the actual dungeon has. IE, level 1 should produce more keys.
