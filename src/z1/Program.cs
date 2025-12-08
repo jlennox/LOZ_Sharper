@@ -48,6 +48,7 @@ namespace z1;
 // * Refactor game-space to be (0,0), not (0,status bar height).
 // * Make fire shooters and spike traps objects.
 // * Items that upgrade each compass/map you find. Perhaps makes secret unmapped rooms clearer, or the types of room connections.
+// * Have overworld room's have an associated color. IE, water centric ones are blue, forest are green. This is (optionally) shown on the map.
 
 // Known tiled map issues:
 // * Make recorder destinations spots on the map: ReadOnlySpan<int> teleportYs = [0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D];
@@ -107,9 +108,9 @@ namespace z1;
 internal static class Program
 {
     [STAThread]
-    public static void Main()
+    public static void Main(string[] args)
     {
-        using var window = new GLWindow();
+        using var window = new GLWindow(new ProgramOptions(args));
         Thread.Sleep(Timeout.Infinite);
     }
 }

@@ -16,6 +16,7 @@ namespace z1.GUI;
 
 internal sealed class GLWindow : IDisposable
 {
+    private readonly ProgramOptions _options;
     private readonly bool _headless;
     private const float AnalogThreshold = .8f;
 
@@ -45,8 +46,9 @@ internal sealed class GLWindow : IDisposable
 
     public GameIO IO => _io ?? throw new Exception();
 
-    public GLWindow(bool headless = false)
+    public GLWindow(ProgramOptions options, bool headless = false)
     {
+        _options = options;
         _headless = headless;
         try
         {
@@ -60,7 +62,7 @@ internal sealed class GLWindow : IDisposable
             Environment.Exit(1);
         }
 
-        var options = WindowOptions.Default with
+        var windowOptions = WindowOptions.Default with
         {
             FramesPerSecond = 60,
             UpdatesPerSecond = 60,
@@ -68,7 +70,7 @@ internal sealed class GLWindow : IDisposable
             Title = "The Legend of Form1"
         };
 
-        _window = Window.Create(options);
+        _window = Window.Create(windowOptions);
         _window.Load += OnLoad;
         _window.FramebufferResize += OnFramebufferResize;
         _window.Render += Render;
@@ -101,8 +103,7 @@ internal sealed class GLWindow : IDisposable
         }
 
         _io = new GameIO(new GLGraphics(_gl));
-
-        Game = new Game(_io);
+        Game = new Game(_options, _io);
 
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
         _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);

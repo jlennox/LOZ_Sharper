@@ -12,7 +12,7 @@ internal sealed class GameIO
     public GameConfiguration Configuration { get; } = SaveFolder.Configuration;
     public ISound Sound { get; set; }
     public Input Input { get; }
-    public Random Random { get; private set; } // Do not use for things like particle effects, this is the seedable random.
+    public Random Random { get; } // Do not use for things like particle effects, this is the seedable random.
     public int Seed { get; }
 
     public GameIO(Graphics graphics)
@@ -52,7 +52,7 @@ internal sealed class Game
     public Graphics Graphics => _io.Graphics;
     public GameCheats GameCheats { get; private set; }
     public OnScreenDisplay OnScreenDisplay { get; } = new();
-    public DebugInfo DebugInfo { get; private set; }
+    public DebugInfo DebugInfo { get; }
     public PregameMenu Menu { get; }
     public GameRecording Recording { get; private set; }
     public GamePlayback? Playback { get; }
@@ -61,10 +61,12 @@ internal sealed class Game
 
     public int FrameCounter { get; private set; }
 
+    private readonly ProgramOptions _options;
     private readonly GameIO _io;
 
-    public Game(GameIO io)
+    public Game(ProgramOptions options, GameIO io)
     {
+        _options = options;
         _io = io;
 
         // Arg. Nothing that accepts 'this' as an argument should be constructed here.
@@ -75,10 +77,19 @@ internal sealed class Game
         DebugInfo = new DebugInfo(this, Configuration.DebugInfo);
 
         Menu.OnProfileSelected += SetProfile;
+
+        if (options.UseTempProfile)
+        {
+            var tempProfile = PlayerProfile.MakeDefault();
+            tempProfile.Name = "Temp Profile";
+            Menu.StartWorld(tempProfile);
+        }
     }
 
-    public Game(GameIO io, PlayerProfile playerProfile)
+    // For testing.
+    internal Game(ProgramOptions options, GameIO io, PlayerProfile playerProfile)
     {
+        _options = options;
         _io = io;
 
         Data = new Asset(Filenames.GameData).ReadJson<GameData>();
@@ -88,7 +99,8 @@ internal sealed class Game
         SetProfile(playerProfile);
     }
 
-    public Game(GameIO io, GameRecordingState playback, bool headless = false) : this(io)
+    // For GUI based replay.
+    internal Game(ProgramOptions options, GameIO io, GameRecordingState playback, bool headless = false) : this(options, io)
     {
         Headless = headless;
         if (headless) io.Sound = new NullSound();
@@ -99,6 +111,12 @@ internal sealed class Game
 
     private void SetProfile(PlayerProfile profile)
     {
+        // The way this is wired up is really wonky and should be worked on.
+        if (_options.RandomizerSeed != null)
+        {
+            profile.RandomizerSeed = _options.RandomizerSeed;
+        }
+
         var worldProvider = profile.RandomizerSeed != null
             ? Randomizer.Randomizer.Create(new RandomizerState(profile.RandomizerSeed.Value, new()))
             : new AssetWorldStore();

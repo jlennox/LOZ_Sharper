@@ -342,7 +342,13 @@ internal sealed class PlayerProfile
         GraphicPalettes.SetColorIndexed(Palette.Player, 1, palette[value]);
     }
 
-    public static PlayerProfile MakeDefault() => new();
+    public static PlayerProfile MakeDefault()
+    {
+        var profile = new PlayerProfile();
+        profile.Initialize();
+        return profile;
+    }
+
     public static List<PlayerProfile> MakeDefaults() => new();
 
     public bool PreventDarkRooms(Game game) => game.Enhancements.RedCandleLightsDarkRooms && Items.Get(ItemSlot.Candle) >= 2;

@@ -432,7 +432,7 @@ internal static class GLWindowGui
         {
             var json = File.ReadAllText(filename);
             var recording = JsonSerializer.Deserialize<GameRecordingState>(json) ?? throw new Exception();
-            window.Game = new Game(window.IO, recording); // Using window.IO here feels weird.
+            window.Game = new Game(ProgramOptions.Default, window.IO, recording); // Using window.IO here feels weird.
         }
 
         if (ImGui.BeginMenu("Debug"))

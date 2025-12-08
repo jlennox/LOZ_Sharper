@@ -42,9 +42,9 @@ internal class ReplayTests
     {
         // Unfortunately, too much of the code expects the GL instance to be present.
         // This could be fixed by refactoring Graphics into an instance class.
-        var window = new GLWindow(true);
+        var window = new GLWindow(ProgramOptions.Default, true);
         var recording = EmbeddedResource.ReadJson<GameRecordingState>(filename);
-        window.Game = new Game(new GameIO(new NullGraphics()), recording, true);
+        window.Game = new Game(ProgramOptions.Default, new GameIO(new NullGraphics()), recording, true);
         window.Game.Sound.SetMute(true);
         var timer = Stopwatch.StartNew();
         var framecount = 0;

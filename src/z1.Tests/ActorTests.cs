@@ -10,7 +10,7 @@ namespace z1.Tests;
 
 internal static class TestObjects
 {
-    public static Game Game => new(new GameIO(new NullGraphics()));
+    public static Game Game => new(ProgramOptions.Default, new GameIO(new NullGraphics()));
 }
 
 [TestFixture]
