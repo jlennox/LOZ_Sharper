@@ -4388,9 +4388,10 @@ internal sealed class AquamentusActor : MonsterActor
             var r = Game.Random.GetByte();
             ObjTimer = (byte)(r | 0x70);
 
+            ReadOnlySpan<int> yOffsets = [0, 1, -1];
+
             for (var i = 0; i < 3; i++)
             {
-                ReadOnlySpan<int> yOffsets = [1, 0, -1];
                 var shot = ShootFireball(ObjType.Fireball, X, Y, yOffsets[i]);
                 if (shot != null) _fireballs.Add(shot);
             }
