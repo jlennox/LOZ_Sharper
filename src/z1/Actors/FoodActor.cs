@@ -6,7 +6,9 @@ internal sealed class FoodActor : Actor
 {
     public override bool IsMonsterSlot => false;
 
-    private int _periods;
+    private const int PeriodCount = 3;
+
+    private int _periods = PeriodCount;
 
     public FoodActor(World world, int x, int y) : base(world, ObjType.Food, x, y)
     {
