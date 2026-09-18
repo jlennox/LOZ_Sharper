@@ -2247,7 +2247,6 @@ internal abstract class FlyingActor : MonsterActor
         CurSpeed--;
         if ((CurSpeed & 0xE0) <= 0)
         {
-            CurSpeed = 0;
             State = FlyingActorState.Still;
             ObjTimer = (byte)(Game.Random.Next(64) + 64);
         }
