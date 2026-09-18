@@ -43,12 +43,14 @@ namespace z1;
 //   when it finds a match. It is not "only one can spawn in at a time." This might be an acknowledged behavior difference.
 
 // Sharper:
+// * Add nicknames (ie, "vanilla 1") to map tiles, to make rando spoiler hinting better.
 // * Rectify MarginRight.
 // * Figure out where to define what song is playing.
 // * Refactor game-space to be (0,0), not (0,status bar height).
 // * Make fire shooters and spike traps objects.
 // * Items that upgrade each compass/map you find. Perhaps makes secret unmapped rooms clearer, or the types of room connections.
 // * Have overworld room's have an associated color. IE, water centric ones are blue, forest are green. This is (optionally) shown on the map.
+// * Add creepers?
 
 // Known tiled map issues:
 // * Make recorder destinations spots on the map: ReadOnlySpan<int> teleportYs = [0x8D, 0xAD, 0x8D, 0x8D, 0xAD, 0x8D, 0xAD, 0x5D];

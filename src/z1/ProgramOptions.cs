@@ -48,8 +48,9 @@ internal sealed class ProgramOptions
     }
 
     // Reparse arguments to split on '='
-    private static IEnumerable<string> ReparseArgs(string[] args)
+    internal static IEnumerable<string> ReparseArgs(string[] args)
     {
+        // Scan for = signs that are outside of quotes. If one is found, split that argument into two.
         foreach (var arg in args)
         {
             var inQuotes = false;

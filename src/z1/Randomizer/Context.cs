@@ -25,6 +25,8 @@ internal interface IContext : IDisposable
 
     protected static int GetStringHash(string s)
     {
+        // We're not using the string.GetHashCode() code because it is not stable across runs, and we need stability for the RNG seeds.
+        // This also means it's safe to pass `typeof()` but not `nameof()` to the arguments, since they're all blindly passed to HashCode.Combine.
         // TODO: Fix allocations.
         return unchecked((int)XxHash32.HashToUInt32(Encoding.UTF8.GetBytes(s)));
     }
@@ -54,7 +56,6 @@ internal sealed class ContextSource(int seed)
         {
             if (!ContextCache.Contains(this)) throw new Exception($"{this} was not cached.");
         }
-
     }
 
     public IContext Create([CallerMemberName] string name = "") => CreateNamed(name);
