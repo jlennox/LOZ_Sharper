@@ -4020,7 +4020,9 @@ internal sealed class LamnolaActor : MonsterActor
             var xDir = GetXDirToTruePlayer(X);
             var yDir = GetYDirToTruePlayer(Y);
 
-            dir = ((xDir & dirMask) == 0 || (xDir & Facing) == 0) ? yDir : xDir;
+            var playerFacing = Game.Player.Facing;
+
+            dir = ((xDir & dirMask) == 0 || (xDir & playerFacing) == 0) ? yDir : xDir;
         }
         else
         {
