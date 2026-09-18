@@ -2725,6 +2725,7 @@ internal sealed class PatraActor : FlyingActor
         InvincibilityMask = 0xFE;
         Facing = Direction.Up;
         CurSpeed = 0x1F;
+        _childStateTimer = 0xFF;
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar3, true, Sound.AmbientInstance);
 
