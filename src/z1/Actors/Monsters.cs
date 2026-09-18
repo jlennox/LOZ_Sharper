@@ -5613,7 +5613,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
             }
         }
 
-        if (World.HasItem(ItemSlot.Clock)) return;
+        if (IsStunned) return;
 
         var shot = Shoot(ObjType.Boomerang);
         if (shot != null)
