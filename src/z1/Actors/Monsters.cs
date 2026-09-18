@@ -118,7 +118,7 @@ internal abstract class WalkerActor : MonsterActor
     {
         if (!HasProjectile) return;
 
-        if (ObjType.IsBlueWalker() || ShootTimer != 0 || Game.Random.Next(0xFF) >= 0xF8)
+        if (ObjType.IsBlueWalker() || ShootTimer != 0 || Game.Random.GetByte() >= 0xF8)
         {
             if (InvincibilityTimer > 0)
             {
