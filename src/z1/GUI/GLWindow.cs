@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 using Silk.NET.Input;
 using Silk.NET.Maths;
@@ -306,27 +305,17 @@ internal sealed class GLWindow : IDisposable
     private void UpdateViewport()
     {
         var window = _window ?? throw new Exception();
-        var graphics = _io?.Graphics ?? throw new Exception();
 
         const float nesWidth = 256f;
         const float nesHeight = 240f;
 
-        // Annoyingly, it's possible for sprite coordinates to land on pixel boundaries,
-        // which causes it to incorrectly round down for one, then round up on the next.
-        // Even though they'll sum to the correct width, individually one will be a pixel
-        // to short and the next will contain a pixel row/column from the adjacent sprite.
-        const int multiple = 1;
         var windowSize = window.Size;
         var windowWidth = windowSize.X;
         var windowHeight = windowSize.Y;
 
         if (windowWidth == 0 || windowHeight == 0) return;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int Clamp(int i) => i - (i % multiple);
-
         var scale = Math.Min(windowWidth / nesWidth, windowHeight / nesHeight);
-        // This math appears wrong? "- scale"
 
         var newWidth = (int)(nesWidth * scale);
         var newHeight = (int)(nesHeight * scale);
@@ -334,12 +323,7 @@ internal sealed class GLWindow : IDisposable
         var offsetX = (windowWidth - newWidth) / 2;
         var offsetY = (windowHeight - newHeight) / 2;
 
-        _viewport = new Rectangle(
-            Clamp(offsetX) + (offsetX % multiple) / 2,
-            Clamp(offsetY) + (offsetY % multiple) / 2,
-            Clamp(newWidth), Clamp(newHeight));
-
-        graphics.SetWindowSize(windowSize.X, windowSize.Y);
+        _viewport = new Rectangle(offsetX, offsetY, newWidth, newHeight);
     }
 
     private void Render(double deltaSeconds)
@@ -352,7 +336,6 @@ internal sealed class GLWindow : IDisposable
         var graphics = _io?.Graphics ?? throw new Exception();
 
         graphics.StartRender();
-        gl.Viewport(_viewport.X, _viewport.Y, (uint)_viewport.Width, (uint)_viewport.Height);
 
         _controller.Update((float)deltaSeconds);
 
@@ -394,6 +377,8 @@ internal sealed class GLWindow : IDisposable
             _updateTimer.Stop();
             rps = _rendersPerSecond.Add(_updateTimer.ElapsedMilliseconds / 1000.0f);
         }
+
+        graphics.EndRender(_viewport);
 
         if (Game.FrameCounter % 20 == 0)
         {
