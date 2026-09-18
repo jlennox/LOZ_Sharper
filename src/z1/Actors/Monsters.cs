@@ -1676,7 +1676,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
         AnimationId.UW_LikeLike
     ];
 
-    private static readonly WalkerSpec _likeLikeSpec = new(_likeLikeAnimMap, 24, Palette.Red, StandardSpeed);
+    private static readonly WalkerSpec _likeLikeSpec = new(_likeLikeAnimMap, 32, Palette.Red, StandardSpeed);
 
     private static readonly DebugLog _log = new(nameof(LikeLikeActor));
 
