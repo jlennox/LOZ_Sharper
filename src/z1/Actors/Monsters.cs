@@ -1509,8 +1509,8 @@ internal sealed class ZolActor : WandererWalkerActor
 
     private void UpdateSplit()
     {
-        ReadOnlySpan<Direction> sHDirs = [Direction.Right, Direction.Left];
-        ReadOnlySpan<Direction> sVDirs = [Direction.Down, Direction.Up];
+        ReadOnlySpan<Direction> sHDirs = [Direction.Left, Direction.Right];
+        ReadOnlySpan<Direction> sVDirs = [Direction.Up, Direction.Down];
 
         Delete();
         World.RoomObjCount++;
