@@ -591,19 +591,8 @@ internal sealed partial class World
             }
         }
 
-        if (y < TileMapBaseY)
-        {
-            // JOE: FIXME: Arg. This is a workaround to a bug in the original C++ but the original C++ is a proper
-            // translation from the assembly. I was unable to reproduce this issue in the original game, so it's either
-            // a logic change or an issue higher up.
-            y = TileMapBaseY;
-
-            // throw new Exception("I think this bad.");
-            // Debugger.Break();
-        }
-
         var behavior = TileBehavior.FirstWalkable;
-        var fineRow = (byte)((y - TileMapBaseY) / 8);
+        var fineRow = (byte)((byte)(y - TileMapBaseY) / 8);
         var fineCol1 = (byte)(x / 8);
         var hitFineCol = fineCol1;
 
