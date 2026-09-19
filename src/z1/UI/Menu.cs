@@ -159,11 +159,16 @@ internal sealed class ProfileSelectMenu : Menu
         _page = (int)((uint)page % _pageCount);
         _pageString = GetCentered($"< Page {_page + 1}/{_pageCount} >");
 
-        if (!_profiles.DemandProfile(_page, _selectedIndex).IsActive())
+        if (!IsSlotActive(_selectedIndex))
         {
             _selectedIndex = 0;
             SelectFirst();
         }
+    }
+
+    private bool IsSlotActive(int index)
+    {
+        return _profiles.GetProfile(_page, index)?.IsActive() == true;
     }
 
     public override void Update()
@@ -251,14 +256,14 @@ internal sealed class ProfileSelectMenu : Menu
             _selectedIndex += direction;
             if (_selectedIndex >= _finalIndex) _selectedIndex = 0;
             if (_selectedIndex < 0) _selectedIndex = _finalIndex - 1;
-        } while (_selectedIndex < _maxProfiles && !_profiles.DemandProfile(_page, _selectedIndex).IsActive());
+        } while (_selectedIndex < _maxProfiles && !IsSlotActive(_selectedIndex));
     }
 
     private void SelectFirst()
     {
         for (var i = 0; i < SaveFolder.MaxProfiles; i++)
         {
-            if (_profiles.DemandProfile(_page, _selectedIndex).IsActive())
+            if (IsSlotActive(i))
             {
                 _selectedIndex = i;
                 return;
