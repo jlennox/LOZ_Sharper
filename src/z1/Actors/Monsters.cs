@@ -118,7 +118,7 @@ internal abstract class WalkerActor : MonsterActor
     {
         if (!HasProjectile) return;
 
-        if (ObjType.IsBlueWalker() || ShootTimer != 0 || Game.Random.Next(0xFF) >= 0xF8)
+        if (ObjType.IsBlueWalker() || ShootTimer != 0 || Game.Random.GetByte() >= 0xF8)
         {
             if (InvincibilityTimer > 0)
             {
@@ -1509,8 +1509,8 @@ internal sealed class ZolActor : WandererWalkerActor
 
     private void UpdateSplit()
     {
-        ReadOnlySpan<Direction> sHDirs = [Direction.Right, Direction.Left];
-        ReadOnlySpan<Direction> sVDirs = [Direction.Down, Direction.Up];
+        ReadOnlySpan<Direction> sHDirs = [Direction.Left, Direction.Right];
+        ReadOnlySpan<Direction> sVDirs = [Direction.Up, Direction.Down];
 
         Delete();
         World.RoomObjCount++;
@@ -1676,7 +1676,7 @@ internal sealed class LikeLikeActor : WandererWalkerActor
         AnimationId.UW_LikeLike
     ];
 
-    private static readonly WalkerSpec _likeLikeSpec = new(_likeLikeAnimMap, 24, Palette.Red, StandardSpeed);
+    private static readonly WalkerSpec _likeLikeSpec = new(_likeLikeAnimMap, 32, Palette.Red, StandardSpeed);
 
     private static readonly DebugLog _log = new(nameof(LikeLikeActor));
 
@@ -2247,7 +2247,6 @@ internal abstract class FlyingActor : MonsterActor
         CurSpeed--;
         if ((CurSpeed & 0xE0) <= 0)
         {
-            CurSpeed = 0;
             State = FlyingActorState.Still;
             ObjTimer = (byte)(Game.Random.Next(64) + 64);
         }
@@ -2726,6 +2725,7 @@ internal sealed class PatraActor : FlyingActor
         InvincibilityMask = 0xFE;
         Facing = Direction.Up;
         CurSpeed = 0x1F;
+        _childStateTimer = 0xFF;
 
         Game.Sound.PlayEffect(SoundEffect.BossRoar3, true, Sound.AmbientInstance);
 
@@ -3297,12 +3297,12 @@ internal sealed class BouldersActor : MonsterActor
 internal sealed class TrapActor : MonsterActor
 {
     private static readonly ImmutableArray<Point> _trapPos = [
-        new Point(0x20, 0x60),
-        new Point(0x20, 0xC0),
-        new Point(0xD0, 0x60),
-        new Point(0xD0, 0xC0),
-        new Point(0x40, 0x90),
-        new Point(0xB0, 0x90)
+        new Point(0x20, 0x5D),
+        new Point(0x20, 0xBD),
+        new Point(0xD0, 0x5D),
+        new Point(0xD0, 0xBD),
+        new Point(0x40, 0x8D),
+        new Point(0xB0, 0x8D)
     ];
 
     private static readonly ImmutableArray<int> _trapAllowedDirs = [5, 9, 6, 0xA, 1, 2];
@@ -3362,32 +3362,23 @@ internal sealed class TrapActor : MonsterActor
         var distX = Math.Abs(playerX - X);
         var distY = Math.Abs(playerY - Y);
 
-        if (distY >= 0xE)
+        if (distY < 0xE && playerX != X)
         {
-            if (distX < 0xE)
-            {
-                dir = playerY < Y ? Direction.Up : Direction.Down;
-                _origCoord = Y;
-            }
+            dir = playerX < X ? Direction.Left : Direction.Right;
+            _origCoord = X;
         }
-        else
+        else if (distX < 0xE && playerY != Y)
         {
-            if (distX >= 0xE)
-            {
-                dir = playerX < X ? Direction.Left : Direction.Right;
-                _origCoord = X;
-            }
+            dir = playerY < Y ? Direction.Up : Direction.Down;
+            _origCoord = Y;
         }
 
-        if (dir != Direction.None)
-        {
-            if ((dir & (Direction)_trapAllowedDirs[_trapIndex]) != 0)
-            {
-                Facing = dir;
-                _state++;
-                _speed = 0x70;
-            }
-        }
+        if (dir == Direction.None) return;
+        if ((dir & (Direction)_trapAllowedDirs[_trapIndex]) == 0) return;
+
+        Facing = dir;
+        _state++;
+        _speed = 0x70;
     }
 
     private void UpdateMoving()
@@ -4020,7 +4011,9 @@ internal sealed class LamnolaActor : MonsterActor
             var xDir = GetXDirToTruePlayer(X);
             var yDir = GetYDirToTruePlayer(Y);
 
-            dir = ((xDir & dirMask) == 0 || (xDir & Facing) == 0) ? yDir : xDir;
+            var playerFacing = Game.Player.Facing;
+
+            dir = ((xDir & dirMask) == 0 || (xDir & playerFacing) == 0) ? yDir : xDir;
         }
         else
         {
@@ -4395,9 +4388,10 @@ internal sealed class AquamentusActor : MonsterActor
             var r = Game.Random.GetByte();
             ObjTimer = (byte)(r | 0x70);
 
+            ReadOnlySpan<int> yOffsets = [0, 1, -1];
+
             for (var i = 0; i < 3; i++)
             {
-                ReadOnlySpan<int> yOffsets = [1, 0, -1];
                 var shot = ShootFireball(ObjType.Fireball, X, Y, yOffsets[i]);
                 if (shot != null) _fireballs.Add(shot);
             }
@@ -5620,7 +5614,7 @@ internal sealed class GoriyaActor : ChaseWalkerActor, IThrower
             }
         }
 
-        if (World.HasItem(ItemSlot.Clock)) return;
+        if (IsStunned) return;
 
         var shot = Shoot(ObjType.Boomerang);
         if (shot != null)

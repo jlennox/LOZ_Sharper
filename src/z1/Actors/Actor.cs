@@ -383,18 +383,16 @@ internal abstract partial class Actor
         if (facing != Direction.None) return;
 
         var playerPos = World.GetObservedPlayerPos();
-        // Why did the original game test these distances as unsigned?
-        var xDist = playerPos.X - x;
-        var yDist = playerPos.Y - y;
+        var xDist = (byte)(playerPos.X - x);
+        var yDist = (byte)(playerPos.Y - y);
 
         if (xDist <= yDist)
         {
-            // Why is this away from the player, while for Y it's toward the player?
-            facing = playerPos.X > x ? Direction.Left : Direction.Right;
+            facing = playerPos.X >= x ? Direction.Left : Direction.Right;
         }
         else
         {
-            facing = playerPos.Y > y ? Direction.Down : Direction.Up;
+            facing = playerPos.Y >= y ? Direction.Down : Direction.Up;
         }
     }
 
