@@ -56,6 +56,8 @@ internal enum GameButton
     AudioMuteToggle,
     AudioIncreaseVolume,
     AudioDecreaseVolume,
+
+    GameRestart,
 }
 
 internal enum FunctionButton

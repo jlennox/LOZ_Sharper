@@ -2,7 +2,7 @@
   "profiles": {
     "z1": {
       "commandName": "Project",
-      "commandLineArgs": "--temp-profile --randomize=1234"
+      "commandLineArgs": "--ignore --temp-profile --randomize=1234"
     }
   }
 }

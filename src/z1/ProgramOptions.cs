@@ -27,6 +27,9 @@ internal sealed class ProgramOptions
             var name = _args[_index++];
             switch (name)
             {
+                // Serves as a short circuit, "comment out the rest"
+                case "--ignore":
+                    return;
                 case "--temp-profile":
                     UseTempProfile = true;
                     break;

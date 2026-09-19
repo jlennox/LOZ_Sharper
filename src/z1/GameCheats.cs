@@ -437,6 +437,7 @@ internal sealed class GameCheats
         if (_input.IsButtonPressing(GameButton.CheatFullHealth)) TriggerCheat<FullHealthCheat>();
         if (_input.IsButtonPressing(GameButton.CheatGodMode)) TriggerCheat<GodModeCheat>();
         if (_input.IsButtonPressing(GameButton.CheatClip)) TriggerCheat<ClipCheat>();
+        if (_input.IsButtonPressing(GameButton.GameRestart)) Game.Cheats.Restart();
     }
 
     public void TriggerCheat<T>() where T : Cheat

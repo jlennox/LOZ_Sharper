@@ -39,6 +39,9 @@ internal sealed class Game
         public static bool ToggleMhzDisaster = false;
         public static bool EnableMhzDisaster = false;
         public static int MhzDisaster = 3;
+        public static event Action? OnRestart;
+
+        public static void Restart() => OnRestart?.Invoke();
     }
 
     public GameEnhancements Enhancements => Configuration.Enhancements;

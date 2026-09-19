@@ -104,6 +104,10 @@ internal sealed class GLWindow : IDisposable
         _io = new GameIO(new GLGraphics(_gl));
         Game = new Game(_options, _io);
 
+        Game.Cheats.OnRestart += () => {
+            Game = new Game(_options, _io);
+        };
+
         var fontConfig = new ImGuiFontConfig(StaticAssets.GuiFont, 30);
         _controller = new ImGuiController(_gl, window, _inputContext, fontConfig);
 

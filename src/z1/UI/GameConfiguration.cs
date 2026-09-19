@@ -256,6 +256,7 @@ internal sealed class InputConfiguration
         { new KeyboardMapping(Key.Tab), GameButton.ToggleMhzDisaster },
         { new KeyboardMapping(Key.Period), GameButton.IncreaseMhzDisaster },
         { new KeyboardMapping(Key.Comma), GameButton.DecreaseMhzDisaster },
+        { new KeyboardMapping(Key.R, KeyboardModifiers.Control), GameButton.GameRestart },
 #endif
     };
 
@@ -317,8 +318,30 @@ internal sealed class InputConfiguration
 
     public void Initialize()
     {
-        Keyboard ??= new KeyboardMap(_defaultKeyboardMap);
-        Gamepad ??= new GamepadMap(_defaultGamepadMap);
-        Functions ??= new FunctionMap(_defaultFunctionMap);
+        Keyboard = MergeDefaults(Keyboard, _defaultKeyboardMap);
+        Gamepad = MergeDefaults(Gamepad, _defaultGamepadMap);
+        Functions = MergeDefaults(Functions, _defaultFunctionMap);
+    }
+
+    // A saved configuration predates any binding added since it was written. Fill those in, but only
+    // where the user has neither bound that button themselves nor put that input to another use.
+    private static Dictionary<TInput, TButton> MergeDefaults<TInput, TButton>(
+        Dictionary<TInput, TButton>? saved, Dictionary<TInput, TButton> defaults)
+        where TInput : notnull
+        where TButton : notnull
+    {
+        if (saved == null) return new Dictionary<TInput, TButton>(defaults);
+
+        var boundButtons = new HashSet<TButton>(saved.Values);
+
+        foreach (var (input, button) in defaults)
+        {
+            if (boundButtons.Contains(button)) continue;
+            if (saved.ContainsKey(input)) continue;
+
+            saved[input] = button;
+        }
+
+        return saved;
     }
 }
